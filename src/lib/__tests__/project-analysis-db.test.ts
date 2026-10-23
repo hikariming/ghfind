@@ -102,6 +102,30 @@ describe("project analysis persistence", () => {
     expect(treasure).toHaveLength(1);
     expect(treasure[0]?.repoKey).toBe("owner/useful-tool");
 
+    // A delisting hides the card from public surfaces without touching the
+    // assessment; setting restored_at brings it back.
+    const raw = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await raw.execute({
+      sql: "INSERT INTO project_delistings (repo_key, reason, delisted_at) VALUES (?, ?, ?)",
+      args: ["owner/useful-tool", "upstream_missing", Date.now()],
+    });
+    await expect(db.listProjectBoard("treasure", { limit: 10, offset: 0 })).resolves.toHaveLength(0);
+    await expect(db.listProjectBoard("all", { limit: 10, offset: 0 })).resolves.toHaveLength(0);
+    await expect(db.countProjectBoard("treasure")).resolves.toBe(0);
+    await expect(
+      db.getProjectAssessment("owner/useful-tool", { includeDelisted: false }),
+    ).resolves.toBeNull();
+    await expect(db.getProjectAssessment("owner/useful-tool")).resolves.toMatchObject({
+      productScore: 87,
+    });
+    await raw.execute({
+      sql: "UPDATE project_delistings SET restored_at = ? WHERE repo_key = ?",
+      args: [Date.now(), "owner/useful-tool"],
+    });
+    await expect(db.listProjectBoard("treasure", { limit: 10, offset: 0 })).resolves.toHaveLength(1);
+    await expect(db.countProjectBoard("treasure")).resolves.toBe(1);
+    raw.close();
+
     await expect(
       db.findReusableCompletedProjectAnalysisRun({
         repoKey: "OWNER/USEFUL-TOOL",

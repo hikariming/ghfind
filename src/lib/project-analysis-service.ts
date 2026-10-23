@@ -873,7 +873,9 @@ export async function getPublicProjectAnalysisView(
     );
   }
   const assessment =
-    run.status === "completed" ? await getProjectAssessment(run.repoKey) : null;
+    run.status === "completed"
+      ? await getProjectAssessment(run.repoKey, { includeDelisted: false })
+      : null;
   const treasureHistory =
     run.status === "completed" ? await listTreasureHistory(run.repoKey) : [];
   return {

@@ -303,6 +303,14 @@ function ensureSchema(db: Client): Promise<void> {
   next_idempotency_key TEXT NOT NULL,
   CHECK (execution_deadline_at IS NOT NULL AND execution_deadline_at > requested_at)
 )`,
+          // Reversible public hide list (e.g. upstream repo deleted). Rows are
+          // never deleted to restore a card: set restored_at instead.
+          `CREATE TABLE IF NOT EXISTS project_delistings (
+             repo_key TEXT PRIMARY KEY,
+             reason TEXT NOT NULL,
+             delisted_at INTEGER NOT NULL,
+             restored_at INTEGER
+           )`,
           `CREATE INDEX IF NOT EXISTS idx_treasure_entries_repo_selected
              ON treasure_entries(repo_key, selected_at DESC)`,
           `CREATE UNIQUE INDEX IF NOT EXISTS idx_treasure_entries_one_active
@@ -1210,12 +1218,26 @@ const ASSESSMENT_SELECT = `
   FROM project_assessments AS pa
   JOIN project_analysis_runs AS pr ON pr.id = pa.latest_analysis_id`;
 
-export async function getProjectAssessment(repoKey: string): Promise<ProjectAssessment | null> {
+/**
+ * Public surfaces hide assessments whose repo has an active delisting (for
+ * example, the upstream GitHub repository was deleted). The assessment and
+ * run history are kept; restoring a card only sets restored_at.
+ */
+const NOT_DELISTED = `NOT EXISTS (
+    SELECT 1 FROM project_delistings AS d
+    WHERE d.repo_key = pa.repo_key AND d.restored_at IS NULL
+  )`;
+
+export async function getProjectAssessment(
+  repoKey: string,
+  options: { includeDelisted?: boolean } = {},
+): Promise<ProjectAssessment | null> {
   const db = database();
   await ensureSchema(db);
   await ensureCurrentProjectEligibility(db);
+  const delistedFilter = options.includeDelisted === false ? `AND ${NOT_DELISTED}` : "";
   const result = await db.execute({
-    sql: `${ASSESSMENT_SELECT} WHERE pa.repo_key = ? LIMIT 1`,
+    sql: `${ASSESSMENT_SELECT} WHERE pa.repo_key = ? ${delistedFilter} LIMIT 1`,
     args: [repoKey.toLowerCase()],
   });
   const row = result.rows[0];
@@ -1230,7 +1252,9 @@ export async function listProjectBoard(
   await ensureSchema(db);
   await ensureCurrentProjectEligibility(db);
   const eligibilityFilter =
-    board === "all" ? "" : `WHERE pa.${board === "treasure" ? "treasure_eligible" : "classic_eligible"} = 1`;
+    board === "all"
+      ? `WHERE ${NOT_DELISTED}`
+      : `WHERE pa.${board === "treasure" ? "treasure_eligible" : "classic_eligible"} = 1 AND ${NOT_DELISTED}`;
   const limit = Math.max(1, Math.min(100, Math.floor(options.limit)));
   const offset = Math.max(0, Math.floor(options.offset));
   const result = await db.execute({
@@ -1248,9 +1272,11 @@ export async function countProjectBoard(board: ProjectBoard): Promise<number> {
   await ensureSchema(db);
   await ensureCurrentProjectEligibility(db);
   const eligibilityFilter =
-    board === "all" ? "" : `WHERE ${board === "treasure" ? "treasure_eligible" : "classic_eligible"} = 1`;
+    board === "all"
+      ? `WHERE ${NOT_DELISTED}`
+      : `WHERE pa.${board === "treasure" ? "treasure_eligible" : "classic_eligible"} = 1 AND ${NOT_DELISTED}`;
   const result = await db.execute({
-    sql: `SELECT COUNT(*) AS total FROM project_assessments ${eligibilityFilter}`,
+    sql: `SELECT COUNT(*) AS total FROM project_assessments AS pa ${eligibilityFilter}`,
     args: [],
   });
   return Number(result.rows[0]?.total ?? 0);
