@@ -169,6 +169,11 @@ export function publicProjectAnalysisActivities(
   return activities.slice(-8);
 }
 
+/** True when this Worker can call Mosoo (token present); never exposes the value. */
+export function hasMosooProjectCredentials(): boolean {
+  return Boolean(process.env.MOSOO_API_TOKEN?.trim());
+}
+
 function projectAgentConfig(): MosooProjectAnalysisConfig {
   const apiToken = process.env.MOSOO_API_TOKEN?.trim();
   const agentId = process.env.MOSOO_PROJECT_AGENT_ID?.trim();

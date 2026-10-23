@@ -511,10 +511,6 @@ export async function reserveProjectAnalysisExecutionSlot(
   analysisId: string,
   maximumConcurrentRuns: number,
   leaseDurationMs = 30_000,
-  // Running rows that started before this instant are past their execution
-  // timeout (and have no recovery deadline still open); they no longer hold a
-  // slot. Omit to count every active row (previous behaviour).
-  staleRunningBefore: number | null = null,
 ): Promise<boolean> {
   const db = database();
   await ensureSchema(db);
@@ -539,30 +535,24 @@ export async function reserveProjectAnalysisExecutionSlot(
     sql: `UPDATE project_analysis_runs
           SET status = 'creating_thread', phase = 'creating_thread', progress = 5,
               create_attempts = create_attempts + 1, create_retry_at = ?,
-              started_at = CASE WHEN EXISTS (SELECT 1 FROM project_analysis_recoveries a WHERE a.analysis_id = project_analysis_runs.id) THEN started_at ELSE COALESCE(started_at, ?) END, updated_at = ?
+              -- The execution clock starts when a slot is granted: time spent
+              -- waiting in the queue (including create backoff) is not
+              -- execution time. Operator recoveries keep their audited clock.
+              started_at = CASE WHEN EXISTS (SELECT 1 FROM project_analysis_recoveries a WHERE a.analysis_id = project_analysis_runs.id) THEN started_at ELSE ? END, updated_at = ?
           WHERE id = ? AND status = 'queued'
             AND (create_retry_at IS NULL OR create_retry_at <= ?)
+            -- Every in-flight row holds a slot until reconcile makes it
+            -- terminal (completed, failed, or expired on timeout), so the
+            -- number of live Mosoo runs never exceeds the cap.
             AND (
               SELECT COUNT(*) FROM project_analysis_runs AS active
               WHERE active.status IN ('creating_thread', 'running', 'finalizing')
-                AND NOT (
-                  ? IS NOT NULL AND active.status = 'running'
-                  AND active.started_at IS NOT NULL AND active.started_at < ?
-                  AND NOT EXISTS (
-                    SELECT 1 FROM project_analysis_recoveries rc
-                    WHERE rc.analysis_id = active.id
-                      AND (rc.execution_deadline_at IS NULL OR rc.execution_deadline_at > ?)
-                  )
-                )
             ) < ?`,
     args: [
       leaseUntil,
       now,
       now,
       analysisId,
-      now,
-      staleRunningBefore,
-      staleRunningBefore,
       now,
       Math.max(1, Math.floor(maximumConcurrentRuns)),
     ],
@@ -1278,7 +1268,13 @@ export async function listReconciliableProjectAnalysisRuns(
                status IN ('queued', 'creating_thread')
                AND (create_retry_at IS NULL OR create_retry_at <= ?)
              )
-          ORDER BY updated_at ASC LIMIT ?`,
+          -- In-flight rows first: they hold the concurrency slots and must be
+          -- finalized or expired before queued work can start. Ordering by
+          -- updated_at alone let a long backlog of old queued rows fill every
+          -- batch, so started runs were never reconciled again.
+          ORDER BY CASE WHEN status IN ('creating_thread', 'running', 'finalizing') THEN 0 ELSE 1 END,
+                   updated_at ASC
+          LIMIT ?`,
     args: [Date.now(), Math.max(1, Math.min(100, Math.floor(limit)))],
   });
   return result.rows.map((row) => mapRun(row as Record<string, unknown>));

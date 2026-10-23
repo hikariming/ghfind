@@ -37,6 +37,7 @@ import {
   createMosooProjectAnalysisThread,
   getMosooProjectAgentId,
   getMosooProjectAnalysisSnapshot,
+  hasMosooProjectCredentials,
   MosooProjectAnalysisError,
   readMosooProjectAnalysisArtifacts,
   type MosooThreadSnapshot,
@@ -329,9 +330,6 @@ async function createOrResumeMosooThread(run: ProjectAnalysisRun): Promise<Proje
     run.id,
     maximumConcurrentRuns(),
     createAttemptLeaseMs(),
-    // A run past its execution timeout is expired by the next reconcile; it
-    // must not block new work in the meantime.
-    Date.now() - analysisTimeoutMs(),
   );
   if (!reserved) return (await getProjectAnalysisRun(run.id)) ?? run;
   const attemptRun = (await getProjectAnalysisRun(run.id)) ?? run;
@@ -694,8 +692,24 @@ async function expireProjectAnalysis(run: ProjectAnalysisRun): Promise<ProjectAn
   return (await getProjectAnalysisRun(run.id)) ?? run;
 }
 
+/** Error category observed while reconciling (logged; aggregated by the cron). */
+export type ProjectAnalysisReconcileObserver = (errorCode: string) => void;
+
+function logSnapshotError(run: ProjectAnalysisRun, error: unknown, timedOut: boolean | null) {
+  console.warn(JSON.stringify({
+    event: "project_analysis_snapshot_error",
+    analysisId: run.id,
+    status: run.status,
+    errorCode: error instanceof MosooProjectAnalysisError ? error.code : "mosoo_unavailable",
+    httpStatus: error instanceof MosooProjectAnalysisError ? error.status : null,
+    message: (error instanceof Error ? error.message : String(error)).slice(0, 200),
+    timedOut,
+  }));
+}
+
 export async function reconcileProjectAnalysis(
   analysisId: string,
+  observe: ProjectAnalysisReconcileObserver = () => {},
 ): Promise<ProjectAnalysisRun> {
   let run = await getProjectAnalysisRun(analysisId);
   if (!run) {
@@ -719,8 +733,22 @@ export async function reconcileProjectAnalysis(
     }
     return run;
   }
+  // A Worker without Mosoo credentials (e.g. the Astro web Worker) must never
+  // advance or fail a run: a missing token is that Worker's configuration,
+  // not an outcome of the analysis. Only token-holding Workers reconcile.
+  if (!hasMosooProjectCredentials()) {
+    observe("mosoo_credentials_absent");
+    console.warn(JSON.stringify({
+      event: "project_analysis_reconcile_skipped",
+      analysisId: run.id,
+      reason: "mosoo_credentials_absent",
+    }));
+    return run;
+  }
   if (!run.mosooThreadId) {
-    if (await executionTimedOut(run)) return expireProjectAnalysis(run);
+    // A queued row holds no Mosoo run; its execution clock restarts when a
+    // slot is granted, so only a started creation attempt can time out.
+    if (run.status !== "queued" && await executionTimedOut(run)) return expireProjectAnalysis(run);
     return createOrResumeMosooThread(run);
   }
 
@@ -729,8 +757,15 @@ export async function reconcileProjectAnalysis(
     snapshot = await getMosooProjectAnalysisSnapshot(run.mosooThreadId);
   } catch (error) {
     if (error instanceof MosooProjectAnalysisError && isRetryableMosooCreateError(error)) {
-      return run;
+      observe(error.code);
+      // The deadline is enforced even when the provider is unreachable;
+      // otherwise a run whose snapshot keeps failing stays "running" forever
+      // and holds its concurrency slot.
+      const timedOut = await executionTimedOut(run);
+      logSnapshotError(run, error, timedOut);
+      return timedOut ? expireProjectAnalysis(run) : run;
     }
+    logSnapshotError(run, error, null);
     const code = error instanceof MosooProjectAnalysisError ? error.code : "mosoo_unavailable";
     const message = error instanceof Error ? error.message : "Mosoo project analysis failed.";
     await failProjectAnalysis(run.id, code, message, "failed", undefined, run);
@@ -790,16 +825,28 @@ export async function reconcilePendingProjectAnalyses(limit = 20): Promise<{
   processed: number;
   completed: number;
   failed: number;
+  inFlight: number;
+  errors: Record<string, number>;
 }> {
   const runs = await listReconciliableProjectAnalysisRuns(limit);
   let completed = 0;
   let failed = 0;
+  let inFlight = 0;
+  const errors: Record<string, number> = {};
+  const observe: ProjectAnalysisReconcileObserver = (code) => {
+    errors[code] = (errors[code] ?? 0) + 1;
+  };
   for (const run of runs) {
     try {
-      const next = await reconcileProjectAnalysis(run.id);
+      const next = await reconcileProjectAnalysis(run.id, observe);
       if (next.status === "completed") completed += 1;
-      if (["failed", "cancelled", "expired"].includes(next.status)) failed += 1;
+      if (["failed", "cancelled", "expired"].includes(next.status)) {
+        failed += 1;
+        if (next.errorCode) observe(next.errorCode);
+      }
+      if (["creating_thread", "running", "finalizing"].includes(next.status)) inFlight += 1;
     } catch (error) {
+      observe(error instanceof MosooProjectAnalysisError ? error.code : "reconcile_exception");
       console.error("project analysis reconcile failed", {
         analysisId: run.id,
         repoKey: run.repoKey,
@@ -808,7 +855,7 @@ export async function reconcilePendingProjectAnalyses(limit = 20): Promise<{
       failed += 1;
     }
   }
-  return { processed: runs.length, completed, failed };
+  return { processed: runs.length, completed, failed, inFlight, errors };
 }
 
 export async function getPublicProjectAnalysisView(

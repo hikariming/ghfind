@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ProjectAnalysisArtifact } from "../project-analysis-contract";
 import { validProjectAnalysis, validRuntimeEvidence } from "./project-analysis-contract.test";
@@ -205,35 +206,74 @@ describe("project analysis persistence", () => {
     await db.failProjectAnalysis("slot-2", "test_complete", "Test slot released.");
   });
 
-  it("does not let a running row past its timeout hold a concurrency slot", async () => {
-    for (const id of ["stale-slot-1", "stale-slot-2"]) {
-      await db.createProjectAnalysisRun({
-        id,
-        repoKey: `owner/${id}`,
-        canonicalUrl: `https://github.com/owner/${id}`,
-        requestedRef: null,
-        schemaVersion: "ghfind.project-analysis.v1",
-        rubricVersion: "project-value-v1",
-        agentVersion: "project-evaluator-v1",
-        skillVersion: "ghfind-project-evaluator-v1",
-      });
-    }
+  const createSlotRun = (id: string) =>
+    db.createProjectAnalysisRun({
+      id,
+      repoKey: `owner/${id}`,
+      canonicalUrl: `https://github.com/owner/${id}`,
+      requestedRef: null,
+      schemaVersion: "ghfind.project-analysis.v1",
+      rubricVersion: "project-value-v1",
+      agentVersion: "project-evaluator-v1",
+      skillVersion: "ghfind-project-evaluator-v1",
+    });
+
+  it("keeps counting an in-flight row past its timeout until reconcile expires it", async () => {
+    for (const id of ["stale-slot-1", "stale-slot-2"]) await createSlotRun(id);
     await expect(db.reserveProjectAnalysisExecutionSlot("stale-slot-1", 1)).resolves.toBe(true);
     await db.updateProjectAnalysisState({
       analysisId: "stale-slot-1", status: "running", phase: "inspecting", progress: 20,
     });
-    // Not yet stale (cutoff before its start): still counted.
-    await expect(
-      db.reserveProjectAnalysisExecutionSlot("stale-slot-2", 1, 30_000, Date.now() - 60_000),
-    ).resolves.toBe(false);
-    // Without a cutoff the old behaviour is unchanged.
+    const raw = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    // Started long ago: past any execution timeout, but its Mosoo run may still be live.
+    await raw.execute({
+      sql: "UPDATE project_analysis_runs SET started_at = ? WHERE id = ?",
+      args: [Date.now() - 24 * 60 * 60_000, "stale-slot-1"],
+    });
     await expect(db.reserveProjectAnalysisExecutionSlot("stale-slot-2", 1)).resolves.toBe(false);
-    // Started before the cutoff: past its timeout, no longer holds the slot.
-    await expect(
-      db.reserveProjectAnalysisExecutionSlot("stale-slot-2", 1, 30_000, Date.now() + 1_000),
-    ).resolves.toBe(true);
-    await db.failProjectAnalysis("stale-slot-1", "test_complete", "Test slot released.");
+    await db.failProjectAnalysis("stale-slot-1", "analysis_timeout", "Expired.", "expired");
+    await expect(db.reserveProjectAnalysisExecutionSlot("stale-slot-2", 1)).resolves.toBe(true);
     await db.failProjectAnalysis("stale-slot-2", "test_complete", "Test slot released.");
+  });
+
+  it("restarts the execution clock when a queued retry is granted a slot", async () => {
+    await createSlotRun("clock-slot-1");
+    await expect(db.reserveProjectAnalysisExecutionSlot("clock-slot-1", 5)).resolves.toBe(true);
+    const firstStart = (await db.getProjectAnalysisRun("clock-slot-1"))?.startedAt ?? 0;
+    expect(firstStart).toBeGreaterThan(0);
+    await db.scheduleProjectAnalysisCreateRetry("clock-slot-1", Date.now());
+    const raw = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await raw.execute({
+      sql: "UPDATE project_analysis_runs SET started_at = ? WHERE id = ?",
+      args: [firstStart - 60 * 60_000, "clock-slot-1"],
+    });
+    await expect(db.reserveProjectAnalysisExecutionSlot("clock-slot-1", 5)).resolves.toBe(true);
+    const restarted = (await db.getProjectAnalysisRun("clock-slot-1"))?.startedAt ?? 0;
+    expect(restarted).toBeGreaterThanOrEqual(firstStart);
+    await db.failProjectAnalysis("clock-slot-1", "test_complete", "Test slot released.");
+  });
+
+  it("lists in-flight rows before an older queued backlog", async () => {
+    const backlog = ["order-queued-1", "order-queued-2", "order-queued-3"];
+    for (const id of [...backlog, "order-running"]) await createSlotRun(id);
+    await expect(db.reserveProjectAnalysisExecutionSlot("order-running", 20)).resolves.toBe(true);
+    await db.updateProjectAnalysisState({
+      analysisId: "order-running", status: "running", phase: "inspecting", progress: 20,
+    });
+    const raw = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    // The backlog was last touched long before the running row.
+    await raw.execute({
+      sql: `UPDATE project_analysis_runs SET updated_at = 1 WHERE id IN (${backlog.map(() => "?").join(",")})`,
+      args: backlog,
+    });
+    const listed = (await db.listReconciliableProjectAnalysisRuns(100))
+      .map((run) => run.id)
+      .filter((id) => id.startsWith("order-"));
+    expect(listed[0]).toBe("order-running");
+    expect(listed.slice(1).sort()).toEqual([...backlog].sort());
+    for (const id of [...backlog, "order-running"]) {
+      await db.failProjectAnalysis(id, "test_complete", "Test slot released.");
+    }
   });
 
   it("releases a creation slot while a retry is backing off", async () => {

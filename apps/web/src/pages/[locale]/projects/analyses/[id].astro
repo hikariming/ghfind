@@ -10,7 +10,10 @@ const id = Astro.params.id ?? "";
 if (!locale) return notFound();
 let view: PublicProjectAnalysisView | null = null;
 try {
-  view = await getPublicProjectAnalysisView(id, true);
+  // Read-only: this Worker has no Mosoo credentials. The island polls
+  // /api/project-analyses/:id, which the router sends to ghfind-api, and that
+  // Worker advances the run.
+  view = await getPublicProjectAnalysisView(id, false);
 } catch {
   view = null;
 }
