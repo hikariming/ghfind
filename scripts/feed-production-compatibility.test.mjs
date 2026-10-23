@@ -112,6 +112,7 @@ test(
             "migrations-feed/0012_feed_legacy_writer_fence.sql",
             "migrations-feed/0013_feed_discover_copy_fields.sql",
             "migrations-feed/0014_feed_discover_score_shadow.sql",
+            "migrations-feed/0015_feed_discover_partition_tags.sql",
             "platform/feed/src/store.ts",
             "platform/feed/src/governance.ts",
             "platform/feed/src/schema-readiness.ts",
@@ -282,7 +283,7 @@ test(
     );
 
     await t.test(
-      "0003..0014 with inactive legacy fence preserve existing facts and pending governance without inventing consent",
+      "0003..0015 with inactive legacy fence preserve existing facts and pending governance without inventing consent",
       async () => {
         await apply(feed, "migrations-feed", (n) => n >= "0003");
         await apply(core, "migrations", (n) => n >= "0005");
