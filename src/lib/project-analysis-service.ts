@@ -797,10 +797,25 @@ export async function reconcileProjectAnalysis(
         : snapshot.runStatus === "expired"
           ? "expired"
           : "failed";
+    // Keep Mosoo's run error category: without it a burst of failed runs is
+    // indistinguishable (provider quota, runtime crash, skill rejection, ...).
+    const runErrorCode = snapshot.runError?.code ?? null;
+    console.warn(
+      JSON.stringify({
+        event: "project_analysis_run_terminal",
+        analysisId: run.id,
+        runStatus: snapshot.runStatus,
+        runErrorCode,
+        runErrorRetryable: snapshot.runError?.retryable ?? null,
+        runErrorMessage: snapshot.runError?.message?.slice(0, 200) ?? null,
+      }),
+    );
     await failProjectAnalysis(
       run.id,
       `mosoo_run_${snapshot.runStatus}`,
-      `Mosoo project analysis ended with ${snapshot.runStatus}.`,
+      runErrorCode
+        ? `Mosoo project analysis ended with ${snapshot.runStatus} (${runErrorCode.slice(0, 80)}).`
+        : `Mosoo project analysis ended with ${snapshot.runStatus}.`,
       terminalStatus,
       snapshot.activities,
       run,

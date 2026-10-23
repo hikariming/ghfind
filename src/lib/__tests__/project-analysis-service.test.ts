@@ -95,6 +95,7 @@ describe("project analysis reconciliation", () => {
               completedAt: "2026-07-15T00:00:10.000Z",
               updatedAt: "2026-07-15T00:00:10.000Z",
               trigger: "user_prompt",
+              error: { code: "provider.quota_exceeded", message: "Model quota exceeded", retryable: false },
             },
           });
         }
@@ -105,11 +106,19 @@ describe("project analysis reconciliation", () => {
       }),
     );
 
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const failed = await service.reconcileProjectAnalysis(analysisId);
     expect(failed).toMatchObject({
       status: "failed",
       errorCode: "mosoo_run_failed",
+      errorMessage: "Mosoo project analysis ended with failed (provider.quota_exceeded).",
     });
+    expect(
+      warn.mock.calls
+        .map(([line]) => String(line))
+        .some((line) => line.includes('"event":"project_analysis_run_terminal"') && line.includes('"runErrorCode":"provider.quota_exceeded"')),
+    ).toBe(true);
+    warn.mockRestore();
     await expect(service.reconcileProjectAnalysis(analysisId)).resolves.toMatchObject({
       status: "failed",
     });
