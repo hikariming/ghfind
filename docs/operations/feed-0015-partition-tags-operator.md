@@ -1,6 +1,6 @@
 # Feed 0015: Discover partition tag seed (operator runbook, owner sign-off required)
 
-Status: **prepared, not executed.** Do not run without explicit owner approval.
+Status: **executed in production 2026-10-23 (owner-approved)** via the fallback batch below; recorded in `d1_migrations` and listed in `ops/feed-production-schema-release.json`.
 
 ## Why this is not a normal migration
 `migrations-feed/0015_feed_discover_partition_tags.sql` inserts 4 canonical rows into
@@ -8,8 +8,8 @@ Status: **prepared, not executed.** Do not run without explicit owner approval.
 `artifact:sandbox`). In production the 0012 legacy-writer fence is enabled
 (`feed_adapter_write_fence.enabled=1`). Its `BEFORE INSERT ON feed_tag_definitions` trigger aborts
 any DML that does not run inside the adapter's write context, so `wrangler d1 migrations apply` would
-fail on this file. That is why 0015 is absent from `ops/feed-production-schema-release.json`; only
-the DDL-only 0013/0014 are approved. Local, CI and portable profiles still apply 0015 normally.
+fail on this file. That is why 0015 was applied by this runbook and only then listed in
+`ops/feed-production-schema-release.json` (already recorded as applied, so `migrations apply` skips it). Local, CI and portable profiles still apply 0015 normally.
 
 ## Effect if not run
 None for the public site. Projections that carry these 4 tags create `feed_tag_proposals`

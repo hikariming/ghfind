@@ -268,6 +268,78 @@ describe("project analysis reconciliation", () => {
     });
   });
 
+  it("requeues a Mosoo session-capacity rejection with backoff instead of failing the item", async () => {
+    const capacityId = "service-capacity-analysis";
+    await db.createProjectAnalysisRun({
+      id: capacityId,
+      repoKey: "owner/capacity-tool",
+      canonicalUrl: "https://github.com/owner/capacity-tool",
+      requestedRef: null,
+      schemaVersion: "ghfind.project-analysis.v1",
+      rubricVersion: "project-value-v1",
+      agentVersion: "project-evaluator-v1",
+      skillVersion: "ghfind-project-evaluator-v1",
+    });
+    await db.attachMosooThread({ analysisId: capacityId, agentId: "project-agent", threadId: "capacity-thread", runId: "capacity-run" });
+    const posts: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (init?.method === "POST") {
+          posts.push(url);
+          return Response.json({ error: { code: "unexpected" } }, { status: 500 });
+        }
+        if (url.endsWith("/threads/capacity-thread")) {
+          return Response.json({
+            thread: { id: "capacity-thread", agent_id: "project-agent", kind: "cattle", status: "IDLE", client_external_ref: capacityId },
+            run: {
+              id: "capacity-run",
+              status: "failed",
+              createdAt: "2026-10-23T00:00:00.000Z",
+              startedAt: "2026-10-23T00:00:01.000Z",
+              completedAt: "2026-10-23T00:00:05.000Z",
+              updatedAt: "2026-10-23T00:00:05.000Z",
+              trigger: "user_prompt",
+              error: {
+                code: "runtime.capacity_exhausted",
+                message: "You already have 5 active sessions. Try again in a few minutes.",
+                retryable: false,
+              },
+            },
+          });
+        }
+        if (url.includes("/threads/capacity-thread/events")) return Response.json({ events: [], truncated: false });
+        return Response.json({ error: { code: "not_found" } }, { status: 404 });
+      }),
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const before = Date.now();
+    try {
+      const requeued = await service.reconcileProjectAnalysis(capacityId);
+      expect(requeued).toMatchObject({
+        status: "queued",
+        mosooThreadId: null,
+        errorCode: null,
+        createAttempts: 0,
+      });
+      expect(requeued.idempotencyKey).toMatch(/-cap-1$/);
+      expect(requeued.createRetryAt).toBeGreaterThanOrEqual(before + service.mosooCapacityBackoffMs(1));
+      // Backoff is honoured: no new Thread is created before createRetryAt.
+      await expect(service.reconcileProjectAnalysis(capacityId)).resolves.toMatchObject({ status: "queued" });
+      expect(posts).toHaveLength(0);
+    } finally {
+      warn.mockRestore();
+    }
+    expect(service.mosooCapacityBackoffMs(1)).toBe(2 * 60_000);
+    expect(service.mosooCapacityBackoffMs(10)).toBe(30 * 60_000);
+    expect(service.MAX_MOSOO_CAPACITY_REQUEUES).toBeGreaterThan(1);
+    expect(service.DEFAULT_MAX_CONCURRENT_RUNS).toBe(2);
+    const raw = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await raw.execute({ sql: "UPDATE project_analysis_runs SET status = 'failed', active_key = NULL WHERE id = ?", args: [capacityId] });
+    raw.close();
+  });
+
   it("backs off failed Thread creation, releases the slot, and stops at the attempt limit", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-19T00:00:00.000Z"));

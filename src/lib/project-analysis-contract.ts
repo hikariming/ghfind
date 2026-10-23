@@ -409,6 +409,25 @@ export function normalizeGitHubRepository(raw: string): NormalizedGitHubReposito
   };
 }
 
+/**
+ * Canonical owner/name key for identity comparison. GitHub owner and
+ * repository names are case-insensitive, and evaluators sometimes echo the
+ * repository as a URL or a github.com/ path; all of these identify the same
+ * repository. Unparseable values fall back to trimmed lowercase.
+ */
+export function normalizeArtifactRepoKey(raw: string): string {
+  const input = raw.trim();
+  const candidates = [input, input.replace(/^(?:www\.)?github\.com\//i, "")];
+  for (const candidate of candidates) {
+    try {
+      return normalizeGitHubRepository(candidate).repoKey;
+    } catch {
+      // try the next form
+    }
+  }
+  return input.toLowerCase();
+}
+
 function parseJson(raw: string, label: string): unknown {
   try {
     return JSON.parse(raw);
@@ -597,7 +616,7 @@ export function parseProjectAnalysisArtifacts(
   const evidence = runtimeEvidenceArtifactSchema.parse(
     parseJson(input.evidenceRaw, "evidence artifact"),
   );
-  const expectedRepoKey = input.expectedRepoKey.toLowerCase();
+  const expectedRepoKey = normalizeArtifactRepoKey(input.expectedRepoKey);
   if (
     analysis.analysis_id !== input.expectedAnalysisId ||
     evidence.analysis_id !== input.expectedAnalysisId
@@ -605,8 +624,8 @@ export function parseProjectAnalysisArtifacts(
     throw new Error("analysis identity mismatch");
   }
   if (
-    analysis.repository.repo_key.toLowerCase() !== expectedRepoKey ||
-    evidence.repo_key.toLowerCase() !== expectedRepoKey
+    normalizeArtifactRepoKey(analysis.repository.repo_key) !== expectedRepoKey ||
+    normalizeArtifactRepoKey(evidence.repo_key) !== expectedRepoKey
   ) {
     throw new Error("repository identity mismatch");
   }

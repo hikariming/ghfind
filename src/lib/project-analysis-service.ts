@@ -5,6 +5,7 @@ import {
   PROJECT_RUBRIC_VERSION,
   PROJECT_SKILL_VERSION,
   isAcceptedArtifactSkillVersion,
+  normalizeArtifactRepoKey,
   normalizeGitHubRepository,
   parseProjectAnalysisArtifacts,
   type ProjectAnalysisPhase,
@@ -231,14 +232,70 @@ function isRetryableMosooCreateError(error: MosooProjectAnalysisError): boolean 
 const MAX_AUTOMATIC_MOSOO_RUN_RETRIES = 1;
 const DEFAULT_MAX_AUTOMATIC_MOSOO_CREATE_ATTEMPTS = 3;
 const DEFAULT_MOSOO_CREATE_RETRY_BASE_MS = 5_000;
+/** Provider session-capacity requeues per item before it is failed. */
+export const MAX_MOSOO_CAPACITY_REQUEUES = 8;
+const MOSOO_CAPACITY_BACKOFF_BASE_MS = 2 * 60_000;
+const MOSOO_CAPACITY_BACKOFF_MAX_MS = 30 * 60_000;
 
 function mosooRunRetryCount(run: ProjectAnalysisRun): number {
-  const match = run.idempotencyKey.match(/-retry-(\d+)$/);
+  const match = run.idempotencyKey.match(/-retry-(\d+)(?:-cap-\d+)?$/);
+  return match ? Number(match[1]) : 0;
+}
+
+function mosooCapacityRequeueCount(run: ProjectAnalysisRun): number {
+  const match = run.idempotencyKey.match(/-cap-(\d+)$/);
   return match ? Number(match[1]) : 0;
 }
 
 function isRetryableMosooRunFailure(snapshot: MosooThreadSnapshot): boolean {
   return snapshot.runStatus === "failed" && snapshot.runError?.code === "runtime.inactive";
+}
+
+/**
+ * Mosoo rejects a run when the account already holds its maximum number of
+ * active sessions ("You already have N active sessions"). That is account
+ * capacity, not an outcome of this analysis, even though Mosoo marks it
+ * non-retryable.
+ */
+export function isMosooCapacityFailure(snapshot: MosooThreadSnapshot): boolean {
+  if (snapshot.runStatus !== "failed" || !snapshot.runError) return false;
+  return (
+    snapshot.runError.code === "runtime.capacity_exhausted" ||
+    /already have \d+ active sessions/i.test(snapshot.runError.message ?? "")
+  );
+}
+
+export function mosooCapacityBackoffMs(requeue: number): number {
+  return Math.min(
+    MOSOO_CAPACITY_BACKOFF_MAX_MS,
+    MOSOO_CAPACITY_BACKOFF_BASE_MS * 2 ** Math.max(0, requeue - 1),
+  );
+}
+
+async function requeueAfterMosooCapacity(
+  run: ProjectAnalysisRun,
+): Promise<ProjectAnalysisRun | null> {
+  if (!run.mosooThreadId) return null;
+  const requeue = mosooCapacityRequeueCount(run) + 1;
+  if (requeue > MAX_MOSOO_CAPACITY_REQUEUES) return null;
+  const baseKey = run.idempotencyKey.replace(/-cap-\d+$/, "");
+  const retryAt = Date.now() + mosooCapacityBackoffMs(requeue);
+  const pending = await prepareProjectAnalysisRetry(
+    run.id,
+    run.mosooThreadId,
+    `${baseKey}-cap-${requeue}`,
+    retryAt,
+  );
+  if (pending) {
+    console.warn(JSON.stringify({
+      event: "project_analysis_capacity_requeued",
+      analysisId: run.id,
+      requeue,
+      maxRequeues: MAX_MOSOO_CAPACITY_REQUEUES,
+      nextAttemptAt: retryAt,
+    }));
+  }
+  return pending;
 }
 
 async function retryMosooRun(
@@ -259,8 +316,11 @@ function maximumConcurrentRuns(): number {
   const configured = Number(process.env.PROJECT_ANALYSIS_MAX_CONCURRENCY);
   return Number.isFinite(configured) && configured >= 1
     ? Math.min(20, Math.floor(configured))
-    : 3;
+    : DEFAULT_MAX_CONCURRENT_RUNS;
 }
+
+/** Leaves headroom under Mosoo's per-account active-session limit (5). */
+export const DEFAULT_MAX_CONCURRENT_RUNS = 2;
 
 function maximumCreateAttempts(): number {
   const configured = Number(process.env.PROJECT_ANALYSIS_CREATE_MAX_ATTEMPTS);
@@ -473,10 +533,26 @@ function artifactRepoKey(analysisJson: string): string | null {
     const repository = (value as { repository?: unknown }).repository;
     if (!repository || typeof repository !== "object") return null;
     const repoKey = (repository as { repo_key?: unknown }).repo_key;
-    return typeof repoKey === "string" ? repoKey.toLowerCase() : null;
+    return typeof repoKey === "string" ? normalizeArtifactRepoKey(repoKey) : null;
   } catch {
     return null;
   }
+}
+
+function artifactRepoKeysForLog(analysisJson: string, evidenceJson: string): unknown {
+  const pick = (raw: string, path: (value: Record<string, unknown>) => unknown) => {
+    try {
+      const value = JSON.parse(raw) as Record<string, unknown>;
+      const key = path(value);
+      return typeof key === "string" ? key.slice(0, 200) : null;
+    } catch {
+      return null;
+    }
+  };
+  return {
+    analysis: pick(analysisJson, (v) => (v.repository as Record<string, unknown> | undefined)?.repo_key),
+    evidence: pick(evidenceJson, (v) => v.repo_key),
+  };
 }
 
 async function verifiedArtifactRepoKey(
@@ -567,6 +643,14 @@ async function finalizeCompletedRun(run: ProjectAnalysisRun, recovery?: ProjectA
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Project artifacts are invalid.";
+    if (message === "repository identity mismatch") {
+      console.warn(JSON.stringify({
+        event: "project_analysis_identity_mismatch",
+        analysisId: run.id,
+        expectedRepoKey: run.repoKey,
+        artifactRepoKeys: artifactRepoKeysForLog(artifacts.analysisJson, artifacts.evidenceJson),
+      }));
+    }
     await failProjectAnalysis(run.id, "artifact_invalid", message);
     const failed = await getProjectAnalysisRun(run.id);
     if (!failed) {
@@ -775,6 +859,13 @@ export async function reconcileProjectAnalysis(
   // A late observer must not expire an evaluation that already completed.
   // Confirm provider state first; never grant a new retry after the deadline.
   if (snapshot.runStatus === "completed") return finalizeCompletedRun(run);
+  // Provider capacity rejections never started the evaluation: requeue with
+  // backoff instead of failing the item (bounded by MAX_MOSOO_CAPACITY_REQUEUES).
+  if (isMosooCapacityFailure(snapshot)) {
+    observe("mosoo_capacity_exhausted");
+    const requeued = await requeueAfterMosooCapacity(run);
+    if (requeued) return requeued;
+  }
   if (await executionTimedOut(run)) return expireProjectAnalysis(run);
 
   if (snapshot.runStatus === "waiting_input") {

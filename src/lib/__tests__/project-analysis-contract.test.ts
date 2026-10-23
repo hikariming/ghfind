@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ProjectAnalysisArtifact, RuntimeEvidenceArtifact } from "../project-analysis-contract";
 import {
   parseProjectAnalysisArtifacts,
+  normalizeArtifactRepoKey,
   normalizeGitHubRepository,
   isDiscoverTemplateProse,
   LEGACY_PROJECT_ANALYSIS_SCHEMA_VERSION,
@@ -148,6 +149,31 @@ describe("project analysis contract", () => {
 
     expect(parsed.analysis.scores.product_score).toBe(87);
     expect(parsed.evidence.entries).toHaveLength(1);
+  });
+
+  it("compares repository identity case-insensitively across owner/name and URL forms", () => {
+    expect(normalizeArtifactRepoKey("Owner/Useful-Tool")).toBe("owner/useful-tool");
+    expect(normalizeArtifactRepoKey("https://github.com/Owner/Useful-Tool.git")).toBe("owner/useful-tool");
+    expect(normalizeArtifactRepoKey("github.com/Owner/Useful-Tool")).toBe("owner/useful-tool");
+    for (const repoKey of ["Owner/Useful-Tool", "https://github.com/Owner/Useful-Tool", "github.com/OWNER/useful-tool"]) {
+      const parsed = parseProjectAnalysisArtifacts({
+        analysisRaw: JSON.stringify({ ...analysis, repository: { ...analysis.repository, repo_key: repoKey } }),
+        evidenceRaw: JSON.stringify({ ...evidence, repo_key: repoKey }),
+        reportMarkdown: "# Useful Tool",
+        expectedAnalysisId: "analysis-1",
+        expectedRepoKey: "owner/useful-tool",
+      });
+      expect(parsed.analysis.analysis_id).toBe("analysis-1");
+    }
+    expect(() =>
+      parseProjectAnalysisArtifacts({
+        analysisRaw: JSON.stringify({ ...analysis, repository: { ...analysis.repository, repo_key: "Owner/Other-Tool" } }),
+        evidenceRaw: JSON.stringify(evidence),
+        reportMarkdown: "# Useful Tool",
+        expectedAnalysisId: "analysis-1",
+        expectedRepoKey: "owner/useful-tool",
+      }),
+    ).toThrow("repository identity mismatch");
   });
 
   it("keeps legacy v1 artifacts readable with an empty product-tag fallback", () => {

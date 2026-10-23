@@ -130,6 +130,10 @@
     {
       "name": "0014_feed_discover_score_shadow.sql",
       "sha256": "a192a650f2d8ba481ed1854051e94d976a2c36eda311b2d69db2d97e57c727d5"
+    },
+    {
+      "name": "0015_feed_discover_partition_tags.sql",
+      "sha256": "5cc682e79cea8e481a0eef953a7b397b17101818be72fba4d6bd15223bd4ac10"
     }
   ]
 }

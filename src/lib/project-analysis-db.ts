@@ -614,6 +614,7 @@ export async function prepareProjectAnalysisRetry(
   analysisId: string,
   expectedThreadId: string,
   nextIdempotencyKey: string,
+  retryAt: number | null = null,
 ): Promise<ProjectAnalysisRun | null> {
   const db = database();
   await ensureSchema(db);
@@ -624,7 +625,10 @@ export async function prepareProjectAnalysisRetry(
     sql: `UPDATE project_analysis_runs
           SET active_key = ?, idempotency_key = ?, status = 'queued',
               phase = 'queued', progress = 0,
-              create_attempts = 0, create_retry_at = NULL,
+              -- A provider capacity requeue waits retryAt before a slot is
+              -- granted again; create attempts restart (capacity is not a
+              -- creation failure of this item).
+              create_attempts = 0, create_retry_at = ?,
               mosoo_thread_id = NULL, mosoo_run_id = NULL,
               activities_json = '[]',
               error_code = NULL, error_message = NULL, completed_at = NULL,
@@ -634,6 +638,7 @@ export async function prepareProjectAnalysisRetry(
     args: [
       activeKey(current),
       nextIdempotencyKey,
+      retryAt === null ? null : Math.max(now, Math.floor(retryAt)),
       now,
       analysisId,
       expectedThreadId,
