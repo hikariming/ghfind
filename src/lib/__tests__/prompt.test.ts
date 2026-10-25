@@ -904,3 +904,28 @@ describe("language evidence attribution", () => {
     }
   });
 });
+
+import ledFixture from "./led-project-prompt-fixture.json";
+describe("led / co-maintained project wording", () => {
+  const payload = (s: ScanResult, lang: "zh" | "en") =>
+    JSON.parse(buildRoastMessages(s, lang)[1].content.match(/```json\n([\s\S]*)\n```/)![1]);
+  it.each(["zh", "en"] as const)("credits the current maintainer and shows integer stars (%s)", (lang) => {
+    const p = payload(ledFixture.scan as unknown as ScanResult, lang);
+    const expected = ledFixture.expected[lang];
+    expect(p.factual_guardrails).toEqual(expected.factual_guardrails);
+    expect(p.risk_notes).toEqual(expected.risk_notes);
+    expect([p.metrics.total_stars, p.metrics.max_stars, p.metrics.weighted_total_stars]).toEqual([216, 133, 216]);
+    const text = JSON.stringify(p.risk_notes);
+    expect(text).not.toMatch(/profile\/config|背景板|展示材料/);
+    expect(p.factual_guardrails.join("\n")).toContain(lang === "zh" ? "当前主要维护和运营" : "actively maintains and runs");
+    // Incidental tiny-share repos are not presented as led projects.
+    expect(p.factual_guardrails.join("\n")).not.toContain("org-x/app-z");
+  });
+  it("keeps the weak-project note for a top-starred repo the user does not lead", () => {
+    const s = structuredClone(ledFixture.scan) as unknown as ScanResult;
+    (s.top_repos[0] as { attribution_share?: number }).attribution_share = 0.05;
+    const p = payload(s, "zh");
+    expect(p.risk_notes.join("\n")).toContain("org-x/app-y 是最高星原创信号，但项目完整度信号偏弱");
+    expect(p.factual_guardrails.join("\n")).not.toContain("当前主要维护和运营");
+  });
+});

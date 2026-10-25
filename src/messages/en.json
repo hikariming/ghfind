@@ -379,7 +379,7 @@
     "battleTie": "Tie",
     "selfCta": "Rate your own GitHub →",
     "reportLangNotice": "The AI roast report is currently written in English and Chinese only — you're reading the English version.",
-    "coCreatorShare": "Led / co-built ({share}% share)"
+    "coCreatorShare": "Led / co-built ({share}% credited share)"
   },
   "reactions": {
     "heading": "Community reactions",

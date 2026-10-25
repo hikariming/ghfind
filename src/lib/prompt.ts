@@ -188,6 +188,62 @@ function buildOrganizationMaintainedRepos(scan: ScanResult) {
   });
 }
 
+/** Credited share at which an attributed repo is described as the user's
+ * led/co-maintained project rather than an incidental contribution. */
+export const LED_PROJECT_MIN_SHARE = 0.15;
+
+type LedProject = NonNullable<ScanResult["top_repos"]>[number];
+
+/** Attributed (non-founding) repos the user substantially leads or maintains. */
+export function ledProjects(scan: ScanResult): LedProject[] {
+  return (scan.top_repos ?? []).filter((repo) =>
+    repo.attributed_original === true &&
+    repo.attribution_share !== undefined &&
+    repo.attribution_share >= LED_PROJECT_MIN_SHARE,
+  ).slice(0, 3);
+}
+
+function ledProjectName(repo: LedProject): string {
+  return repo.name_with_owner ?? `${repo.owner_login ?? ""}/${repo.name}`;
+}
+
+function isLedProject(scan: ScanResult, name: string | null | undefined): boolean {
+  const lower = (name ?? "").toLowerCase();
+  return lower.length > 0 && ledProjects(scan).some((repo) => ledProjectName(repo).toLowerCase() === lower);
+}
+
+/** Star counts in user-facing copy are whole numbers. */
+export function displayStars(value: number | undefined | null): number {
+  return Math.round(Math.max(0, value ?? 0));
+}
+
+function ledProjectGuardrail(repo: LedProject, lang: Lang): string {
+  const f = repo.co_creator_facts;
+  const name = ledProjectName(repo);
+  const stars = displayStars(repo.stars);
+  if (!f) {
+    return lang === "en"
+      ? `${name} (${stars} stars) is a project this user leads or co-maintains. Describe the real work they do on it; never call it profile/config/showcase material, a backdrop, or someone else's asset.`
+      : `${name}（${stars} 星）是该用户主导/共同维护的项目。按 TA 在其中的实际工作来写；不得称为 profile/config/展示材料、背景板或“别人的资产”。`;
+  }
+  const top = f.user_commits >= f.leading_commits && f.user_commits > 0;
+  const rankRatio = pct(f.user_commits / Math.max(1, f.leading_commits));
+  const recentCommits = f.recent_total_commits !== undefined
+    ? f.recent_user_commits ?? 0 : undefined;
+  const recentShare = f.recent_total_commits ? (f.recent_user_commits ?? 0) / f.recent_total_commits : 0;
+  const currentMaintainer = recentShare >= 0.35;
+  if (lang === "en") {
+    const rank = top ? "the top committer" : `${rankRatio}% of the top committer's commits`;
+    const recent = recentCommits !== undefined
+      ? `; last 180 days: ${recentCommits}/${f.recent_total_commits} commits${f.recent_total_merged_prs !== undefined ? `, ${f.recent_user_merged_prs ?? 0}/${f.recent_total_merged_prs} merged PRs` : ""}` : "";
+    return `${name} (${stars} stars) is a project this user ${currentMaintainer ? "actively maintains and runs as a primary current maintainer" : "leads or co-maintains"}: ${f.user_commits}/${f.total_commits} commits (${rank}), ${f.user_merged_prs}/${f.total_merged_prs} merged PRs${recent}. Describe it as their real maintenance/engineering work. Never call it profile/config/showcase material, a backdrop, or someone else's asset, and do not use the credited share to belittle them ("only xx%").`;
+  }
+  const rank = top ? "提交数第一" : `提交数约为第一名的 ${rankRatio}%`;
+  const recent = recentCommits !== undefined
+    ? `；近 180 天提交 ${recentCommits}/${f.recent_total_commits}${f.recent_total_merged_prs !== undefined ? `、合并 PR ${f.recent_user_merged_prs ?? 0}/${f.recent_total_merged_prs}` : ""}` : "";
+  return `${name}（${stars} 星）是该用户${currentMaintainer ? "当前主要维护和运营" : "主导/共同维护"}的项目：提交 ${f.user_commits}/${f.total_commits}（${rank}）、合并 PR ${f.user_merged_prs}/${f.total_merged_prs}${recent}。应写成 TA 实际维护/开发这个项目的贡献；不得称为 profile/config/展示材料、背景板或“别人的资产”，也不得用计入份额贬低（如“只占 xx%”）。`;
+}
+
 function buildRiskNotes(scan: ScanResult, lang: Lang): string[] {
   const m = scan.metrics;
   const notes: string[] = [];
@@ -204,7 +260,8 @@ function buildRiskNotes(scan: ScanResult, lang: Lang): string[] {
   const weakTopStarProject =
     topQuality !== undefined &&
     topQuality < 0.5 &&
-    m.total_stars > 0;
+    m.total_stars > 0 &&
+    !isLedProject(scan, m.top_starred_original_repo_quality_repo);
   const selfClosedExternal = m.self_closed_external_pr_count ?? 0;
   const totalExternalish =
     m.merged_pr_count + (m.maintainer_closed_unmerged_pr_count ?? 0) + selfClosedExternal;
@@ -230,12 +287,12 @@ function buildRiskNotes(scan: ScanResult, lang: Lang): string[] {
     if (weakTopStarProject) {
       const repo = m.top_starred_original_repo_quality_repo ?? "the top-starred original repo";
       notes.push(
-        `${repo} is the top-starred original signal but looks more like profile/config/list/notebook material than a strong usable project.`,
+        `${repo} is the top-starred original signal, but its project-completeness signals (README, usage, structure, recent upkeep) are weak; do not treat its stars as strong project evidence.`,
       );
     }
     if (weakCommunityConversion) {
       notes.push(
-        `${m.followers} followers but only ${m.total_stars} total stars; the social signal is much stronger than the project signal.`,
+        `${m.followers} followers but only ${displayStars(m.total_stars)} total stars; the social signal is much stronger than the project signal.`,
       );
     }
     if (heavySelfClosedExternal && (docsHeavyExternal || lowTrustImpact || weakTopStarProject)) {
@@ -257,12 +314,12 @@ function buildRiskNotes(scan: ScanResult, lang: Lang): string[] {
     if (weakTopStarProject) {
       const repo = m.top_starred_original_repo_quality_repo ?? "最高星原创仓库";
       notes.push(
-        `${repo} 是最高星原创信号，但更像 profile/config/list/notebook 这类展示材料，不像能独立站住的项目。`,
+        `${repo} 是最高星原创信号，但项目完整度信号偏弱（README/用法/结构/近期维护不足），星数不能直接当项目实力。`,
       );
     }
     if (weakCommunityConversion) {
       notes.push(
-        `${m.followers} 个 followers 对 ${m.total_stars} 总星，社交热度明显强过项目沉淀，粉丝滤镜偏重。`,
+        `${m.followers} 个 followers 对 ${displayStars(m.total_stars)} 总星，社交热度明显强过项目沉淀，粉丝滤镜偏重。`,
       );
     }
     if (heavySelfClosedExternal && (docsHeavyExternal || lowTrustImpact || weakTopStarProject)) {
@@ -320,6 +377,7 @@ function buildFactualGuardrails(scan: ScanResult, lang: Lang): string[] {
         : "高星仓库 commit 为 0 只表示检测到的高星影响来自 PR；不得推断没有提交权限、不被信任或没有真实贡献。",
     );
   }
+  for (const repo of ledProjects(scan)) notes.push(ledProjectGuardrail(repo, lang));
   return notes;
 }
 
@@ -542,6 +600,11 @@ function buildPayload(scan: ScanResult, lang: Lang) {
   const strongCoreImpact = hasStrongCoreImpact(scan);
   const modelMetrics = {
     ...metricsForModel,
+    // Weighted (share/liveness-adjusted) star totals are never shown as decimals.
+    total_stars: displayStars(metricsForModel.total_stars),
+    max_stars: displayStars(metricsForModel.max_stars),
+    ...(metricsForModel.weighted_total_stars !== undefined ? { weighted_total_stars: displayStars(metricsForModel.weighted_total_stars) } : {}),
+    ...(metricsForModel.weighted_max_stars !== undefined ? { weighted_max_stars: displayStars(metricsForModel.weighted_max_stars) } : {}),
     pronouns: metricsForModel.pronouns?.trim() || null,
     ...(outsideQualitySample !== undefined
       ? { impact_prs_outside_quality_sample: outsideQualitySample }
@@ -621,11 +684,11 @@ function buildPayload(scan: ScanResult, lang: Lang) {
           doc_like_scope:
             "recent_doc_like_pr_ratio covers all recent merged PRs and may include the user's own repos. For external-contribution quality, prefer recent_external_doc_like_pr_ratio and verified impact core/doc-like counts.",
           star_quality_scope:
-            "Original-project star points are already discounted by top_starred_original_repo_quality_score. If the top-starred repo looks like a profile/config/list/notebook rather than a usable project, do not praise those stars as project strength.",
+            "Original-project star points are already discounted by top_starred_original_repo_quality_score. metrics.total_stars/max_stars are credited stars (weighted by led/co-built share and liveness, rounded); call them credited stars or quote a repository's raw star count instead, never as decimals. Only a top-starred repo that is not a led/co-maintained project (see factual_guardrails) and genuinely looks like a profile/config/list/notebook may be described that way; never apply that wording to a real product or code repository.",
           affiliation_scope:
             "School, company, employer, and organization membership are background only, whether they appear in profile fields or README text. They must not justify praise unless backed by concrete repository quality, PR/commit work, release/tag authorship, MAINTAINERS/CODEOWNERS, or similar maintainer evidence.",
           attributed_original_scope:
-            "For attributed_original projects, use attribution_share as the evidence-based led/co-built share. Both personal-owner and organization-owner repositories can qualify. Say \"led/co-built (share xx%)\", never claim sole authorship, ownership, or administrative control from contribution rank or author_association. Raw repository stars are not wholly personal credit; scoring weights them by share and allocates the remaining ecosystem share separately. Preserve genuine personal originals and explicitly verified founding evidence; do not call a co-built repository a personal original. Missing share on historical snapshots retains legacy attribution wording without inventing a percentage.",
+            "For attributed_original projects, attribution_share is a credited-share estimate (commits, merged PRs, current maintenance, code substance), not a raw commit percentage. Both personal-owner and organization-owner repositories can qualify. Say \"led/co-built\" or \"co-maintains\" and cite the concrete commit/PR facts; never use the share to belittle the work (\"only xx%\", \"backdrop\", \"someone else's asset\"), and never claim sole authorship, ownership, or administrative control from contribution rank or author_association. Raw repository stars are not wholly personal credit; scoring weights them by share and allocates the remaining ecosystem share separately. Preserve genuine personal originals and explicitly verified founding evidence; do not call a co-built repository a personal original. Missing share on historical snapshots retains legacy attribution wording without inventing a percentage.",
           organization_maintained_scope:
             "organization_maintained_repos contains display-only public organization work with the existing long-term contribution threshold plus repository-local maintainer proof. It is not a score input and does not prove ownership, admin access, employment, or control. You may cite the exact repo and evidence, but never call it the user's personal repository or change the score because of it.",
           identity_scope:
@@ -680,11 +743,11 @@ function buildPayload(scan: ScanResult, lang: Lang) {
           doc_like_scope:
             "recent_doc_like_pr_ratio 覆盖所有最近 merged PR，可能包含作者自己的仓库；判断外部贡献质量时优先看 recent_external_doc_like_pr_ratio 以及高星影响 PR 的 core/doc-like 拆分。",
           star_quality_scope:
-            "原创与主导项目 star 分已按 top_starred_original_repo_quality_score 折扣；如果最高星仓库更像 profile/config/list/notebook 而不是可用项目，不要把这些 star 夸成项目实力。",
+            "原创与主导项目 star 分已按 top_starred_original_repo_quality_score 折扣。metrics.total_stars/max_stars 是按主导/共建份额与活性折算后的计入星数（已取整），写作时要说明是“折算/计入”星数或直接引用仓库原始 star，禁止写小数星。只有不属于主导/共同维护项目（见 factual_guardrails）且确实像 profile/config/list/notebook 的最高星仓库才能这样描述；真实产品或代码仓库绝不能被称为展示材料。",
           affiliation_scope:
             "学校、公司、雇主、组织 membership 只是背景信息，无论它们出现在 profile 字段还是 README 文本里；除非有真实仓库质量、PR/commit、release/tag、MAINTAINERS/CODEOWNERS 等维护证据支撑，否则不能作为夸奖或背书理由。",
           attributed_original_scope:
-            "attributed_original 项目可在个人或组织名下。存在 attribution_share 时必须称为“主导/共建（份额 xx%）”，不要冒充个人原创，也不要从贡献排名或 author_association 推断所有权、管理员权限或实际控制权。仓库原始 star 不是该用户全额个人成绩：项目侧按份额计入，生态侧按剩余份额分配。尊重个人原创及明确的创始证据，不因仓库归属他人而否认实质共建。历史快照没有份额时沿用可归属/主导维护措辞，不编造百分比。",
+            "attributed_original 项目可在个人或组织名下。attribution_share 是综合提交、合并 PR、近期维护与代码实质的计入份额估计，不是原始提交占比；应称为“主导/共建”或“共同维护”，并引用具体提交/PR 事实，不得用份额贬低（如“只占 xx%”“背景板”“别人的资产”），也不要冒充个人原创，也不要从贡献排名或 author_association 推断所有权、管理员权限或实际控制权。仓库原始 star 不是该用户全额个人成绩：项目侧按份额计入，生态侧按剩余份额分配。尊重个人原创及明确的创始证据，不因仓库归属他人而否认实质共建。历史快照没有份额时沿用可归属/主导维护措辞，不编造百分比。",
           organization_maintained_scope:
             "organization_maintained_repos 是展示用的公开组织维护证据：同时满足现有长期贡献阈值和仓库内维护证明。它不参与评分，也不证明用户拥有仓库、是管理员、受雇于组织或实际控制组织。可以点名完整 repo 与证据，但不得称为个人仓库，或据此改变分数。",
           identity_scope:

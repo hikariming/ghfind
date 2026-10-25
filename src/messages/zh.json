@@ -379,7 +379,7 @@
     "battleTie": "平",
     "selfCta": "测测你自己的 GitHub 含金量 →",
     "reportLangNotice": "AI 锐评目前仅提供中英文版本，当前显示英文版。",
-    "coCreatorShare": "主导/共建（份额 {share}%）"
+    "coCreatorShare": "主导/共建（计分份额 {share}%）"
   },
   "reactions": {
     "heading": "社区反应",

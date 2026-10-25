@@ -2,6 +2,7 @@ package backend
 
 import (
 	"encoding/json"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -386,7 +387,7 @@ func TestRoastPromptMarksRecentPRsAsSample(t *testing.T) {
 		"no_sample_extrapolation":       "不要仅凭 recent_prs",
 		"workflow_landing_scope":        "不得把官方工作流已落地 PR 写成 GitHub 合并",
 		"affiliation_scope":             "不能作为夸奖或背书理由",
-		"attributed_original_scope":     "主导/共建（份额 xx%）",
+		"attributed_original_scope":     "不得用份额贬低",
 		"organization_maintained_scope": "它不参与评分",
 	} {
 		if !strings.Contains(context[key].(string), needle) {
@@ -735,6 +736,39 @@ func TestRoastLanguageEvidenceDoesNotJudgeAuthorProficiency(t *testing.T) {
 			if roastPayloadMap(t, payload, "scoring")["final_score"] != scan.Scoring.FinalScore {
 				t.Fatal("language rule changed score")
 			}
+		}
+	}
+}
+
+func TestRoastPromptLedProjectParityWithNode(t *testing.T) {
+	data, err := os.ReadFile("../../src/lib/__tests__/led-project-prompt-fixture.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fx struct {
+		Scan     ScanResult `json:"scan"`
+		Expected map[string]struct {
+			FactualGuardrails  []string `json:"factual_guardrails"`
+			RiskNotes          []string `json:"risk_notes"`
+			TotalStars         float64  `json:"total_stars"`
+			MaxStars           float64  `json:"max_stars"`
+			WeightedTotalStars float64  `json:"weighted_total_stars"`
+		} `json:"expected"`
+	}
+	if err = json.Unmarshal(data, &fx); err != nil {
+		t.Fatal(err)
+	}
+	for lang, language := range map[string]roastLanguage{"zh": roastLanguageZH, "en": roastLanguageEN} {
+		want := fx.Expected[lang]
+		if got := roastFactualGuardrails(fx.Scan, language); !reflect.DeepEqual(got, want.FactualGuardrails) {
+			t.Fatalf("%s guardrails=%q want %q", lang, got, want.FactualGuardrails)
+		}
+		if got := roastRiskNotes(fx.Scan, language); !reflect.DeepEqual(got, want.RiskNotes) {
+			t.Fatalf("%s risk notes=%q want %q", lang, got, want.RiskNotes)
+		}
+		metrics := roastPromptPayload(fx.Scan, language)["metrics"].(map[string]any)
+		if metrics["total_stars"] != want.TotalStars || metrics["max_stars"] != want.MaxStars || metrics["weighted_total_stars"] != want.WeightedTotalStars {
+			t.Fatalf("%s star display=%v/%v/%v", lang, metrics["total_stars"], metrics["max_stars"], metrics["weighted_total_stars"])
 		}
 	}
 }

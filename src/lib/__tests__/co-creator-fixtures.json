@@ -16,7 +16,7 @@
       "pinned": true
     },
     "eligible": true,
-    "share": 0.22452719084968506
+    "share": 0.5391521638410505
   },
   {
     "name": "organization-member-leader",
@@ -37,7 +37,7 @@
       "maintainer_file": true
     },
     "eligible": true,
-    "share": 0.5168097394570619
+    "share": 0.6342966633424124
   },
   {
     "name": "trivial-commit-volume",
@@ -76,7 +76,7 @@
     },
     "eligible": false,
     "owner": "fixture-account-045",
-    "share": 0.22452719084968506
+    "share": 0.5391521638410505
   },
   {
     "name": "fork-excluded",
@@ -96,7 +96,7 @@
     },
     "eligible": false,
     "fork": true,
-    "share": 0.22452719084968506
+    "share": 0.5391521638410505
   },
   {
     "name": "private-excluded",
@@ -116,7 +116,7 @@
     },
     "eligible": false,
     "private": true,
-    "share": 0.22452719084968506
+    "share": 0.5391521638410505
   },
   {
     "name": "docs-excluded",
@@ -136,7 +136,7 @@
     },
     "eligible": false,
     "repo": "org/docs",
-    "share": 0.22452719084968506
+    "share": 0.5391521638410505
   },
   {
     "name": "resource-topic-excluded",
@@ -158,7 +158,7 @@
     "topics": [
       "awesome"
     ],
-    "share": 0.22452719084968506
+    "share": 0.5391521638410505
   },
   {
     "name": "inflated-stars-continuous-discount",
@@ -178,7 +178,7 @@
       "inflation_severity": 0.9
     },
     "eligible": true,
-    "share": 0.001257244733092113
+    "share": 0.000027885589318876367
   },
   {
     "name": "role-alone-is-insufficient",
@@ -217,5 +217,131 @@
     },
     "eligible": true,
     "share": 0
+  },
+  {
+    "name": "co-maintainer-product-repo",
+    "facts": {
+      "user_commits": 420,
+      "total_commits": 1500,
+      "leading_commits": 520,
+      "user_merged_prs": 130,
+      "total_merged_prs": 640,
+      "active_years": 3,
+      "core_churn": 3200,
+      "sampled_churn": 4100,
+      "substantive_samples": 7,
+      "samples": 10,
+      "association": "MEMBER",
+      "pinned": true
+    },
+    "eligible": true,
+    "share": 0.41529696394046317
+  },
+  {
+    "name": "current-primary-maintainer-low-lifetime-share",
+    "facts": {
+      "user_commits": 150,
+      "total_commits": 2000,
+      "leading_commits": 1200,
+      "user_merged_prs": 60,
+      "total_merged_prs": 500,
+      "active_years": 1.5,
+      "core_churn": 2500,
+      "sampled_churn": 3300,
+      "substantive_samples": 6,
+      "samples": 10,
+      "association": "COLLABORATOR",
+      "recent_user_commits": 120,
+      "recent_total_commits": 160,
+      "recent_user_merged_prs": 50,
+      "recent_total_merged_prs": 70,
+      "reviewed_prs": 80,
+      "pinned": true
+    },
+    "eligible": true,
+    "share": 0.6531888010756018
+  },
+  {
+    "name": "same-low-lifetime-share-without-recent-maintenance",
+    "facts": {
+      "user_commits": 150,
+      "total_commits": 2000,
+      "leading_commits": 1200,
+      "user_merged_prs": 60,
+      "total_merged_prs": 500,
+      "active_years": 1.5,
+      "core_churn": 2500,
+      "sampled_churn": 3300,
+      "substantive_samples": 6,
+      "samples": 10,
+      "association": "COLLABORATOR",
+      "recent_user_commits": 0,
+      "recent_total_commits": 160,
+      "recent_user_merged_prs": 0,
+      "recent_total_merged_prs": 70,
+      "reviewed_prs": 0,
+      "pinned": true
+    },
+    "eligible": true,
+    "share": 0.1851945413573778
+  },
+  {
+    "name": "few-commits-large-core-feature-prs",
+    "facts": {
+      "user_commits": 6,
+      "total_commits": 300,
+      "leading_commits": 150,
+      "user_merged_prs": 4,
+      "total_merged_prs": 200,
+      "active_years": 1,
+      "core_churn": 12000,
+      "sampled_churn": 13500,
+      "substantive_samples": 4,
+      "samples": 4,
+      "pinned": true
+    },
+    "eligible": true,
+    "share": 0.16839961630985728
+  },
+  {
+    "name": "few-commits-lockfile-format-only-diffs",
+    "facts": {
+      "user_commits": 6,
+      "total_commits": 300,
+      "leading_commits": 150,
+      "user_merged_prs": 4,
+      "total_merged_prs": 200,
+      "active_years": 1,
+      "core_churn": 7200,
+      "sampled_churn": 232000,
+      "substantive_samples": 0,
+      "samples": 4,
+      "pinned": true
+    },
+    "eligible": true,
+    "share": 0
+  },
+  {
+    "name": "incidental-prs-into-large-repo",
+    "facts": {
+      "user_commits": 5,
+      "total_commits": 12000,
+      "leading_commits": 3000,
+      "user_merged_prs": 4,
+      "total_merged_prs": 6000,
+      "active_years": 1,
+      "core_churn": 900,
+      "sampled_churn": 1000,
+      "substantive_samples": 4,
+      "samples": 4,
+      "association": "CONTRIBUTOR",
+      "recent_user_commits": 1,
+      "recent_total_commits": 900,
+      "recent_user_merged_prs": 1,
+      "recent_total_merged_prs": 400,
+      "pinned": true
+    },
+    "eligible": true,
+    "share": 9.47266303355724e-10
   }
 ]

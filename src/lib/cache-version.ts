@@ -6,8 +6,9 @@
  * change. Development bypasses these caches entirely so local prompt/scoring
  * edits are visible on the next request.
  */
-// v16 weights original stars by continuous content/skill evidence.
-export const SCORE_CACHE_VERSION = "v16";
+// v17 credits current maintainers, content-weighted core PRs and bot-free
+// contributor totals in co-built/org project attribution.
+export const SCORE_CACHE_VERSION = "v17";
 // v12 keeps language proficiency out of engineering judgments and roast targets.
 export const ROAST_CACHE_VERSION = "v12";
 /** Bump when the PK (versus) verdict prompt / output semantics change. */

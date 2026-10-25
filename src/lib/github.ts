@@ -1,5 +1,5 @@
-import { presentationSignals, prPresentationShare, isPresentationPath } from "./presentation-concentration";
-import { coCreatorShare, projectShare, budgetCoCreatorShares, type CoCreatorFacts } from "./co-creator";
+import { presentationSignals, prPresentationShare } from "./presentation-concentration";
+import { coCreatorShare, projectShare, budgetCoCreatorShares, summarizeContributors, weightedCoreChurn, RECENT_MAINTENANCE_DAYS, type CoCreatorFacts, type ContributorRow } from "./co-creator";
 /**
  * GitHub public-signal collection.
  *
@@ -861,7 +861,10 @@ export function topStarredOriginalRepoQuality(
     .sort((a, b) => b.stars*projectShare(b) - a.stars*projectShare(a))[0];
   if (!topStarred) return { score: 0, repo: null };
   return {
-    score: originalRepoQualityScore(topStarred, loginLower, now) * projectShare(topStarred),
+    // Stars are already weighted by attribution share; multiplying the
+    // project-substance score by the share again would make every co-led repo
+    // look like a weak profile/config showcase.
+    score: originalRepoQualityScore(topStarred, loginLower, now),
     repo: repoDisplayName(topStarred),
   };
 }
@@ -1577,15 +1580,33 @@ function isOrgOwnedLongTermCandidate(repo: ContribRepoAgg, loginLower: string): 
   return repo.commits + repo.prs > 0;
 }
 
-async function collectCoCreatorFacts(repo: ContribRepoAgg, login: string): Promise<CoCreatorFacts> {
+export const CONTRIBUTOR_PAGE_LIMIT = 3;
+
+async function collectCoCreatorFacts(repo: ContribRepoAgg, login: string, now = new Date()): Promise<CoCreatorFacts> {
   const [owner, name] = repo.repo.split("/");
-  const contributors = await restGet<{login?: string; contributions?: number}[]>(
-    `repos/${owner}/${name}/contributors?per_page=100`,
-  ).catch(swallowUnlessAborted) ?? [];
-  const query = `query($owner: String!, $name: String!, $q: String!) {
+  // Page the contributor list until the user appears (bounded): large repos
+  // otherwise report 0 commits for anyone ranked past the first 100.
+  const rows: ContributorRow[] = [];
+  let truncated = false;
+  for (let page = 1; page <= CONTRIBUTOR_PAGE_LIMIT; page++) {
+    const batch = await restGet<ContributorRow[]>(
+      `repos/${owner}/${name}/contributors?per_page=100&page=${page}`,
+    ).catch(swallowUnlessAborted) ?? [];
+    rows.push(...batch);
+    truncated = batch.length >= 100;
+    if (!truncated || batch.some(c => c.login?.toLowerCase() === login)) break;
+  }
+  const since = new Date(now.getTime() - RECENT_MAINTENANCE_DAYS*86_400_000);
+  const sinceIso = since.toISOString();
+  const sinceDay = sinceIso.slice(0, 10);
+  const query = `query($owner: String!, $name: String!, $q: String!, $since: GitTimestamp!, $recentAll: String!, $recentMine: String!, $reviewed: String!, $login: String!) {
+    user(login: $login) { id }
     repository(owner: $owner, name: $name) {
       pullRequests(states: MERGED) { totalCount }
-      defaultBranchRef { target { ... on Commit { history(first: 1) { totalCount } } } }
+      defaultBranchRef { target { ... on Commit {
+        history(first: 1) { totalCount }
+        recent: history(since: $since) { totalCount }
+      } } }
     }
     search(query: $q, type: ISSUE, first: 10) {
       issueCount
@@ -1594,31 +1615,55 @@ async function collectCoCreatorFacts(repo: ContribRepoAgg, login: string): Promi
         files(first: 100) { nodes { path additions deletions } }
       } }
     }
+    recentAll: search(query: $recentAll, type: ISSUE) { issueCount }
+    recentMine: search(query: $recentMine, type: ISSUE) { issueCount }
+    reviewed: search(query: $reviewed, type: ISSUE) { issueCount }
   }`;
   type File = {path: string; additions: number; deletions: number};
   const data = await graphql<{
-    repository?: {pullRequests: {totalCount: number}; defaultBranchRef?: {target?: {history?: {totalCount: number}}}};
+    user?: {id: string} | null;
+    repository?: {pullRequests: {totalCount: number}; defaultBranchRef?: {target?: {history?: {totalCount: number}; recent?: {totalCount: number}}}};
     search?: {issueCount: number; nodes: {authorAssociation: string; changedFiles: number; files?: {nodes: File[]}}[]};
-  }>(query, {owner, name, q: `repo:${repo.repo} is:pr is:merged author:${login} sort:created-desc`}).catch(swallowUnlessAborted);
+    recentAll?: {issueCount: number}; recentMine?: {issueCount: number}; reviewed?: {issueCount: number};
+  }>(query, {owner, name, login, since: sinceIso,
+    q: `repo:${repo.repo} is:pr is:merged author:${login} sort:created-desc`,
+    recentAll: `repo:${repo.repo} is:pr is:merged merged:>=${sinceDay}`,
+    recentMine: `repo:${repo.repo} is:pr is:merged merged:>=${sinceDay} author:${login}`,
+    reviewed: `repo:${repo.repo} is:pr reviewed-by:${login} -author:${login}`,
+  }).catch(swallowUnlessAborted);
+  const counts = summarizeContributors(rows, login, {
+    truncated,
+    historyTotal: data?.repository?.defaultBranchRef?.target?.history?.totalCount ?? 0,
+    fallbackUserCommits: repo.commits,
+  });
   const f: CoCreatorFacts = {
-    user_commits: contributors.find(c=>c.login?.toLowerCase()===login)?.contributions ?? 0,
-    total_commits: Math.max(contributors.reduce((s,c)=>s+(c.contributions??0),0),
-      data?.repository?.defaultBranchRef?.target?.history?.totalCount ?? 0),
-    leading_commits: Math.max(0, ...contributors.map(c=>c.contributions??0)),
+    ...counts,
     user_merged_prs: data?.search?.issueCount ?? 0,
     total_merged_prs: data?.repository?.pullRequests.totalCount ?? 0,
     active_years: repo.active_years, core_churn: 0, sampled_churn: 0, substantive_samples: 0, samples: 0,
   };
-  const add = (files: File[]) => {
-    let core = 0, total = 0;
-    for (const file of files) {
-      const churn = Math.max(0,file.additions)+Math.max(0,file.deletions);
-      total += churn;
-      if (/\.(c|cc|cpp|cs|go|java|js|jsx|mjs|cjs|kt|php|py|rb|rs|scala|swift|ts|tsx|vue|svelte|css|scss)$/.test(file.path)
-        && !isPresentationPath(file.path,repo.repo)) core += churn;
+  const recentTotal = data?.repository?.defaultBranchRef?.target?.recent?.totalCount;
+  if (data?.user?.id && recentTotal !== undefined) {
+    const mine = await graphql<{repository?: {defaultBranchRef?: {target?: {history?: {totalCount: number}}}}}>(
+      `query($owner: String!, $name: String!, $since: GitTimestamp!, $id: ID!) { repository(owner: $owner, name: $name) {
+        defaultBranchRef { target { ... on Commit { history(since: $since, author: {id: $id}) { totalCount } } } } } }`,
+      {owner, name, since: sinceIso, id: data.user.id},
+    ).catch(swallowUnlessAborted);
+    const recentMine = mine?.repository?.defaultBranchRef?.target?.history?.totalCount;
+    if (recentMine !== undefined) {
+      f.recent_user_commits = recentMine;
+      f.recent_total_commits = Math.max(recentTotal, recentMine);
     }
+  }
+  if (data?.recentAll && data.recentMine) {
+    f.recent_user_merged_prs = data.recentMine.issueCount;
+    f.recent_total_merged_prs = Math.max(data.recentAll.issueCount, data.recentMine.issueCount);
+  }
+  if (data?.reviewed) f.reviewed_prs = data.reviewed.issueCount;
+  const add = (files: File[]) => {
+    const {core, total, fresh} = weightedCoreChurn(files, repo.repo);
     f.samples++; f.core_churn += core; f.sampled_churn += total;
-    if (core > 5) f.substantive_samples++;
+    if (fresh > 5) f.substantive_samples++;
   };
   for (const pr of data?.search?.nodes ?? []) {
     if (/^(OWNER|MEMBER|COLLABORATOR)$/.test(pr.authorAssociation)) f.association = pr.authorAssociation;
@@ -2656,7 +2701,10 @@ export function computeOrgRepoAttribution(input: {
     return {repo: input.repo.repo, share, score: share, facts, evidence: [
       `${facts.user_commits}/${facts.total_commits} commits; leader ${facts.leading_commits}`,
       `${facts.user_merged_prs}/${facts.total_merged_prs} merged PRs; ${facts.active_years} active years`,
-      `${facts.core_churn} core lines in ${facts.samples} complete samples`,
+      `${Math.round(facts.core_churn)} core lines in ${facts.samples} complete samples`,
+      ...(facts.recent_total_commits !== undefined ? [`${facts.recent_user_commits ?? 0}/${facts.recent_total_commits} commits in the last ${RECENT_MAINTENANCE_DAYS} days`] : []),
+      ...(facts.recent_total_merged_prs !== undefined ? [`${facts.recent_user_merged_prs ?? 0}/${facts.recent_total_merged_prs} merged PRs in the last ${RECENT_MAINTENANCE_DAYS} days`] : []),
+      ...(facts.reviewed_prs ? [`reviewed ${facts.reviewed_prs} PRs by others`] : []),
       ...(firstCommitMatch ? [`first commit author is ${scoredLogin}`] : []),
       ...(facts.release_author ? ["release/tag author"] : []),
       ...(facts.maintainer_file ? ["listed in maintainer/codeowner docs"] : []),

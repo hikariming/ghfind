@@ -57,3 +57,52 @@ it('keeps the cap bounded and nondecreasing with prestige across core levels', (
   }
  }
 });
+
+import contentFx from './contribution-content-fixtures.json';
+import {weightedCoreChurn,summarizeContributors} from '../co-creator';
+it.each(contentFx.churn)('content-weighted core churn: $name',c=>{
+ expect(weightedCoreChurn(c.files,c.repo)).toEqual(c.expected);
+});
+it.each(contentFx.contributors)('bot-free contributor totals: $name',c=>{
+ expect(summarizeContributors(c.rows,c.login,{truncated:c.truncated,historyTotal:c.history_total,fallbackUserCommits:c.fallback_user_commits})).toEqual(c.expected);
+});
+it('credits maintenance, content and co-maintenance roles without hardcoding anyone',()=>{
+ const share=(name:string)=>coCreatorShare(cases.find(c=>c.name===name)!.facts as CoCreatorFacts);
+ // Current primary maintainer with a low lifetime share gets lead-level credit.
+ expect(share('current-primary-maintainer-low-lifetime-share')).toBeGreaterThan(.5);
+ expect(share('current-primary-maintainer-low-lifetime-share')).toBeGreaterThan(3*share('same-low-lifetime-share-without-recent-maintenance'));
+ // Few commits with large core PRs earn major credit; lockfile/format diffs earn none.
+ expect(share('few-commits-large-core-feature-prs')).toBeGreaterThan(.1);
+ expect(share('few-commits-lockfile-format-only-diffs')).toBe(0);
+ expect(share('co-maintainer-product-repo')).toBeGreaterThan(.3);
+ // Incidental PRs into a large repository stay ecosystem impact, not lead credit.
+ expect(share('incidental-prs-into-large-repo')).toBeLessThan(.01);
+ // Star-farm discount stays strong.
+ expect(share('inflated-stars-continuous-discount')).toBeLessThan(.01);
+});
+it('has no cliff around the role fade threshold',()=>{
+ const base=cases.find(c=>c.name==='co-maintainer-product-repo')!.facts as CoCreatorFacts;
+ let previous=-1;
+ for(let commits=1;commits<=600;commits++){
+  const value=coCreatorShare({...base,user_commits:commits});
+  expect(value).toBeGreaterThanOrEqual(previous-1e-12);
+  if(previous>=0)expect(value-previous).toBeLessThan(.02);
+  previous=value;
+ }
+});
+
+import {topStarredOriginalRepoQuality} from '../github';
+import type {TopRepo} from '../types';
+it('keeps dotfiles, profile README and awesome-list guards while not double-counting co-built shares',()=>{
+ const now=new Date('2026-10-01T00:00:00Z');
+ const repo=(over:Partial<TopRepo>)=>({name:'app-y',owner_login:'user-a',name_with_owner:'user-a/app-y',stars:800,forks:2,open_issues:0,size:40,language:null,description:'',pushed_at:'2026-09-01T00:00:00Z',topics:[],...over}) as TopRepo;
+ for(const guard of [
+  repo({name:'dotfiles',name_with_owner:'user-a/dotfiles',description:'my config files'}),
+  repo({name:'user-a',name_with_owner:'user-a/user-a',readme_excerpt:'Hi there, profile README with badges.'}),
+  repo({name:'awesome-tools',name_with_owner:'user-a/awesome-tools',topics:['awesome','list'],language:null}),
+ ]) expect(topStarredOriginalRepoQuality([guard],'user-a',now).score).toBeLessThan(.5);
+ const product=repo({name:'app-y',owner_login:'org-x',name_with_owner:'org-x/app-y',size:9000,language:'TypeScript',description:'Production scheduling service with API and dashboard',stars:3000,forks:300,open_issues:40,attributed_original:true});
+ const full=topStarredOriginalRepoQuality([{...product,attribution_share:1}],'user-a',now).score;
+ expect(full).toBeGreaterThan(.5);
+ expect(topStarredOriginalRepoQuality([{...product,attribution_share:.3}],'user-a',now).score).toBe(full);
+});
