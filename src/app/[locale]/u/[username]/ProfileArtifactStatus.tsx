@@ -1,6 +1,7 @@
 import { CircleCheck, Clock3, History } from "lucide-react";
-import { ROAST_CACHE_VERSION, SCORE_CACHE_VERSION } from "@/lib/cache-version";
-import { PUBLIC_SCAN_COLLECTION_VERSION } from "@/lib/scan-run-types";
+import type { ReactNode } from "react";
+import { ROAST_CACHE_VERSION } from "@/lib/cache-version";
+import { isCurrentScoreProvenance } from "@/lib/score-version";
 
 export type ProfileArtifactState = "stale-score" | "report-pending" | "ready";
 
@@ -27,12 +28,9 @@ export function resolveProfileArtifactState({
   sourceSnapshotHash: string | null | undefined;
   roastVersion: string | null | undefined;
 }): ProfileArtifactState {
-  const hasCanonicalScoreProvenance =
-    scoreVersion === SCORE_CACHE_VERSION &&
-    sourceCollectionVersion === PUBLIC_SCAN_COLLECTION_VERSION &&
-    typeof sourceSnapshotHash === "string" &&
-    /^[a-f0-9]{64}$/.test(sourceSnapshotHash);
-  if (!hasCanonicalScoreProvenance) return "stale-score";
+  if (!isCurrentScoreProvenance({ scoreVersion, sourceCollectionVersion, sourceSnapshotHash })) {
+    return "stale-score";
+  }
   if (roastVersion !== ROAST_CACHE_VERSION) return "report-pending";
   return "ready";
 }
@@ -59,10 +57,13 @@ export function ProfileArtifactStatus({
   state,
   title,
   body,
+  action,
 }: {
   state: ProfileArtifactState;
   title: string;
   body: string;
+  /** Optional control under the copy (the stale-score re-evaluate action). */
+  action?: ReactNode;
 }) {
   const { Icon, iconClass } = STATUS_STYLE[state];
 
@@ -76,6 +77,7 @@ export function ProfileArtifactStatus({
       <div className="min-w-0 text-start">
         <div className="text-xs font-semibold text-zinc-200">{title}</div>
         <p className="mt-0.5 text-xs leading-relaxed text-zinc-400">{body}</p>
+        {action}
       </div>
     </div>
   );

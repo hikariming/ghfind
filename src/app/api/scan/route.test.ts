@@ -25,9 +25,12 @@ const mocks = vi.hoisted(() => ({
   attachAnonymousSession: vi.fn(),
   establishAnonymousSession: vi.fn(),
   after: vi.fn(),
+  getAccountDetail: vi.fn(),
+  admitVersionUpgradeRescan: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
+  getAccountDetail: mocks.getAccountDetail,
   getCurrentCanonicalQuickScan: mocks.getCurrentCanonicalQuickScan,
   getLatestVerifiedCanonicalScan: mocks.getLatestVerifiedCanonicalScan,
   getLegacyReadFallbackScan: mocks.getLegacyReadFallbackScan,
@@ -37,6 +40,7 @@ vi.mock("@/lib/db", () => ({
   recordCampaignParticipant: mocks.recordCampaignParticipant,
 }));
 vi.mock("@/lib/redis", () => ({
+  admitVersionUpgradeRescan: mocks.admitVersionUpgradeRescan,
   checkRateLimit: mocks.checkRateLimit,
   checkScanNetworkRateLimit: mocks.checkScanNetworkRateLimit,
   coalesceScan: mocks.coalesceScan,
@@ -361,5 +365,168 @@ describe("POST /api/scan immediate quick contract", () => {
     expect(response.status).toBe(404);
     expect(mocks.coalesceScan).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toMatchObject({ error: "not_scored" });
+  });
+});
+
+describe("POST /api/scan on-view score version upgrade", () => {
+  const BROWSER_UA =
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+  const staleDetail = {
+    username: "demodev",
+    score_version: "v1",
+    score_source_collection_version: null,
+    score_source_snapshot_hash: null,
+  };
+
+  function autoRequest(headers: Record<string, string> = {}, body: Record<string, unknown> = {}) {
+    return new NextRequest("https://example.test/api/scan?force=1", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "user-agent": BROWSER_UA,
+        "sec-fetch-site": "same-origin",
+        "sec-fetch-mode": "cors",
+        ...headers,
+      },
+      body: JSON.stringify({ username: "DemoDev", trigger: "score_version_upgrade", ...body }),
+    });
+  }
+
+  beforeEach(() => {
+    mocks.checkRateLimit.mockResolvedValue({ success: true });
+    mocks.rateLimitHeaders.mockReturnValue({});
+    mocks.getCachedScan.mockResolvedValue(null);
+    mocks.getCurrentCanonicalQuickScan.mockResolvedValue(null);
+    mocks.getAccountDetail.mockResolvedValue(staleDetail);
+    mocks.admitVersionUpgradeRescan.mockResolvedValue({ ok: true });
+    mocks.coalesceScan.mockImplementation(async (_handle: string, produce: () => unknown) => produce());
+    mocks.buildScanResult.mockResolvedValue(quickScan);
+    mocks.publishCompleteQuickScan.mockResolvedValue(true);
+    mocks.recordAccountLookup.mockResolvedValue(undefined);
+    mocks.verifyTurnstile.mockResolvedValue(true);
+    mocks.establishAnonymousSession.mockReturnValue({ id: "anon-session" });
+    mocks.attachAnonymousSession.mockImplementation((response) => response);
+    vi.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    delete process.env.GHFIND_AUTO_RESCAN_DISABLED;
+    delete process.env.GHFIND_AUTO_RESCAN_MAX_PER_HOUR;
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+  });
+
+  it("re-evaluates a stale stored score from a real browser view, never forced", async () => {
+    const response = await POST(autoRequest());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ cached: false, scoring: { final_score: 71 } });
+    expect(mocks.admitVersionUpgradeRescan).toHaveBeenCalledWith("DemoDev", 20);
+    expect(mocks.coalesceScan).toHaveBeenCalledWith("DemoDev", expect.any(Function), expect.objectContaining({ force: false }));
+    // The automatic path always pays the per-IP limit, even with a session.
+    expect(mocks.checkRateLimit).toHaveBeenCalledWith("0.0.0.0");
+    expect(mocks.publishCompleteQuickScan).toHaveBeenCalledWith(quickScan, expect.any(Number));
+  });
+
+  it("returns an already-current score without spending the auto budget", async () => {
+    mocks.getCurrentCanonicalQuickScan.mockResolvedValue({ scan: quickScan, snapshotHash: "a".repeat(64), scannedAt: 123 });
+
+    const response = await POST(autoRequest());
+
+    expect(response.status).toBe(200);
+    expect(mocks.admitVersionUpgradeRescan).not.toHaveBeenCalled();
+    expect(mocks.coalesceScan).not.toHaveBeenCalled();
+  });
+
+  it("honors the kill switch before any work", async () => {
+    process.env.GHFIND_AUTO_RESCAN_DISABLED = "1";
+
+    const response = await POST(autoRequest());
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({ error: "auto_rescan_deferred", reason: "disabled" });
+    expect(mocks.verifyTurnstile).not.toHaveBeenCalled();
+    expect(mocks.coalesceScan).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["crawler user agent", { "user-agent": "Mozilla/5.0 (compatible; ExampleBot/2.1; +https://example.test/bot)" }],
+    ["headless browser", { "user-agent": `${BROWSER_UA} HeadlessChrome/130.0.0.0` }],
+    ["HTTP library", { "user-agent": "curl/8.0" }],
+    ["missing fetch metadata", { "sec-fetch-site": "" }],
+    ["cross-site fetch", { "sec-fetch-site": "cross-site" }],
+  ])("refuses an automated client (%s)", async (_label, headers) => {
+    const response = await POST(autoRequest(headers));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ reason: "automated_client" });
+    expect(mocks.coalesceScan).not.toHaveBeenCalled();
+    expect(mocks.admitVersionUpgradeRescan).not.toHaveBeenCalled();
+  });
+
+  it("refuses machine (API key) callers on the automatic path", async () => {
+    process.env.GITHUB_ROAST_CLI_API_KEY = "test-key";
+    try {
+      const response = await POST(autoRequest({ authorization: "Bearer test-key" }));
+      expect(response.status).toBe(403);
+      expect(mocks.coalesceScan).not.toHaveBeenCalled();
+    } finally {
+      delete process.env.GITHUB_ROAST_CLI_API_KEY;
+    }
+  });
+
+  it.each([
+    ["no stored profile", null],
+    ["a current score", { ...staleDetail, score_version: "v999999" }],
+  ])("does not scan when the server finds %s", async (_label, detail) => {
+    mocks.getAccountDetail.mockResolvedValue(detail);
+
+    const response = await POST(autoRequest());
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ reason: "not_stale" });
+    expect(mocks.admitVersionUpgradeRescan).not.toHaveBeenCalled();
+    expect(mocks.coalesceScan).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["cooldown", 86_400],
+    ["budget", 1_200],
+  ] as const)("defers on %s with Retry-After", async (reason, retryAfter) => {
+    mocks.admitVersionUpgradeRescan.mockResolvedValue({ ok: false, reason, retryAfter });
+
+    const response = await POST(autoRequest());
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe(String(retryAfter));
+    await expect(response.json()).resolves.toMatchObject({ error: "auto_rescan_deferred", reason });
+    expect(mocks.coalesceScan).not.toHaveBeenCalled();
+  });
+
+  it("passes the configured hourly budget through", async () => {
+    process.env.GHFIND_AUTO_RESCAN_MAX_PER_HOUR = "3";
+
+    await POST(autoRequest());
+
+    expect(mocks.admitVersionUpgradeRescan).toHaveBeenCalledWith("DemoDev", 3);
+  });
+
+  it("rejects unknown trigger values", async () => {
+    const response = await POST(autoRequest({}, { trigger: "batch" }));
+
+    expect(response.status).toBe(400);
+    expect(mocks.coalesceScan).not.toHaveBeenCalled();
+  });
+
+  it("keeps GET read-only: a crawler poll never starts a rescan", async () => {
+    mocks.checkScanNetworkRateLimit.mockResolvedValue({ success: true });
+    mocks.isScanPending.mockResolvedValue(false);
+
+    const response = await GET(new NextRequest("https://example.test/api/scan?username=DemoDev"));
+
+    expect(response.status).toBe(404);
+    expect(mocks.admitVersionUpgradeRescan).not.toHaveBeenCalled();
+    expect(mocks.coalesceScan).not.toHaveBeenCalled();
+    expect(mocks.after).not.toHaveBeenCalled();
   });
 });

@@ -20,6 +20,7 @@ import {
 } from "./scan-protection";
 import { selectCacheStore, type CacheStore } from "./cache-store";
 import { selectAtomicStore, type AtomicStore } from "./atomic-store";
+import { admitAutoRescan, type AutoRescanAdmission } from "./auto-rescan";
 import { parsePayload, scanSlot, scanSlots, slotCoordinator } from "./scan-slots";
 import {
   durableObjectLimiter,
@@ -216,6 +217,17 @@ export async function tryAcquireScanRefresh(username: string): Promise<boolean> 
   } catch {
     return false;
   }
+}
+
+/**
+ * Per-user 24h slot + global hourly budget for an on-view score-version
+ * upgrade rescan (see auto-rescan.ts). Fails closed without a store.
+ */
+export async function admitVersionUpgradeRescan(
+  username: string,
+  maxPerHour: number,
+): Promise<AutoRescanAdmission> {
+  return admitAutoRescan(atomicStore(), username, { maxPerHour });
 }
 
 export async function setCachedScan(username: string, scan: ScanResult): Promise<void> {

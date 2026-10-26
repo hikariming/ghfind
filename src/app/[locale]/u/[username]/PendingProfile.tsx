@@ -7,6 +7,7 @@ import { TierAvatarFrame } from "@/components/TierAvatarFrame";
 import { DimensionStarChart } from "@/components/DimensionStarChart";
 import { LiveRoast } from "@/components/LiveRoast";
 import { StaleScanHint } from "@/components/StaleScanHint";
+import { StaleScoreRescan } from "@/components/StaleScoreRescan";
 import { DIMENSIONS } from "@/lib/dimensions";
 import { readSessionScan } from "@/lib/home-handoff";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
@@ -211,6 +212,7 @@ export function PendingProfile({
                 state="stale-score"
                 title={t("scoreStateStaleTitle")}
                 body={t("scoreStateStaleBody")}
+                action={<StaleScoreRescan username={username} auto={false} />}
               />
             )}
           </aside>

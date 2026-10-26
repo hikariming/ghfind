@@ -25,6 +25,8 @@ import { normLang } from "@/lib/lang";
 import { scoreRedFlagLabel } from "@/lib/score-red-flags";
 import { RescanButton } from "@/components/RescanButton";
 import { StaleScanHint } from "@/components/StaleScanHint";
+import { StaleScoreRescan } from "@/components/StaleScoreRescan";
+import { needsScoreVersionUpgrade } from "@/lib/score-version";
 import { BadgeReferralBanner } from "@/components/BadgeReferralBanner";
 import { RepoCardLink } from "@/components/RepoCardLink";
 import { ProfileLandingBeacon } from "@/components/ProfileLandingBeacon";
@@ -119,6 +121,15 @@ export function ProfileView({
     sourceSnapshotHash: d.score_source_snapshot_hash,
     roastVersion: selectedRoastVersion,
   });
+  // Stale-while-revalidate: a score from an older scoring release offers a
+  // manual 重新评测 and, for real visitors, an automatic background one.
+  const autoRescan =
+    artifactState === "stale-score" &&
+    needsScoreVersionUpgrade({
+      scoreVersion: d.score_version,
+      sourceCollectionVersion: d.score_source_collection_version,
+      sourceSnapshotHash: d.score_source_snapshot_hash,
+    });
   const artifactCopy =
     artifactState === "stale-score"
       ? {
@@ -482,6 +493,11 @@ export function ProfileView({
         state={artifactState}
         title={artifactCopy.title}
         body={artifactCopy.body}
+        action={
+          artifactState === "stale-score" ? (
+            <StaleScoreRescan username={d.username} auto={autoRescan} />
+          ) : undefined
+        }
       />
 
       {/* My standing — concrete rank, "beat %", a milestone hint to the next

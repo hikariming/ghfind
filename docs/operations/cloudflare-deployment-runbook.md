@@ -139,6 +139,25 @@ flow does not require a billing account or paid Identity Platform service.
 the deployment environment; the latter two are already defined per environment in
 `wrangler.jsonc` and must remain equal to the public origin.
 
+## On-view score re-evaluation (auto rescan)
+
+A profile whose stored score predates the current scoring release shows
+历史评分 with a 重新评测 action. For real browser visitors the page also asks
+`POST /api/scan` (`trigger: "score_version_upgrade"`) to re-evaluate it in the
+background (score only, no LLM report). `GET /api/scan` never starts it. Guard
+rails, all on `ghfind-api` (see `src/lib/auto-rescan.ts`):
+
+- `GHFIND_AUTO_RESCAN_DISABLED=1` — kill switch (plain var; no deploy of code
+  needed: `wrangler deploy --var GHFIND_AUTO_RESCAN_DISABLED:1` or the dashboard).
+- `GHFIND_AUTO_RESCAN_MAX_PER_HOUR` — global fixed-window budget, default 20;
+  `0` turns it off.
+- One attempt per user per 24h (kept on failure), bot/headless/HTTP-library
+  user agents and requests without same-origin fetch metadata refused, server
+  re-checks the stored version, per-IP scan limit always applies.
+- Logs: `auto_rescan` lines with `outcome: started|deferred` and the reason.
+
+This is on demand per viewed profile; never add a batch job or backfill on top.
+
 ## Validate without changing Cloudflare
 
 Build and validate the Worker bundle before publishing it:
