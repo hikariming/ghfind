@@ -57,6 +57,7 @@ import * as scan from "@/app/api/scan/route";
 import * as score from "@/app/api/score/[username]/route";
 import * as searchUsers from "@/app/api/search-users/route";
 import * as sponsors from "@/app/api/sponsors/route";
+import * as sponsorVisit from "@/app/api/sponsors/[id]/visit/route";
 import * as stats from "@/app/api/stats/route";
 import * as talentById from "@/app/api/talent/[id]/route";
 import * as talentIntake from "@/app/api/talent/intake/route";
@@ -95,6 +96,7 @@ export const API_ROUTES: ApiRoute[] = [
   { path: "/api/developers", module: developers },
   { path: "/api/talent", module: talent },
   { path: "/api/sponsors", module: sponsors },
+  { path: "/api/sponsors/:id/visit", module: sponsorVisit },
   { path: "/api/facet-rank/:username", module: facetRank },
   { path: "/api/campaigns/:campaign/leaderboard", module: campaignLeaderboard },
   // Batch 2: README-embedded / social images.

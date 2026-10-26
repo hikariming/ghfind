@@ -26,6 +26,7 @@ const API_ROUTES: readonly RegExp[] = [
   /^\/api\/developers$/,
   /^\/api\/talent$/,
   /^\/api\/sponsors$/,
+  /^\/api\/sponsors\/[^/]+\/visit$/,
   /^\/api\/facet-rank\/[^/]+$/,
   /^\/api\/campaigns\/[^/]+\/leaderboard$/,
   // Batch 2: README-embedded / social images (SVG badges and cards, PNG

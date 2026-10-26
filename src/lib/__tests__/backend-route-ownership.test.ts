@@ -56,6 +56,8 @@ const REVIEWED_NEXT_API_ROUTES = new Set([
   "src/app/api/score/[username]/route.ts",
   // Public sponsor listing: D1-backed, anonymous-safe fields only.
   "src/app/api/sponsors/route.ts",
+  // First-party sponsor link hop: 302 to an active sponsorship's stored URL only.
+  "src/app/api/sponsors/[id]/visit/route.ts",
   "src/app/api/search-users/route.ts",
   "src/app/api/stats/route.ts",
   // Public read-only sponsor listing backed by D1.
