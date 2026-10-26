@@ -124,7 +124,9 @@ func TestProjectAnalysisConfigDefaultsAndClamps(t *testing.T) {
 	if config.ProjectAnalysisTimeout != 15*time.Minute {
 		t.Fatalf("ProjectAnalysisTimeout = %v", config.ProjectAnalysisTimeout)
 	}
-	if config.ProjectAnalysisConcurrency != 20 {
+	// Mosoo admits 5 concurrent sandboxes per account; the default leaves
+	// headroom for Threads that are still being reclaimed.
+	if config.ProjectAnalysisConcurrency != 3 {
 		t.Fatalf("ProjectAnalysisConcurrency = %d", config.ProjectAnalysisConcurrency)
 	}
 	if config.ProjectAnalysisCreateMaxAttempts != 3 {
@@ -156,7 +158,7 @@ func TestProjectAnalysisConfigClampsAndExecutionMode(t *testing.T) {
 	if config.ProjectAnalysisTimeout != 15*time.Minute {
 		t.Fatalf("ProjectAnalysisTimeout = %v", config.ProjectAnalysisTimeout)
 	}
-	if config.ProjectAnalysisConcurrency != 100 {
+	if config.ProjectAnalysisConcurrency != 20 {
 		t.Fatalf("ProjectAnalysisConcurrency = %d", config.ProjectAnalysisConcurrency)
 	}
 	if config.ProjectAnalysisCreateMaxAttempts != 10 {

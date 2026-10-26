@@ -82,6 +82,8 @@ type fakeMosoo struct {
 	createKeys   []string
 	createBodies []string
 	onCreate     func(call int) (int, any)
+	archived     []string
+	archiveCode  int
 
 	threadCalls map[string]int
 	threadRuns  map[string][]map[string]any
@@ -167,6 +169,13 @@ func (f *fakeMosoo) handler() http.Handler {
 				status, payload = f.onCreate(f.createCalls)
 			}
 			writeMosooJSON(w, status, payload)
+		case r.Method == http.MethodPost && strings.HasPrefix(path, "/threads/") && strings.HasSuffix(path, "/archive"):
+			f.archived = append(f.archived, strings.TrimSuffix(strings.TrimPrefix(path, "/threads/"), "/archive"))
+			if f.archiveCode != 0 && f.archiveCode != http.StatusOK {
+				writeMosooJSON(w, f.archiveCode, map[string]any{"error": map[string]any{"code": "internal_error"}})
+				return
+			}
+			writeMosooJSON(w, http.StatusOK, map[string]any{})
 		case r.Method == http.MethodGet && strings.HasPrefix(path, "/threads/") && strings.HasSuffix(path, "/events"):
 			threadID := strings.TrimSuffix(strings.TrimPrefix(path, "/threads/"), "/events")
 			payload, ok := f.events[threadID]
@@ -566,8 +575,10 @@ func TestProjectAnalysisWorkerExpiresTimedOutRun(t *testing.T) {
 	if run.Status != ProjectAnalysisStatusExpired || run.ErrorCode == nil || *run.ErrorCode != "analysis_timeout" {
 		t.Fatalf("run = status %q error %v", run.Status, run.ErrorCode)
 	}
-	if mosoo.requests != 0 {
-		t.Fatalf("mosoo requests = %d", mosoo.requests)
+	// The only Mosoo call is the archive that stops the abandoned Thread
+	// before the run is marked expired.
+	if mosoo.requests != 1 || len(mosoo.archived) != 1 || mosoo.archived[0] != "thread-1" {
+		t.Fatalf("mosoo requests = %d archived = %#v", mosoo.requests, mosoo.archived)
 	}
 }
 
@@ -632,5 +643,145 @@ func TestProjectAnalysisWorkerFailsWaitingInput(t *testing.T) {
 	}
 	if run.Status != ProjectAnalysisStatusFailed || run.ErrorCode == nil || *run.ErrorCode != "unexpected_input_request" {
 		t.Fatalf("run = status %q error %v", run.Status, run.ErrorCode)
+	}
+}
+
+func archiveCounter(metrics *BackendMetrics, reason, result string) float64 {
+	metrics.mu.Lock()
+	defer metrics.mu.Unlock()
+	return metrics.counters[metricKey{
+		name:   "ghfind_project_analysis_thread_archive_total",
+		labels: prometheusLabels(map[string]string{"reason": reason, "result": result}),
+	}]
+}
+
+func TestProjectAnalysisWorkerArchivesThreadAfterCompletion(t *testing.T) {
+	store := openProjectAnalysisTestStore(t)
+	createTestRun(t, store, "analysis-1", "owner/useful-tool", nil)
+
+	mosoo := newFakeMosoo(t)
+	mosoo.threadRuns["thread-1"] = []map[string]any{mosooThreadDoc("thread-1", "run-1", "completed", nil)}
+	mosoo.files["thread-1"] = mosooArtifactFiles("analysis-1")
+	mosoo.contents = validWorkerArtifacts(t, "analysis-1", "owner/useful-tool")
+	server := httptest.NewServer(mosoo.handler())
+	defer server.Close()
+
+	metrics := NewBackendMetrics()
+	worker, _ := newTestProjectAnalysisWorker(t, store, server.URL, nil)
+	worker.UseMetrics(metrics)
+	if disposition, reason := worker.process(context.Background(), ProjectAnalysisJob{ID: "analysis-1"}); disposition != workerCompleted || reason != "" {
+		t.Fatalf("disposition = %v reason = %q", disposition, reason)
+	}
+	run, err := store.GetProjectAnalysisRun(context.Background(), "analysis-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if run.Status != ProjectAnalysisStatusCompleted {
+		t.Fatalf("status = %q", run.Status)
+	}
+	if len(mosoo.archived) != 1 || mosoo.archived[0] != "thread-1" {
+		t.Fatalf("archived = %#v", mosoo.archived)
+	}
+	if got := archiveCounter(metrics, "completed", "archived"); got != 1 {
+		t.Fatalf("archive counter = %v", got)
+	}
+}
+
+func TestProjectAnalysisWorkerArchivesThreadAfterTerminalFailure(t *testing.T) {
+	store := openProjectAnalysisTestStore(t)
+	createTestRun(t, store, "analysis-1", "owner/useful-tool", nil)
+	if err := store.AttachMosooThread(context.Background(), AttachMosooThreadInput{
+		AnalysisID: "analysis-1", AgentID: "agent-1", ThreadID: "thread-1", RunID: "run-1",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	mosoo := newFakeMosoo(t)
+	mosoo.threadRuns["thread-1"] = []map[string]any{
+		mosooThreadDoc("thread-1", "run-1", "failed", map[string]any{"code": "tool_error", "message": "a tool failed"}),
+	}
+	server := httptest.NewServer(mosoo.handler())
+	defer server.Close()
+
+	metrics := NewBackendMetrics()
+	worker, _ := newTestProjectAnalysisWorker(t, store, server.URL, nil)
+	worker.UseMetrics(metrics)
+	if disposition, _ := worker.process(context.Background(), ProjectAnalysisJob{ID: "analysis-1"}); disposition != workerCompleted {
+		t.Fatalf("disposition = %v", disposition)
+	}
+	run, err := store.GetProjectAnalysisRun(context.Background(), "analysis-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if run.Status != ProjectAnalysisStatusFailed {
+		t.Fatalf("status = %q", run.Status)
+	}
+	if len(mosoo.archived) != 1 || mosoo.archived[0] != "thread-1" {
+		t.Fatalf("archived = %#v", mosoo.archived)
+	}
+	if got := archiveCounter(metrics, "failed", "archived"); got != 1 {
+		t.Fatalf("archive counter = %v", got)
+	}
+}
+
+func TestProjectAnalysisWorkerArchiveFailureIsLogOnly(t *testing.T) {
+	store := openProjectAnalysisTestStore(t)
+	createTestRun(t, store, "analysis-1", "owner/useful-tool", nil)
+	if err := store.AttachMosooThread(context.Background(), AttachMosooThreadInput{
+		AnalysisID: "analysis-1", AgentID: "agent-1", ThreadID: "thread-1", RunID: "run-1",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	mosoo := newFakeMosoo(t)
+	mosoo.archiveCode = http.StatusInternalServerError
+	mosoo.threadRuns["thread-1"] = []map[string]any{mosooThreadDoc("thread-1", "run-1", "waiting_input", nil)}
+	server := httptest.NewServer(mosoo.handler())
+	defer server.Close()
+
+	metrics := NewBackendMetrics()
+	worker, _ := newTestProjectAnalysisWorker(t, store, server.URL, nil)
+	worker.UseMetrics(metrics)
+	if disposition, reason := worker.process(context.Background(), ProjectAnalysisJob{ID: "analysis-1"}); disposition != workerCompleted || reason != "" {
+		t.Fatalf("disposition = %v reason = %q", disposition, reason)
+	}
+	run, err := store.GetProjectAnalysisRun(context.Background(), "analysis-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if run.Status != ProjectAnalysisStatusFailed || run.ErrorCode == nil || *run.ErrorCode != "unexpected_input_request" {
+		t.Fatalf("run = status %q error %v", run.Status, run.ErrorCode)
+	}
+	if got := archiveCounter(metrics, "failed", "failed"); got != 1 {
+		t.Fatalf("archive failure counter = %v", got)
+	}
+}
+
+func TestProjectAnalysisWorkerInactiveRetryDoesNotArchiveBeforeRetry(t *testing.T) {
+	store := openProjectAnalysisTestStore(t)
+	createTestRun(t, store, "analysis-1", "owner/useful-tool", nil)
+	if err := store.AttachMosooThread(context.Background(), AttachMosooThreadInput{
+		AnalysisID: "analysis-1", AgentID: "agent-1", ThreadID: "inactive-thread", RunID: "run-1",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	mosoo := newFakeMosoo(t)
+	mosoo.threadRuns["inactive-thread"] = []map[string]any{
+		mosooThreadDoc("inactive-thread", "run-1", "failed", map[string]any{"code": "runtime.inactive", "message": "inactive"}),
+	}
+	mosoo.onCreate = func(int) (int, any) {
+		return http.StatusOK, mosooThreadDoc("retry-thread", "retry-run", "running", nil)
+	}
+	mosoo.threadRuns["retry-thread"] = []map[string]any{mosooThreadDoc("retry-thread", "retry-run", "completed", nil)}
+	mosoo.files["retry-thread"] = mosooArtifactFiles("analysis-1")
+	mosoo.contents = validWorkerArtifacts(t, "analysis-1", "owner/useful-tool")
+	server := httptest.NewServer(mosoo.handler())
+	defer server.Close()
+
+	worker, _ := newTestProjectAnalysisWorker(t, store, server.URL, nil)
+	if disposition, _ := worker.process(context.Background(), ProjectAnalysisJob{ID: "analysis-1"}); disposition != workerCompleted {
+		t.Fatalf("disposition = %v", disposition)
+	}
+	// Only the retry Thread that produced the result is archived.
+	if len(mosoo.archived) != 1 || mosoo.archived[0] != "retry-thread" {
+		t.Fatalf("archived = %#v", mosoo.archived)
 	}
 }

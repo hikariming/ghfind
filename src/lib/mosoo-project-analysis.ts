@@ -7,6 +7,9 @@ import type {
 
 const DEFAULT_API_BASE = "http://127.0.0.1:8787/api/v1";
 const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
+// Archiving is best-effort cleanup on a terminal path; it must never hold up
+// the reconcile loop for the full request timeout.
+const ARCHIVE_REQUEST_TIMEOUT_MS = 5_000;
 
 const runStatusSchema = z.enum([
   "queued",
@@ -389,6 +392,38 @@ export async function getMosooProjectAnalysisSnapshot(
     activities: publicProjectAnalysisActivities(events.data.events),
     runError: thread.data.run.error ?? null,
   };
+}
+
+export type MosooThreadArchiveOutcome =
+  | { archived: true }
+  | { archived: false; errorCode: string; message: string };
+
+/**
+ * Best-effort `POST /threads/{id}/archive`. Mosoo counts a Thread's sandbox
+ * against the account's concurrent sandbox limit (5) until it is reclaimed;
+ * a finished Thread otherwise stays warm for the idle grace before reclaim,
+ * and a Thread we stopped watching (timeout) keeps running for up to two
+ * hours. Archiving cancels any active turn and closes the conversation at
+ * once. Archived Threads stay readable, so artifacts remain downloadable.
+ * Never throws: callers log the outcome and carry on.
+ */
+export async function archiveMosooThread(threadId: string): Promise<MosooThreadArchiveOutcome> {
+  try {
+    const config = projectAgentConfig();
+    const response = await mosooFetch(
+      { ...config, requestTimeoutMs: Math.min(config.requestTimeoutMs, ARCHIVE_REQUEST_TIMEOUT_MS) },
+      `/threads/${encodeURIComponent(threadId)}/archive`,
+      { method: "POST" },
+    );
+    await response.body?.cancel().catch(() => {});
+    return { archived: true };
+  } catch (error) {
+    return {
+      archived: false,
+      errorCode: error instanceof MosooProjectAnalysisError ? error.code : "mosoo_unavailable",
+      message: (error instanceof Error ? error.message : String(error)).slice(0, 200),
+    };
+  }
 }
 
 async function downloadArtifact(
