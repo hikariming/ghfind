@@ -80,7 +80,13 @@ re-roast).
 3. Watch `roast.summary` for `v12_fallback` rate and `v13ChainMs`.
 4. Production: `ROAST_V13_SCOPE=background` plus the separate release bump PR.
 
-Mosoo is not on the serving path: its 5-sandbox account limit is shared with
-project analysis and finished threads hold a slot until archived. A Mosoo
-writer can be added later as an optional background producer with
-archive-after-output and a configurable reserved-slot budget.
+Mosoo is not on the serving path. Upstream mosoo (`langgenius/mosoo`,
+`runtime-subject-record-store.ts` on main, Oct 2026) enforces a per-account
+concurrent sandbox limit (`ACCOUNT_CONCURRENT_SANDBOX_LIMIT`, currently 5) plus
+a deployment-wide ceiling (50). A turn that needs a new sandbox at the limit
+fails at once with retryable `runtime.capacity_exhausted`; nothing queues, and
+an idle sandbox is reclaimed only after a 5-minute grace unless the thread is
+archived. That account budget is shared with project analysis. A Mosoo writer
+can be added later as an optional background producer with
+archive-after-output and a reserved-slot setting read from config (never a
+hard-coded count), falling back to this chain on `capacity_exhausted`.
