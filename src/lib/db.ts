@@ -4813,12 +4813,28 @@ export async function updateRoast(
       ],
       "write",
     );
-    return (
-      Number(updated.rowsAffected ?? 0) === 1 && Number(snapshot.rowsAffected ?? 0) === 1
-    );
+    const persisted =
+      Number(updated.rowsAffected ?? 0) === 1 && Number(snapshot.rowsAffected ?? 0) === 1;
+    if (persisted) await refreshScoreDetailAfterRoast(normalizedUsername);
+    return persisted;
   } catch (e) {
     console.error("updateRoast failed:", e);
     return false;
+  }
+}
+
+/**
+ * The cached public score detail (/api/score, verdicts) embeds roast_line and
+ * the version-gated report fields, so a persisted report must move readers to
+ * a fresh namespace like a score publication does. The row is already
+ * committed; a coordination failure only leaves the old detail until its TTL
+ * and must not turn the persisted report into a failure.
+ */
+async function refreshScoreDetailAfterRoast(username: string): Promise<void> {
+  try {
+    await advanceScoreDetailRevision(username);
+  } catch (error) {
+    console.error("updateRoast: score detail revision not advanced", { username, error });
   }
 }
 
