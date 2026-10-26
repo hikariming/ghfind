@@ -166,6 +166,13 @@ windows that have roast traffic. A full provider outage still pages as soon as
 the second failed generation lands. Slow roast calls (over 30 seconds) remain a
 separate P2 warning.
 
+Background auto re-roasts (#566) run inside the ghfind-api cron, not as
+`/api/roast` requests, so they never count as homepage roast calls or roast
+latency. Their worker outcomes (`auto_reroast` done/failed; queue states such as
+pending or superseded are ignored) feed a separate `reroast` counter that only
+warns (P2) when at least three jobs and half of finished jobs fail within the
+same 30-minute lookback, because the profile keeps the previous report.
+
 Each cycle also GET-probes the homepage and torvalds large/mini cards for HTTP
 status and Content-Type. It does not start GitHub analysis or paid LLM generation.
 Probe failures need two windows. Passing probes do not prove correctness for every

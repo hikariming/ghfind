@@ -127,3 +127,34 @@ describe("rolling roast failure policy",()=>{
     expect(pts.find(p=>p.key==="Service:card:errors")).toMatchObject({amount:1,operations:1,minAmount:1});
   });
 });
+
+describe("background auto re-roast (cron) telemetry",()=>{
+  const at=1_800_000_000_000;
+  function cron(...outcomes:string[]):TraceItem {
+    const logs=outcomes.flatMap(outcome=>[
+      {message:["roast.summary",JSON.stringify({path:"default",source:"generate",ok:outcome!=="failed",firstContentMs:58_000})]},
+      {message:["auto_reroast",{outcome,username:"private-user",lang:"zh",to_roast_version:"v12"}]},
+    ]);
+    return {scriptName:"ghfind-api",eventTimestamp:at,event:{cron:"*/2 * * * *",scheduledTime:at},logs,exceptions:[],outcome:"ok",wallTime:400_000} as unknown as TraceItem;
+  }
+  it("counts cron re-roast jobs separately from interactive roast, with no latency signal or private fields",()=>{
+    const rows=summarize([cron("done","failed","pending","superseded")]);
+    expect(rows).toEqual([{at,feature:"reroast",total:2,failed:1,slow:0}]);
+    expect(JSON.stringify(rows)).not.toContain("private");
+  });
+  it("ignores cron invocations without re-roast jobs",()=>{
+    expect(summarize([cron()])).toEqual([]);
+  });
+  it("never pages P1 for background failures; warns only on a sustained rate",()=>{
+    const s=emptyState();
+    const row=(i:number,total:number,failed:number):BusinessCount=>({at:at+i*WINDOW_MS,feature:"reroast",total,failed,slow:0});
+    const history:BusinessCount[]=[];
+    const tick=(r:BusinessCount)=>{history.push(r);evaluate(s,{at:r.at,points:businessPoints([r],history),healthy:[],errors:[]},r.at);};
+    tick(row(0,3,2));tick(row(1,3,0)); // 2 failed of 6: below the 3-failure floor.
+    expect(s.outbox).toEqual([]);
+    expect(s.metrics["Service:reroast:errors"].severity).toBe(0);
+    tick(row(2,2,2));tick(row(3,2,2)); // 6 of 10 failed in 30 minutes.
+    expect(s.metrics["Service:reroast:errors"].severity).toBe(1);
+    expect(s.metrics["Service:roast:errors"]).toBeUndefined();
+  });
+});
