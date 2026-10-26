@@ -54,12 +54,36 @@ export function summarize(events:TraceItem[]):BusinessCount[] {
   }
   return [...counts.values()];
 }
-export function businessPoints(rows:BusinessCount[]):Point[]{
+/** Roast generation is a low-volume LLM stream (a handful of calls per five
+ * minutes) whose isolated provider failures already degrade to a stored
+ * previous-release report. Page on repeated failures within a rolling window
+ * instead of on any single failure: one sporadic timeout in a 2-call bucket is
+ * not an outage, while a real provider outage fails every generation and
+ * reaches two failures within the lookback even at night-time traffic. */
+export const ROAST_FAILURE_LOOKBACK_WINDOWS=6;
+export const ROAST_FAILURE_MIN_FAILED=2;
+/** Sum one feature's counts over the rolling lookback ending at `at` (inclusive). */
+export function rollingCounts(rows:BusinessCount[],feature:BusinessCount["feature"],at:number,windows:number):{total:number;failed:number}{
+  const from=at-(windows-1)*WINDOW_MS;
+  return rows.filter(r=>r.feature===feature&&r.at>=from&&r.at<=at).reduce((sum,r)=>({total:sum.total+r.total,failed:sum.failed+r.failed}),{total:0,failed:0});
+}
+/** `rows` are the current window's counts; `history` may add earlier windows
+ * (the current window included) for features judged over a rolling lookback.
+ * Without history, the current window is the whole lookback. */
+export function businessPoints(rows:BusinessCount[],history:BusinessCount[]=rows):Point[]{
   const names={card:"GitHub README 炫耀卡",roast:"首页锐评生成",scan:"首页 GitHub 分析"};
   return rows.flatMap(r=>[
+    r.feature==="roast"?roastErrorPoint(r,history,names.roast):
     {key:`Service:${r.feature}:errors`,product:"Service" as const,resource:names[r.feature],label:"关键功能失败",amount:r.failed,operations:r.total,unit:"次失败",usd:0,gauge:true,relative:false,minAmount:r.feature==="scan"?3:1,minOperations:1,efficiency:r.failed/r.total,efficiencyCritical:r.feature==="scan"?0.2:0,denominator:"已观测功能调用"},
     {key:`Service:${r.feature}:slow`,product:"Service" as const,resource:names[r.feature],label:"响应超过 30 秒",amount:r.slow,operations:r.total,unit:"次慢响应",usd:0,gauge:true,relative:false,minAmount:2,minOperations:1,efficiency:r.slow/r.total,efficiencyWarning:0.2,denominator:"已观测功能调用"},
   ]);
+}
+function roastErrorPoint(current:BusinessCount,history:BusinessCount[],resource:string):Point{
+  // The current window is authoritative even if history was read before a
+  // late Tail batch landed; earlier windows come from history only.
+  const earlier=rollingCounts(history.filter(r=>r.at!==current.at),"roast",current.at,ROAST_FAILURE_LOOKBACK_WINDOWS);
+  const total=current.total+earlier.total,failed=current.failed+earlier.failed;
+  return {key:"Service:roast:errors",product:"Service",resource,label:"关键功能失败",amount:failed,operations:total,unit:"次失败",usd:0,gauge:true,relative:false,minAmount:ROAST_FAILURE_MIN_FAILED,minOperations:1,efficiency:total?failed/total:0,efficiencyCritical:0,denominator:"已观测功能调用",scope:"近 30 分钟"};
 }
 export async function probe(now:number,fetcher=fetch,login?:string):Promise<Point[]>{
   const targets=[{name:"首页公开访问",url:"https://ghfind.com/",type:"text/html"}];

@@ -62,7 +62,7 @@ try {
   await request("/test/reset");
   const business=(await request("/test/business")).body;
   assert.equal(business.rows[0].total,5);assert.equal(business.rows[0].failed,1);assert.equal(business.rows[0].slow,1);assert.equal(business.severity,2);assert.equal(business.remaining,0);
-  result.steps.push({name:"business aggregate RPC, critical failure policy and TTL cleanup"});
+  result.steps.push({name:"business aggregate RPC, rolling roast failure policy and TTL cleanup"});
   await request("/test/baseline");
   const partial=(await request("/test/partial")).body;
   assert.equal(partial.pending,1,"A failed second recipient must remain queued");

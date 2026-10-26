@@ -33,6 +33,8 @@ export interface Point {
   observedAt?: number;
   gauge?: boolean;
   denominator?: string;
+  // Failure signals judged over more than the current window name that span.
+  scope?: string;
   relative?: boolean;
   diagnostic?: boolean; // Per-SQL breakdown: never double count database cost.
   // Account-only partial coverage: positive cost evidence, never a full bucket.
@@ -345,7 +347,7 @@ function observation(p: Point): string {
   if (failureSignal(p)) {
     const result = p.key.endsWith(":slow") ? `响应超过 30 秒` : "失败";
     return p.operations > 0
-      ? `${p.operations.toLocaleString("en-US")} 次${p.product === "Service" ? "调用" : "运行"}中 ${count} 次${result}（${percentage(p.amount / p.operations)}）`
+      ? `${p.scope ? `${p.scope} ` : ""}${p.operations.toLocaleString("en-US")} 次${p.product === "Service" ? "调用" : "运行"}中 ${count} 次${result}（${percentage(p.amount / p.operations)}）`
       : p.amount ? `已观测 ${count} 次${result}；本窗缺少调用总数` : `本窗口没有${p.product === "Service" ? "调用" : "运行"}样本`;
   }
   return `${count} ${p.unit}${p.efficiency === undefined ? "" : `；每次${p.denominator ?? "操作"} ${p.efficiency.toFixed(2)} ${p.unit}`}`;

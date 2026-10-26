@@ -4,7 +4,7 @@ import { dailySlot, DIGEST_MS, discardInternalMail, selectMail } from "./mail-po
 import { renderDailyDigest, renderMail } from "./mail";
 import { billingDue, internalDiagnostics, observeCollection } from "./collection-health";
 import { billable, collect } from "./metrics";
-import { businessPoints, probe, summarize, type BusinessCount } from "./business";
+import { businessPoints, probe, ROAST_FAILURE_LOOKBACK_WINDOWS, summarize, type BusinessCount } from "./business";
 import { collectTraffic, type TrafficReport } from "./traffic-metrics";
 import { renderTrafficReport } from "./traffic-report";
 import { trafficDue, trafficComplete } from "./traffic-schedule";
@@ -207,7 +207,9 @@ export class CostMonitor extends DurableObject<MonitorEnv> {
         frame=await collect(config,now);
         await this.recordBusiness([]);
         const business=this.ctx.storage.sql.exec<BusinessCount & Record<string,SqlStorageValue>>("SELECT * FROM business_windows WHERE at=?",frame.at).toArray();
-        frame.points.push(...businessPoints(business),...await probe(now,fetch,this.env.PROBE_GITHUB_LOGIN));
+        // Roast failures are judged over a rolling lookback (see business.ts).
+        const recent=this.ctx.storage.sql.exec<BusinessCount & Record<string,SqlStorageValue>>("SELECT * FROM business_windows WHERE at>? AND at<=?",frame.at-ROAST_FAILURE_LOOKBACK_WINDOWS*WINDOW_MS,frame.at).toArray();
+        frame.points.push(...businessPoints(business,recent),...await probe(now,fetch,this.env.PROBE_GITHUB_LOGIN));
         if(billingDue(state,now)){
           state.lastBillingAttempt=now;
           try{frame.points.push(...await billable(config,now));billingCollected=true;state.lastBillingError=null;}catch{state.lastBillingError="Billing: reconciliation unavailable";}
@@ -312,10 +314,14 @@ export class CostMonitor extends DurableObject<MonitorEnv> {
       }
       if(phase==="business"){
         const at=Math.floor(Date.now()/WINDOW_MS)*WINDOW_MS;
+        // Two failures inside the rolling roast lookback: one in an earlier
+        // window, one merged into the current window's aggregate.
+        await this.recordBusiness([{at:at-WINDOW_MS,feature:"roast",total:1,failed:1,slow:0}]);
         await this.recordBusiness([{at,feature:"roast",total:2,failed:1,slow:0}]);
         await this.recordBusiness([{at,feature:"roast",total:3,failed:0,slow:1}]);
         const rows=this.ctx.storage.sql.exec<BusinessCount & Record<string,SqlStorageValue>>("SELECT * FROM business_windows WHERE at=?",at).toArray();
-        const points=businessPoints(rows);
+        const recent=this.ctx.storage.sql.exec<BusinessCount & Record<string,SqlStorageValue>>("SELECT * FROM business_windows WHERE at>? AND at<=?",at-ROAST_FAILURE_LOOKBACK_WINDOWS*WINDOW_MS,at).toArray();
+        const points=businessPoints(rows,recent);
         evaluate(state,{at,points,healthy:[],errors:[]},Date.now());
         const severity=state.metrics["Service:roast:errors"].severity;
         this.prune(Date.now()+HISTORY_TTL_MS+WINDOW_MS);
