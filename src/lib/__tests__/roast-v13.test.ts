@@ -89,7 +89,7 @@ const goodCopy = {
   verdict: "代码是真写,名气全靠别人家的仓库撑场。",
   findings: [
     { headline: "最贵的两个词", text: "popular-org/word-trainer 有 23551 星,你在那里只有 1 个 PR。" },
-    { headline: "组件库冬眠", text: "57 星的 sample-user/widget-kit 从 1 月起没再推送。" },
+    { headline: "组件库下班了", text: "57 星的 sample-user/widget-kit 从 1 月起没再推送。" },
     { headline: "关注比粉丝勤快", text: "粉丝 44,关注 55。" },
   ],
   dimensions: {
