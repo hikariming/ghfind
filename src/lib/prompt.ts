@@ -869,11 +869,16 @@ function slimPayloadToBudget(payload: RoastPayload): RoastPayload {
   return payload;
 }
 
+/** The budget-slimmed writer payload, shared by roast v12 and the v13 chain. */
+export function buildRoastPayload(scan: ScanResult, lang: Lang = "zh"): RoastPayload {
+  return slimPayloadToBudget(buildPayload(scan, lang));
+}
+
 export function buildRoastMessages(
   scan: ScanResult,
   lang: Lang = "zh",
 ) {
-  const payload = slimPayloadToBudget(buildPayload(scan, lang));
+  const payload = buildRoastPayload(scan, lang);
   const system = lang === "en" ? SYSTEM_PROMPT_EN : SYSTEM_PROMPT_ZH;
   const preamble =
     lang === "en"

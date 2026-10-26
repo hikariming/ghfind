@@ -21,7 +21,11 @@ import {
   chatStreamEventsWithFallback,
   defaultLlmConfig,
   fallbackLlmConfig,
+  getCompletionWithFallback,
+  roastV13LlmConfig,
 } from "@/lib/llm";
+import { roastGenerator } from "@/lib/cache-version";
+import { generateRoastV13, type V13StepLog } from "@/lib/roast-v13/chain";
 import { beatPercent } from "@/lib/percentile";
 import { buildRoastMessages } from "@/lib/prompt";
 import { reportMatchesLang } from "@/lib/report";
@@ -83,6 +87,31 @@ function classifyLlmError(e: unknown): "timeout" | "quota" | "upstream" | "other
   const msg = e instanceof Error ? e.message : String(e);
   if (/^LLM (error \d|request failed)/.test(msg)) return "upstream";
   return "other";
+}
+
+/** v13 chain budget: leaves the v12 fallback ~80s inside llmDeadlineMs. */
+const V13_CHAIN_BUDGET_MS = 140_000;
+const V13_STEP_MS = 60_000;
+
+function v13StepsOf(e: unknown): V13StepLog[] {
+  return e && typeof e === "object" && Array.isArray((e as { steps?: unknown }).steps)
+    ? (e as { steps: V13StepLog[] }).steps
+    : [];
+}
+
+/** Approximate usage for cost tracking (the non-streaming helper returns text
+ * only): ~1.6 chars/token for mixed CJK/JSON prompts. */
+function v13Usage(steps: V13StepLog[]): Record<string, number> {
+  const inChars = steps.reduce((n, s) => n + s.inChars, 0);
+  const outChars = steps.reduce((n, s) => n + s.outChars, 0);
+  return {
+    v13Calls: steps.length,
+    v13InChars: inChars,
+    v13OutChars: outChars,
+    v13EstInTokens: Math.round(inChars / 1.6),
+    v13EstOutTokens: Math.round(outChars / 1.6),
+    v13ChainMs: steps.reduce((n, s) => n + s.ms, 0),
+  };
 }
 
 /** One structured line per roast (success or failure) for prod triage. Failure
@@ -983,6 +1012,119 @@ export async function handleRoastPost(req: NextRequest, options: RoastHandlerOpt
         close();
       };
 
+      // Roast v13: angle picker → writer → editor chain with deterministic fact
+      // checks and a code-rendered report. Opt-in (ROAST_GENERATOR=v13) and
+      // operator-funded only. Any chain failure falls through to the v12
+      // single-call stream below (same roast release, so it persists normally).
+      let generator: "v12" | "v13" | "v12_fallback" = "v12";
+      let v13Steps: V13StepLog[] = [];
+      let v13Error: string | null = null;
+      if (isDefault && roastGenerator({ background: options.autoReroastJob }) === "v13") {
+        generator = "v13";
+        const v13Configs = [roastV13LlmConfig(), ...llmConfigs].filter(
+          (c): c is LlmConfig => c !== null,
+        );
+        const stageLabel: Record<string, string> =
+          lang === "en"
+            ? { angles: "Picking the sharpest facts…", writer: "Writing roast…", editor: "Fact-checking every line…" }
+            : { angles: "正在挑选扎心事实…", writer: "正在撰写锐评…", editor: "正在逐句核对事实…" };
+        let stage = stageLabel.angles;
+        beat(stage, true);
+        const ticker = setInterval(() => beat(stage, true), 3000);
+        try {
+          const v13 = await generateRoastV13(
+            scan,
+            lang,
+            (step, messages, o) => {
+              stage = stageLabel[step] ?? stage;
+              beat(stage, true);
+              return getCompletionWithFallback(v13Configs, messages, {
+                temperature: o.temperature,
+                deadlineMs: o.deadlineMs,
+                attemptBudgetMs: Math.min(V13_STEP_MS, o.deadlineMs - Date.now()),
+                onAttempt(event) {
+                  attempts.push({ ...event, provider: `${event.provider}:${step}` });
+                  if (event.phase === "first_event" && firstEventMs === null) {
+                    firstEventMs = Date.now() - reqT0;
+                  }
+                },
+              });
+            },
+            { deadlineMs: reqT0 + V13_CHAIN_BUDGET_MS, stepBudgetMs: V13_STEP_MS },
+          );
+          v13Steps = v13.steps;
+          clearInterval(ticker);
+          const identitySafe = sanitizeIdentityClaims(
+            scan,
+            v13.tags,
+            {
+              zh: clampRoastLine(v13.roastLine.zh, "zh"),
+              en: clampRoastLine(v13.roastLine.en, "en"),
+            },
+            v13.report,
+          );
+          const { tags, roastLine, report } = sanitizeStrongCoreRoast(
+            scan,
+            identitySafe.tags,
+            identitySafe.roastLine,
+            identitySafe.report,
+          );
+          let meta: RoastMeta;
+          try {
+            meta = await computeMeta(scan, 0, tags, roastLine, lang);
+            metaMs = Date.now() - reqT0;
+          } catch (e) {
+            return failAndClose(
+              { error: "roast_failed" },
+              { stage: "meta", kind: classifyLlmError(e), generator, v13Steps },
+            );
+          }
+          push(metaFrame(enc, meta));
+          firstContentMs = Date.now() - reqT0;
+          let full = sanitizeOutputText(scan, report);
+          full += signatureWorkAppendix(scan, lang, full);
+          push(enc.encode(full));
+          try {
+            if (reportMatchesLang(full, lang)) {
+              const persisted = scoreIdentity
+                ? await updateRoast(username, full, lang, scoreIdentity, { tags, roastLine })
+                : false;
+              if (persisted) {
+                await cacheRoastReplay(
+                  username, lang, snapshotHash, full, tags, roastLine, meta.final_score, meta.tier,
+                );
+              }
+            }
+            logRoastSummary({
+              ...summaryFields(), ok: true, generator, score: meta.final_score, delta: 0,
+              chars: full.length, v13Steps, ...v13Usage(v13Steps),
+              v13DraftIssues: v13.draftIssues.length, v13FinalIssues: v13.finalIssues.length,
+              v13Dropped: v13.dropped.length,
+            });
+          } catch (e) {
+            logRoastSummary({
+              ...summaryFields(), ok: false, stage: "persist", generator,
+              kind: classifyLlmError(e), chars: full.length, v13Steps,
+            });
+          } finally {
+            if (isLeader) await releaseRoastLock(username, lang);
+            close();
+          }
+          return;
+        } catch (e) {
+          clearInterval(ticker);
+          if (e instanceof LlmQuotaError) {
+            return failAndClose(
+              { error: "llm_quota", useByoKey: true, status: e.status },
+              { stage: "generation", kind: "quota", generator, v13Steps: v13StepsOf(e) },
+            );
+          }
+          v13Steps = v13StepsOf(e);
+          v13Error = e instanceof Error ? e.message.slice(0, 160) : "error";
+          generator = "v12_fallback";
+        }
+      }
+
       beat(generating, true);
       const events = chatStreamEventsWithFallback(llmConfigs, buildRoastMessages(scan, lang), {
         deadlineMs: llmDeadlineMs,
@@ -1102,8 +1244,9 @@ export async function handleRoastPost(req: NextRequest, options: RoastHandlerOpt
           }
         }
         logRoastSummary({
-          ...summaryFields(), ok: true,
+          ...summaryFields(), ok: true, generator,
           score: meta.final_score, delta, chars: full.length,
+          ...(generator === "v12_fallback" ? { v13Steps, v13Error } : {}),
         });
       } catch (e) {
         logRoastSummary({

@@ -83,6 +83,19 @@ export function fallbackLlmConfig(): LlmConfig | null {
 }
 
 /**
+ * Optional dedicated provider for the roast v13 chain (`ROAST_V13_LLM_API_KEY`
+ * + `ROAST_V13_LLM_BASE_URL` + `ROAST_V13_LLM_MODEL`). When unset the chain uses
+ * the default provider and its fallback.
+ */
+export function roastV13LlmConfig(): LlmConfig | null {
+  const apiKey = process.env.ROAST_V13_LLM_API_KEY;
+  const baseURL = process.env.ROAST_V13_LLM_BASE_URL;
+  const model = process.env.ROAST_V13_LLM_MODEL;
+  if (!apiKey || !baseURL || !model) return null;
+  return { baseURL, apiKey, model };
+}
+
+/**
  * Stream a chat completion, yielding text deltas. Throws {@link LlmQuotaError}
  * on 401/402/429 so the caller can prompt the user for their own key.
  */
