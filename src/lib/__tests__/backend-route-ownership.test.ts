@@ -19,6 +19,8 @@ const REVIEWED_NEXT_API_ROUTES = new Set([
   "src/app/api/auth/signout/route.ts",
   "src/app/api/me/route.ts",
   "src/app/api/roast/route.ts",
+  // On-view re-roast after a roast-release upgrade: enqueue (gated) + status poll.
+  "src/app/api/roast/auto/route.ts",
   "src/app/api/scan/route.ts",
   "src/app/api/blog-comments/[slug]/route.ts",
   "src/app/api/campaigns/[campaign]/leaderboard/route.ts",

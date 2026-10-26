@@ -52,6 +52,7 @@ import * as projectAnalysis from "@/app/api/project-analyses/[id]/route";
 import * as projectAnalyses from "@/app/api/project-analyses/route";
 import * as resumes from "@/app/api/resumes/route";
 import * as roast from "@/app/api/roast/route";
+import * as roastAuto from "@/app/api/roast/auto/route";
 import * as apiIndex from "@/app/api/route";
 import * as scan from "@/app/api/scan/route";
 import * as score from "@/app/api/score/[username]/route";
@@ -139,6 +140,7 @@ export const API_ROUTES: ApiRoute[] = [
   { path: "/api/score/:username", module: score },
   { path: "/api/scan", module: scan },
   { path: "/api/roast", module: roast },
+  { path: "/api/roast/auto", module: roastAuto },
   { path: "/api/vs-verdict", module: vsVerdict },
   { path: "/api/project-analyses", module: projectAnalyses },
   { path: "/api/project-analyses/:id", module: projectAnalysis },

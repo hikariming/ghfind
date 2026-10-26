@@ -6057,6 +6057,14 @@ export interface AccountDetail {
   prev_scanned_at: number | null;
   risk_assessment?: RiskAssessment | null;
   risk_notes?: RiskSignal[];
+  /**
+   * Report from an older roast release on a current score. Never the current
+   * report: the page labels it 旧版锐评 while the auto re-roast regenerates it.
+   */
+  stale_roast?: string;
+  stale_roast_en?: string;
+  stale_roast_version?: string;
+  stale_roast_en_version?: string;
 }
 
 export interface ArchivedRoast {
@@ -6424,6 +6432,14 @@ export async function getRetiredAccountIdentity(username: string): Promise<{
   return row ? { username: String(row.username), displayName: row.display_name ? String(row.display_name) : null } : null;
 }
 
+/** A non-empty report written by an older roast release (see AccountDetail.stale_roast). */
+function staleRoastArtifact(version: unknown, report: unknown): { version: string; report: string } | null {
+  return typeof version === "string" && version && version !== ROAST_CACHE_VERSION &&
+    typeof report === "string" && report.trim()
+    ? { version, report }
+    : null;
+}
+
 /** Full persisted record for one account's detail page (null if absent/hidden). */
 export async function getAccountDetail(username: string): Promise<AccountDetail | null> {
   const db = getClient();
@@ -6478,6 +6494,17 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       : legacyReadFallback
         ? LEGACY_READ_FALLBACK.roast
         : null;
+    const zhCurrent = Boolean(artifactRoastVersion) && r.roast_version === artifactRoastVersion;
+    const enCurrent = Boolean(artifactRoastVersion) && r.roast_en_version === artifactRoastVersion;
+    // Every report generation rewrites the bilingual one-liner, so it is
+    // current exactly when one of the reports is (mirrors the Go profile API).
+    const roastLineCurrent = readableArtifacts && (zhCurrent || enCurrent);
+    const staleZh = canonicalScore && resolvedCurrentScore && !zhCurrent
+      ? staleRoastArtifact(r.roast_version, r.roast)
+      : null;
+    const staleEn = canonicalScore && resolvedCurrentScore && !enCurrent
+      ? staleRoastArtifact(r.roast_en_version, r.roast_en)
+      : null;
     return {
       username: String(r.username),
       display_name: r.display_name as string | null,
@@ -6486,18 +6513,14 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       final_score: Number(r.final_score),
       tier: String(r.tier) as Tier,
       tags: readableArtifacts ? parseTags(r.tags) : EMPTY_TAGS,
-      roast_line: readableArtifacts ? parseRoastLine(r.roast_line) : EMPTY_ROAST_LINE,
+      roast_line: roastLineCurrent ? parseRoastLine(r.roast_line) : EMPTY_ROAST_LINE,
       sub_scores: parseSubScores(r.sub_scores),
       risk_assessment: parseRiskAssessment(r.risk_assessment),
       risk_notes: parseRiskNotes(r.risk_notes),
-      roast:
-        artifactRoastVersion && r.roast_version === artifactRoastVersion
-          ? ((r.roast as string | null) ?? null)
-          : null,
-      roast_en:
-        artifactRoastVersion && r.roast_en_version === artifactRoastVersion
-          ? ((r.roast_en as string | null) ?? null)
-          : null,
+      roast: zhCurrent ? ((r.roast as string | null) ?? null) : null,
+      roast_en: enCurrent ? ((r.roast_en as string | null) ?? null) : null,
+      ...(staleZh ? { stale_roast: staleZh.report, stale_roast_version: staleZh.version } : {}),
+      ...(staleEn ? { stale_roast_en: staleEn.report, stale_roast_en_version: staleEn.version } : {}),
       score_version: typeof r.score_version === "string" ? r.score_version : null,
       legacy_read_fallback: legacyReadFallback,
       score_source_collection_version:

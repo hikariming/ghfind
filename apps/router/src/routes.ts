@@ -67,6 +67,7 @@ const API_ROUTES: readonly RegExp[] = [
   /^\/api\/score\/[^/]+$/,
   /^\/api\/scan$/,
   /^\/api\/roast$/,
+  /^\/api\/roast\/auto$/,
   /^\/api\/vs-verdict$/,
   /^\/api\/project-analyses$/,
   /^\/api\/project-analyses\/[^/]+$/,
