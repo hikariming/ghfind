@@ -156,12 +156,12 @@ export function CopyBadge({
    *  copies to the self-share vs. the on-landing viral loop in the funnel. */
   surface?: string;
   /**
-   * Cache-buster for the on-page previews. The card/badge images are served with
-   * a long CDN cache (README/camo views stay cheap), so without this the preview
-   * shown right after a re-score would keep displaying the stale image. Keying it
-   * on the current score forces a fresh fetch so the on-page card updates in real
-   * time. The copyable README snippets intentionally stay clean (no `?v`) — those
-   * embeds refresh via the CDN window, which is acceptable off-site.
+   * Scan version (`scanned_at`) for the on-page previews and the copyable image
+   * link. The card/badge images are edge-cached (README/camo views stay cheap);
+   * the router keeps a timestamp `?v` in its cache key, so a versioned URL
+   * renders the current scan right after a rescan instead of the cached one.
+   * The Markdown/HTML README snippets intentionally stay clean (no `?v`) —
+   * those embeds refresh within the short score-card CDN window.
    */
   version?: string | number;
 }) {
@@ -222,6 +222,9 @@ export function CopyBadge({
   const alt = T(size === "badge" ? "badgeAlt" : isMini(size) ? "miniAlt" : "cardAlt");
   const url = imageUrl(base);
   const previewUrl = imageUrl(previewBase, { v: versionParam });
+  // The bare image link is what people open or share directly; version it like
+  // the preview so it never shows a pre-rescan card.
+  const versionedUrl = imageUrl(base, { v: versionParam });
   const embedWidth = size === "large" ? LARGE_WIDTH : isMini(size) ? MINI_CARD_SIZES[size].w : null;
   const widthAttr = embedWidth ? ` width="${embedWidth}"` : "";
 
@@ -276,7 +279,7 @@ export function CopyBadge({
   };
 
   const snippets: { key: string; label: string; value: string }[] = [
-    ...(size === "badge" ? [] : [{ key: "url", label: T("fieldUrl"), value: url }]),
+    ...(size === "badge" ? [] : [{ key: "url", label: T("fieldUrl"), value: versionedUrl }]),
     { key: "md", label: T("markdown"), value: markdown },
     { key: "html", label: T("html"), value: html },
     ...(picture ? [{ key: "picture", label: T("picture"), value: picture }] : []),
