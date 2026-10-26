@@ -183,3 +183,67 @@ func TestProfileDetailFallsBackWithoutInventingRedFlags(t *testing.T) {
 		t.Fatalf("red flags=%#v, want none", detail.ScoreBreakdown.RedFlags)
 	}
 }
+
+func TestProfileDetailWithholdsOlderRoastReleaseArtifacts(t *testing.T) {
+	store := openProfileAPITestStore(t)
+	insertProfileAPITestScore(t, store, "demo-dev", 70)
+	if _, err := store.db.Exec(`UPDATE scores SET roast_version = 'v11', roast_en_version = 'v11' WHERE username = 'demo-dev'`); err != nil {
+		t.Fatal(err)
+	}
+	detail, err := store.GetProfileDetail(context.Background(), "demo-dev")
+	if err != nil || detail == nil {
+		t.Fatalf("detail=%#v err=%v", detail, err)
+	}
+	if detail.Roast != nil || detail.RoastEN != nil {
+		t.Fatalf("older-release report served as current: %#v / %#v", detail.Roast, detail.RoastEN)
+	}
+	if detail.RoastLine != (RoastLine{}) {
+		t.Fatalf("older-release one-liner served as current: %#v", detail.RoastLine)
+	}
+	if detail.StaleRoast == nil || *detail.StaleRoast != "中文报告" || detail.StaleRoastVersion == nil || *detail.StaleRoastVersion != "v11" {
+		t.Fatalf("stale zh report=%#v version=%#v", detail.StaleRoast, detail.StaleRoastVersion)
+	}
+	if detail.StaleRoastEN == nil || *detail.StaleRoastEN != "English report" {
+		t.Fatalf("stale en report=%#v", detail.StaleRoastEN)
+	}
+}
+
+func TestProfileDetailKeepsOneLinerWhenEitherReportIsCurrent(t *testing.T) {
+	store := openProfileAPITestStore(t)
+	insertProfileAPITestScore(t, store, "sample-a", 70)
+	if _, err := store.db.Exec(`UPDATE scores SET roast_en_version = 'v11' WHERE username = 'sample-a'`); err != nil {
+		t.Fatal(err)
+	}
+	detail, err := store.GetProfileDetail(context.Background(), "sample-a")
+	if err != nil || detail == nil {
+		t.Fatalf("detail=%#v err=%v", detail, err)
+	}
+	if detail.Roast == nil || detail.RoastEN != nil {
+		t.Fatalf("roast=%#v roast_en=%#v", detail.Roast, detail.RoastEN)
+	}
+	if detail.RoastLine.ZH != "一句" || detail.RoastLine.EN != "line" {
+		t.Fatalf("one-liner=%#v", detail.RoastLine)
+	}
+	if detail.StaleRoast != nil || detail.StaleRoastEN == nil {
+		t.Fatalf("stale zh=%#v stale en=%#v", detail.StaleRoast, detail.StaleRoastEN)
+	}
+}
+
+func TestStoredScoreWithholdsOlderRoastReleaseOneLiner(t *testing.T) {
+	store := openProfileAPITestStore(t)
+	insertProfileAPITestScore(t, store, "demo-dev", 70)
+	current, err := store.GetStoredScore(context.Background(), "demo-dev")
+	if err != nil || current == nil || current.RoastLine.ZH != "一句" {
+		t.Fatalf("current=%#v err=%v", current, err)
+	}
+	if _, err := store.db.Exec(`UPDATE scores SET roast_version = 'v11', roast_en_version = NULL WHERE username = 'demo-dev'`); err != nil {
+		t.Fatal(err)
+	}
+	stale, err := store.GetStoredScore(context.Background(), "demo-dev")
+	if err != nil || stale == nil {
+		t.Fatalf("stale=%#v err=%v", stale, err)
+	}
+	if stale.RoastLine != (RoastLine{}) {
+		t.Fatalf("older-release one-liner served: %#v", stale.RoastLine)
+	}
+}

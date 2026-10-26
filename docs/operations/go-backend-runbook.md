@@ -202,7 +202,8 @@ The backend also serves the project-analysis surface on staging:
 `/api/internal/project-analyses/reconcile` (manual backstop that re-enqueues
 stalled runs; parked runs re-drive themselves through the delayed retry lane).
 The worker consumes a dedicated `ghfind.project-analysis.v1` queue lane
-(`GHFIND_PROJECT_ANALYSIS_CONCURRENCY`, default 20) and drives the Mosoo
+(`GHFIND_PROJECT_ANALYSIS_CONCURRENCY`, default 3, max 20; Mosoo allows 5
+concurrent sandboxes per account) and drives the Mosoo
 agent end to end. Without Mosoo credentials submissions still queue and fail
 with the standard `mosoo_*` error codes.
 

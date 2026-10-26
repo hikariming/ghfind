@@ -22,9 +22,12 @@ const (
 	defaultMosooRequestTimeout     = 15 * time.Second
 	defaultProjectAnalysisTimeout  = 15 * time.Minute
 	// Project analysis runs are concurrency-capped because each one holds a
-	// long-lived Cattle Agent thread.
-	defaultProjectAnalysisConcurrency       = 20
-	maxProjectAnalysisConcurrency           = 100
+	// Mosoo sandbox, and Mosoo admits at most 5 concurrent sandboxes per
+	// account (ACCOUNT_CONCURRENT_SANDBOX_LIMIT); finished Threads keep
+	// counting until archived or reclaimed. The cap mirrors the TypeScript
+	// maximumConcurrentRuns clamp.
+	defaultProjectAnalysisConcurrency       = 3
+	maxProjectAnalysisConcurrency           = 20
 	defaultProjectAnalysisCreateMaxAttempts = 3
 	maxProjectAnalysisCreateMaxAttempts     = 10
 	defaultProjectAnalysisCreateRetryBase   = 5 * time.Second

@@ -25,6 +25,7 @@ import { normLang } from "@/lib/lang";
 import { scoreRedFlagLabel } from "@/lib/score-red-flags";
 import { RescanButton } from "@/components/RescanButton";
 import { StaleScanHint } from "@/components/StaleScanHint";
+import { AutoReroast } from "@/components/AutoReroast";
 import { StaleScoreRescan } from "@/components/StaleScoreRescan";
 import { needsScoreVersionUpgrade } from "@/lib/score-version";
 import { BadgeReferralBanner } from "@/components/BadgeReferralBanner";
@@ -130,6 +131,11 @@ export function ProfileView({
       sourceCollectionVersion: d.score_source_collection_version,
       sourceSnapshotHash: d.score_source_snapshot_hash,
     });
+  // Current score, but no report on the current roast release in this
+  // language (a score change cleared it, or the roast release moved on):
+  // regenerate on view instead of showing the "not archived" empty state.
+  const reroastPending = artifactState === "report-pending" && !legacyReadFallback && !roast;
+  const staleRoast = (lang === "en" ? d.stale_roast_en : d.stale_roast) ?? null;
   const artifactCopy =
     artifactState === "stale-score"
       ? {
@@ -924,6 +930,18 @@ export function ProfileView({
             orgs={organizations}
             advx={isAdvxCampaign}
             materialVersion={d.scanned_at}
+          />
+        ) : reroastPending ? (
+          <AutoReroast
+            username={d.username}
+            lang={lang}
+            staleReport={
+              staleRoast ? (
+                <div dir="ltr" className="report text-[0.95rem] text-zinc-200">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{staleRoast}</ReactMarkdown>
+                </div>
+              ) : null
+            }
           />
         ) : (
           <p className="text-sm text-zinc-400">

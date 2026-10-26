@@ -216,6 +216,9 @@ func (w *ProjectAnalysisWorker) process(ctx context.Context, job ProjectAnalysis
 			return workerCompleted, ""
 		}
 		if run.StartedAt != nil && time.Since(time.UnixMilli(*run.StartedAt)) > w.config.ProjectAnalysisTimeout {
+			// Archive first: Mosoo keeps running (and holding a sandbox) for
+			// up to two hours after ghfind gives up unless the Thread stops.
+			w.archiveThread(ctx, run, "expired")
 			if err := w.failRun(ctx, run.ID, "analysis_timeout", "Project analysis exceeded the configured execution timeout.", ProjectAnalysisStatusExpired, nil); err != nil {
 				w.metrics.recordWorkerJobRetry(ProjectAnalysisJobKind, time.Since(startedAt))
 				return workerRetry, err.Error()
@@ -251,6 +254,35 @@ func (w *ProjectAnalysisWorker) reloadRun(ctx context.Context, run *ProjectAnaly
 		return run
 	}
 	return fresh
+}
+
+// archiveThread mirrors releaseMosooThread: a best-effort archive of the
+// run's Mosoo Thread once ghfind no longer needs it, so the account's
+// concurrent sandbox limit is not held by finished or abandoned Threads. The
+// outcome is logged and counted; it never changes the worker's disposition.
+// Not used for the runtime.inactive retry, which moves the run to a new Thread.
+func (w *ProjectAnalysisWorker) archiveThread(ctx context.Context, run *ProjectAnalysisRun, reason string) {
+	if run == nil || run.MosooThreadID == nil || *run.MosooThreadID == "" {
+		return
+	}
+	threadID := *run.MosooThreadID
+	err := w.mosoo.ArchiveThread(context.WithoutCancel(ctx), threadID)
+	result := "archived"
+	if err != nil {
+		result = "failed"
+	}
+	w.metrics.IncCounter("ghfind_project_analysis_thread_archive_total", map[string]string{"reason": reason, "result": result})
+	if err != nil {
+		code := MosooUnavailable
+		if mosooErr, ok := err.(*MosooError); ok {
+			code = mosooErr.Code
+		}
+		w.log.Warn("project_analysis.thread_archive", "analysis_id", run.ID, "mosoo_thread_id", threadID,
+			"reason", reason, "outcome", result, "error_code", code, "error", err)
+		return
+	}
+	w.log.Info("project_analysis.thread_archive", "analysis_id", run.ID, "mosoo_thread_id", threadID,
+		"reason", reason, "outcome", result)
 }
 
 func (w *ProjectAnalysisWorker) failRun(ctx context.Context, analysisID, code, message, status string, activities []ProjectAnalysisActivity) error {
@@ -425,6 +457,7 @@ func (w *ProjectAnalysisWorker) pollThread(ctx context.Context, run *ProjectAnal
 			w.metrics.recordWorkerJobRetry(ProjectAnalysisJobKind, time.Since(startedAt))
 			return workerRetry, failErr.Error(), run
 		}
+		w.archiveThread(ctx, run, "failed")
 		return workerCompleted, "", w.reloadRun(ctx, run)
 	}
 
@@ -434,6 +467,7 @@ func (w *ProjectAnalysisWorker) pollThread(ctx context.Context, run *ProjectAnal
 			w.metrics.recordWorkerJobRetry(ProjectAnalysisJobKind, time.Since(startedAt))
 			return workerRetry, err.Error(), run
 		}
+		w.archiveThread(ctx, run, "failed")
 		return workerCompleted, "", w.reloadRun(ctx, run)
 	case "failed", "cancelled", "expired":
 		if snapshot.RunStatus == "failed" && snapshot.RunError != nil &&
@@ -462,6 +496,7 @@ func (w *ProjectAnalysisWorker) pollThread(ctx context.Context, run *ProjectAnal
 			w.metrics.recordWorkerJobRetry(ProjectAnalysisJobKind, time.Since(startedAt))
 			return workerRetry, err.Error(), run
 		}
+		w.archiveThread(ctx, run, "failed")
 		return workerCompleted, "", w.reloadRun(ctx, run)
 	case "completed":
 		return w.finalizeCompletedRun(ctx, run, startedAt)
@@ -537,6 +572,7 @@ func (w *ProjectAnalysisWorker) finalizeCompletedRun(ctx context.Context, run *P
 			w.metrics.recordWorkerJobRetry(ProjectAnalysisJobKind, time.Since(startedAt))
 			return workerRetry, failErr.Error(), run
 		}
+		w.archiveThread(ctx, run, "failed")
 		return workerCompleted, "", w.reloadRun(ctx, run)
 	}
 
@@ -555,6 +591,7 @@ func (w *ProjectAnalysisWorker) finalizeCompletedRun(ctx context.Context, run *P
 			w.metrics.recordWorkerJobRetry(ProjectAnalysisJobKind, time.Since(startedAt))
 			return workerRetry, failErr.Error(), run
 		}
+		w.archiveThread(ctx, run, "failed")
 		return workerCompleted, "", w.reloadRun(ctx, run)
 	}
 
@@ -617,6 +654,7 @@ func (w *ProjectAnalysisWorker) finalizeCompletedRun(ctx context.Context, run *P
 				"repo_key", completed.RepoKey, "error", err)
 		}
 	}
+	w.archiveThread(ctx, completed, "completed")
 	w.log.Info("project_analysis.completed",
 		"analysis_id", completed.ID, "repo_key", completed.RepoKey,
 		"mosoo_thread_id", completed.MosooThreadID, "status", completed.Status,

@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { LoaderCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AUTO_RESCAN_TRIGGER } from "@/lib/auto-rescan";
+import { autoReroastArmedKey } from "@/lib/auto-reroast";
 import { consumeRoastStream } from "@/lib/roast-stream";
 import { completedScanPayload, readScanResponse } from "@/lib/scan-job-client";
 import { Turnstile, turnstileEnabled } from "./Turnstile";
@@ -97,6 +98,15 @@ export function StaleScoreRescan({
           // The new score is already published; a failed optional report must
           // not keep the page on the historical score.
           if (roastRes.ok && roastRes.body) await consumeRoastStream(roastRes, {});
+        }
+        if (mode === "auto") {
+          // The score-only auto rescan leaves the report on the old release;
+          // let the refreshed page start the re-roast without a new gesture.
+          try {
+            window.sessionStorage.setItem(autoReroastArmedKey(username), String(Date.now()));
+          } catch {
+            // storage unavailable: the re-roast still starts on interaction
+          }
         }
         router.refresh();
       } catch {

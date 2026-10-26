@@ -39,6 +39,13 @@ type ProfileDetail struct {
 	RiskAssessment     *RiskAssessment        `json:"risk_assessment"`
 	RiskNotes          []RiskSignal           `json:"risk_notes"`
 	ScoreBreakdown     *ProfileScoreBreakdown `json:"score_breakdown"`
+	// Stale* carry a report from an older roast release on a current score.
+	// Never served as the current report: the page labels it 旧版锐评 while
+	// the on-view auto re-roast regenerates it (src/lib/auto-reroast.ts).
+	StaleRoast          *string `json:"stale_roast,omitempty"`
+	StaleRoastEN        *string `json:"stale_roast_en,omitempty"`
+	StaleRoastVersion   *string `json:"stale_roast_version,omitempty"`
+	StaleRoastENVersion *string `json:"stale_roast_en_version,omitempty"`
 }
 
 // ProfileScoreBreakdown explains how the six public dimensions become the
@@ -359,13 +366,36 @@ func (s *TursoStore) GetProfileDetail(ctx context.Context, username string) (*Pr
 	if breakdown, breakdownErr := s.getProfileScoreBreakdown(ctx, &detail); breakdownErr == nil {
 		detail.ScoreBreakdown = breakdown
 	}
-	if (canonical && roastVersion.String == roastArtifactVersion) || (legacy && roastVersion.String == legacyRoastVersion) {
+	zhCurrent := (canonical && roastVersion.String == roastArtifactVersion) || (legacy && roastVersion.String == legacyRoastVersion)
+	enCurrent := (canonical && roastENVersion.String == roastArtifactVersion) || (legacy && roastENVersion.String == legacyRoastVersion)
+	if zhCurrent {
 		detail.Roast = nullableProfileString(roast)
 	}
-	if (canonical && roastENVersion.String == roastArtifactVersion) || (legacy && roastENVersion.String == legacyRoastVersion) {
+	if enCurrent {
 		detail.RoastEN = nullableProfileString(roastEN)
 	}
+	// Every report generation rewrites the bilingual one-liner, so the stored
+	// line belongs to the newest report. It is current exactly when one of the
+	// reports is; otherwise it is from an older roast release and is withheld
+	// like the report itself.
+	if !zhCurrent && !enCurrent {
+		detail.RoastLine = RoastLine{}
+	}
+	if canonical && !zhCurrent && isStaleRoastArtifact(roastVersion, roast) {
+		detail.StaleRoast = nullableProfileString(roast)
+		detail.StaleRoastVersion = nullableProfileString(roastVersion)
+	}
+	if canonical && !enCurrent && isStaleRoastArtifact(roastENVersion, roastEN) {
+		detail.StaleRoastEN = nullableProfileString(roastEN)
+		detail.StaleRoastENVersion = nullableProfileString(roastENVersion)
+	}
 	return &detail, nil
+}
+
+// isStaleRoastArtifact: a non-empty report written by an older roast release.
+func isStaleRoastArtifact(version, report sql.NullString) bool {
+	return version.Valid && version.String != "" && version.String != roastArtifactVersion &&
+		report.Valid && strings.TrimSpace(report.String) != ""
 }
 
 func decodeJSONSlice[T any](raw sql.NullString) []T {

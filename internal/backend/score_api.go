@@ -140,6 +140,11 @@ func (s *TursoStore) GetStoredScore(ctx context.Context, username string) (*Stor
 		detail.RiskAssessment = parseRiskAssessment(riskAssessment.String)
 		detail.RiskNotes = parseRiskNotes(riskNotes.String)
 		detail.LegacyFallback = detail.ScoreVersion == legacyRoastScoreVersion && ((roastVersion.String == legacyRoastVersion && roast.Valid && roast.String != "") || (roastENVersion.String == legacyRoastVersion && roastEN.Valid && roastEN.String != ""))
+		// The one-liner belongs to the newest report; withhold it unless that
+		// report is on the current roast release (or the legacy continuity path).
+		if !detail.LegacyFallback && roastVersion.String != roastArtifactVersion && roastENVersion.String != roastArtifactVersion {
+			detail.RoastLine = RoastLine{}
+		}
 		return &detail, nil
 	}
 

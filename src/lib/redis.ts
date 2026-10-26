@@ -147,6 +147,11 @@ function atomicStore(): AtomicStore | null {
   return selectAtomicStore(getRedis());
 }
 
+/** Coordination store for the auto re-roast queue (src/lib/auto-reroast*.ts). */
+export function autoReroastStore(): AtomicStore | null {
+  return atomicStore();
+}
+
 /**
  * Backend for the public read-model caches below (KV or Redis, per deployment
  * — see cache-store.ts). Scan/roast/verdict caches coordinate with locks and

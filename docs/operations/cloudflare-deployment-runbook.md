@@ -158,6 +158,34 @@ rails, all on `ghfind-api` (see `src/lib/auto-rescan.ts`):
 
 This is on demand per viewed profile; never add a batch job or backfill on top.
 
+## On-view report regeneration (auto re-roast)
+
+When the score is current but the AI report in the viewer's language is not on
+the current roast release (`ROAST_CACHE_VERSION` — after a score change cleared
+it, or after a roast release bump), the page shows the previous report labelled
+旧版锐评 (or a skeleton when none survives) instead of the "not archived" empty
+state, and asks `POST /api/roast/auto` (`trigger: "roast_version_upgrade"`) to
+regenerate it. The request only enqueues a job (202 + `Location`); the
+`ghfind-api` production cron (`*/2 * * * *`, same tick as the project-analysis
+reconcile) drains the queue — at most 3 generations and 8 minutes per tick, one
+worker at a time — and the page polls `GET /api/roast/auto`. The job is keyed by
+the target release, so a later bump (e.g. a slower, asynchronous producer)
+supersedes stale jobs automatically. Guard rails (`src/lib/auto-reroast.ts`):
+
+- `GHFIND_AUTO_REROAST_DISABLED=1` — separate kill switch (queued jobs then age
+  out after 2h).
+- `GHFIND_AUTO_REROAST_MAX_PER_HOUR` — separate global budget, default 20; `0`
+  turns admission off.
+- One attempt per user + language + roast release per 24h (kept on failure),
+  the same automated-client filter and per-IP limit as auto rescan, machine
+  callers refused, server re-checks eligibility. A failed generation is retried
+  once, then the page keeps its non-empty state with the manual 重新评测 action.
+- Logs: `auto_reroast` lines (`outcome: queued|deferred|done|retry|failed|pending|expired|superseded`)
+  and `auto_reroast_cron` tick summaries.
+- The dev Worker has no cron, so jobs queued there are never generated.
+
+Never backfill through this queue; it only takes jobs from real page views.
+
 ## Validate without changing Cloudflare
 
 Build and validate the Worker bundle before publishing it:
