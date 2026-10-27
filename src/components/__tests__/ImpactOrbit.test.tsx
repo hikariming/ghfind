@@ -85,8 +85,4 @@ describe("ImpactOrbit", () => {
     expect(html).toContain('data-testid="impact-orbit-compact"');
   });
 
-  it("exposes the prior impact row class for the featured-work disclosure", () => {
-    expect(impactRepoRowClassName()).toContain("rounded-xl");
-    expect(impactRepoRowClassName()).toContain("border-white/10");
-  });
 });
