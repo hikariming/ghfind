@@ -391,6 +391,7 @@ export function ProfileView({
         <aside className="flex flex-col gap-4 lg:sticky lg:top-8 lg:w-80 lg:shrink-0">
       {/* Header card */}
       <div
+        data-profile-score-card
         className={`animate-pop flex flex-col items-center text-center ${
           isAdvxCampaign
             ? "bg-transparent p-0"
@@ -447,7 +448,10 @@ export function ProfileView({
             className="mt-5"
           />
         )}
-        <div className={`mt-4 text-6xl font-black tabular-nums ${style.text}`}>
+        <div
+          data-profile-score-value
+          className={`mt-4 text-6xl font-black tabular-nums ${style.text}`}
+        >
           {d.final_score.toFixed(2)}
           <span className="text-2xl text-zinc-600">/100</span>
         </div>

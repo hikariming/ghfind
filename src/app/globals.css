@@ -1543,55 +1543,21 @@ html[data-theme="dark"] .model-sponsor-logo {
 }
 
 
-@media (min-width: 400px) {
-  .impact-orbit-stage {
-    width: var(--impact-orbit-size, 200px);
-    height: var(--impact-orbit-size, 200px);
-  }
-}
-/* Profile impact-repo orbit around the tier avatar ring. */
-@keyframes impact-orbit-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+/* Profile impact-repo pseudo-3D multi-orbit (rAF-driven in ImpactOrbit). */
+.impact-orbit-stage {
+  width: var(--impact-orbit-size, 220px);
+  height: var(--impact-orbit-size, 220px);
+  transform-style: preserve-3d;
 }
 
-@keyframes impact-orbit-counter {
-  from {
-    transform: rotate(calc(-1 * var(--impact-orbit-angle, 0deg)));
-  }
-  to {
-    transform: rotate(calc(-1 * var(--impact-orbit-angle, 0deg) - 360deg));
-  }
-}
-
-.impact-orbit-spin {
-  animation: impact-orbit-spin 75s linear infinite;
-  will-change: transform;
-}
-
-.impact-orbit-planet-spin {
-  animation: impact-orbit-counter 75s linear infinite;
-  will-change: transform;
-}
-
-.impact-orbit-stage:hover .impact-orbit-spin,
-.impact-orbit-stage:hover .impact-orbit-planet-spin,
-.impact-orbit-stage:focus-within .impact-orbit-spin,
-.impact-orbit-stage:focus-within .impact-orbit-planet-spin {
-  animation-play-state: paused;
+.impact-orbit-planet {
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
+  backface-visibility: hidden;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .impact-orbit-spin,
-  .impact-orbit-planet-spin {
-    animation: none;
-  }
-
-  .impact-orbit-planet-spin {
-    transform: rotate(calc(-1 * var(--impact-orbit-angle, 0deg)));
+  .impact-orbit-planet {
+    transition: none !important;
   }
 }

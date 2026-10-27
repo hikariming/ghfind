@@ -12,7 +12,7 @@ const sixRepos = [
 ];
 
 describe("ImpactOrbit", () => {
-  it("renders an orbit stage with upright planet links for up to six repos", () => {
+  it("renders a pseudo-3D multi-orbit stage with billboard planet links", () => {
     const html = renderToStaticMarkup(
       <ImpactOrbit
         repos={sixRepos}
@@ -28,7 +28,8 @@ describe("ImpactOrbit", () => {
 
     expect(html).toContain('data-testid="impact-orbit-root"');
     expect(html).toContain('data-testid="impact-orbit-stage"');
-    expect(html).toContain('data-testid="impact-orbit-spin"');
+    expect(html).toContain('data-testid="impact-orbit-rings"');
+    expect(html).toContain('data-testid="impact-orbit-planet"');
     expect(html).toContain('data-testid="impact-orbit-compact"');
     expect(html).toContain('class="sr-only"');
     expect(html).toContain("Notable contributions");
@@ -42,6 +43,8 @@ describe("ImpactOrbit", () => {
     expect(html).toContain("width:24px");
     expect(html).toContain("width:18px");
     expect(html).toContain("data-avatar");
+    expect(html).toContain("preserve-3d");
+    expect(html).not.toContain('data-testid="impact-orbit-spin"');
   });
 
   it("falls back to the avatar alone when there are no impact repos", () => {
@@ -60,7 +63,7 @@ describe("ImpactOrbit", () => {
 
     expect(html).toContain("data-avatar");
     expect(html).not.toContain('data-testid="impact-orbit-stage"');
-    expect(html).not.toContain('data-testid="impact-orbit-spin"');
+    expect(html).not.toContain('data-testid="impact-orbit-rings"');
   });
 
   it("keeps a compact row ready for two impact repos", () => {
@@ -84,5 +87,4 @@ describe("ImpactOrbit", () => {
     expect(html).toContain("org-beta/app, ★ 200, 1 PR");
     expect(html).toContain('data-testid="impact-orbit-compact"');
   });
-
 });
