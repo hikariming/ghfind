@@ -392,7 +392,7 @@ export function ProfileView({
       {/* Header card */}
       <div
         data-profile-score-card
-        className={`animate-pop flex flex-col items-center text-center ${
+        className={`animate-pop flex flex-col items-center overflow-visible text-center ${
           isAdvxCampaign
             ? "bg-transparent p-0"
             : "rounded-2xl border border-white/10 bg-white/[0.05] p-6 ring-1"

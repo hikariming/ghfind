@@ -1548,6 +1548,7 @@ html[data-theme="dark"] .model-sponsor-logo {
   width: var(--impact-orbit-size, 304px);
   height: 212px;
   max-width: calc(100% + 1.5rem);
+  overflow: visible;
   transform-style: preserve-3d;
 }
 
