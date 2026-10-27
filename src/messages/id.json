@@ -345,6 +345,7 @@
     "similarSub": "Profil terdekat, skor berdampingan",
     "impactHeading": "🏆 Kontribusi menonjol",
     "impactSub": "Repo open source populer tempat mereka berkontribusi (commit + PR)",
+    "impactDisclosure": "Kontribusi menonjol ({count})",
     "worksHeading": "🛠 Karya unggulan",
     "worksSub": "Repositori populer dan pinned milik mereka sendiri",
     "stackHeading": "🧬 Stack & domain",

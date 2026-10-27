@@ -345,6 +345,7 @@
     "similarSub": "画像最接近、分数相近的账号",
     "impactHeading": "🏆 贡献过的明星项目",
     "impactSub": "TA 参与过的高星开源仓库（提交 + PR）",
+    "impactDisclosure": "贡献过的明星项目 ({count})",
     "worksHeading": "🛠 代表作",
     "worksSub": "按实质贡献优先、高星影响辅助排序的代表项目",
     "stackHeading": "🧬 技术栈 & 领域",

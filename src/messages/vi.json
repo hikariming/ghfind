@@ -345,6 +345,7 @@
     "similarSub": "Hồ sơ gần nhất, điểm số sát nhau",
     "impactHeading": "🏆 Đóng góp đáng chú ý",
     "impactSub": "Các repo mã nguồn mở nổi tiếng họ từng đóng góp (commit + PR)",
+    "impactDisclosure": "Đóng góp đáng chú ý ({count})",
     "worksHeading": "🛠 Tác phẩm tiêu biểu",
     "worksSub": "Những repo nổi bật và được ghim của chính họ",
     "stackHeading": "🧬 Stack & lĩnh vực",

@@ -345,6 +345,7 @@
     "similarSub": "Perfil mais próximo, nota vizinha",
     "impactHeading": "🏆 Contribuições notáveis",
     "impactSub": "Repos open source populares onde essa pessoa entregou código (commits + PRs)",
+    "impactDisclosure": "Contribuições notáveis ({count})",
     "worksHeading": "🛠 Trabalhos em destaque",
     "worksSub": "Repositórios próprios populares e fixados",
     "stackHeading": "🧬 Stack e áreas",

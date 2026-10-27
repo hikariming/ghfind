@@ -345,6 +345,7 @@
     "similarSub": "프로필이 가장 가깝고 점수도 비슷한 계정",
     "impactHeading": "🏆 굵직한 기여",
     "impactSub": "커밋과 PR을 넣은 인기 오픈소스 저장소",
+    "impactDisclosure": "굵직한 기여 ({count})",
     "worksHeading": "🛠 대표작",
     "worksSub": "본인이 만든 인기 저장소와 고정 저장소",
     "stackHeading": "🧬 기술 스택 & 분야",

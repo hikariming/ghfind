@@ -345,6 +345,7 @@
     "similarSub": "Closest profile, nearby score",
     "impactHeading": "🏆 Notable contributions",
     "impactSub": "Popular open-source repos they've shipped to (commits + PRs)",
+    "impactDisclosure": "Notable contributions ({count})",
     "worksHeading": "🛠 Featured work",
     "worksSub": "Representative repos ranked by concrete contribution first, stars second",
     "stackHeading": "🧬 Stack & domains",

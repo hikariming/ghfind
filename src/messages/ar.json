@@ -345,6 +345,7 @@
     "similarSub": "أقرب ملف، وتقييم متقارب",
     "impactHeading": "🏆 مساهمات بارزة",
     "impactSub": "مستودعات مفتوحة المصدر شهيرة ساهم فيها (commits + PRs)",
+    "impactDisclosure": "مساهمات بارزة ({count})",
     "worksHeading": "🛠 أعمال مميزة",
     "worksSub": "مستودعاته الشهيرة والمثبّتة",
     "stackHeading": "🧬 التقنيات والمجالات",

@@ -345,6 +345,7 @@
     "similarSub": "Perfil más cercano, score similar",
     "impactHeading": "🏆 Contribuciones destacadas",
     "impactSub": "Repos open source populares a los que ha aportado (commits + PRs)",
+    "impactDisclosure": "Contribuciones destacadas ({count})",
     "worksHeading": "🛠 Trabajo destacado",
     "worksSub": "Sus propios repositorios populares y fijados",
     "stackHeading": "🧬 Stack y dominios",

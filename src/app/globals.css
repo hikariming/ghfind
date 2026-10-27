@@ -1541,3 +1541,57 @@ html[data-theme="dark"] .model-sponsor-logo {
 @media (min-width: 900px) {
   .research-index { padding-inline: clamp(28px, 3vw, 56px); }
 }
+
+
+@media (min-width: 400px) {
+  .impact-orbit-stage {
+    width: var(--impact-orbit-size, 200px);
+    height: var(--impact-orbit-size, 200px);
+  }
+}
+/* Profile impact-repo orbit around the tier avatar ring. */
+@keyframes impact-orbit-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes impact-orbit-counter {
+  from {
+    transform: rotate(calc(-1 * var(--impact-orbit-angle, 0deg)));
+  }
+  to {
+    transform: rotate(calc(-1 * var(--impact-orbit-angle, 0deg) - 360deg));
+  }
+}
+
+.impact-orbit-spin {
+  animation: impact-orbit-spin 75s linear infinite;
+  will-change: transform;
+}
+
+.impact-orbit-planet-spin {
+  animation: impact-orbit-counter 75s linear infinite;
+  will-change: transform;
+}
+
+.impact-orbit-stage:hover .impact-orbit-spin,
+.impact-orbit-stage:hover .impact-orbit-planet-spin,
+.impact-orbit-stage:focus-within .impact-orbit-spin,
+.impact-orbit-stage:focus-within .impact-orbit-planet-spin {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .impact-orbit-spin,
+  .impact-orbit-planet-spin {
+    animation: none;
+  }
+
+  .impact-orbit-planet-spin {
+    transform: rotate(calc(-1 * var(--impact-orbit-angle, 0deg)));
+  }
+}

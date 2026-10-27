@@ -345,6 +345,7 @@
     "similarSub": "プロフィールが近く、スコアも近いアカウント",
     "impactHeading": "🏆 主なコントリビューション",
     "impactSub": "コミットとPRを投げてきた人気OSSリポジトリ",
+    "impactDisclosure": "主なコントリビューション ({count})",
     "worksHeading": "🛠 代表作",
     "worksSub": "本人の人気リポジトリとピン留めプロジェクト",
     "stackHeading": "🧬 技術スタックと領域",
