@@ -31,7 +31,7 @@ type OrbitDef = {
  * plus a slight bleed so outer rings reach the card edges.
  */
 const STAGE_W = 304;
-const STAGE_H = 320;
+const STAGE_H = 280;
 const HALF_W = STAGE_W / 2;
 
 /**
@@ -69,6 +69,9 @@ const ORBITS: OrbitDef[] = [
 
 const PERSPECTIVE = 800;
 const HOVER_SCALE = 1.55;
+/** Inner face of the lg avatar (80px disc); ring/medal sit outside this. */
+const AVATAR_FACE_R = 40;
+const AVATAR_RING_R = 52;
 
 type PlacedPlanet = ImpactOrbitRepo & {
   owner: string;
@@ -84,6 +87,7 @@ type Projected = {
   opacity: number;
   blur: number;
   zIndex: number;
+  frontness: number;
 };
 
 function planetSizePx(stars: number): number {
@@ -201,6 +205,7 @@ function projectPlanet(planet: PlacedPlanet, elapsedMs: number, frozen: boolean)
     opacity: 0.55 + frontness * 0.45,
     blur: backness * 1.0,
     zIndex: Math.round(5 + frontness * 30),
+    frontness,
   };
 }
 
@@ -501,7 +506,10 @@ export function ImpactOrbit({
   const [activeRepo, setActiveRepo] = useState<string | null>(null);
   const [armedRepo, setArmedRepo] = useState<string | null>(null);
   const [cardShift, setCardShift] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [cardSide, setCardSide] = useState<"left" | "right">("right");
+  const [cardAnchor, setCardAnchor] = useState<{ h: "left" | "right"; v: "above" | "below" }>({
+    h: "right",
+    v: "below",
+  });
   const [hoverProj, setHoverProj] = useState<Projected | null>(null);
 
   const orbitPaths = useMemo(
@@ -516,11 +524,22 @@ export function ImpactOrbit({
     (key: string, proj: Projected, hovered: boolean) => {
       const el = planetEls.current.get(key);
       if (!el) return;
+      const planet = placedRef.current.find((p) => p.repo === key);
+      const sizePx = planet?.sizePx ?? 18;
       const scale = proj.depthScale * (hovered ? HOVER_SCALE : 1);
+      const planetR = (sizePx * proj.depthScale) / 2;
+      const dist = Math.hypot(proj.x, proj.y);
+      // Front planets crossing the inner avatar face → fade so they don't look like stickers.
+      const overlapsFace =
+        proj.frontness > 0.5 && dist < AVATAR_FACE_R + planetR * 0.35;
+      let opacity = proj.opacity;
+      if (overlapsFace && !hovered) opacity = Math.min(opacity, 0.6);
       el.style.transform = `translate(-50%, -50%) translate3d(${proj.x}px, ${proj.y}px, 0) scale(${scale})`;
-      el.style.opacity = String(hovered ? 1 : proj.opacity);
+      el.style.opacity = String(hovered ? 1 : opacity);
       el.style.filter = hovered || proj.blur < 0.05 ? "none" : `blur(${proj.blur}px)`;
-      el.style.zIndex = String(hovered ? 60 : proj.zIndex);
+      // Keep face-overlapping front planets under the avatar ring.
+      const z = overlapsFace && !hovered ? Math.min(proj.zIndex, 18) : proj.zIndex;
+      el.style.zIndex = String(hovered ? 60 : z);
       lastProj.current.set(key, proj);
     },
     [],
@@ -648,16 +667,15 @@ export function ImpactOrbit({
     }
   }, [activeRepo, placed, applyPlanetStyle, paint, startLoop, stopLoop]);
 
-  // Beside-planet frost card; clamp inside score card and above the score.
+  // Frost card: outward from avatar center (away from the face), then clamp to card.
   useEffect(() => {
-    if (!activeRepo || !stageRef.current) {
+    if (!activeRepo || !stageRef.current || !hoverProj) {
       setCardShift({ x: 0, y: 0 });
-      setCardSide("right");
+      setCardAnchor({ h: "right", v: "below" });
       return;
     }
-    const proj = lastProj.current.get(activeRepo);
     const planet = placed.find((p) => p.repo === activeRepo);
-    if (!proj || !planet) return;
+    if (!planet) return;
 
     const card = rootRef.current?.closest("[data-profile-score-card]") as HTMLElement | null;
     const stage = stageRef.current;
@@ -672,26 +690,58 @@ export function ImpactOrbit({
 
     const tipW = 168;
     const tipH = 40;
-    const gap = 8;
-    const planetCenterX = stageRect.left + stageRect.width / 2 + proj.x;
-    const planetCenterY = stageRect.top + stageRect.height / 2 + proj.y;
-    const planetR = (planet.sizePx * proj.depthScale * HOVER_SCALE) / 2;
-
+    const gap = 10;
     const pad = 8;
-    const spaceRight = cardRect.right - (planetCenterX + planetR + gap) - pad;
-    const spaceLeft = planetCenterX - planetR - gap - cardRect.left - pad;
-    const side: "left" | "right" =
-      spaceRight >= tipW || spaceRight >= spaceLeft ? "right" : "left";
-    setCardSide(side);
+    const planetCenterX = stageRect.left + stageRect.width / 2 + hoverProj.x;
+    const planetCenterY = stageRect.top + stageRect.height / 2 + hoverProj.y;
+    const planetR = (planet.sizePx * hoverProj.depthScale * HOVER_SCALE) / 2;
+    const avatarCx = stageRect.left + stageRect.width / 2;
+    const avatarCy = stageRect.top + stageRect.height / 2;
 
-    const tipLeft =
-      side === "right"
-        ? planetCenterX + planetR + gap
-        : planetCenterX - planetR - gap - tipW;
-    let tipTop = planetCenterY - tipH / 2;
-    if (tipTop + tipH > scoreTop - 6) {
-      tipTop = scoreTop - tipH - 6;
+    // Prefer the side of the planet facing away from the avatar center.
+    let h: "left" | "right" = hoverProj.x >= 0 ? "right" : "left";
+    let v: "above" | "below" = hoverProj.y >= 0 ? "below" : "above";
+
+    const place = (hh: "left" | "right", vv: "above" | "below") => {
+      const left =
+        hh === "right"
+          ? planetCenterX + planetR + gap
+          : planetCenterX - planetR - gap - tipW;
+      const top =
+        vv === "below"
+          ? planetCenterY + planetR + gap
+          : planetCenterY - planetR - gap - tipH;
+      return { left, top };
+    };
+
+    const overlapsAvatar = (left: number, top: number) => {
+      // Tip rect vs avatar face circle — reject if tip center enters the face.
+      const cx = left + tipW / 2;
+      const cy = top + tipH / 2;
+      return Math.hypot(cx - avatarCx, cy - avatarCy) < AVATAR_RING_R + 12;
+    };
+
+    let { left: tipLeft, top: tipTop } = place(h, v);
+    if (overlapsAvatar(tipLeft, tipTop)) {
+      // Flip the dominant axis first, then both if needed.
+      const candidates: { h: "left" | "right"; v: "above" | "below" }[] = [
+        { h: h === "right" ? "left" : "right", v },
+        { h, v: v === "below" ? "above" : "below" },
+        { h: h === "right" ? "left" : "right", v: v === "below" ? "above" : "below" },
+      ];
+      for (const c of candidates) {
+        const p = place(c.h, c.v);
+        if (!overlapsAvatar(p.left, p.top)) {
+          h = c.h;
+          v = c.v;
+          tipLeft = p.left;
+          tipTop = p.top;
+          break;
+        }
+      }
     }
+
+    setCardAnchor({ h, v });
 
     const minX = cardRect.left + pad;
     const maxX = cardRect.right - pad - tipW;
@@ -705,7 +755,7 @@ export function ImpactOrbit({
       x: clampedLeft - tipLeft,
       y: clampedTop - tipTop,
     });
-  }, [activeRepo, placed]);
+  }, [activeRepo, placed, hoverProj]);
 
   if (placed.length === 0) {
     return <div className={className}>{children}</div>;
@@ -825,11 +875,17 @@ export function ImpactOrbit({
               const planetR = (planet.sizePx * hoverProj.depthScale * HOVER_SCALE) / 2;
               const gap = 10;
               const tipW = 168;
-              const left =
-                (cardSide === "right"
+              const tipH = 40;
+              const baseLeft =
+                cardAnchor.h === "right"
                   ? STAGE_W / 2 + hoverProj.x + planetR + gap
-                  : STAGE_W / 2 + hoverProj.x - planetR - gap - tipW) + cardShift.x;
-              const top = STAGE_H / 2 + hoverProj.y - 18 + cardShift.y;
+                  : STAGE_W / 2 + hoverProj.x - planetR - gap - tipW;
+              const baseTop =
+                cardAnchor.v === "below"
+                  ? STAGE_H / 2 + hoverProj.y + planetR + gap
+                  : STAGE_H / 2 + hoverProj.y - planetR - gap - tipH;
+              const left = baseLeft + cardShift.x;
+              const top = baseTop + cardShift.y;
               return (
                 <div
                   className="pointer-events-none absolute z-[70] whitespace-nowrap rounded-md px-2 py-1 text-left shadow-lg"

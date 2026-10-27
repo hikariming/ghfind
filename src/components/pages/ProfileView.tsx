@@ -450,7 +450,7 @@ export function ProfileView({
         )}
         <div
           data-profile-score-value
-          className={`mt-4 text-6xl font-black tabular-nums ${style.text}`}
+          className={`mt-0 text-6xl font-black tabular-nums ${style.text}`}
         >
           {d.final_score.toFixed(2)}
           <span className="text-2xl text-zinc-600">/100</span>
