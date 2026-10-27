@@ -31,7 +31,7 @@ type OrbitDef = {
  * plus a slight bleed so outer rings reach the card edges.
  */
 const STAGE_W = 304;
-const STAGE_H = 280;
+const STAGE_H = 236;
 const HALF_W = STAGE_W / 2;
 
 /**
@@ -69,8 +69,6 @@ const ORBITS: OrbitDef[] = [
 
 const PERSPECTIVE = 800;
 const HOVER_SCALE = 1.55;
-/** Inner face of the lg avatar (80px disc); ring/medal sit outside this. */
-const AVATAR_FACE_R = 40;
 const AVATAR_RING_R = 52;
 
 type PlacedPlanet = ImpactOrbitRepo & {
@@ -530,8 +528,9 @@ export function ImpactOrbit({
       const planetR = (sizePx * proj.depthScale) / 2;
       const dist = Math.hypot(proj.x, proj.y);
       // Front planets crossing the inner avatar face → fade so they don't look like stickers.
+      // Fade when the planet disc intersects the avatar face/ring (front half only).
       const overlapsFace =
-        proj.frontness > 0.5 && dist < AVATAR_FACE_R + planetR * 0.35;
+        proj.frontness > 0.45 && dist < AVATAR_RING_R + planetR * 0.25;
       let opacity = proj.opacity;
       if (overlapsFace && !hovered) opacity = Math.min(opacity, 0.6);
       el.style.transform = `translate(-50%, -50%) translate3d(${proj.x}px, ${proj.y}px, 0) scale(${scale})`;
@@ -667,7 +666,7 @@ export function ImpactOrbit({
     }
   }, [activeRepo, placed, applyPlanetStyle, paint, startLoop, stopLoop]);
 
-  // Frost card: outward from avatar center (away from the face), then clamp to card.
+  // Frost card: sit on the planet's outward side (away from avatar), never over the face.
   useEffect(() => {
     if (!activeRepo || !stageRef.current || !hoverProj) {
       setCardShift({ x: 0, y: 0 });
@@ -690,54 +689,84 @@ export function ImpactOrbit({
 
     const tipW = 168;
     const tipH = 40;
-    const gap = 10;
+    const gap = 12;
     const pad = 8;
-    const planetCenterX = stageRect.left + stageRect.width / 2 + hoverProj.x;
-    const planetCenterY = stageRect.top + stageRect.height / 2 + hoverProj.y;
-    const planetR = (planet.sizePx * hoverProj.depthScale * HOVER_SCALE) / 2;
     const avatarCx = stageRect.left + stageRect.width / 2;
     const avatarCy = stageRect.top + stageRect.height / 2;
+    const planetCenterX = avatarCx + hoverProj.x;
+    const planetCenterY = avatarCy + hoverProj.y;
+    const planetR = (planet.sizePx * hoverProj.depthScale * HOVER_SCALE) / 2;
 
-    // Prefer the side of the planet facing away from the avatar center.
+    // Outward = side of the planet facing away from the avatar center.
+    const absX = Math.abs(hoverProj.x);
+    const absY = Math.abs(hoverProj.y);
     let h: "left" | "right" = hoverProj.x >= 0 ? "right" : "left";
     let v: "above" | "below" = hoverProj.y >= 0 ? "below" : "above";
 
     const place = (hh: "left" | "right", vv: "above" | "below") => {
-      const left =
-        hh === "right"
-          ? planetCenterX + planetR + gap
-          : planetCenterX - planetR - gap - tipW;
-      const top =
-        vv === "below"
-          ? planetCenterY + planetR + gap
-          : planetCenterY - planetR - gap - tipH;
+      // Dominant axis gets the full beside-planet offset; secondary nudges slightly outward.
+      let left: number;
+      let top: number;
+      if (absX >= absY) {
+        left =
+          hh === "right"
+            ? planetCenterX + planetR + gap
+            : planetCenterX - planetR - gap - tipW;
+        top = planetCenterY - tipH / 2;
+        if (vv === "below") top += Math.min(planetR, 10);
+        else top -= Math.min(planetR, 10);
+      } else {
+        top =
+          vv === "below"
+            ? planetCenterY + planetR + gap
+            : planetCenterY - planetR - gap - tipH;
+        left = planetCenterX - tipW / 2;
+        if (hh === "right") left += Math.min(planetR, 10);
+        else left -= Math.min(planetR, 10);
+      }
       return { left, top };
     };
 
-    const overlapsAvatar = (left: number, top: number) => {
-      // Tip rect vs avatar face circle — reject if tip center enters the face.
-      const cx = left + tipW / 2;
-      const cy = top + tipH / 2;
-      return Math.hypot(cx - avatarCx, cy - avatarCy) < AVATAR_RING_R + 12;
+    const tipHitsAvatar = (left: number, top: number) => {
+      // Closest point on tip rect to avatar center vs ring clearance.
+      const nearestX = Math.min(Math.max(avatarCx, left), left + tipW);
+      const nearestY = Math.min(Math.max(avatarCy, top), top + tipH);
+      return Math.hypot(nearestX - avatarCx, nearestY - avatarCy) < AVATAR_RING_R + 8;
     };
 
     let { left: tipLeft, top: tipTop } = place(h, v);
-    if (overlapsAvatar(tipLeft, tipTop)) {
-      // Flip the dominant axis first, then both if needed.
+    if (tipHitsAvatar(tipLeft, tipTop)) {
       const candidates: { h: "left" | "right"; v: "above" | "below" }[] = [
-        { h: h === "right" ? "left" : "right", v },
         { h, v: v === "below" ? "above" : "below" },
+        { h: h === "right" ? "left" : "right", v },
         { h: h === "right" ? "left" : "right", v: v === "below" ? "above" : "below" },
       ];
+      // Prefer flipping the axis that points more toward the face.
+      if (absY >= absX) {
+        candidates.reverse();
+      }
       for (const c of candidates) {
         const p = place(c.h, c.v);
-        if (!overlapsAvatar(p.left, p.top)) {
+        if (!tipHitsAvatar(p.left, p.top)) {
           h = c.h;
           v = c.v;
           tipLeft = p.left;
           tipTop = p.top;
           break;
         }
+      }
+      // Last resort: push fully outward along the radial vector past the ring.
+      if (tipHitsAvatar(tipLeft, tipTop)) {
+        const len = Math.hypot(hoverProj.x, hoverProj.y) || 1;
+        const ux = hoverProj.x / len;
+        const uy = hoverProj.y / len;
+        const push = AVATAR_RING_R + planetR + gap + tipW / 2;
+        const cx = avatarCx + ux * push;
+        const cy = avatarCy + uy * push;
+        tipLeft = cx - tipW / 2;
+        tipTop = cy - tipH / 2;
+        h = ux >= 0 ? "right" : "left";
+        v = uy >= 0 ? "below" : "above";
       }
     }
 
@@ -873,17 +902,30 @@ export function ImpactOrbit({
               if (!planet) return null;
               const activity = activityParts(planet, commitsLabel, prsLabel, formatStars);
               const planetR = (planet.sizePx * hoverProj.depthScale * HOVER_SCALE) / 2;
-              const gap = 10;
+              const gap = 12;
               const tipW = 168;
               const tipH = 40;
-              const baseLeft =
-                cardAnchor.h === "right"
-                  ? STAGE_W / 2 + hoverProj.x + planetR + gap
-                  : STAGE_W / 2 + hoverProj.x - planetR - gap - tipW;
-              const baseTop =
-                cardAnchor.v === "below"
-                  ? STAGE_H / 2 + hoverProj.y + planetR + gap
-                  : STAGE_H / 2 + hoverProj.y - planetR - gap - tipH;
+              const absX = Math.abs(hoverProj.x);
+              const absY = Math.abs(hoverProj.y);
+              let baseLeft: number;
+              let baseTop: number;
+              if (absX >= absY) {
+                baseLeft =
+                  cardAnchor.h === "right"
+                    ? STAGE_W / 2 + hoverProj.x + planetR + gap
+                    : STAGE_W / 2 + hoverProj.x - planetR - gap - tipW;
+                baseTop = STAGE_H / 2 + hoverProj.y - tipH / 2;
+                if (cardAnchor.v === "below") baseTop += Math.min(planetR, 10);
+                else baseTop -= Math.min(planetR, 10);
+              } else {
+                baseTop =
+                  cardAnchor.v === "below"
+                    ? STAGE_H / 2 + hoverProj.y + planetR + gap
+                    : STAGE_H / 2 + hoverProj.y - planetR - gap - tipH;
+                baseLeft = STAGE_W / 2 + hoverProj.x - tipW / 2;
+                if (cardAnchor.h === "right") baseLeft += Math.min(planetR, 10);
+                else baseLeft -= Math.min(planetR, 10);
+              }
               const left = baseLeft + cardShift.x;
               const top = baseTop + cardShift.y;
               return (
