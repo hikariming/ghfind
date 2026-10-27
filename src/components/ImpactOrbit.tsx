@@ -26,37 +26,40 @@ type OrbitDef = {
   periodMs: number;
 };
 
-/** Stage fills most of the score-card width so outer rings can breathe. */
-const STAGE_W = 300;
-const STAGE_H = 280;
+/**
+ * Stage uses nearly the full score-card content width (w-80 − p-6 ≈ 272px)
+ * plus a slight bleed so outer rings reach the card edges.
+ */
+const STAGE_W = 304;
+const STAGE_H = 300;
 const HALF_W = STAGE_W / 2;
 
 /**
- * Gyroscope / atom model: large rotateZ spread so paths cross, and distinct
- * rotateX openness per track. Radii 0.55 / 0.72 / 0.90 of half-width.
- * Avatar "lg" ≈ 80px + glow ≈ 88px Ø; inner ry clears center by ≥54px.
+ * Gyroscope / atom: rotateZ −40 / 0 / +40 (≥35° apart) so paths cross;
+ * rotateX 50 / 62 / 74 for clearly different openness.
+ * Radii ~0.58 / 0.80 / 0.96 of half-width; inner ry clears avatar+medal ≥10px.
  */
 const ORBITS: OrbitDef[] = [
   {
     id: "inner",
-    rx: HALF_W * 0.55,
-    ry: Math.max(56, HALF_W * 0.55 * 0.7),
+    rx: HALF_W * 0.58,
+    ry: Math.max(70, HALF_W * 0.58 * 0.82),
     rotateX: 50,
     rotateZ: -40,
     periodMs: 40_000,
   },
   {
     id: "mid",
-    rx: HALF_W * 0.72,
-    ry: Math.max(64, HALF_W * 0.72 * 0.62),
+    rx: HALF_W * 0.8,
+    ry: Math.max(62, HALF_W * 0.8 * 0.55),
     rotateX: 62,
     rotateZ: 0,
     periodMs: 60_000,
   },
   {
     id: "outer",
-    rx: HALF_W * 0.9,
-    ry: Math.max(72, HALF_W * 0.9 * 0.55),
+    rx: HALF_W * 0.96,
+    ry: Math.max(52, HALF_W * 0.96 * 0.42),
     rotateX: 74,
     rotateZ: 40,
     periodMs: 80_000,
@@ -359,7 +362,7 @@ function FrostCard({
       data-testid="impact-orbit-frost"
       style={{
         ...sideStyle,
-        background: "rgba(24, 24, 27, 0.55)",
+        background: "rgba(24, 24, 27, 0.72)",
         backdropFilter: "blur(10px)",
         WebkitBackdropFilter: "blur(10px)",
         border: `1px solid ${withAlpha(accent, 0.5)}`,
@@ -699,7 +702,7 @@ export function ImpactOrbit({
 
       <div
         ref={stageRef}
-        className="impact-orbit-stage relative hidden items-center justify-center min-[400px]:flex"
+        className="impact-orbit-stage relative -mx-3 hidden items-center justify-center min-[400px]:flex"
         data-testid="impact-orbit-stage"
         style={
           {
@@ -725,7 +728,7 @@ export function ImpactOrbit({
                 <path
                   d={path.back}
                   fill="none"
-                  stroke={withAlpha(accent, 0.25)}
+                  stroke={withAlpha(accent, 0.34)}
                   strokeWidth={1}
                   strokeDasharray="3 4"
                 />
@@ -734,7 +737,7 @@ export function ImpactOrbit({
                 <path
                   d={path.front}
                   fill="none"
-                  stroke={withAlpha(accent, 0.32)}
+                  stroke={withAlpha(accent, 0.42)}
                   strokeWidth={1.15}
                 />
               ) : null}
