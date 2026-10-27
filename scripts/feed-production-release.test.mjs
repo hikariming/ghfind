@@ -215,14 +215,14 @@ test('wrangler containers 100146 is retryable and other errors are not',()=>{
 });
 test('production Feed schema approval covers the complete fixed migrations without widening dev application releases',async()=>{
  const m=JSON.parse(readFileSync(new URL('../ops/feed-production-schema-release.json',import.meta.url)));
- const r=await approvedSchemas(m);assert.equal(r.core.length,23);assert.equal(r.feed.length,15);
+ const r=await approvedSchemas(m);assert.equal(r.core.length,23);assert.equal(r.feed.length,17);
  // 0013 (split) and 0014 are DDL-only (ADD COLUMN), so the enabled legacy-writer
  // fence cannot abort them. 0015 seeds feed_tag_definitions: the fence trigger would
  // abort it as a plain migration, so production applied it once through the operator
  // runbook (docs/operations/feed-0015-partition-tags-operator.md), which also records
  // it in d1_migrations; listing it here only keeps later `migrations apply` runs in sync.
- assert.deepEqual(r.feed.slice(-3).map(e=>e.name),['0013_feed_discover_copy_fields.sql','0014_feed_discover_score_shadow.sql','0015_feed_discover_partition_tags.sql']);
- for(const e of r.feed.filter(e=>e.name>='0013' && e.name!=='0015_feed_discover_partition_tags.sql')){
+ assert.deepEqual(r.feed.slice(-3).map(e=>e.name),['0015_feed_discover_partition_tags.sql','0016_social_posts.sql','0017_social_post_translations.sql']);
+ for(const e of r.feed.filter(e=>e.name>='0013' && !['0015_feed_discover_partition_tags.sql','0016_social_posts.sql','0017_social_post_translations.sql'].includes(e.name))){
   const sql=String(e.sql).replace(/--.*$/gm,'');
   assert.doesNotMatch(sql,/\b(INSERT|UPDATE|DELETE|REPLACE)\b/i,`${e.name} must stay DDL-only under the writer fence`);
  }

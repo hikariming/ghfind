@@ -65,6 +65,32 @@ function scoreRecord(row: Record<string, unknown>): PublishingScoreRecord {
   };
 }
 
+/** Display-only score for author cards: final_score without joining public_scan_runs.snapshot.
+ * Snapshot hash verification stays on the write path (requirePublication / publicationFromScore).
+ */
+export const readDisplayScore: ScoreReader = async (login) => {
+  try {
+    const result = await coreDatabase().execute({
+      sql: `SELECT s.username, s.final_score, s.score_version, s.score_source_collection_version,
+        s.score_source_snapshot_hash, s.hidden FROM scores s WHERE s.username=? LIMIT 1`,
+      args: [login.toLowerCase()],
+    });
+    const row = result.rows[0];
+    if (!row) return null;
+    return {
+      username: String(row.username),
+      github_user_id: null,
+      final_score: Number(row.final_score),
+      hidden: Number(row.hidden),
+      score_version: typeof row.score_version === "string" ? row.score_version : null,
+      score_source_collection_version: typeof row.score_source_collection_version === "string" ? row.score_source_collection_version : null,
+      score_source_snapshot_hash: typeof row.score_source_snapshot_hash === "string" ? row.score_source_snapshot_hash : null,
+    };
+  } catch {
+    throw new SocialFeedError("score_unavailable", 503);
+  }
+};
+
 /** An authorization read must not use the public API's stale/legacy fallback. */
 export const readPublishingScore: ScoreReader = async (login) => {
   try {

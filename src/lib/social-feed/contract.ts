@@ -10,6 +10,13 @@ export const FEED_MAX_PAGE_SIZE = 50;
 export const FEED_PUBLICATION_POLICY_VERSION = "social-feed-v1";
 export const FEED_X_CURATED_POLICY_VERSION = "social-feed-x-curated-v1";
 export const FEED_MAX_TRANSLATION_LABEL_LENGTH = 100;
+/** Hard caps for a single X-ingest request's translation payload. */
+export const FEED_MAX_INGEST_TRANSLATIONS = 9;
+export const FEED_MAX_INGEST_TRANSLATION_CHARS = 200_000;
+/** Ingest quotas: global per-minute / per-hour and per-author per-minute. */
+export const FEED_INGEST_GLOBAL_PER_MINUTE = 30;
+export const FEED_INGEST_GLOBAL_PER_HOUR = 500;
+export const FEED_INGEST_AUTHOR_PER_MINUTE = 10;
 
 export type FeedOrigin = "x" | "ghfind";
 export type FeedPostKind = "original" | "reply";
@@ -209,7 +216,7 @@ export interface FeedMediaAsset extends MediaRegistration {
   status: "ready" | "deleted";
   created_at: string;
 }
-export type FeedQuotaOperation = "publish" | "interact" | "view" | "upload";
+export type FeedQuotaOperation = "publish" | "interact" | "view" | "upload" | "ingest" | "ingest_hour";
 export interface SocialFeedRepository {
   getPost(id: string, viewer?: FeedViewer | null, locale?: Locale | null): Promise<FeedPost | null>;
   listPosts(options: FeedListOptions): Promise<FeedPage>;

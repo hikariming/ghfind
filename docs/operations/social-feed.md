@@ -35,11 +35,13 @@ Astro 页面读取的本地数据位于 `apps/web/.wrangler/state`，与上述 A
 
 部署前需要在目标环境应用 `migrations-feed/0016_social_posts.sql` 与 `0017_social_post_translations.sql`（通过现有 `migrations-feed` 迁移流），设置 API Worker 的 `GHFIND_FEED_D1`、核心评分库 `GHFIND_D1`、原有 OAuth 配置和 `AUTH_SECRET`。
 
-媒体使用独立 `SOCIAL_FEED_MEDIA` R2 绑定；配置桶名为 dev 的 `ghfind-social-media-dev` 和生产的 `ghfind-social-media`，部署前须创建对应桶。它们不是 Next 页面缓存桶。本轮仅用本地模拟桶验证，未创建远程桶、执行远程迁移或部署。R2 私有，图片由 API 检查归属/帖子可见性后读取。未发布草稿媒体仅上传者可读，取消草稿后的孤立媒体清理任务尚未接入。
+媒体使用独立 `SOCIAL_FEED_MEDIA` R2 绑定；**部署 API 前必须先创建空桶**：staging `ghfind-social-media-dev`、生产 `ghfind-social-media`，并确认 Worker 绑定名是 `SOCIAL_FEED_MEDIA`（不要复用 `ghfind-next-cache`）。本仓库不在云上自动建桶。本轮仅用本地模拟桶验证，未创建远程桶、执行远程迁移或部署。R2 私有，图片由 API 检查归属/帖子可见性后读取。未发布草稿媒体仅上传者可读，取消草稿后的孤立媒体清理任务尚未接入。
+
+写路径 kill switch（默认关）：`SOCIAL_FEED_PUBLISH_ENABLED`、`SOCIAL_FEED_INGEST_ENABLED`（unset/`0`/`false`/`off` = 关；关时写入口返回 `503 feature_disabled`）。读路径保持可用。上线顺序：迁移 → 部署（读开、写关）→ 配好 `SOCIAL_FEED_INGEST_SECRET` 与 R2 → 先开 ingest → 再开 publish。
 
 发布资格还核对评分对应完整扫描快照中的 GitHub 固定账号 ID，并验证快照 hash，避免用户名被重新注册后继承他人评分。旧快照没有固定 ID 时返回 `score_identity_required`，需本人重新扫描；浏览和普通互动不受影响，已导入 X 帖子的展示也不受影响。TS 与 Go 采集器均已补充该事实字段，不改变评分公式。发布资格接受当前 Node collection v6 与 Go 独立 collection v5（版本关系见 [采集发布说明](../releases/v13-v12-v6-rollout.md)），两者均要求当前评分版本、完整扫描和匹配的固定 ID；旧历史记录不会因 v5 标签被当成有效发布资格。
 
-X 导入需要独立的 `SOCIAL_FEED_INGEST_SECRET`（至少 32 字符）。生产页面和 API 请求同源；如开发代理改变目标 origin，可显式设置唯一可信页面 origin `SOCIAL_FEED_PUBLIC_ORIGIN`，不能用请求头任意扩展许可域。
+X 导入需要独立的 `SOCIAL_FEED_INGEST_SECRET`（至少 32 字符；列入 ghfind-api 生产 secrets 清单与 `.env.example` 变量名；勿复用 `ADMIN_SECRET`）。生产页面和 API 请求同源；如开发代理改变目标 origin，可显式设置唯一可信页面 origin `SOCIAL_FEED_PUBLIC_ORIGIN`，不能用请求头任意扩展许可域。
 
 ## X 内容导入
 

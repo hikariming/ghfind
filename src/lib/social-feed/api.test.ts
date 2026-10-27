@@ -5,11 +5,11 @@ import { SocialFeedError, type FeedPost } from "./contract";
 const mocks = vi.hoisted(() => ({
   repository: { getAuthorSummary: vi.fn(), getPost: vi.fn(), listPosts: vi.fn(), listReplies: vi.fn(), listAncestors: vi.fn(), createNativePost: vi.fn(), findPublication: vi.fn(), deleteNativePost: vi.fn(),
     setReaction: vi.fn(), setBookmark: vi.fn(), setRepost: vi.fn(), setFollow: vi.fn(), recordQualifiedView: vi.fn(), consumeQuota: vi.fn(), ingestXPost: vi.fn() },
-  githubProfileXUrl: vi.fn(), readPublishingScore: vi.fn(), requirePublication: vi.fn(), publishingCapabilities: vi.fn(), xIngestPublication: vi.fn(),
+  githubProfileXUrl: vi.fn(), readDisplayScore: vi.fn(), requirePublication: vi.fn(), publishingCapabilities: vi.fn(), xIngestPublication: vi.fn(),
 }));
 vi.mock("./github-profile", () => ({ githubProfileXUrl: mocks.githubProfileXUrl }));
 vi.mock("./repository", () => ({ getSocialFeedRepository: () => mocks.repository, nativePublicationHash: async (input: unknown, parent?: string) => JSON.stringify({ input, parent }) }));
-vi.mock("./eligibility", () => ({ readPublishingScore: mocks.readPublishingScore, requirePublication: mocks.requirePublication, publishingCapabilities: mocks.publishingCapabilities,
+vi.mock("./eligibility", () => ({ readDisplayScore: mocks.readDisplayScore, requirePublication: mocks.requirePublication, publishingCapabilities: mocks.publishingCapabilities,
   xIngestPublication: mocks.xIngestPublication }));
 import { getAuthorSummary, createPost, deletePost, getPost, ingestX, listPosts, recordView, setReaction } from "./api";
 import * as postsRoute from "@/app/api/feed/posts/route";
@@ -32,6 +32,8 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.stubEnv("AUTH_SECRET", "social-feed-test-secret-long-enough-00000001");
   vi.stubEnv("SOCIAL_FEED_INGEST_SECRET", "social-feed-ingest-secret-long-enough-000001");
+  vi.stubEnv("SOCIAL_FEED_PUBLISH_ENABLED", "1");
+  vi.stubEnv("SOCIAL_FEED_INGEST_ENABLED", "1");
   mocks.publishingCapabilities.mockResolvedValue({ can_publish: true, can_reply: true, minimum_score: 60, reason: null });
   mocks.repository.listPosts.mockResolvedValue({ items: [post], next_cursor: null, algorithm_version: "chronological-v1" });
   mocks.repository.getPost.mockResolvedValue(post);
@@ -247,15 +249,50 @@ describe("author hover summary", () => {
     expect(await (await getAuthorSummary(request("GET"), params)).json()).toMatchObject({ x_url: "https://x.com/example" });
     expect(mocks.githubProfileXUrl).toHaveBeenCalledWith("7");
   });
-  it("shows saved scores only for the same verified GitHub identity without scanning", async () => {
+  it("shows saved final_score without joining scan snapshots; hides when score is hidden", async () => {
     const summary = { author: { ...post.author, id: "gha_7" }, following: 3, followers: 4, follows_you: false, x_url: null, score: null };
     mocks.repository.getAuthorSummary.mockImplementation(async () => ({ ...summary }));
-    mocks.readPublishingScore.mockResolvedValue({ github_user_id: "7", final_score: 69, hidden: 0 });
+    mocks.readDisplayScore.mockResolvedValue({ github_user_id: null, final_score: 69, hidden: 0 });
     expect(await (await getAuthorSummary(request("GET"), params)).json()).toMatchObject({ score: 69, following: 3, followers: 4 });
-    mocks.readPublishingScore.mockResolvedValue({ github_user_id: "8", final_score: 99, hidden: 0 });
-    expect(await (await getAuthorSummary(request("GET"), params)).json()).toMatchObject({ score: null });
-    mocks.readPublishingScore.mockResolvedValue({ github_user_id: "7", final_score: 69, hidden: 1 });
+    mocks.readDisplayScore.mockResolvedValue({ github_user_id: null, final_score: 99, hidden: 1 });
     expect(await (await getAuthorSummary(request("GET"), params)).json()).toMatchObject({ score: null });
     expect(mocks.requirePublication).not.toHaveBeenCalled();
+  });
+});
+
+describe("write kill switches", () => {
+  it("returns 503 feature_disabled when publish is off (after idempotent miss)", async () => {
+    vi.stubEnv("SOCIAL_FEED_PUBLISH_ENABLED", "0");
+    const response = await createPost(request("POST", { text: "hello" }, { signed: true }));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "feature_disabled" });
+    expect(mocks.repository.createNativePost).not.toHaveBeenCalled();
+  });
+  it("returns 503 feature_disabled when ingest is off", async () => {
+    vi.stubEnv("SOCIAL_FEED_INGEST_ENABLED", "0");
+    const body = { author: { github_user_id: "7", github_login: "octocat", name: "Octocat", avatar_url: null },
+      source: { post_id: "1234567890123456789", author_id: "1234", url: "https://x.com/octocat/status/1234567890123456789", display_name: "X name", avatar_url: null,
+        evidence_url: "https://github.com/octocat", evidence_method: "editorial_review", evidence_checked_at: "2026-10-25T00:00:00Z" },
+      text: "The exact original post", published_at: "2026-10-25T00:00:00Z" };
+    const req = request("POST", body);
+    req.headers.set("Authorization", `Bearer ${process.env.SOCIAL_FEED_INGEST_SECRET}`);
+    const response = await ingestX(req);
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "feature_disabled" });
+    expect(mocks.repository.ingestXPost).not.toHaveBeenCalled();
+  });
+  it("consumes ingest quotas before writing an X post", async () => {
+    const body = { author: { github_user_id: "7", github_login: "octocat", name: "Octocat", avatar_url: null },
+      source: { post_id: "1234567890123456789", author_id: "1234", url: "https://x.com/octocat/status/1234567890123456789", display_name: "X name", avatar_url: null,
+        evidence_url: "https://github.com/octocat", evidence_method: "editorial_review", evidence_checked_at: "2026-10-25T00:00:00Z" },
+      text: "The exact original post", published_at: "2026-10-25T00:00:00Z" };
+    const req = request("POST", body);
+    req.headers.set("Authorization", `Bearer ${process.env.SOCIAL_FEED_INGEST_SECRET}`);
+    expect((await ingestX(req)).status).toBe(201);
+    expect(mocks.repository.consumeQuota.mock.calls.map((call: unknown[]) => call.slice(0, 2))).toEqual([
+      ["ingest:global", "ingest"],
+      ["ingest:global", "ingest_hour"],
+      ["ingest:author:7", "ingest"],
+    ]);
   });
 });

@@ -1,6 +1,6 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { readBoundedBody, FeedBodyTooLarge } from "@/lib/feed-gateway";
-import { consumeFeedQuota, feedActor, requireFeedActor, requireSameOrigin, socialFeedJson, socialFeedRoute } from "./api";
+import { consumeFeedQuota, feedActor, requireFeedActor, requireSameOrigin, requireSocialFeedPublishEnabled, socialFeedJson, socialFeedRoute } from "./api";
 import { SocialFeedError } from "./contract";
 import { requirePublication } from "./eligibility";
 import { getSocialFeedRepository } from "./repository";
@@ -38,6 +38,7 @@ export function validFeedImage(bytes: Uint8Array, mime: string): boolean {
 export function uploadFeedMedia(request: Request): Promise<Response> {
   return socialFeedRoute(async () => {
     requireSameOrigin(request);
+    requireSocialFeedPublishEnabled();
     const actor = requireFeedActor(request);
     await requirePublication(actor);
     await consumeFeedQuota(actor.user_id, "upload");

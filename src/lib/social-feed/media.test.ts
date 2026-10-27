@@ -8,7 +8,7 @@ vi.mock("@opennextjs/cloudflare", () => ({ getCloudflareContext: () => ({ env: {
   put: mocks.put, get: mocks.get, delete: mocks.deleteObject,
 } } }) }));
 vi.mock("./api", () => ({
-  requireSameOrigin: vi.fn(), consumeFeedQuota: vi.fn(), feedActor: () => null,
+  requireSameOrigin: vi.fn(), requireSocialFeedPublishEnabled: vi.fn(), consumeFeedQuota: vi.fn(), feedActor: () => null,
   requireFeedActor: () => ({ user_id: "github:11" }),
   socialFeedJson: (value: unknown, status = 200) => Response.json(value, { status }),
   socialFeedRoute: async (work: () => Promise<Response>) => { try { return await work(); } catch { return Response.json({ error: "feed_unavailable" }, { status: 503 }); } },

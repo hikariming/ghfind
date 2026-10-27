@@ -122,6 +122,9 @@ pnpm exec wrangler secret put AUTH_GITHUB_ID --env production
 pnpm exec wrangler secret put AUTH_GITHUB_SECRET --env production
 pnpm exec wrangler secret put AUTH_SECRET --env production
 pnpm exec wrangler secret put ADMIN_SECRET --env production
+# Social Feed (ghfind-api only): create R2 buckets first, then put ingest secret.
+# pnpm exec wrangler secret put SOCIAL_FEED_INGEST_SECRET --config apps/api/wrangler.jsonc --env production
+# Optional write kill switches are vars (default off): SOCIAL_FEED_PUBLISH_ENABLED / SOCIAL_FEED_INGEST_ENABLED
 ```
 
 Add the optional fallback LLM, Mosoo, CLI, Resend, and project-analysis secrets

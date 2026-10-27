@@ -3,6 +3,9 @@ import type { Locale } from "@ghfind/i18n";
 import { d1AsLibsqlClient, getFeedD1Binding } from "@/lib/d1-client";
 import {
   FEED_DEFAULT_PAGE_SIZE,
+  FEED_INGEST_AUTHOR_PER_MINUTE,
+  FEED_INGEST_GLOBAL_PER_HOUR,
+  FEED_INGEST_GLOBAL_PER_MINUTE,
   FEED_MAX_MEDIA,
   FEED_MAX_PAGE_SIZE,
   FEED_MAX_TEXT_LENGTH,
@@ -44,7 +47,7 @@ interface Cursor {
   session_id?: string;
   position?: number;
 }
-const TIMELINE_SNAPSHOT_LIMIT = 1000;
+const TIMELINE_SNAPSHOT_LIMIT = 200;
 const TIMELINE_SNAPSHOT_LIFETIME_MS = 30 * 60_000;
 const nowIso = () => new Date().toISOString();
 const nullableText = (value: unknown): string | null => value == null ? null : String(value);
@@ -190,11 +193,6 @@ export function createRepository(client: Client): SocialFeedRepository {
     }
     const rows = await query(`SELECT p.*,a.github_login,a.display_name,a.avatar_url,
       root.status AS root_status,tr.locale AS translation_locale,tr.text AS translation_text,tr.source_lang AS translation_source_lang,
-      (SELECT COUNT(*) FROM social_feed_reactions r WHERE r.post_id=p.id AND r.value='like') AS likes,
-      (SELECT COUNT(*) FROM social_feed_reposts r WHERE r.post_id=p.id) AS reposts,
-      (SELECT COUNT(*) FROM social_feed_posts r WHERE r.parent_post_id=p.id AND r.origin='ghfind' AND r.status='published') AS direct_replies,
-      (SELECT COUNT(*) FROM social_feed_posts r WHERE r.conversation_id=p.conversation_id AND r.kind='reply' AND r.origin='ghfind' AND r.status='published') AS conversation_replies,
-      (SELECT COUNT(*) FROM social_feed_views v WHERE v.post_id=p.id) AS views,
       (SELECT value FROM social_feed_reactions r WHERE r.post_id=p.id AND r.user_id=?) AS viewer_reaction,
       EXISTS(SELECT 1 FROM social_feed_bookmarks b WHERE b.post_id=p.id AND b.user_id=?) AS viewer_bookmarked,
       EXISTS(SELECT 1 FROM social_feed_reposts r WHERE r.post_id=p.id AND r.user_id=?) AS viewer_reposted,
@@ -204,6 +202,38 @@ export function createRepository(client: Client): SocialFeedRepository {
       LEFT JOIN social_feed_post_translations tr ON tr.post_id=p.id AND tr.content_version=p.content_version AND tr.locale=?
       WHERE p.id IN (${placeholders(ids.length)}) AND p.status<>'hidden' AND root.status<>'hidden'`,
     [viewer?.user_id ?? null, viewer?.user_id ?? null, viewer?.user_id ?? null, viewer?.user_id ?? null, locale ?? null, ...ids]);
+    // Bounded GROUP BY aggregations (one query per table) instead of per-post COUNT subqueries.
+    const metricsByPost = new Map<string, { likes: number; reposts: number; direct_replies: number; conversation_replies: number; views: number }>();
+    const ensureMetrics = (id: string) => {
+      const current = metricsByPost.get(id) ?? { likes: 0, reposts: 0, direct_replies: 0, conversation_replies: 0, views: 0 };
+      metricsByPost.set(id, current);
+      return current;
+    };
+    for (const row of await query(`SELECT post_id, COUNT(*) AS n FROM social_feed_reactions
+      WHERE post_id IN (${placeholders(ids.length)}) AND value='like' GROUP BY post_id`, ids)) {
+      ensureMetrics(String(row.post_id)).likes = numberValue(row.n);
+    }
+    for (const row of await query(`SELECT post_id, COUNT(*) AS n FROM social_feed_reposts
+      WHERE post_id IN (${placeholders(ids.length)}) GROUP BY post_id`, ids)) {
+      ensureMetrics(String(row.post_id)).reposts = numberValue(row.n);
+    }
+    for (const row of await query(`SELECT parent_post_id AS post_id, COUNT(*) AS n FROM social_feed_posts
+      WHERE parent_post_id IN (${placeholders(ids.length)}) AND origin='ghfind' AND status='published' GROUP BY parent_post_id`, ids)) {
+      ensureMetrics(String(row.post_id)).direct_replies = numberValue(row.n);
+    }
+    for (const row of await query(`SELECT post_id, COUNT(*) AS n FROM social_feed_views
+      WHERE post_id IN (${placeholders(ids.length)}) GROUP BY post_id`, ids)) {
+      ensureMetrics(String(row.post_id)).views = numberValue(row.n);
+    }
+    const conversationIds = [...new Set(rows.map((row) => String(row.conversation_id)))];
+    if (conversationIds.length) {
+      const repliesByConversation = new Map((await query(`SELECT conversation_id, COUNT(*) AS n FROM social_feed_posts
+        WHERE conversation_id IN (${placeholders(conversationIds.length)}) AND kind='reply' AND origin='ghfind' AND status='published'
+        GROUP BY conversation_id`, conversationIds)).map((row) => [String(row.conversation_id), numberValue(row.n)]));
+      for (const row of rows) {
+        ensureMetrics(String(row.id)).conversation_replies = repliesByConversation.get(String(row.conversation_id)) ?? 0;
+      }
+    }
     const mediaRows = await query(`SELECT pm.post_id,m.*,pm.position FROM social_feed_post_media pm
       JOIN social_feed_media_assets m ON m.id=pm.media_id WHERE pm.post_id IN (${placeholders(ids.length)}) AND m.status='ready'
       ORDER BY pm.position`, ids);
@@ -233,8 +263,7 @@ export function createRepository(client: Client): SocialFeedRepository {
         published_at: String(row.published_at), content_version: numberValue(row.content_version),
         conversation_id: String(row.conversation_id), parent_post_id: nullableText(row.parent_post_id),
         original_url: origin === "x" ? nullableText(row.source_url) : null, status,
-        metrics: { origin: "ghfind", likes: numberValue(row.likes), reposts: numberValue(row.reposts),
-          direct_replies: numberValue(row.direct_replies), conversation_replies: numberValue(row.conversation_replies), views: numberValue(row.views) },
+        metrics: { origin: "ghfind", ...(metricsByPost.get(String(row.id)) ?? { likes: 0, reposts: 0, direct_replies: 0, conversation_replies: 0, views: 0 }) },
         viewer: viewer ? { reaction: nullableText(row.viewer_reaction) as FeedReaction | null,
           bookmarked: Boolean(row.viewer_bookmarked), reposted: Boolean(row.viewer_reposted), following_author: Boolean(row.viewer_following),
           can_reply: viewer.can_reply && status === "published" && row.root_status === "published",
@@ -291,10 +320,10 @@ export function createRepository(client: Client): SocialFeedRepository {
     const at = nowIso();
     const expiresAt = new Date(Date.parse(at) + TIMELINE_SNAPSHOT_LIFETIME_MS).toISOString();
     const snapshot = rows.slice(0, TIMELINE_SNAPSHOT_LIMIT).map((row) => [row.post_id, row.sort_time, row.sort_id, row.reposter_author_id]);
-    // Cleanup is bounded per new session; each parent cascades at most 1000 rows.
+    // Cleanup is bounded per new session; each parent cascades at most TIMELINE_SNAPSHOT_LIMIT rows.
     // One JSON parameter avoids a large batch or D1's bound-parameter limit.
     await batch([
-      { sql: "DELETE FROM social_feed_sessions WHERE id IN (SELECT id FROM social_feed_sessions WHERE expires_at<=? ORDER BY expires_at LIMIT 20)", args: [at] },
+      { sql: "DELETE FROM social_feed_sessions WHERE id IN (SELECT id FROM social_feed_sessions WHERE expires_at<=? ORDER BY expires_at LIMIT 200)", args: [at] },
       { sql: "INSERT INTO social_feed_sessions(id,scope,created_at,expires_at) VALUES(?,?,?,?)", args: [id, scope, at, expiresAt] },
       { sql: `INSERT INTO social_feed_session_items(session_id,position,post_id,sort_time,sort_id,reposter_author_id)
         SELECT ?,CAST(key AS INTEGER),json_extract(value,'$[0]'),json_extract(value,'$[1]'),json_extract(value,'$[2]'),json_extract(value,'$[3]') FROM json_each(?)`,
@@ -326,21 +355,31 @@ export function createRepository(client: Client): SocialFeedRepository {
     }
     const followingOriginal = channel === "following" ? "AND EXISTS(SELECT 1 FROM social_feed_follows f WHERE f.user_id=? AND f.author_id=p.author_id)" : "";
     const followingRepost = channel === "following" ? "AND EXISTS(SELECT 1 FROM social_feed_follows f WHERE f.user_id=? AND f.author_id=account.author_id)" : "";
+    // Bound each branch with ORDER BY published_at/created_at + LIMIT before UNION/window.
+    // Never materialize the full published/repost set then truncate.
+    const windowLimit = TIMELINE_SNAPSHOT_LIMIT;
     const args: InValue[] = [asOf];
     if (channel === "following") args.push(viewer!.user_id);
+    args.push(windowLimit);
     args.push(asOf);
     if (channel === "following") args.push(viewer!.user_id);
-    const rows = await query(`WITH activities AS (
+    args.push(windowLimit);
+    const rows = await query(`WITH recent_originals AS (
       SELECT p.id AS post_id,p.published_at AS sort_time,'post:'||p.id AS sort_id,NULL AS reposter_author_id,
         NULL AS reposter_login,NULL AS reposter_name,NULL AS reposter_avatar
       FROM social_feed_posts p WHERE p.status='published' AND p.kind='original'
         AND (p.origin='ghfind' OR p.source_eligible=1) AND p.published_at<=? ${followingOriginal}
-      UNION ALL
-      SELECT p.id,r.created_at,'repost:'||r.user_id||':'||p.id,account.author_id,a.github_login,a.display_name,a.avatar_url
+      ORDER BY p.published_at DESC,p.id DESC LIMIT ?
+    ), recent_reposts AS (
+      SELECT p.id AS post_id,r.created_at AS sort_time,'repost:'||r.user_id||':'||p.id AS sort_id,account.author_id AS reposter_author_id,
+        a.github_login AS reposter_login,a.display_name AS reposter_name,a.avatar_url AS reposter_avatar
       FROM social_feed_reposts r JOIN social_feed_posts p ON p.id=r.post_id
       JOIN social_feed_accounts account ON account.user_id=r.user_id JOIN social_feed_authors a ON a.id=account.author_id
       WHERE p.status='published' AND p.kind='original' AND (p.origin='ghfind' OR p.source_eligible=1)
         AND r.created_at<=? ${followingRepost}
+      ORDER BY r.created_at DESC,r.user_id DESC,p.id DESC LIMIT ?
+    ), activities AS (
+      SELECT * FROM recent_originals UNION ALL SELECT * FROM recent_reposts
     ), chosen AS (
       SELECT *,ROW_NUMBER() OVER(PARTITION BY post_id ORDER BY sort_time DESC,sort_id DESC) AS position FROM activities
     ) SELECT * FROM chosen WHERE position=1 ${after} ORDER BY sort_time DESC,sort_id DESC LIMIT ?`, [...args, ...afterArgs, TIMELINE_SNAPSHOT_LIMIT]);
@@ -553,9 +592,14 @@ export function createRepository(client: Client): SocialFeedRepository {
     return result.rowsAffected > 0;
   }
   async function consumeQuota(actorKey: string, operation: FeedQuotaOperation, now = new Date()): Promise<boolean> {
-    const maximum = { publish: 10, interact: 120, view: 120, upload: 10 }[operation];
+    const maximum = {
+      publish: 10, interact: 120, view: 120, upload: 10,
+      ingest: actorKey.startsWith("ingest:author:") ? FEED_INGEST_AUTHOR_PER_MINUTE : FEED_INGEST_GLOBAL_PER_MINUTE,
+      ingest_hour: FEED_INGEST_GLOBAL_PER_HOUR,
+    }[operation];
     if (!actorKey || !maximum || !Number.isFinite(now.getTime())) throw new SocialFeedError("invalid_quota", 400);
-    const windowStart = Math.floor(now.getTime() / 60_000);
+    const windowMs = operation === "ingest_hour" ? 3_600_000 : 60_000;
+    const windowStart = Math.floor(now.getTime() / windowMs);
     const result = await client.execute({ sql: `INSERT INTO social_feed_quotas(actor_key,operation,window_start,request_count) VALUES(?,?,?,1)
       ON CONFLICT(actor_key,operation,window_start) DO UPDATE SET request_count=social_feed_quotas.request_count+1
       WHERE social_feed_quotas.request_count<? RETURNING request_count`, args: [actorKey, operation, windowStart, maximum] });

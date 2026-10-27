@@ -154,6 +154,14 @@
     {
       "name": "0015_feed_discover_partition_tags.sql",
       "sha256": "5cc682e79cea8e481a0eef953a7b397b17101818be72fba4d6bd15223bd4ac10"
+    },
+    {
+      "name": "0016_social_posts.sql",
+      "sha256": "77eb033b7644848798da23bb4c27247ae347e8ce475bd0ed479e40178cf512c4"
+    },
+    {
+      "name": "0017_social_post_translations.sql",
+      "sha256": "b386f026d599b773feca4e56bcdf8011224ce84f6977a76b8af91387690762aa"
     }
   ]
 }

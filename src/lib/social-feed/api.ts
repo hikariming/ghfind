@@ -6,7 +6,7 @@ import { SocialFeedError, FEED_MAX_MEDIA, type FeedActor, type FeedMedia, type F
 import { getSocialFeedRepository, nativePublicationHash } from "./repository";
 import { normalizeSourceLang, validateTranslations } from "./translations";
 import { githubProfileXUrl } from "./github-profile";
-import { publishingCapabilities, readPublishingScore, requirePublication, xIngestPublication } from "./eligibility";
+import { publishingCapabilities, readDisplayScore, requirePublication, xIngestPublication } from "./eligibility";
 
 const MAX_NATIVE_TEXT = 5_000;
 const VISITOR_COOKIE = "ghfind_feed_visitor";
@@ -49,6 +49,19 @@ export function requireSameOrigin(request: Request): void {
   if (!origin || !allowed.has(origin) || request.headers.get("sec-fetch-site") === "cross-site") {
     throw new SocialFeedError("cross_origin_request", 403);
   }
+}
+
+/** Env kill switches: unset/empty/"0"/"false"/"off" are disabled (default off). */
+function envFlagEnabled(name: string): boolean {
+  const raw = process.env[name];
+  if (raw == null || raw === "") return false;
+  return !["0", "false", "off", "no"].includes(raw.trim().toLowerCase());
+}
+export function requireSocialFeedPublishEnabled(): void {
+  if (!envFlagEnabled("SOCIAL_FEED_PUBLISH_ENABLED")) throw new SocialFeedError("feature_disabled", 503);
+}
+export function requireSocialFeedIngestEnabled(): void {
+  if (!envFlagEnabled("SOCIAL_FEED_INGEST_ENABLED")) throw new SocialFeedError("feature_disabled", 503);
 }
 
 export function socialFeedJson(body: unknown, status = 200, cookie?: string): Response {
@@ -254,9 +267,11 @@ export function getAuthorSummary(request: Request, params: RouteContext): Promis
   return socialFeedRoute(async () => {
     const summary = await getSocialFeedRepository().getAuthorSummary(await idFrom(params), feedActor(request)?.user_id);
     if (!summary) throw new SocialFeedError("author_not_found", 404);
-    const score = await readPublishingScore(summary.author.github_login);
-    if (score && !score.hidden && score.github_user_id && summary.author.id === `gha_${score.github_user_id}` &&
-        Number.isFinite(score.final_score) && score.final_score >= 0 && score.final_score <= 100) summary.score = score.final_score;
+    // Display path: final_score only — no public_scan_runs.snapshot join (P0-7).
+    const score = await readDisplayScore(summary.author.github_login);
+    if (score && !score.hidden && Number.isFinite(score.final_score) && score.final_score >= 0 && score.final_score <= 100) {
+      summary.score = score.final_score;
+    }
     if (!summary.x_url) summary.x_url = await githubProfileXUrl(summary.author.id.replace(/^gha_/, ""));
     return socialFeedJson(summary);
   });
@@ -283,6 +298,7 @@ export function createPost(request: Request, params?: RouteContext): Promise<Res
     // A successful command remains successful even if its author later loses eligibility.
     const existing = await repository.findPublication(actor.user_id, key, payloadHash, { user_id: actor.user_id, can_reply: false });
     if (existing) return mutationResponse(request, existing);
+    requireSocialFeedPublishEnabled();
     const publication = await requirePublication(actor);
     await consumeFeedQuota(actor.user_id, "publish");
     const post = await repository.createNativePost({ actor, publication, input, idempotency_key: key, parent_post_id: parent });
@@ -406,6 +422,7 @@ function ingestTranslations(value: unknown): XPostInput["translations"] {
 }
 export function ingestX(request: Request): Promise<Response> {
   return socialFeedRoute(async () => {
+    requireSocialFeedIngestEnabled();
     const secret = process.env.SOCIAL_FEED_INGEST_SECRET;
     const presented = request.headers.get("authorization")?.match(/^Bearer (.+)$/)?.[1];
     if (!secret || secret.length < 32 || !presented || Buffer.byteLength(presented) !== Buffer.byteLength(secret) ||
@@ -434,9 +451,13 @@ export function ingestX(request: Request): Promise<Response> {
     if (typeof input.text !== "string" || [...input.text].length > 100_000 || (!input.text.trim() && media.length === 0)) {
       throw new SocialFeedError("invalid_text", 400);
     }
-    const publication = await xIngestPublication(login, sourceId(author.github_user_id));
+    const githubUserId = sourceId(author.github_user_id);
+    await consumeFeedQuota("ingest:global", "ingest");
+    await consumeFeedQuota("ingest:global", "ingest_hour");
+    await consumeFeedQuota(`ingest:author:${githubUserId}`, "ingest");
+    const publication = await xIngestPublication(login, githubUserId);
     const post: XPostInput = {
-      author: { github_user_id: sourceId(author.github_user_id), github_login: login, name: requiredText(author.name, 200), avatar_url: nullableAvatar(author.avatar_url) },
+      author: { github_user_id: githubUserId, github_login: login, name: requiredText(author.name, 200), avatar_url: nullableAvatar(author.avatar_url) },
       publication,
       source: { post_id: postId, author_id: sourceId(source.author_id), url: sourceUrl,
         display_name: requiredText(source.display_name, 200), avatar_url: nullableAvatar(source.avatar_url), edit_history_post_ids: history.map(sourceId),
