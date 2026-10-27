@@ -69,9 +69,8 @@ export function defaultLlmConfig(): LlmConfig | null {
  * BYO-key requests never use it — that's the user's own single key/credit.
  *
  * Configure with `LLM_FALLBACK_API_KEY` (+ optional `LLM_FALLBACK_BASE_URL` /
- * `LLM_FALLBACK_MODEL`). DeepSeek's `deepseek-v4-flash` is a fast model, so
- * failover both rescues hard drops AND avoids the primary reasoning model's
- * long chain-of-thought latency.
+ * `LLM_FALLBACK_MODEL`). DeepSeek flash now thinks by default, so requests to
+ * DeepSeek hosts ask for low reasoning effort (see acceptsLowReasoningEffort).
  */
 export function fallbackLlmConfig(): LlmConfig | null {
   if (!process.env.LLM_FALLBACK_API_KEY) return null;
@@ -80,6 +79,19 @@ export function fallbackLlmConfig(): LlmConfig | null {
     apiKey: process.env.LLM_FALLBACK_API_KEY,
     model: process.env.LLM_FALLBACK_MODEL || "deepseek-v4-flash",
   };
+}
+
+/**
+ * Optional dedicated provider for the roast v13 chain (`ROAST_V13_LLM_API_KEY`
+ * + `ROAST_V13_LLM_BASE_URL` + `ROAST_V13_LLM_MODEL`). When unset the chain uses
+ * the default provider and its fallback.
+ */
+export function roastV13LlmConfig(): LlmConfig | null {
+  const apiKey = process.env.ROAST_V13_LLM_API_KEY;
+  const baseURL = process.env.ROAST_V13_LLM_BASE_URL;
+  const model = process.env.ROAST_V13_LLM_MODEL;
+  if (!apiKey || !baseURL || !model) return null;
+  return { baseURL, apiKey, model };
 }
 
 /**
@@ -127,12 +139,18 @@ export interface ChatStreamOptions {
   onAttempt?: (event: ChatAttemptEvent) => void;
 }
 
-/** StepFun supports OpenAI's reasoning_effort field. Keep it provider-scoped:
- * fallback and BYO OpenAI-compatible endpoints may reject unknown fields. */
-function isStepFunEndpoint(baseURL: string): boolean {
+/** StepFun and DeepSeek accept OpenAI's top-level reasoning_effort field. Keep
+ * it provider-scoped: other BYO OpenAI-compatible endpoints may reject unknown
+ * fields. DeepSeek's current flash model thinks by default at `high` effort,
+ * which pushed roast time-to-first-content to 15–60s; `low` keeps thinking on
+ * but bounds that latency (the roast's quality comes from the prompt, not long
+ * chain-of-thought). */
+function acceptsLowReasoningEffort(baseURL: string): boolean {
   try {
     const hostname = new URL(baseURL).hostname.toLowerCase();
-    return hostname === "stepfun.com" || hostname.endsWith(".stepfun.com");
+    return ["stepfun.com", "deepseek.com"].some(
+      (domain) => hostname === domain || hostname.endsWith(`.${domain}`),
+    );
   } catch {
     return false;
   }
@@ -188,7 +206,7 @@ export async function* chatStreamEvents(
         messages,
         stream: true,
         temperature: opts?.temperature ?? 0.85,
-        ...(isStepFunEndpoint(base) ? { reasoning_effort: "low" } : {}),
+        ...(acceptsLowReasoningEffort(base) ? { reasoning_effort: "low" } : {}),
       }),
       signal: ctrl.signal,
     });

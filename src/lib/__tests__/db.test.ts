@@ -288,6 +288,37 @@ describe("getArchivedRoast", () => {
     await expect(db.getArchivedRoast("stale-roast", "zh")).resolves.toBeNull();
   });
 
+  it("withholds an older roast release as current but exposes it as stale, one-liner gated too", async () => {
+    const username = "stale-roast-detail";
+    const scoreWrite = await writeScore({ ...entry, username });
+    await db.updateRoast(username, "## 上一版中文报告", "zh", scoreWrite);
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: `UPDATE scores SET roast_version = ? WHERE username = ?`,
+      args: [`${ROAST_CACHE_VERSION}-old`, username],
+    });
+    const detail = await db.getAccountDetail(username);
+    expect(detail).toMatchObject({
+      roast: null,
+      roast_line: { zh: "", en: "" },
+      stale_roast: "## 上一版中文报告",
+      stale_roast_version: `${ROAST_CACHE_VERSION}-old`,
+    });
+    expect(detail?.stale_roast_en).toBeUndefined();
+
+    // Either language's report on the current release keeps the shared one-liner.
+    await client.execute({
+      sql: `UPDATE scores SET roast_en = ?, roast_en_version = ? WHERE username = ?`,
+      args: ["## Current English report", ROAST_CACHE_VERSION, username],
+    });
+    await expect(db.getAccountDetail(username)).resolves.toMatchObject({
+      roast: null,
+      roast_en: "## Current English report",
+      roast_line: entry.roast_line,
+      stale_roast: "## 上一版中文报告",
+    });
+  });
+
   it("does not replay archived reports from rows without cache versions", async () => {
     const scoreWrite = await writeScore({ ...entry, username: "legacy-roast" });
     await db.updateRoast("legacy-roast", "## legacy report", "zh", scoreWrite);

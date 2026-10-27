@@ -52,11 +52,13 @@ import * as projectAnalysis from "@/app/api/project-analyses/[id]/route";
 import * as projectAnalyses from "@/app/api/project-analyses/route";
 import * as resumes from "@/app/api/resumes/route";
 import * as roast from "@/app/api/roast/route";
+import * as roastAuto from "@/app/api/roast/auto/route";
 import * as apiIndex from "@/app/api/route";
 import * as scan from "@/app/api/scan/route";
 import * as score from "@/app/api/score/[username]/route";
 import * as searchUsers from "@/app/api/search-users/route";
 import * as sponsors from "@/app/api/sponsors/route";
+import * as sponsorVisit from "@/app/api/sponsors/[id]/visit/route";
 import * as stats from "@/app/api/stats/route";
 import * as talentById from "@/app/api/talent/[id]/route";
 import * as talentIntake from "@/app/api/talent/intake/route";
@@ -127,6 +129,7 @@ export const API_ROUTES: ApiRoute[] = [
   { path: "/api/developers", module: developers },
   { path: "/api/talent", module: talent },
   { path: "/api/sponsors", module: sponsors },
+  { path: "/api/sponsors/:id/visit", module: sponsorVisit },
   { path: "/api/facet-rank/:username", module: facetRank },
   { path: "/api/campaigns/:campaign/leaderboard", module: campaignLeaderboard },
   // Batch 2: README-embedded / social images.
@@ -169,6 +172,7 @@ export const API_ROUTES: ApiRoute[] = [
   { path: "/api/score/:username", module: score },
   { path: "/api/scan", module: scan },
   { path: "/api/roast", module: roast },
+  { path: "/api/roast/auto", module: roastAuto },
   { path: "/api/vs-verdict", module: vsVerdict },
   { path: "/api/project-analyses", module: projectAnalyses },
   { path: "/api/project-analyses/:id", module: projectAnalysis },

@@ -12,7 +12,7 @@ runs sequentially; the derived metrics are order-independent, so results match.
 from __future__ import annotations
 
 from ._presentation import presentation_signals, pr_presentation_share, UI_LIBRARY, is_presentation_path
-from ._co_creator import co_creator_share, project_share, budget_co_creator_shares
+from ._co_creator import co_creator_share, project_share, budget_co_creator_shares, summarize_contributors, weighted_core_churn, RECENT_MAINTENANCE_DAYS, CONTRIBUTOR_PAGE_LIMIT
 
 import base64
 import json
@@ -24,7 +24,7 @@ import urllib.parse
 import urllib.request
 from contextlib import contextmanager
 from contextvars import ContextVar
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from ._score import log_ratio
@@ -378,7 +378,9 @@ def top_starred_original_repo_quality(repos: List[Dict[str, Any]], login_lower: 
     if not starred:
         return {"score": 0, "repo": None}
     top = sorted(starred, key=lambda r: r["stars"]*project_share(r), reverse=True)[0]
-    return {"score": original_repo_quality_score(top, login_lower, now)*project_share(top), "repo": _repo_display_name(top)}
+    # Stars are already weighted by share; multiplying quality by the share
+    # again double-counts attribution (mirrors TS/Go).
+    return {"score": original_repo_quality_score(top, login_lower, now), "repo": _repo_display_name(top)}
 
 
 def _clean_readme_line(line: str) -> str:
@@ -1014,7 +1016,13 @@ def compute_org_repo_attribution(
         share=co_creator_share(f)
         if share<=0:
             return None
-        evidence=[f"{f['user_commits']}/{f['total_commits']} commits; leader {f['leading_commits']}",f"{f['user_merged_prs']}/{f['total_merged_prs']} merged PRs; {f['active_years']} active years",f"{f['core_churn']} core lines in {f['samples']} complete samples"]
+        evidence=[f"{f['user_commits']}/{f['total_commits']} commits; leader {f['leading_commits']}",f"{f['user_merged_prs']}/{f['total_merged_prs']} merged PRs; {f['active_years']} active years",f"{round(f['core_churn'])} core lines in {f['samples']} complete samples"]
+        if f.get('recent_total_commits') is not None:
+            evidence.append(f"{f.get('recent_user_commits') or 0}/{f['recent_total_commits']} commits in the last {RECENT_MAINTENANCE_DAYS} days")
+        if f.get('recent_total_merged_prs') is not None:
+            evidence.append(f"{f.get('recent_user_merged_prs') or 0}/{f['recent_total_merged_prs']} merged PRs in the last {RECENT_MAINTENANCE_DAYS} days")
+        if f.get('reviewed_prs'):
+            evidence.append(f"reviewed {f['reviewed_prs']} PRs by others")
         if first_commit_match: evidence.append(f'first commit author is {scored}')
         if release_or_tag_author_hit: evidence.append('release/tag author')
         if maintainer_file_hit: evidence.append('listed in maintainer/codeowner docs')
@@ -1339,27 +1347,58 @@ def _fetch_repo_engagement_ratio(owner,name):
     except (GitHubDataUnavailableError, urllib.error.URLError):
         return None
 
-def _collect_co_creator_facts(repo, login):
+def _collect_co_creator_facts(repo, login, now=None):
     owner,name=repo['repo'].split('/')
+    now=now or datetime.now(timezone.utc)
+    # Page contributors until the user appears (bounded); large repos otherwise
+    # report 0 commits for anyone ranked past the first 100.
+    rows=[];truncated=False
+    for page in range(1,CONTRIBUTOR_PAGE_LIMIT+1):
+        try:
+            batch=_rest_get(f'repos/{owner}/{name}/contributors?per_page=100&page={page}') or []
+        except (GitHubDataUnavailableError, urllib.error.URLError):
+            batch=[]
+        rows.extend(batch)
+        truncated=len(batch)>=100
+        if not truncated or any((x.get('login') or '').lower()==login for x in batch):
+            break
+    since=now.astimezone(timezone.utc)-timedelta(days=RECENT_MAINTENANCE_DAYS)
+    since_iso=since.strftime('%Y-%m-%dT%H:%M:%S.')+f'{since.microsecond//1000:03d}Z'
+    since_day=since_iso[:10]
+    query="""query($owner: String!, $name: String!, $q: String!, $since: GitTimestamp!, $recentAll: String!, $recentMine: String!, $reviewed: String!, $login: String!) { user(login: $login) { id } repository(owner: $owner, name: $name) { pullRequests(states: MERGED) { totalCount } defaultBranchRef { target { ... on Commit { history(first: 1) { totalCount } recent: history(since: $since) { totalCount } } } } } search(query: $q, type: ISSUE, first: 10) { issueCount nodes { ... on PullRequest { authorAssociation changedFiles files(first: 100) { nodes { path additions deletions } } } } } recentAll: search(query: $recentAll, type: ISSUE) { issueCount } recentMine: search(query: $recentMine, type: ISSUE) { issueCount } reviewed: search(query: $reviewed, type: ISSUE) { issueCount } }"""
     try:
-        contributors=_rest_get(f'repos/{owner}/{name}/contributors?per_page=100') or []
-    except (GitHubDataUnavailableError, urllib.error.URLError):
-        contributors=[]
-    query='''query($owner: String!, $name: String!, $q: String!) { repository(owner: $owner, name: $name) { pullRequests(states: MERGED) { totalCount } defaultBranchRef { target { ... on Commit { history(first: 1) { totalCount } } } } } search(query: $q, type: ISSUE, first: 10) { issueCount nodes { ... on PullRequest { authorAssociation changedFiles files(first: 100) { nodes { path additions deletions } } } } } }'''
-    try:
-        data=_graphql(query,dict(owner=owner,name=name,q=f"repo:{repo['repo']} is:pr is:merged author:{login} sort:created-desc"))
+        data=_graphql(query,dict(owner=owner,name=name,login=login,since=since_iso,
+            q=f"repo:{repo['repo']} is:pr is:merged author:{login} sort:created-desc",
+            recentAll=f"repo:{repo['repo']} is:pr is:merged merged:>={since_day}",
+            recentMine=f"repo:{repo['repo']} is:pr is:merged merged:>={since_day} author:{login}",
+            reviewed=f"repo:{repo['repo']} is:pr reviewed-by:{login} -author:{login}"))
     except (GitHubDataUnavailableError, urllib.error.URLError):
         data={}
+    data=data or {}
     r=data.get('repository') or {}; search=data.get('search') or {}
-    history=(((r.get('defaultBranchRef') or {}).get('target') or {}).get('history') or {})
-    f=dict(user_commits=next((x.get('contributions',0) for x in contributors if (x.get('login') or '').lower()==login),0),total_commits=max(sum(x.get('contributions',0) for x in contributors),history.get('totalCount',0)),leading_commits=max([0]+[x.get('contributions',0) for x in contributors]),user_merged_prs=search.get('issueCount',0),total_merged_prs=(r.get('pullRequests') or {}).get('totalCount',0),active_years=repo['active_years'],core_churn=0,sampled_churn=0,substantive_samples=0,samples=0)
+    target=((r.get('defaultBranchRef') or {}).get('target') or {})
+    history=target.get('history') or {}
+    counts=summarize_contributors(rows,login,truncated,history.get('totalCount',0),repo['commits'])
+    f=dict(**counts,user_merged_prs=search.get('issueCount',0),total_merged_prs=(r.get('pullRequests') or {}).get('totalCount',0),active_years=repo['active_years'],core_churn=0,sampled_churn=0,substantive_samples=0,samples=0)
+    recent_total=(target.get('recent') or {}).get('totalCount')
+    user_id=(data.get('user') or {}).get('id')
+    if user_id and recent_total is not None:
+        try:
+            mine=_graphql("""query($owner: String!, $name: String!, $since: GitTimestamp!, $id: ID!) { repository(owner: $owner, name: $name) { defaultBranchRef { target { ... on Commit { history(since: $since, author: {id: $id}) { totalCount } } } } } }""",dict(owner=owner,name=name,since=since_iso,id=user_id)) or {}
+        except (GitHubDataUnavailableError, urllib.error.URLError):
+            mine={}
+        recent_mine=((((mine.get('repository') or {}).get('defaultBranchRef') or {}).get('target') or {}).get('history') or {}).get('totalCount')
+        if recent_mine is not None:
+            f['recent_user_commits']=recent_mine
+            f['recent_total_commits']=max(recent_total,recent_mine)
+    if data.get('recentAll') and data.get('recentMine'):
+        f['recent_user_merged_prs']=data['recentMine']['issueCount']
+        f['recent_total_merged_prs']=max(data['recentAll']['issueCount'],data['recentMine']['issueCount'])
+    if data.get('reviewed'):
+        f['reviewed_prs']=data['reviewed']['issueCount']
     def add(files):
-        core=total=0
-        for file in files:
-            churn=max(0,file['additions'])+max(0,file['deletions']);total+=churn
-            if re.search(r'\.(c|cc|cpp|cs|go|java|js|jsx|mjs|cjs|kt|php|py|rb|rs|scala|swift|ts|tsx|vue|svelte|css|scss)$',file['path']) and not is_presentation_path(file['path'],repo['repo']):
-                core+=churn
-        f['samples']+=1;f['core_churn']+=core;f['sampled_churn']+=total;f['substantive_samples']+=int(core>5)
+        core,total,fresh=weighted_core_churn(files,repo['repo'])
+        f['samples']+=1;f['core_churn']+=core;f['sampled_churn']+=total;f['substantive_samples']+=int(fresh>5)
     for pr in search.get('nodes') or []:
         if pr.get('authorAssociation') in ('OWNER','MEMBER','COLLABORATOR'):
             f['association']=pr['authorAssociation']

@@ -5,7 +5,7 @@ import { NextRequest } from "next/server";
 import { registerRequestProvider } from "@/lib/bot-user-agent";
 import { API_ROUTES } from "./routes";
 import { requestContext } from "./request-context";
-import { scheduledProjectAnalysisReconcile } from "./scheduled";
+import { scheduledAutoReroast, scheduledProjectAnalysisReconcile } from "./scheduled";
 
 type Handler = (req: Request, ctx: { params: Promise<Record<string, string>> }) => Response | Promise<Response>;
 
@@ -82,6 +82,14 @@ export { ScanContinueEntrypoint } from "./scan-continue";
 export default {
   fetch: app.fetch,
   async scheduled(_controller: ScheduledController, _env: unknown, ctx: ExecutionContext) {
-    await scheduledProjectAnalysisReconcile((promise) => ctx.waitUntil(promise));
+    const waitUntil = (promise: Promise<unknown>) => ctx.waitUntil(promise);
+    // Independent jobs: one failing must not starve the other.
+    const results = await Promise.allSettled([
+      scheduledProjectAnalysisReconcile(waitUntil),
+      scheduledAutoReroast(waitUntil),
+    ]);
+    for (const result of results) {
+      if (result.status === "rejected") console.error("scheduled task failed", result.reason);
+    }
   },
 };

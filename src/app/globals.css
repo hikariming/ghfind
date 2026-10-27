@@ -1027,8 +1027,10 @@ html[data-theme="light"] :is(.text-zinc-500, .text-zinc-600) { color: #777773; }
 }
 
 .home-sponsors { width: 100%; margin: 28px auto 0; }
-.home-sponsors-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--border); }
-.home-sponsor-cell { display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 68px; padding: 12px 18px; background: var(--card); color: var(--foreground); transition: background .15s; }
+/* Flex-wrap, not a fixed 4-column grid: cells share each row by count, so a
+   hidden cell (ad-block, expired slot) never leaves an empty hole. */
+.home-sponsors-grid { display: flex; flex-wrap: wrap; gap: 1px; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--border); }
+.home-sponsor-cell { flex: 1 1 168px; display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 68px; padding: 12px 18px; background: var(--card); color: var(--foreground); transition: background .15s; }
 .home-sponsor-cell:hover { background: var(--surface-muted); }
 .home-sponsor-logo, .home-sponsor-plus { flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; object-fit: contain; }
 .home-sponsor-logo[data-plate] { background: #0e0e0e; padding: 4px; }
@@ -1041,11 +1043,10 @@ html[data-theme="light"] :is(.text-zinc-500, .text-zinc-600) { color: #777773; }
 .home-sponsor-open:hover strong, .home-sponsor-open:hover .home-sponsor-plus { color: var(--foreground); }
 .sponsor-lettermark { display: inline-grid; place-items: center; background: var(--foreground); color: var(--background); font-size: 8px; font-weight: 800; letter-spacing: -.2px; line-height: 1; }
 @media (max-width: 1023px) {
-  .home-sponsors-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .home-sponsor-cell { flex-basis: calc(50% - 1px); }
 }
 @media (max-width: 639px) {
-  .home-sponsors-grid { grid-template-columns: 1fr; }
-  .home-sponsor-cell { min-height: 60px; }
+  .home-sponsor-cell { flex-basis: 100%; min-height: 60px; }
   .home-sponsor-open:not([data-first]) { display: none; }
 }
 

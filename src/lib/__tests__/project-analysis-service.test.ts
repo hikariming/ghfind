@@ -73,11 +73,17 @@ describe("project analysis reconciliation", () => {
     });
 
     const requestedUrls: string[] = [];
+    const archived: string[] = [];
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (input: RequestInfo | URL) => {
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
         requestedUrls.push(url);
+        if (init?.method === "POST" && url.endsWith(`/threads/${threadId}/archive`)) {
+          // The failure is already durable when the Thread is archived.
+          archived.push((await db.getProjectAnalysisRun(analysisId))!.status);
+          return Response.json({ thread: { id: threadId, status: "IDLE" } });
+        }
         if (url.endsWith(`/threads/${threadId}`)) {
           return Response.json({
             thread: {
@@ -123,6 +129,8 @@ describe("project analysis reconciliation", () => {
       status: "failed",
     });
     expect(requestedUrls.some((url) => url.endsWith(`/threads/${threadId}/files`))).toBe(false);
+    // Archived exactly once, after the terminal failure was written.
+    expect(archived).toEqual(["failed"]);
     await expect(service.getPublicProjectAnalysisView(analysisId)).resolves.toMatchObject({
       error: {
         code: "mosoo_run_failed",
@@ -185,6 +193,7 @@ describe("project analysis reconciliation", () => {
   });
 
   it("retries a runtime.inactive failure once with a fresh Thread", async () => {
+    const archiveRequests: string[] = [];
     await db.createProjectAnalysisRun({
       id: retryAnalysisId,
       repoKey: "owner/retry-tool",
@@ -206,6 +215,7 @@ describe("project analysis reconciliation", () => {
       "fetch",
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
+        if (url.endsWith("/archive")) archiveRequests.push(url);
         if (url.endsWith("/threads/inactive-thread")) {
           return Response.json({
             thread: {
@@ -266,6 +276,8 @@ describe("project analysis reconciliation", () => {
       mosooRunId: "retry-run",
       errorCode: null,
     });
+    // A retry is not terminal: nothing is archived on this path.
+    expect(archiveRequests).toEqual([]);
   });
 
   it("requeues a Mosoo session-capacity rejection with backoff instead of failing the item", async () => {
@@ -327,6 +339,7 @@ describe("project analysis reconciliation", () => {
       expect(requeued.createRetryAt).toBeGreaterThanOrEqual(before + service.mosooCapacityBackoffMs(1));
       // Backoff is honoured: no new Thread is created before createRetryAt.
       await expect(service.reconcileProjectAnalysis(capacityId)).resolves.toMatchObject({ status: "queued" });
+      // Neither a new Thread nor an archive request on the capacity requeue path.
       expect(posts).toHaveLength(0);
     } finally {
       warn.mockRestore();
@@ -431,9 +444,15 @@ describe("project analysis reconcile under provider errors and the concurrency c
 
   it("expires a timed-out run even while its snapshot keeps failing with a retryable error, and logs the category", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    vi.stubGlobal("fetch", vi.fn(async () =>
-      Response.json({ error: { code: "internal_error" } }, { status: 503 }),
-    ));
+    const archivedWhile: Array<{ url: string; status: string | undefined }> = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === "POST" && url.endsWith("/archive")) {
+        archivedWhile.push({ url, status: (await db.getProjectAnalysisRun("snap-stale"))?.status });
+        return Response.json({ thread: { id: "snap-stale-thread", status: "IDLE" } });
+      }
+      return Response.json({ error: { code: "internal_error" } }, { status: 503 });
+    }));
     try {
       await startRunning("snap-fresh", Date.now() - 60_000);
       await startRunning("snap-stale", Date.now() - 16 * 60_000);
@@ -449,6 +468,10 @@ describe("project analysis reconcile under provider errors and the concurrency c
         expect.objectContaining({ analysisId: "snap-fresh", errorCode: "mosoo_unavailable", httpStatus: 503, timedOut: false }),
         expect.objectContaining({ analysisId: "snap-stale", errorCode: "mosoo_unavailable", timedOut: true }),
       ]));
+      // Only the expired Thread is archived, and before the run is marked expired.
+      expect(archivedWhile).toEqual([
+        { url: "https://mosoo.test/api/v1/threads/snap-stale-thread/archive", status: "running" },
+      ]);
     } finally {
       warn.mockRestore();
       await finish(["snap-fresh", "snap-stale"]);
@@ -516,7 +539,9 @@ describe("project analysis reconcile under provider errors and the concurrency c
       raw.close();
 
       const result = await service.reconcilePendingProjectAnalyses(20);
-      expect(result.errors).toEqual({ mosoo_unavailable: 3, analysis_timeout: 1 });
+      // The archive request for the expired Thread also fails (503); it is
+      // counted but does not change the run outcome.
+      expect(result.errors).toEqual({ mosoo_unavailable: 3, analysis_timeout: 1, mosoo_thread_archive_failed: 1 });
       await expect(db.getProjectAnalysisRun(running[0])).resolves.toMatchObject({ status: "expired" });
       expect(await countActive()).toBeLessThanOrEqual(3);
       // Exactly the freed slot was reused.

@@ -215,7 +215,7 @@ test('wrangler containers 100146 is retryable and other errors are not',()=>{
 });
 test('production Feed schema approval covers the complete fixed migrations without widening dev application releases',async()=>{
  const m=JSON.parse(readFileSync(new URL('../ops/feed-production-schema-release.json',import.meta.url)));
- const r=await approvedSchemas(m);assert.equal(r.core.length,20);assert.equal(r.feed.length,15);
+ const r=await approvedSchemas(m);assert.equal(r.core.length,23);assert.equal(r.feed.length,15);
  // 0013 (split) and 0014 are DDL-only (ADD COLUMN), so the enabled legacy-writer
  // fence cannot abort them. 0015 seeds feed_tag_definitions: the fence trigger would
  // abort it as a plain migration, so production applied it once through the operator

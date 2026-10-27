@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { SponsorMark } from "./SponsorMark";
 import { useSponsorRecords } from "./SponsorData";
 import { HOME_SPONSOR_SLOTS } from "@/config/sponsors";
+import { sponsorVisitHref } from "@/lib/sponsorships";
 
 /** Homepage sponsor row under the scan form, populated from the public API. */
 export function HomeSponsorRow() {
@@ -18,6 +19,7 @@ export function HomeSponsorRow() {
     <section className="home-sponsors" aria-label={t("rowLabel")}>
       <div className="home-sponsors-grid">
         {holders.map((holder) => {
+          const href = sponsorVisitHref(holder);
           const contents = (
             <>
               <SponsorMark holder={holder} className="home-sponsor-logo" />
@@ -27,8 +29,8 @@ export function HomeSponsorRow() {
               </span>
             </>
           );
-          return holder.url ? (
-            <a key={holder.id} href={holder.url} target="_blank" rel="noopener noreferrer sponsored" className="home-sponsor-cell">
+          return href ? (
+            <a key={holder.id} href={href} target="_blank" rel="noopener noreferrer sponsored" className="home-sponsor-cell">
               {contents}
             </a>
           ) : (

@@ -357,6 +357,16 @@
     "roastEmpty": "This roast hasn't been archived yet — <a>judge again from the home page</a> to generate it.",
     "scoreStateStaleTitle": "Historical score",
     "scoreStateStaleBody": "This score predates the current scoring release. It remains visible until a verified rescan replaces it.",
+    "scoreStateRescanAction": "Re-evaluate",
+    "scoreStateRescanRunning": "Re-evaluating under the current rules…",
+    "scoreStateRescanReport": "Writing the new roast…",
+    "scoreStateRescanError": "Re-evaluation failed, try again later",
+    "roastStaleLabel": "Previous-release roast",
+    "roastStaleHint": "This roast was written under the previous rules; for reference only.",
+    "roastRegenerating": "Writing the roast under the current rules…",
+    "roastRegeneratePending": "The current-release roast hasn't been written yet",
+    "roastRegenerateFailed": "Couldn't write the new roast — try Re-evaluate",
+    "roastRegenerateSlow": "Still writing the new roast — refresh in a bit",
     "scoreStatePendingTitle": "Current score · report pending",
     "scoreStatePendingBody": "The deterministic score is current. The optional AI report has not been generated yet.",
     "scoreStateReadyTitle": "Current score and report",
@@ -381,7 +391,7 @@
     "battleTie": "Tie",
     "selfCta": "Rate your own GitHub →",
     "reportLangNotice": "The AI roast report is currently written in English and Chinese only — you're reading the English version.",
-    "coCreatorShare": "Led / co-built ({share}% share)"
+    "coCreatorShare": "Led / co-built ({share}% credited share)"
   },
   "reactions": {
     "heading": "Community reactions",

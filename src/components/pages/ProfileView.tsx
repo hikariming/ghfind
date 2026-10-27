@@ -25,6 +25,9 @@ import { normLang } from "@/lib/lang";
 import { scoreRedFlagLabel } from "@/lib/score-red-flags";
 import { RescanButton } from "@/components/RescanButton";
 import { StaleScanHint } from "@/components/StaleScanHint";
+import { AutoReroast } from "@/components/AutoReroast";
+import { StaleScoreRescan } from "@/components/StaleScoreRescan";
+import { needsScoreVersionUpgrade } from "@/lib/score-version";
 import { BadgeReferralBanner } from "@/components/BadgeReferralBanner";
 import { RepoCardLink } from "@/components/RepoCardLink";
 import { ProfileLandingBeacon } from "@/components/ProfileLandingBeacon";
@@ -119,6 +122,20 @@ export function ProfileView({
     sourceSnapshotHash: d.score_source_snapshot_hash,
     roastVersion: selectedRoastVersion,
   });
+  // Stale-while-revalidate: a score from an older scoring release offers a
+  // manual 重新评测 and, for real visitors, an automatic background one.
+  const autoRescan =
+    artifactState === "stale-score" &&
+    needsScoreVersionUpgrade({
+      scoreVersion: d.score_version,
+      sourceCollectionVersion: d.score_source_collection_version,
+      sourceSnapshotHash: d.score_source_snapshot_hash,
+    });
+  // Current score, but no report on the current roast release in this
+  // language (a score change cleared it, or the roast release moved on):
+  // regenerate on view instead of showing the "not archived" empty state.
+  const reroastPending = artifactState === "report-pending" && !legacyReadFallback && !roast;
+  const staleRoast = (lang === "en" ? d.stale_roast_en : d.stale_roast) ?? null;
   const artifactCopy =
     artifactState === "stale-score"
       ? {
@@ -482,6 +499,11 @@ export function ProfileView({
         state={artifactState}
         title={artifactCopy.title}
         body={artifactCopy.body}
+        action={
+          artifactState === "stale-score" ? (
+            <StaleScoreRescan username={d.username} auto={autoRescan} />
+          ) : undefined
+        }
       />
 
       {/* My standing — concrete rank, "beat %", a milestone hint to the next
@@ -908,6 +930,18 @@ export function ProfileView({
             orgs={organizations}
             advx={isAdvxCampaign}
             materialVersion={d.scanned_at}
+          />
+        ) : reroastPending ? (
+          <AutoReroast
+            username={d.username}
+            lang={lang}
+            staleReport={
+              staleRoast ? (
+                <div dir="ltr" className="report text-[0.95rem] text-zinc-200">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{staleRoast}</ReactMarkdown>
+                </div>
+              ) : null
+            }
           />
         ) : (
           <p className="text-sm text-zinc-400">

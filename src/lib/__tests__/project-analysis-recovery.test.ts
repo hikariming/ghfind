@@ -48,6 +48,7 @@ async function seed(expired = true) {
 }
 function provider(f: Awaited<ReturnType<typeof seed>>, options: { status?: string; code?: string; wrongAgent?: boolean; failFirstPost?: boolean; invalidArtifact?: boolean; finalThread?: boolean } = {}) {
   const posts: string[] = [];
+  const archived: string[] = [];
   const nextThread = `${f.input.analysisId}-new-thread${options.finalThread ? "-2" : ""}`;
   const nextRun = `${f.input.analysisId}-new-run${options.finalThread ? "-2" : ""}`;
   const response = (newThread = false) => ({ thread: { id: newThread ? nextThread : f.input.expectedThreadId,
@@ -61,6 +62,11 @@ function provider(f: Awaited<ReturnType<typeof seed>>, options: { status?: strin
   const evidence = { ...validRuntimeEvidence, analysis_id: f.input.analysisId, repo_key: f.repoKey };
   vi.stubGlobal("fetch", vi.fn(async (urlValue: RequestInfo | URL, init?: RequestInit) => {
     const url = String(urlValue);
+    const archive = /\/threads\/([^/]+)\/archive$/.exec(url);
+    if (init?.method === "POST" && archive) {
+      archived.push(decodeURIComponent(archive[1]!));
+      return Response.json({ thread: { id: archive[1], status: "IDLE" } });
+    }
     if (init?.method === "POST") {
       expect(url).toBe("https://mosoo.test/api/v1/agents/project-agent/threads");
       posts.push(new Headers(init.headers).get("Idempotency-Key")!);
@@ -79,7 +85,7 @@ function provider(f: Awaited<ReturnType<typeof seed>>, options: { status?: strin
     if (url.endsWith(nextThread) && nextThread !== f.input.expectedThreadId) return Response.json(response(true));
     return Response.json(response());
   }));
-  return { posts };
+  return { posts, archived };
 }
 
 describe("audited operator recovery", () => {
@@ -100,8 +106,11 @@ describe("audited operator recovery", () => {
     expect((await db.getProjectAnalysisRun(f.input.analysisId))?.status).toBe("running");
     expect(remote.posts).toHaveLength(1);
     expect(await db.getProjectAnalysisRecovery(f.input.analysisId)).toEqual(audit);
+    expect(remote.archived).toEqual([]);
     now = audit.executionDeadlineAt! + 1;
     expect((await service.reconcileProjectAnalysis(f.input.analysisId)).status).toBe("expired");
+    // The abandoned retry Thread is archived so it stops holding a Mosoo session.
+    expect(remote.archived).toEqual([`${f.input.analysisId}-new-thread`]);
     await expect(service.recoverProjectAnalysis(f.input)).rejects.toThrow("another retry is prohibited");
     expect(remote.posts).toHaveLength(1);
   });
@@ -146,6 +155,8 @@ describe("audited operator recovery", () => {
     expect((await service.reconcileProjectAnalysis(f.input.analysisId)).status).toBe("completed");
     expect((await db.getProjectAssessment(f.repoKey))?.latestAnalysisId).toBe(f.input.analysisId);
     expect(remote.posts).toHaveLength(0);
+    // Finalized results release their Mosoo session immediately.
+    expect(remote.archived).toEqual([f.input.expectedThreadId]);
   });
   it("completed timeout recovery validates artifacts before claiming and is idempotent", async () => {
     const f = await seed(), remote = provider(f, { status: "completed" });

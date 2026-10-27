@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 	"sort"
 	"strconv"
@@ -365,6 +366,22 @@ func (c *MosooClient) CreateProjectAnalysisThread(ctx context.Context, run *Proj
 		Activities: []ProjectAnalysisActivity{},
 		RunError:   mosooRunError(payload.Run),
 	}, nil
+}
+
+// mosooArchiveTimeout bounds the best-effort archive call so terminal paths
+// never wait the full request timeout on cleanup.
+const mosooArchiveTimeout = 5 * time.Second
+
+// ArchiveThread mirrors archiveMosooThread: POST /threads/{id}/archive. Mosoo
+// counts a Thread's sandbox against the account's concurrent sandbox limit
+// until it is reclaimed; archiving cancels any active turn and closes the
+// conversation at once while keeping history and artifacts readable. Callers
+// treat an error as log-only.
+func (c *MosooClient) ArchiveThread(ctx context.Context, threadID string) error {
+	ctx, cancel := context.WithTimeout(ctx, mosooArchiveTimeout)
+	defer cancel()
+	_, err := c.do(ctx, http.MethodPost, "/threads/"+url.PathEscape(threadID)+"/archive", "", nil, nil)
+	return err
 }
 
 // GetProjectAnalysisSnapshot mirrors getMosooProjectAnalysisSnapshot: the

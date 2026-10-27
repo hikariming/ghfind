@@ -80,6 +80,18 @@
     {
       "name": "0030_vibe42_aff_url.sql",
       "sha256": "008fa6dac568bd9be9788920ac2c27f25bdc8d470035a3b8b13728c43ea4c1eb"
+    },
+    {
+      "name": "0031_vibe42_copy.sql",
+      "sha256": "a6408cd6226dd136bdc9412a16575943e50bf1bbeaae09a8a7b337c7a27cf863"
+    },
+    {
+      "name": "0032_vibe42_title_logo.sql",
+      "sha256": "7771e85cd8941d3b970418757e57c1f08d31d3108eb59277ce72f66d2cf85cf6"
+    },
+    {
+      "name": "0033_vibe42_retitle_icon.sql",
+      "sha256": "4b163b19220a176f2a1947c7f1fb059a2d27d4778b0f8203b5bc8fb8d9945ac5"
     }
   ],
   "feed": [

@@ -11,9 +11,18 @@
  *
  * Here a card URL is reduced to the params its handler reads, with defaults
  * dropped — the cache key. Malformed embeds are 301'd to that URL so they
- * stop at the redirect next time; harmless extras (`v`, unknown params) are
- * just ignored by the key. Responses the handler marks shared-cacheable
- * (`public, s-maxage=N`) are kept in an in-isolate map. The Workers Cache
+ * stop at the redirect next time; harmless extras (unknown params, junk
+ * `v` busters) are just ignored by the key.
+ *
+ * The one exception is a scan-version `v` (a seconds/ms timestamp, what the
+ * profile page appends as `?v=<scanned_at>`): it stays in the key and is
+ * forwarded, so the on-page preview misses both this isolate map and the API
+ * Workers Cache right after a rescan instead of serving the previous score
+ * for the whole s-maxage window. The handler ignores it; distinct values are
+ * bounded by how often an account is rescanned.
+ *
+ * Responses the handler marks shared-cacheable (`public, s-maxage=N`) are
+ * kept in an in-isolate map. The Workers Cache
  * API is unused: `cache.match` miss/expiry is a zone GraphQL 504 on the
  * canonical ghfind.com card URL (`RequestSource: edgeWorkerCacheAPI`).
  */
@@ -77,8 +86,12 @@ export interface CardRequest {
   bypass: boolean;
 }
 
+/** `?v=<scanned_at>`: unix seconds or milliseconds. Anything else is a junk buster. */
+const SCAN_VERSION = /^\d{10,13}$/;
+
 /** Exact match, like the handlers' parsers; own keys only (no `constructor`). */
 function canonicalValue(route: CardRoute, key: string, value: string): string | null {
+  if (key === "v") return SCAN_VERSION.test(value) ? value : null;
   if (!Object.hasOwn(route.params, key)) return null;
   const rule = route.params[key]!;
   return Object.hasOwn(rule, value) ? rule[value]! : null;

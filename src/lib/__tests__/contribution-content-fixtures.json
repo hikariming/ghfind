@@ -1,0 +1,235 @@
+{
+  "churn": [
+    {
+      "name": "large-core-feature-pr",
+      "repo": "org-x/app-y",
+      "files": [
+        {
+          "path": "src/core/scheduler.ts",
+          "additions": 900,
+          "deletions": 120
+        },
+        {
+          "path": "src/core/queue.ts",
+          "additions": 640,
+          "deletions": 40
+        },
+        {
+          "path": "internal/engine/worker.go",
+          "additions": 2200,
+          "deletions": 100
+        },
+        {
+          "path": "package-lock.json",
+          "additions": 3000,
+          "deletions": 2800
+        }
+      ],
+      "expected": {
+        "core": 3200,
+        "total": 9800,
+        "fresh": 3200
+      }
+    },
+    {
+      "name": "lockfile-and-format-only-pr",
+      "repo": "org-x/app-y",
+      "files": [
+        {
+          "path": "package-lock.json",
+          "additions": 40000,
+          "deletions": 38000
+        },
+        {
+          "path": "pnpm-lock.yaml",
+          "additions": 9000,
+          "deletions": 9000
+        },
+        {
+          "path": "src/core/scheduler.ts",
+          "additions": 300,
+          "deletions": 300
+        },
+        {
+          "path": "src/core/queue.ts",
+          "additions": 410,
+          "deletions": 402
+        },
+        {
+          "path": "src/util/format.ts",
+          "additions": 95,
+          "deletions": 100
+        }
+      ],
+      "expected": {
+        "core": 160.7,
+        "total": 97607,
+        "fresh": 0
+      }
+    },
+    {
+      "name": "vendored-and-generated-only-pr",
+      "repo": "org-x/app-y",
+      "files": [
+        {
+          "path": "vendor/lib/thing.go",
+          "additions": 5000,
+          "deletions": 0
+        },
+        {
+          "path": "third_party/parser/parse.c",
+          "additions": 4000,
+          "deletions": 0
+        },
+        {
+          "path": "api/service.pb.go",
+          "additions": 3000,
+          "deletions": 0
+        },
+        {
+          "path": "web/dist/app.min.js",
+          "additions": 8000,
+          "deletions": 0
+        },
+        {
+          "path": "types/index.d.ts",
+          "additions": 700,
+          "deletions": 0
+        },
+        {
+          "path": "proto/service_pb2.py",
+          "additions": 600,
+          "deletions": 0
+        }
+      ],
+      "expected": {
+        "core": 0,
+        "total": 21300,
+        "fresh": 0
+      }
+    },
+    {
+      "name": "rename-only-pr",
+      "repo": "org-x/app-y",
+      "files": [
+        {
+          "path": "src/new/location.ts",
+          "additions": 0,
+          "deletions": 0
+        },
+        {
+          "path": "src/other/place.ts",
+          "additions": 0,
+          "deletions": 0
+        }
+      ],
+      "expected": {
+        "core": 0,
+        "total": 0,
+        "fresh": 0
+      }
+    }
+  ],
+  "contributors": [
+    {
+      "name": "bots-excluded-from-denominator-and-leader",
+      "login": "user-a",
+      "truncated": false,
+      "history_total": 1400,
+      "fallback_user_commits": 0,
+      "rows": [
+        {
+          "login": "dependabot[bot]",
+          "contributions": 900,
+          "type": "Bot"
+        },
+        {
+          "login": "fixture-release-bot",
+          "contributions": 300,
+          "type": "User"
+        },
+        {
+          "login": "User-A",
+          "contributions": 120,
+          "type": "User"
+        },
+        {
+          "login": "user-b",
+          "contributions": 80,
+          "type": "User"
+        }
+      ],
+      "expected": {
+        "user_commits": 120,
+        "total_commits": 200,
+        "leading_commits": 120
+      }
+    },
+    {
+      "name": "truncated-list-uses-graph-commits",
+      "login": "user-a",
+      "truncated": true,
+      "history_total": 52000,
+      "fallback_user_commits": 37,
+      "rows": [
+        {
+          "login": "user-c",
+          "contributions": 9000,
+          "type": "User"
+        },
+        {
+          "login": "github-actions[bot]",
+          "contributions": 2000,
+          "type": "Bot"
+        },
+        {
+          "login": "user-d",
+          "contributions": 4000,
+          "type": "User"
+        }
+      ],
+      "expected": {
+        "user_commits": 37,
+        "total_commits": 50000,
+        "leading_commits": 9000
+      }
+    },
+    {
+      "name": "not-found-in-complete-list",
+      "login": "user-a",
+      "truncated": false,
+      "history_total": 300,
+      "fallback_user_commits": 12,
+      "rows": [
+        {
+          "login": "user-c",
+          "contributions": 200,
+          "type": "User"
+        },
+        {
+          "login": "user-d",
+          "contributions": 100,
+          "type": "User"
+        }
+      ],
+      "expected": {
+        "user_commits": 0,
+        "total_commits": 300,
+        "leading_commits": 200
+      }
+    },
+    {
+      "name": "empty-list-falls-back-to-history",
+      "login": "user-a",
+      "truncated": false,
+      "history_total": 250,
+      "fallback_user_commits": 40,
+      "rows": [],
+      "expected": {
+        "user_commits": 40,
+        "total_commits": 250,
+        "leading_commits": 40
+      }
+    }
+  ]
+}

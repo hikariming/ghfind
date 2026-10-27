@@ -6,7 +6,7 @@ import { getCurrentTitleSponsor } from "@/lib/sponsor.server";
 import { tierAvatarFrame } from "@/lib/tier";
 import { tierAvatarFrameIconDataUrl } from "@/lib/tier-emoji.server";
 import { publicDisplayName, USERNAME_RE } from "@/lib/username";
-import { avatarDataUrl, CDN_CACHE, qrDataUrl, qrModuleColor } from "../../card/assets";
+import { avatarDataUrl, SCORE_CARD_CACHE, qrDataUrl, qrModuleColor } from "../../card/assets";
 import { parseTheme } from "../../card/[username]/cards";
 import { decodeRouteParam } from "@/lib/route-params";
 
@@ -56,7 +56,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
 
   return new Response(svg, {
     headers: {
-      "Cache-Control": isPreview ? "no-store" : CDN_CACHE,
+      "Cache-Control": isPreview ? "no-store" : SCORE_CARD_CACHE,
       "Content-Type": "image/svg+xml; charset=utf-8",
     },
   });

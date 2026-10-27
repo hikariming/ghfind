@@ -99,6 +99,8 @@
       // queued/running assessments in batches of 20, still bounded by
       // PROJECT_ANALYSIS_MAX_CONCURRENCY. Pause without a deploy by setting
       // PROJECT_ANALYSIS_RECONCILE_CRON=off (wrangler secret put … --env production).
+      // The same tick drains the on-view auto re-roast queue (≤3 jobs, ≤8 min;
+      // src/lib/auto-reroast-worker.ts); pause with GHFIND_AUTO_REROAST_DISABLED=1.
       "triggers": { "crons": ["*/2 * * * *"] },
       "d1_databases": [
         { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d" },
