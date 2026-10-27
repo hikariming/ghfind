@@ -142,6 +142,44 @@ func TestProfilePresentationPreservesVersionGatedPublicFields(t *testing.T) {
 	}
 }
 
+func TestGetProfileSnapshotFallsBackToRetainedPublicVersion(t *testing.T) {
+	store := openProfileAPITestStore(t)
+	// Anonymized fixture only — no real GitHub logins.
+	const username = "profile-snapshot-fallback"
+	if _, err := store.db.Exec(`INSERT INTO profile_snapshots
+		(id, username, scanned_at, top_repos, impact_repos, metrics, pinned_repos, organizations, signature_work, scan_version)
+		VALUES ('legacy-nonpublic', ?, 400, '[]', '[]', '{"followers":1}', '[]', '[]', NULL, 'v8')`, username); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.db.Exec(`INSERT INTO profile_snapshots
+		(id, username, scanned_at, top_repos, impact_repos, metrics, pinned_repos, organizations, signature_work, scan_version)
+		VALUES ('retained-public', ?, 300, '[{"name":"demo","name_with_owner":"org/demo","stars":3,"forks":0,"open_issues":0,"size":1,"language":"Go"}]',
+		'[{"repo":"org/lib","stars":50,"commits":1,"prs":1}]', '{"followers":16,"last_year_contributions":42}', '[]', '[]', NULL, ?)`,
+		username, goPreviousPublicScoreVersion); err != nil {
+		t.Fatal(err)
+	}
+	view, err := store.GetProfileSnapshot(context.Background(), username)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view == nil || view.Metrics.Followers != 16 || len(view.TopRepos) != 1 || len(view.ImpactRepos) != 1 {
+		t.Fatalf("view=%#v", view)
+	}
+	if _, err := store.db.Exec(`INSERT INTO profile_snapshots
+		(id, username, scanned_at, top_repos, impact_repos, metrics, pinned_repos, organizations, signature_work, scan_version)
+		VALUES ('canonical', ?, 200, '[]', '[]', '{"followers":9}', '[]', '[]', NULL, ?)`,
+		username, goCanonicalScoreVersion); err != nil {
+		t.Fatal(err)
+	}
+	view, err = store.GetProfileSnapshot(context.Background(), username)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view == nil || view.Metrics.Followers != 9 || view.ScannedAt != 200 {
+		t.Fatalf("canonical preferred view=%#v", view)
+	}
+}
+
 func TestProfileDetailRejectsNonCanonicalRowsWithoutLegacyArtifact(t *testing.T) {
 	store := openProfileAPITestStore(t)
 	_, err := store.db.Exec(`INSERT INTO scores
