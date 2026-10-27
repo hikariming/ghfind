@@ -31,7 +31,7 @@ type OrbitDef = {
  * plus a slight bleed so outer rings reach the card edges.
  */
 const STAGE_W = 304;
-const STAGE_H = 300;
+const STAGE_H = 320;
 const HALF_W = STAGE_W / 2;
 
 /**
@@ -42,8 +42,9 @@ const HALF_W = STAGE_W / 2;
 const ORBITS: OrbitDef[] = [
   {
     id: "inner",
+    // Tall ry so rotateX 50° still reads as an open ellipse that clears the avatar.
     rx: HALF_W * 0.58,
-    ry: Math.max(70, HALF_W * 0.58 * 0.82),
+    ry: Math.max(108, HALF_W * 0.72),
     rotateX: 50,
     rotateZ: -40,
     periodMs: 40_000,
@@ -51,7 +52,7 @@ const ORBITS: OrbitDef[] = [
   {
     id: "mid",
     rx: HALF_W * 0.8,
-    ry: Math.max(62, HALF_W * 0.8 * 0.55),
+    ry: Math.max(88, HALF_W * 0.58),
     rotateX: 62,
     rotateZ: 0,
     periodMs: 60_000,
@@ -59,7 +60,7 @@ const ORBITS: OrbitDef[] = [
   {
     id: "outer",
     rx: HALF_W * 0.96,
-    ry: Math.max(52, HALF_W * 0.96 * 0.42),
+    ry: Math.max(72, HALF_W * 0.48),
     rotateX: 74,
     rotateZ: 40,
     periodMs: 80_000,
@@ -501,6 +502,7 @@ export function ImpactOrbit({
   const [armedRepo, setArmedRepo] = useState<string | null>(null);
   const [cardShift, setCardShift] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [cardSide, setCardSide] = useState<"left" | "right">("right");
+  const [hoverProj, setHoverProj] = useState<Projected | null>(null);
 
   const orbitPaths = useMemo(
     () => ORBITS.map((orbit) => ({ id: orbit.id, ...splitOrbitPaths(orbit) })),
@@ -562,6 +564,23 @@ export function ImpactOrbit({
     };
     rafRef.current = requestAnimationFrame(tick);
   }, [paint]);
+
+
+  function activatePlanet(repoKey: string) {
+    const planet = placedRef.current.find((p) => p.repo === repoKey);
+    if (!planet) return;
+    const proj =
+      lastProj.current.get(repoKey) ??
+      projectPlanet(planet, pauseElapsedRef.current, reducedRef.current);
+    setHoverProj(proj);
+    setActiveRepo(repoKey);
+  }
+
+  function deactivatePlanet() {
+    setActiveRepo(null);
+    setArmedRepo(null);
+    setHoverProj(null);
+  }
 
   useEffect(() => {
     activeRepoRef.current = activeRepo;
@@ -748,8 +767,6 @@ export function ImpactOrbit({
         <div className="relative z-[20] flex items-center justify-center">{children}</div>
 
         {placed.map((planet) => {
-          const active = activeRepo === planet.repo;
-          const activity = activityParts(planet, commitsLabel, prsLabel, formatStars);
           const label = planetAriaLabel(planet, commitsLabel, prsLabel, formatStars);
           return (
             <div
@@ -772,24 +789,21 @@ export function ImpactOrbit({
                 rel="noopener noreferrer"
                 aria-label={label}
                 className="relative block rounded-full outline-none transition-transform duration-200 focus-visible:ring-2 focus-visible:ring-white/40"
-                onMouseEnter={() => setActiveRepo(planet.repo)}
-                onMouseLeave={() => {
-                  setActiveRepo(null);
-                  setArmedRepo(null);
-                }}
-                onFocus={() => setActiveRepo(planet.repo)}
-                onBlur={() => setActiveRepo(null)}
+                onMouseEnter={() => activatePlanet(planet.repo)}
+                onMouseLeave={() => deactivatePlanet()}
+                onFocus={() => activatePlanet(planet.repo)}
+                onBlur={() => deactivatePlanet()}
                 onClick={(event: MouseEvent<HTMLAnchorElement>) => {
                   if (typeof window === "undefined") return;
                   if (!window.matchMedia("(pointer: coarse)").matches) return;
                   if (armedRepo !== planet.repo) {
                     event.preventDefault();
                     setArmedRepo(planet.repo);
-                    setActiveRepo(planet.repo);
+                    activatePlanet(planet.repo);
                   }
                 }}
                 onKeyDown={(event: KeyboardEvent<HTMLAnchorElement>) => {
-                  if (event.key === "Escape") setActiveRepo(null);
+                  if (event.key === "Escape") deactivatePlanet();
                 }}
               >
                 <PlanetAvatar
@@ -798,20 +812,52 @@ export function ImpactOrbit({
                   accent={accent}
                   glow={glow}
                 />
-                {active ? (
-                  <FrostCard
-                    repo={planet}
-                    formatStars={formatStars}
-                    activity={activity}
-                    accent={accent}
-                    shift={cardShift}
-                    side={cardSide}
-                  />
-                ) : null}
               </a>
             </div>
           );
         })}
+
+        {activeRepo && hoverProj
+          ? (() => {
+              const planet = placed.find((p) => p.repo === activeRepo);
+              if (!planet) return null;
+              const activity = activityParts(planet, commitsLabel, prsLabel, formatStars);
+              const planetR = (planet.sizePx * hoverProj.depthScale * HOVER_SCALE) / 2;
+              const gap = 10;
+              const tipW = 168;
+              const left =
+                (cardSide === "right"
+                  ? STAGE_W / 2 + hoverProj.x + planetR + gap
+                  : STAGE_W / 2 + hoverProj.x - planetR - gap - tipW) + cardShift.x;
+              const top = STAGE_H / 2 + hoverProj.y - 18 + cardShift.y;
+              return (
+                <div
+                  className="pointer-events-none absolute z-[70] whitespace-nowrap rounded-md px-2 py-1 text-left shadow-lg"
+                  data-testid="impact-orbit-frost"
+                  style={{
+                    left,
+                    top,
+                    background: "rgba(24, 24, 27, 0.72)",
+                    backdropFilter: "blur(10px)",
+                    WebkitBackdropFilter: "blur(10px)",
+                    border: `1px solid ${withAlpha(accent, 0.5)}`,
+                    minWidth: "max-content",
+                  }}
+                  role="tooltip"
+                >
+                  <div className="text-[11px] font-semibold leading-tight text-zinc-100">
+                    {planet.repo}
+                  </div>
+                  <div className="mt-0.5 whitespace-nowrap text-[10px] tabular-nums leading-tight text-zinc-300">
+                    ⭐ {formatStars(planet.stars)}
+                    {activity ? (
+                      <span className="ms-1.5 text-zinc-400">{activity}</span>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })()
+          : null}
       </div>
 
       <div className="flex flex-col items-center min-[400px]:hidden" data-testid="impact-orbit-narrow">
