@@ -14,7 +14,7 @@ import { MaterialCardPanel } from "@/components/MaterialCardPanel";
 import { ProfileShare } from "@/components/ProfileShare";
 import { FloatingCommentBubbles } from "@/components/FloatingCommentBubbles";
 import { TierAvatarFrame } from "@/components/TierAvatarFrame";
-import { ImpactOrbit, impactRepoRowClassName } from "@/components/ImpactOrbit";
+import { ImpactOrbit } from "@/components/ImpactOrbit";
 import { DimensionStarChart } from "@/components/DimensionStarChart";
 import { ScoreBreakdown, ScoreBreakdownSummary } from "@/components/ScoreBreakdown";
 import { nextTier, tierFor } from "@/lib/score-presentation";
@@ -727,7 +727,7 @@ export function ProfileView({
                 {impactRepos.map((r) => {
                   const key = r.repo.toLowerCase();
                   const internal = existingRepoKeys.has(key);
-                  const cardClass = impactRepoRowClassName();
+                  const cardClass = "flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.06]";
                   const inner = (
                     <>
                       <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-200">
@@ -783,7 +783,7 @@ export function ProfileView({
                 {impactRepos.map((r) => {
                   const key = r.repo.toLowerCase();
                   const internal = existingRepoKeys.has(key);
-                  const cardClass = impactRepoRowClassName();
+                  const cardClass = "flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.06]";
                   const inner = (
                     <>
                       <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-200">

@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { ImpactOrbit, impactRepoRowClassName } from "@/components/ImpactOrbit";
+import { ImpactOrbit } from "@/components/ImpactOrbit";
 
 const sixRepos = [
   { repo: "org-alpha/flagship", stars: 160_000, commits: 3, prs: 3 },

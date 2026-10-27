@@ -402,8 +402,3 @@ export function ImpactOrbit({
     </TooltipProvider>
   );
 }
-
-/** Shared list-row class for the Featured-work disclosure (matches prior card rows). */
-export function impactRepoRowClassName(): string {
-  return "flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.06]";
-}
