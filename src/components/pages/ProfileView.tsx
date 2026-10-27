@@ -425,7 +425,7 @@ export function ProfileView({
           <ImpactOrbit
             repos={impactRepos}
             tier={d.tier}
-            formatStars={(n) => nf.format(n)}
+            locale={bcp47(locale)}
             commitsLabel={t("commits")}
             prsLabel={t("prs")}
             sectionTitle={t("impactHeading")}

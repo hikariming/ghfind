@@ -2,11 +2,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ImpactOrbit, impactRepoRowClassName } from "@/components/ImpactOrbit";
 
-const format = (n: number) => {
-  if (n >= 10_000) return `${(n / 10_000).toFixed(n % 10_000 === 0 ? 0 : 1)}万`;
-  return String(n);
-};
-
 const sixRepos = [
   { repo: "org-alpha/flagship", stars: 160_000, commits: 3, prs: 3 },
   { repo: "org-beta/toolkit", stars: 12_000, commits: 1, prs: 1 },
@@ -22,7 +17,7 @@ describe("ImpactOrbit", () => {
       <ImpactOrbit
         repos={sixRepos}
         tier="顶级"
-        formatStars={format}
+        locale="zh-CN"
         commitsLabel="commits"
         prsLabel="PRs"
         sectionTitle="Notable contributions"
@@ -54,7 +49,7 @@ describe("ImpactOrbit", () => {
       <ImpactOrbit
         repos={[]}
         tier="NPC"
-        formatStars={format}
+        locale="zh-CN"
         commitsLabel="commits"
         prsLabel="PRs"
         sectionTitle="Notable contributions"
@@ -76,7 +71,7 @@ describe("ImpactOrbit", () => {
           { repo: "org-beta/app", stars: 200, commits: 0, prs: 1 },
         ]}
         tier="人上人"
-        formatStars={format}
+        locale="zh-CN"
         commitsLabel="提交"
         prsLabel="PR"
         sectionTitle="贡献过的明星项目"

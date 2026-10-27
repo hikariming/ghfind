@@ -284,8 +284,7 @@ function CompactPlanetRow({
 export function ImpactOrbit({
   repos,
   tier,
-  formatStars,
-  formatCount,
+  locale,
   commitsLabel,
   prsLabel,
   sectionTitle,
@@ -294,8 +293,8 @@ export function ImpactOrbit({
 }: {
   repos: ImpactOrbitRepo[];
   tier: Tier;
-  formatStars: (n: number) => string;
-  formatCount?: (n: number) => string;
+  /** BCP 47 tag for compact number formatting (e.g. zh-CN → 16万). */
+  locale: string;
   commitsLabel: string;
   prsLabel: string;
   sectionTitle: string;
@@ -306,11 +305,18 @@ export function ImpactOrbit({
     () => [...repos].toSorted((a, b) => b.stars - a.stars).slice(0, 6),
     [repos],
   );
+  const formatStars = useMemo(() => {
+    const nf = new Intl.NumberFormat(locale, {
+      notation: "compact",
+      maximumFractionDigits: 1,
+    });
+    return (n: number) => nf.format(n);
+  }, [locale]);
   const frame = tierAvatarFrame(tier);
   const style = tierStyle(tier);
   const glow = frame.glow;
   const accent = style.glow;
-  const countFmt = formatCount ?? formatStars;
+  const countFmt = formatStars;
 
   const [openRepo, setOpenRepo] = useState<string | null>(null);
   const [armedRepo, setArmedRepo] = useState<string | null>(null);
