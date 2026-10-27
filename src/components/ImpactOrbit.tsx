@@ -187,8 +187,8 @@ function projectPlanet(planet: PlacedPlanet, elapsedMs: number, frozen: boolean)
   const z2 = y1 * sx + z * cx;
 
   const scale3d = PERSPECTIVE / (PERSPECTIVE - z2);
-  const screenX = x1 * scale3d;
-  const screenY = y2 * scale3d;
+  let screenX = x1 * scale3d;
+  let screenY = y2 * scale3d;
 
   const zAmp = Math.max(1, orbit.ry * Math.sin(rx));
   const depthNorm = Math.max(-1, Math.min(1, z2 / zAmp));
