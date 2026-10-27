@@ -130,8 +130,8 @@ function projectPlanet(planet: PlacedPlanet, elapsedMs: number, frozen: boolean)
     : ((elapsedMs / orbit.periodMs + planet.phase) % 1 + 1) % 1;
   const angle = turn * Math.PI * 2;
 
-  let x = orbit.rx * Math.cos(angle);
-  let y = orbit.ry * Math.sin(angle);
+  const x = orbit.rx * Math.cos(angle);
+  const y = orbit.ry * Math.sin(angle);
   const z = 0;
 
   const rz = (orbit.rotateZ * Math.PI) / 180;
@@ -457,6 +457,9 @@ export function ImpactOrbit({
     [],
   );
 
+  const activeRepoRef = useRef<string | null>(null);
+  const placedRef = useRef(placed);
+
   const applyPlanetStyle = useCallback(
     (key: string, proj: Projected, hovered: boolean) => {
       const el = planetEls.current.get(key);
@@ -473,16 +476,30 @@ export function ImpactOrbit({
 
   const paint = useCallback(
     (elapsedMs: number, frozen: boolean) => {
-      for (const planet of placed) {
+      const hovered = activeRepoRef.current;
+      for (const planet of placedRef.current) {
         const proj = projectPlanet(planet, elapsedMs, frozen);
-        applyPlanetStyle(planet.repo, proj, activeRepo === planet.repo);
+        applyPlanetStyle(planet.repo, proj, hovered === planet.repo);
       }
     },
-    [placed, applyPlanetStyle, activeRepo],
+    [applyPlanetStyle],
   );
 
-  const tick = useCallback(
-    (now: number) => {
+  const stopLoop = useCallback(() => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+  }, []);
+
+  const startLoop = useCallback(() => {
+    if (rafRef.current !== null) return;
+    if (reducedRef.current) {
+      paint(0, true);
+      return;
+    }
+    startRef.current = performance.now() - pauseElapsedRef.current;
+    const tick = (now: number) => {
       if (startRef.current === null) startRef.current = now;
       const elapsed = now - startRef.current;
       pauseElapsedRef.current = elapsed;
@@ -492,31 +509,14 @@ export function ImpactOrbit({
       } else {
         rafRef.current = null;
       }
-    },
-    [paint],
-  );
-
-  const startLoop = useCallback(() => {
-    if (rafRef.current !== null) return;
-    if (reducedRef.current) {
-      paint(0, true);
-      return;
-    }
-    // Resume from frozen elapsed so hover pause doesn't jump.
-    if (startRef.current === null) {
-      startRef.current = performance.now() - pauseElapsedRef.current;
-    } else {
-      startRef.current = performance.now() - pauseElapsedRef.current;
-    }
+    };
     rafRef.current = requestAnimationFrame(tick);
-  }, [paint, tick]);
+  }, [paint]);
 
-  const stopLoop = useCallback(() => {
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-  }, []);
+  useEffect(() => {
+    activeRepoRef.current = activeRepo;
+    placedRef.current = placed;
+  }, [activeRepo, placed]);
 
   useLayoutEffect(() => {
     // Initial paint (SSR-safe positions = reduced/frozen phases).
@@ -608,7 +608,7 @@ export function ImpactOrbit({
     const planetCenterY = stageRect.top + stageRect.height / 2 + proj.y;
     const planetR = (planet.sizePx * proj.depthScale * 1.6) / 2;
 
-    let tipLeft = planetCenterX - tipW / 2;
+    const tipLeft = planetCenterX - tipW / 2;
     let tipTop = planetCenterY + planetR + 6;
     if (tipTop + tipH > scoreTop - 6) {
       tipTop = planetCenterY - planetR - tipH - 6;
