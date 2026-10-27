@@ -26,15 +26,45 @@ type OrbitDef = {
   periodMs: number;
 };
 
-/** Inner / mid / outer — higher-star repos prefer the inner track. */
+/** Stage fills most of the score-card width so outer rings can breathe. */
+const STAGE_W = 300;
+const STAGE_H = 280;
+const HALF_W = STAGE_W / 2;
+
+/**
+ * Gyroscope / atom model: large rotateZ spread so paths cross, and distinct
+ * rotateX openness per track. Radii 0.55 / 0.72 / 0.90 of half-width.
+ * Avatar "lg" ≈ 80px + glow ≈ 88px Ø; inner ry clears center by ≥54px.
+ */
 const ORBITS: OrbitDef[] = [
-  { id: "inner", rx: 72, ry: 30, rotateX: 68, rotateZ: -18, periodMs: 40_000 },
-  { id: "mid", rx: 90, ry: 36, rotateX: 70, rotateZ: 12, periodMs: 60_000 },
-  { id: "outer", rx: 108, ry: 40, rotateX: 72, rotateZ: 30, periodMs: 80_000 },
+  {
+    id: "inner",
+    rx: HALF_W * 0.55,
+    ry: Math.max(56, HALF_W * 0.55 * 0.7),
+    rotateX: 50,
+    rotateZ: -40,
+    periodMs: 40_000,
+  },
+  {
+    id: "mid",
+    rx: HALF_W * 0.72,
+    ry: Math.max(64, HALF_W * 0.72 * 0.62),
+    rotateX: 62,
+    rotateZ: 0,
+    periodMs: 60_000,
+  },
+  {
+    id: "outer",
+    rx: HALF_W * 0.9,
+    ry: Math.max(72, HALF_W * 0.9 * 0.55),
+    rotateX: 74,
+    rotateZ: 40,
+    periodMs: 80_000,
+  },
 ];
 
 const PERSPECTIVE = 800;
-const STAGE_SIZE = 220;
+const HOVER_SCALE = 1.55;
 
 type PlacedPlanet = ImpactOrbitRepo & {
   owner: string;
@@ -99,25 +129,29 @@ function planetAriaLabel(
   return activity ? `${repo.repo}, ${stars}, ${activity}` : `${repo.repo}, ${stars}`;
 }
 
-/** Assign higher-star repos to inner orbits; spread phases within each track. */
+/** Higher-star → inner track; phases spread so 3–4 planets sit in front. */
 function placePlanets(repos: ImpactOrbitRepo[]): PlacedPlanet[] {
   const ordered = [...repos].toSorted((a, b) => b.stars - a.stars).slice(0, 6);
   const buckets: ImpactOrbitRepo[][] = [[], [], []];
   ordered.forEach((repo, i) => {
-    const orbitIndex = Math.min(2, Math.floor(i / 2));
-    buckets[orbitIndex].push(repo);
+    buckets[Math.min(2, Math.floor(i / 2))].push(repo);
   });
   const placed: PlacedPlanet[] = [];
+  let globalIndex = 0;
+  const total = ordered.length || 1;
   buckets.forEach((bucket, orbitIndex) => {
     const n = bucket.length;
     bucket.forEach((repo, i) => {
+      const phase =
+        (globalIndex / total + orbitIndex * 0.13 + (n > 1 ? i * 0.04 : 0)) % 1;
       placed.push({
         ...repo,
         owner: repoOwner(repo.repo),
         orbitIndex,
-        phase: n === 0 ? 0 : i / n + orbitIndex * 0.07,
+        phase,
         sizePx: planetSizePx(repo.stars),
       });
+      globalIndex += 1;
     });
   });
   return placed;
@@ -158,9 +192,10 @@ function projectPlanet(planet: PlacedPlanet, elapsedMs: number, frozen: boolean)
   return {
     x: screenX,
     y: screenY,
-    depthScale: 0.7 + frontness * 0.4,
-    opacity: 0.45 + frontness * 0.55,
-    blur: backness * 1.25,
+    // Back ≥0.75 scale / 0.55 opacity; blur ≤1px; front up to ~1.1
+    depthScale: 0.75 + frontness * 0.35,
+    opacity: 0.55 + frontness * 0.45,
+    blur: backness * 1.0,
     zIndex: Math.round(5 + frontness * 30),
   };
 }
@@ -292,35 +327,50 @@ function FrostCard({
   repo,
   formatStars,
   activity,
-  surface,
   accent,
   shift,
+  side,
 }: {
   repo: ImpactOrbitRepo;
   formatStars: (n: number) => string;
   activity: string;
-  surface: string;
   accent: string;
   shift: { x: number; y: number };
+  side: "left" | "right";
 }) {
+  const sideStyle: CSSProperties =
+    side === "right"
+      ? {
+          left: "100%",
+          top: "50%",
+          marginLeft: 8,
+          transform: `translate(0, -50%) translate(${shift.x}px, ${shift.y}px)`,
+        }
+      : {
+          right: "100%",
+          top: "50%",
+          marginRight: 8,
+          transform: `translate(0, -50%) translate(${shift.x}px, ${shift.y}px)`,
+        };
+
   return (
     <div
-      className="pointer-events-none absolute left-1/2 top-full z-50 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-left shadow-lg"
+      className="pointer-events-none absolute z-50 whitespace-nowrap rounded-md px-2 py-1 text-left shadow-lg"
       data-testid="impact-orbit-frost"
       style={{
-        background: withAlpha(surface, 0.6),
+        ...sideStyle,
+        background: "rgba(24, 24, 27, 0.55)",
         backdropFilter: "blur(10px)",
         WebkitBackdropFilter: "blur(10px)",
-        border: `1px solid ${withAlpha(accent, 0.65)}`,
+        border: `1px solid ${withAlpha(accent, 0.5)}`,
         minWidth: "max-content",
-        transform: `translate(${shift.x}px, ${shift.y}px)`,
       }}
       role="tooltip"
     >
-      <div className="text-xs font-semibold text-zinc-100">{repo.repo}</div>
-      <div className="mt-0.5 whitespace-nowrap text-[11px] tabular-nums text-zinc-200">
+      <div className="text-[11px] font-semibold leading-tight text-zinc-100">{repo.repo}</div>
+      <div className="mt-0.5 whitespace-nowrap text-[10px] tabular-nums leading-tight text-zinc-300">
         ⭐ {formatStars(repo.stars)}
-        {activity ? <span className="ms-1.5 text-zinc-300">{activity}</span> : null}
+        {activity ? <span className="ms-1.5 text-zinc-400">{activity}</span> : null}
       </div>
     </div>
   );
@@ -330,7 +380,6 @@ function CompactPlanetRow({
   repos,
   accent,
   glow,
-  surface,
   formatStars,
   formatCount,
   commitsLabel,
@@ -343,7 +392,6 @@ function CompactPlanetRow({
   repos: PlacedPlanet[];
   accent: string;
   glow: string;
-  surface: string;
   formatStars: (n: number) => string;
   formatCount: (n: number) => string;
   commitsLabel: string;
@@ -391,9 +439,9 @@ function CompactPlanetRow({
                 repo={repo}
                 formatStars={formatStars}
                 activity={activity}
-                surface={surface}
                 accent={accent}
                 shift={{ x: 0, y: 0 }}
+                side="right"
               />
             ) : null}
           </div>
@@ -434,8 +482,6 @@ export function ImpactOrbit({
   const style = tierStyle(tier);
   const glow = frame.glow;
   const accent = style.glow;
-  // Frosted card surface: tier glow at ~0.6 alpha (withAlpha applied in card).
-  const surface = accent;
 
   const rootRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -451,6 +497,7 @@ export function ImpactOrbit({
   const [activeRepo, setActiveRepo] = useState<string | null>(null);
   const [armedRepo, setArmedRepo] = useState<string | null>(null);
   const [cardShift, setCardShift] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [cardSide, setCardSide] = useState<"left" | "right">("right");
 
   const orbitPaths = useMemo(
     () => ORBITS.map((orbit) => ({ id: orbit.id, ...splitOrbitPaths(orbit) })),
@@ -464,7 +511,7 @@ export function ImpactOrbit({
     (key: string, proj: Projected, hovered: boolean) => {
       const el = planetEls.current.get(key);
       if (!el) return;
-      const scale = proj.depthScale * (hovered ? 1.6 : 1);
+      const scale = proj.depthScale * (hovered ? HOVER_SCALE : 1);
       el.style.transform = `translate(-50%, -50%) translate3d(${proj.x}px, ${proj.y}px, 0) scale(${scale})`;
       el.style.opacity = String(hovered ? 1 : proj.opacity);
       el.style.filter = hovered || proj.blur < 0.05 ? "none" : `blur(${proj.blur}px)`;
@@ -519,7 +566,6 @@ export function ImpactOrbit({
   }, [activeRepo, placed]);
 
   useLayoutEffect(() => {
-    // Initial paint (SSR-safe positions = reduced/frozen phases).
     paint(0, true);
   }, [paint]);
 
@@ -567,7 +613,6 @@ export function ImpactOrbit({
     pausedRef.current = Boolean(activeRepo);
     if (activeRepo) {
       stopLoop();
-      // Re-apply with hover scale on the active planet using last projection.
       for (const planet of placed) {
         const proj =
           lastProj.current.get(planet.repo) ??
@@ -581,10 +626,11 @@ export function ImpactOrbit({
     }
   }, [activeRepo, placed, applyPlanetStyle, paint, startLoop, stopLoop]);
 
-  // Clamp frost card inside score card; keep clear of the score number.
+  // Beside-planet frost card; clamp inside score card and above the score.
   useEffect(() => {
     if (!activeRepo || !stageRef.current) {
       setCardShift({ x: 0, y: 0 });
+      setCardSide("right");
       return;
     }
     const proj = lastProj.current.get(activeRepo);
@@ -602,19 +648,29 @@ export function ImpactOrbit({
       ? scoreEl.getBoundingClientRect().top
       : cardRect.bottom - 48;
 
-    const tipW = 176;
-    const tipH = 48;
+    const tipW = 168;
+    const tipH = 40;
+    const gap = 8;
     const planetCenterX = stageRect.left + stageRect.width / 2 + proj.x;
     const planetCenterY = stageRect.top + stageRect.height / 2 + proj.y;
-    const planetR = (planet.sizePx * proj.depthScale * 1.6) / 2;
-
-    const tipLeft = planetCenterX - tipW / 2;
-    let tipTop = planetCenterY + planetR + 6;
-    if (tipTop + tipH > scoreTop - 6) {
-      tipTop = planetCenterY - planetR - tipH - 6;
-    }
+    const planetR = (planet.sizePx * proj.depthScale * HOVER_SCALE) / 2;
 
     const pad = 8;
+    const spaceRight = cardRect.right - (planetCenterX + planetR + gap) - pad;
+    const spaceLeft = planetCenterX - planetR - gap - cardRect.left - pad;
+    const side: "left" | "right" =
+      spaceRight >= tipW || spaceRight >= spaceLeft ? "right" : "left";
+    setCardSide(side);
+
+    const tipLeft =
+      side === "right"
+        ? planetCenterX + planetR + gap
+        : planetCenterX - planetR - gap - tipW;
+    let tipTop = planetCenterY - tipH / 2;
+    if (tipTop + tipH > scoreTop - 6) {
+      tipTop = scoreTop - tipH - 6;
+    }
+
     const minX = cardRect.left + pad;
     const maxX = cardRect.right - pad - tipW;
     const minY = cardRect.top + pad;
@@ -647,19 +703,19 @@ export function ImpactOrbit({
         data-testid="impact-orbit-stage"
         style={
           {
-            width: STAGE_SIZE,
-            height: STAGE_SIZE,
+            width: STAGE_W,
+            height: STAGE_H,
             perspective: `${PERSPECTIVE}px`,
             transformStyle: "preserve-3d",
-            "--impact-orbit-size": `${STAGE_SIZE}px`,
+            "--impact-orbit-size": `${STAGE_W}px`,
           } as CSSProperties
         }
       >
         <svg
           className="pointer-events-none absolute inset-0 overflow-visible"
-          width={STAGE_SIZE}
-          height={STAGE_SIZE}
-          viewBox={`${-STAGE_SIZE / 2} ${-STAGE_SIZE / 2} ${STAGE_SIZE} ${STAGE_SIZE}`}
+          width={STAGE_W}
+          height={STAGE_H}
+          viewBox={`${-STAGE_W / 2} ${-STAGE_H / 2} ${STAGE_W} ${STAGE_H}`}
           aria-hidden
           data-testid="impact-orbit-rings"
         >
@@ -669,7 +725,7 @@ export function ImpactOrbit({
                 <path
                   d={path.back}
                   fill="none"
-                  stroke={withAlpha(accent, 0.22)}
+                  stroke={withAlpha(accent, 0.25)}
                   strokeWidth={1}
                   strokeDasharray="3 4"
                 />
@@ -678,8 +734,8 @@ export function ImpactOrbit({
                 <path
                   d={path.front}
                   fill="none"
-                  stroke={withAlpha(accent, 0.28)}
-                  strokeWidth={1.1}
+                  stroke={withAlpha(accent, 0.32)}
+                  strokeWidth={1.15}
                 />
               ) : null}
             </g>
@@ -744,9 +800,9 @@ export function ImpactOrbit({
                     repo={planet}
                     formatStars={formatStars}
                     activity={activity}
-                    surface={surface}
                     accent={accent}
                     shift={cardShift}
+                    side={cardSide}
                   />
                 ) : null}
               </a>
@@ -761,7 +817,6 @@ export function ImpactOrbit({
           repos={placed}
           accent={accent}
           glow={glow}
-          surface={surface}
           formatStars={formatStars}
           formatCount={formatStars}
           commitsLabel={commitsLabel}

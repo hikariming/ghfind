@@ -1545,8 +1545,9 @@ html[data-theme="dark"] .model-sponsor-logo {
 
 /* Profile impact-repo pseudo-3D multi-orbit (rAF-driven in ImpactOrbit). */
 .impact-orbit-stage {
-  width: var(--impact-orbit-size, 220px);
-  height: var(--impact-orbit-size, 220px);
+  width: var(--impact-orbit-size, 300px);
+  height: 280px;
+  max-width: 100%;
   transform-style: preserve-3d;
 }
 
