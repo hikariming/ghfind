@@ -7,6 +7,12 @@ export async function register(): Promise<void> {
   // Cloudflare credentials and wires its own Miniflare bindings.
   if (process.env.NODE_ENV === "development" && process.env.NEXT_RUNTIME === "nodejs" && !process.env.CI) {
     const { initOpenNextCloudflareForDev } = await import("@opennextjs/cloudflare");
-    await initOpenNextCloudflareForDev({ remoteBindings: false });
+    await initOpenNextCloudflareForDev({
+      remoteBindings: false,
+      ...(process.env.GHFIND_LOCAL_WRANGLER_CONFIG ? {
+        configPath: process.env.GHFIND_LOCAL_WRANGLER_CONFIG,
+        persist: { path: process.env.GHFIND_LOCAL_PERSIST_PATH! },
+      } : {}),
+    });
   }
 }
