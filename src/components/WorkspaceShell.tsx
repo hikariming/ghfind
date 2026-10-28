@@ -2,8 +2,9 @@
 
 import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowUpRight, BookOpen, Bot, BriefcaseBusiness, Building2, Cable, Code2, Compass, FileUser, Flame, HandHeart, Menu, Newspaper, PanelLeftClose, PanelLeftOpen, Rss, Sparkles, Star, Swords, Trophy, X, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, BookOpen, Bot, BriefcaseBusiness, Building2, Cable, Code2, Compass, FileUser, Flame, HandHeart, Menu, Newspaper, PanelLeftClose, PanelLeftOpen, Sparkles, Star, Swords, Trophy, X, type LucideIcon } from "lucide-react";
 import { Link, usePathname } from "@/i18n/navigation";
+import { XMark } from "@/components/ui/x-mark";
 import { GitHubMark } from "@/components/ui/github-mark";
 import { BrandMark } from "./BrandMark";
 import { GlobalSearch } from "./GlobalSearch";
@@ -14,7 +15,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger, SheetClose } from "./ui/
 
 const NAV_ICONS: Record<string, LucideIcon> = {
   flame: Flame, swords: Swords, trophy: Trophy, code: Code2, star: Star, newspaper: Newspaper,
-  resume: FileUser, briefcase: BriefcaseBusiness, building: Building2, bot: Bot, cable: Cable, sparkles: Sparkles, compass: Compass, rss: Rss,
+  resume: FileUser, briefcase: BriefcaseBusiness, building: Building2, bot: Bot, cable: Cable, sparkles: Sparkles, compass: Compass,
 };
 
 
@@ -51,7 +52,7 @@ export function WorkspaceShell({ children, account, sponsor }: { children: React
             return <Link key={item.key} href={item.href ?? "/"} prefetch={false} onClick={() => setOpen(false)}
               className="sidebar-link" data-featured={item.featured || undefined} aria-current={current ? "page" : undefined}
               title={nav(`hint.${item.key}`)} aria-label={nav(item.key)}>
-              <Icon size={18} strokeWidth={1.7} aria-hidden /><span className="sidebar-label">{nav(item.key)}</span>
+              {item.icon === "x" ? <XMark className="size-[18px] shrink-0" /> : <Icon size={18} strokeWidth={1.7} aria-hidden />}<span className="sidebar-label">{nav(item.key)}</span>
               {item.new && <span className="sidebar-new-badge">new!</span>}
               {item.beta && <span className="sidebar-soon sidebar-label">{nav("beta")}</span>}
               {current && <span className="sidebar-active-dot" aria-hidden />}
