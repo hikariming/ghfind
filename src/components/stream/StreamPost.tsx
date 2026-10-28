@@ -4,6 +4,7 @@ import { useState } from "react";
 import { BadgeCheck, ChartNoAxesColumn, Heart, Languages, MessageCircle, Repeat2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import type { StreamItem } from "@/lib/stream/types";
+import { XMark } from "@/components/ui/x-mark";
 import { cn } from "@/lib/utils";
 import { compactNumber, relativeTime, tierIconSrc } from "./format";
 import { StreamActions } from "./StreamActions";
@@ -15,14 +16,7 @@ export function postExtra(item: StreamItem): PostExtra | null {
   return item.extra?.kind === "post" ? item.extra : null;
 }
 
-/** X brand mark (lucide has no brand icons), same approach as the sidebar GitHub mark. */
-export function XMark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className={cn("fill-current", className)}>
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-    </svg>
-  );
-}
+export { XMark } from "@/components/ui/x-mark";
 
 function CategoryChip({ category }: { category: string }) {
   const t = useTranslations("stream");
