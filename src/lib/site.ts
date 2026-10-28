@@ -78,7 +78,9 @@ export function resolveSiteUrl(environment: SiteUrlEnvironment): string {
  * from the actual deployment. Everything that needs an absolute URL (metadata,
  * sitemap, robots, JSON-LD) now imports `SITE_URL` from here.
  */
-export const SITE_URL = resolveSiteUrl(process.env);
+// Astro islands run in the browser without Node's `process` global. Keep the
+// server's strict origin validation while allowing shared constants to load.
+export const SITE_URL = resolveSiteUrl(typeof process === "undefined" ? {} : process.env);
 
 /**
  * Minimum public score for a profile to be submitted to search engines.

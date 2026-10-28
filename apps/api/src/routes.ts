@@ -77,6 +77,22 @@ import * as llmsTxt from "@/app/llms.txt/route";
 import * as openapi from "@/app/openapi.json/route";
 import * as robots from "@/app/robots.txt/route";
 
+import * as socialFeedPosts from "@/app/api/feed/posts/route";
+import * as socialFeedPost from "@/app/api/feed/posts/[id]/route";
+import * as socialFeedReplies from "@/app/api/feed/posts/[id]/replies/route";
+import * as socialFeedAncestors from "@/app/api/feed/posts/[id]/ancestors/route";
+import * as socialFeedReaction from "@/app/api/feed/posts/[id]/reaction/route";
+import * as socialFeedBookmark from "@/app/api/feed/posts/[id]/bookmark/route";
+import * as socialFeedRepost from "@/app/api/feed/posts/[id]/repost/route";
+import * as socialFeedCapabilities from "@/app/api/feed/publishing-capabilities/route";
+import * as socialFeedBookmarks from "@/app/api/feed/me/bookmarks/route";
+import * as socialFeedAuthor from "@/app/api/feed/authors/[id]/route";
+import * as socialFeedFollow from "@/app/api/feed/authors/[id]/follow/route";
+import * as socialFeedEvents from "@/app/api/feed/post-events/route";
+import * as socialFeedX from "@/app/api/internal/social-feed/x-posts/route";
+import * as socialFeedMedia from "@/app/api/feed/media/route";
+import * as socialFeedMediaAsset from "@/app/api/feed/media/[id]/route";
+
 export interface ApiRoute {
   /** Hono path pattern. */
   path: string;
@@ -90,6 +106,22 @@ export interface ApiRoute {
 const LOCALES = "{zh|en|ja|ko|es|pt|id|vi|ar}";
 
 export const API_ROUTES: ApiRoute[] = [
+  // Durable posts: native publishing, content-only X mirrors and independent interactions.
+  { path: "/api/feed/posts", module: socialFeedPosts },
+  { path: "/api/feed/posts/:id", module: socialFeedPost },
+  { path: "/api/feed/posts/:id/replies", module: socialFeedReplies },
+  { path: "/api/feed/posts/:id/ancestors", module: socialFeedAncestors },
+  { path: "/api/feed/posts/:id/reaction", module: socialFeedReaction },
+  { path: "/api/feed/posts/:id/bookmark", module: socialFeedBookmark },
+  { path: "/api/feed/posts/:id/repost", module: socialFeedRepost },
+  { path: "/api/feed/publishing-capabilities", module: socialFeedCapabilities },
+  { path: "/api/feed/me/bookmarks", module: socialFeedBookmarks },
+  { path: "/api/feed/authors/:id", module: socialFeedAuthor },
+  { path: "/api/feed/authors/:id/follow", module: socialFeedFollow },
+  { path: "/api/feed/post-events", module: socialFeedEvents },
+  { path: "/api/internal/social-feed/x-posts", module: socialFeedX },
+  { path: "/api/feed/media", module: socialFeedMedia },
+  { path: "/api/feed/media/:id", module: socialFeedMediaAsset },
   // Batch 1: read-only JSON.
   { path: "/api/leaderboard", module: leaderboard },
   { path: "/api/stats", module: stats },

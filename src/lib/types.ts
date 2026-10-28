@@ -154,6 +154,8 @@ export interface SignatureWork {
 
 export interface RawMetrics {
   username: string;
+  /** Stable REST user identity captured with these score facts; never a scoring signal. */
+  github_user_id?: string;
   profile_url: string | null;
   avatar_url: string | null;
   name: string | null;

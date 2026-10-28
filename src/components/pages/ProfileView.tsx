@@ -14,6 +14,7 @@ import { MaterialCardPanel } from "@/components/MaterialCardPanel";
 import { ProfileShare } from "@/components/ProfileShare";
 import { FloatingCommentBubbles } from "@/components/FloatingCommentBubbles";
 import { TierAvatarFrame } from "@/components/TierAvatarFrame";
+import { ImpactOrbit } from "@/components/ImpactOrbit";
 import { DimensionStarChart } from "@/components/DimensionStarChart";
 import { ScoreBreakdown, ScoreBreakdownSummary } from "@/components/ScoreBreakdown";
 import { nextTier, tierFor } from "@/lib/score-presentation";
@@ -295,9 +296,6 @@ export function ProfileView({
   const dimensionSectionClass = isAdvxCampaign
     ? contentSectionClass
     : "rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6";
-  const impactSectionClass = isAdvxCampaign
-    ? `mt-6 bg-transparent p-0 ${advxDivider}`
-    : "mb-6 rounded-2xl border border-amber-300/25 bg-amber-500/[0.05] p-5 sm:p-6";
   const similarSection = similar.length > 0 && (
     <section className={contentSectionClass}>
       <h2 className="mb-1 text-base font-bold text-zinc-200">{t("similarHeading")}</h2>
@@ -393,7 +391,8 @@ export function ProfileView({
         <aside className="flex flex-col gap-4 lg:sticky lg:top-8 lg:w-80 lg:shrink-0">
       {/* Header card */}
       <div
-        className={`animate-pop flex flex-col items-center text-center ${
+        data-profile-score-card
+        className={`animate-pop flex flex-col items-center overflow-visible text-center ${
           isAdvxCampaign
             ? "bg-transparent p-0"
             : "rounded-2xl border border-white/10 bg-white/[0.05] p-6 ring-1"
@@ -423,14 +422,36 @@ export function ProfileView({
         {bio && (
           <div className="mt-2 line-clamp-2 max-w-md text-sm text-zinc-400">{bio}</div>
         )}
-        <TierAvatarFrame
-          username={d.username}
-          avatarUrl={d.avatar_url}
-          tier={d.tier}
-          size="lg"
-          className="mt-5"
-        />
-        <div className={`mt-4 text-6xl font-black tabular-nums ${style.text}`}>
+        {impactRepos.length > 0 ? (
+          <ImpactOrbit
+            repos={impactRepos}
+            tier={d.tier}
+            locale={bcp47(locale)}
+            commitsLabel={t("commits")}
+            prsLabel={t("prs")}
+            sectionTitle={t("impactHeading")}
+            className="mt-5"
+          >
+            <TierAvatarFrame
+              username={d.username}
+              avatarUrl={d.avatar_url}
+              tier={d.tier}
+              size="lg"
+            />
+          </ImpactOrbit>
+        ) : (
+          <TierAvatarFrame
+            username={d.username}
+            avatarUrl={d.avatar_url}
+            tier={d.tier}
+            size="lg"
+            className="mt-5"
+          />
+        )}
+        <div
+          data-profile-score-value
+          className={`mt-0 text-6xl font-black tabular-nums ${style.text}`}
+        >
           {d.final_score.toFixed(2)}
           <span className="text-2xl text-zinc-600">/100</span>
         </div>
@@ -626,62 +647,6 @@ export function ProfileView({
         </div>
       )}
 
-      {/* Notable contributions — popular repos the user has shipped to (the
-          hardest evidence behind the ecosystem-impact dimension). Surfaced first
-          as the strongest signal on the profile. */}
-      {impactRepos.length > 0 && (
-        <section className={impactSectionClass}>
-          <h2 className="mb-1 text-base font-bold text-amber-200">{t("impactHeading")}</h2>
-          <p className="mb-4 text-xs text-zinc-400">{t("impactSub")}</p>
-          <div className="flex flex-col gap-2">
-            {impactRepos.map((r) => {
-              const key = r.repo.toLowerCase();
-              const internal = existingRepoKeys.has(key);
-              const cardClass =
-                "flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.06]";
-              const inner = (
-                <>
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-200">
-                    {r.repo}
-                  </span>
-                  <span className="shrink-0 text-xs tabular-nums text-zinc-400">
-                    ⭐ {nf.format(r.stars)}
-                    {(r.commits > 0 || r.prs > 0) && (
-                      <span className="ms-2 text-zinc-500">
-                        {r.commits > 0 && `${nf.format(r.commits)} ${t("commits")}`}
-                        {r.commits > 0 && r.prs > 0 && " · "}
-                        {r.prs > 0 && `${nf.format(r.prs)} ${t("prs")}`}
-                      </span>
-                    )}
-                  </span>
-                </>
-              );
-              return internal ? (
-                <RepoCardLink
-                  key={r.repo}
-                  href={repoHref(key)}
-                  repo={r.repo}
-                  surface="impact"
-                  className={cardClass}
-                >
-                  {inner}
-                </RepoCardLink>
-              ) : (
-                <a
-                  key={r.repo}
-                  href={`https://github.com/${r.repo}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cardClass}
-                >
-                  {inner}
-                </a>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
       {/* Dimension breakdown */}
       <section className={dimensionSectionClass}>
         <h2 className="mb-4 text-base font-bold text-zinc-200">{t("dimensionsHeading")}</h2>
@@ -757,6 +722,113 @@ export function ProfileView({
               );
             })}
           </div>
+          {impactRepos.length > 0 && (
+            <details className="mt-4">
+              <summary className="cursor-pointer text-xs font-medium text-zinc-400 hover:text-zinc-200">
+                {t("impactDisclosure", { count: impactRepos.length })}
+              </summary>
+              <div className="mt-2 flex flex-col gap-2">
+                {impactRepos.map((r) => {
+                  const key = r.repo.toLowerCase();
+                  const internal = existingRepoKeys.has(key);
+                  const cardClass = "flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.06]";
+                  const inner = (
+                    <>
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-200">
+                        {r.repo}
+                      </span>
+                      <span className="shrink-0 text-xs tabular-nums text-zinc-400">
+                        ⭐ {nf.format(r.stars)}
+                        {(r.commits > 0 || r.prs > 0) && (
+                          <span className="ms-2 text-zinc-500">
+                            {r.commits > 0 && `${nf.format(r.commits)} ${t("commits")}`}
+                            {r.commits > 0 && r.prs > 0 && " · "}
+                            {r.prs > 0 && `${nf.format(r.prs)} ${t("prs")}`}
+                          </span>
+                        )}
+                      </span>
+                    </>
+                  );
+                  return internal ? (
+                    <RepoCardLink
+                      key={r.repo}
+                      href={repoHref(key)}
+                      repo={r.repo}
+                      surface="impact"
+                      className={cardClass}
+                    >
+                      {inner}
+                    </RepoCardLink>
+                  ) : (
+                    <a
+                      key={r.repo}
+                      href={`https://github.com/${r.repo}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={cardClass}
+                    >
+                      {inner}
+                    </a>
+                  );
+                })}
+              </div>
+            </details>
+          )}
+        </section>
+      )}
+
+      {representativeWorks.length === 0 && impactRepos.length > 0 && (
+        <section className={contentSectionClass}>
+          <details>
+            <summary className="cursor-pointer text-xs font-medium text-zinc-400 hover:text-zinc-200">
+              {t("impactDisclosure", { count: impactRepos.length })}
+            </summary>
+            <div className="mt-2 flex flex-col gap-2">
+                {impactRepos.map((r) => {
+                  const key = r.repo.toLowerCase();
+                  const internal = existingRepoKeys.has(key);
+                  const cardClass = "flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.06]";
+                  const inner = (
+                    <>
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-200">
+                        {r.repo}
+                      </span>
+                      <span className="shrink-0 text-xs tabular-nums text-zinc-400">
+                        ⭐ {nf.format(r.stars)}
+                        {(r.commits > 0 || r.prs > 0) && (
+                          <span className="ms-2 text-zinc-500">
+                            {r.commits > 0 && `${nf.format(r.commits)} ${t("commits")}`}
+                            {r.commits > 0 && r.prs > 0 && " · "}
+                            {r.prs > 0 && `${nf.format(r.prs)} ${t("prs")}`}
+                          </span>
+                        )}
+                      </span>
+                    </>
+                  );
+                  return internal ? (
+                    <RepoCardLink
+                      key={r.repo}
+                      href={repoHref(key)}
+                      repo={r.repo}
+                      surface="impact"
+                      className={cardClass}
+                    >
+                      {inner}
+                    </RepoCardLink>
+                  ) : (
+                    <a
+                      key={r.repo}
+                      href={`https://github.com/${r.repo}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={cardClass}
+                    >
+                      {inner}
+                    </a>
+                  );
+                })}
+            </div>
+          </details>
         </section>
       )}
 

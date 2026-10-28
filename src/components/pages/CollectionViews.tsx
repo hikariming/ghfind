@@ -1,3 +1,5 @@
+import { BookOpen, Code2, FileSearch, Users } from "lucide-react";
+import type { PostMeta } from "@/lib/blog";
 import { Link } from "@/i18n/navigation";
 import {
   JsonLd,
@@ -23,70 +25,143 @@ import type { Translator } from "@/lib/translator";
  * hands them over.
  */
 
+type ResearchImage = { src: string; label: string; portrait?: boolean };
+
+const RESEARCH_ICONS: Record<string, ResearchImage[] | undefined> = {
+  "how-we-score-github-accounts": [{ src: "/research-icons/how-we-score-github-accounts.webp", label: "" }],
+  "we-scored-19000-github-accounts": [{ src: "/research-icons/we-scored-19000-github-accounts.webp", label: "" }],
+  "who-builds-openclaw": [{ src: "/research-icons/openclaw.webp", label: "OpenClaw" }],
+  "agents-heart-hands-body": [
+    { src: "/research-icons/yuiju.webp", label: "yuiju" },
+    { src: "/research-icons/lathe.webp", label: "lathe" },
+    { src: "/mosoo.svg", label: "mosoo" },
+  ],
+  "deepseek-harness-apache-maka": [
+    { src: "/deepseek.svg", label: "DeepSeek Harness" },
+    { src: "/research-icons/maka.webp", label: "Apache Maka" },
+  ],
+  "max-liu": [{ src: "/research-icons/max-liu-portrait.webp", label: "Max Liu", portrait: true }],
+  "who-builds-dify": [{ src: "/research-icons/dify.svg", label: "Dify" }],
+};
+
+function ResearchArtwork({ images }: { images: ResearchImage[] }) {
+  const grouped = images.length > 1;
+  const positions = images.length === 3
+    ? ["left-0 top-0", "right-0 top-0", "bottom-0 left-3"]
+    : ["left-0 top-0", "bottom-0 right-0"];
+  return (
+    <span className="relative mt-1 block h-12 w-12 shrink-0" title={images.map(image => image.label).filter(Boolean).join(" · ")}>
+      {images.map((image, index) => (
+        // eslint-disable-next-line @next/next/no-img-element -- small local artwork and source project marks
+        <img
+          key={image.src}
+          src={image.src}
+          alt=""
+          width={grouped ? 24 : 48}
+          height={grouped ? 24 : 48}
+          loading="lazy"
+          className={grouped
+            ? `absolute h-6 w-6 rounded-md bg-white object-contain ${positions[index]}`
+            : `h-12 w-12 rounded-xl ${image.portrait ? "object-cover" : "object-contain"} ${image.label === "Dify" ? "bg-white p-1" : ""}`}
+        />
+      ))}
+    </span>
+  );
+}
+
 const longDate = (locale: string) =>
   new Intl.DateTimeFormat(bcp47(locale), { year: "numeric", month: "long", day: "numeric" });
 
 export function CollectionsIndexView({
   locale,
   collections,
+  posts,
   t,
   tBlog,
 }: {
   locale: string;
   collections: Collection[];
+  posts: PostMeta[];
   t: Translator;
   tBlog: Translator;
 }) {
   const dateFmt = longDate(locale);
+  const entries = [
+    ...collections.map(collection => ({
+      href: `/collections/${collection.slug}`,
+      title: pickText(collection.title, locale),
+      description: pickText(collection.intro, locale),
+      date: collection.publishedAt,
+      tags: collection.tags,
+      label: t(`type.${collection.type}`),
+      minutes: articleReadingMinutes(collection, locale),
+      count: collection.items.length,
+      avatarOwner: collection.subject?.id.split("/")[0],
+      artwork: RESEARCH_ICONS[collection.slug],
+      Icon: collection.type === "developers" ? Users : collection.type === "projects" ? Code2 : BookOpen,
+    })),
+    ...posts.map(post => ({
+      href: `/blog/${post.slug}`,
+      title: post.title,
+      description: post.description,
+      date: post.date,
+      tags: post.tags,
+      label: tBlog("heading"),
+      minutes: post.readingMinutes,
+      count: 0,
+      avatarOwner: undefined,
+      artwork: RESEARCH_ICONS[post.slug],
+      Icon: FileSearch,
+    })),
+  ].sort((a, b) => b.date.localeCompare(a.date) || a.href.localeCompare(b.href));
 
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-5 py-14 sm:px-6 sm:py-20">
+    <main className="research-index mx-auto flex w-full flex-1 flex-col px-5 py-8 sm:px-8 sm:py-10">
       <header className="max-w-3xl">
         <p className="text-sm font-medium tracking-wide text-muted-foreground">
           {t("eyebrow")}
         </p>
-        <h1 className="mt-2 text-3xl font-black tracking-tight text-zinc-100 sm:text-5xl">
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
           {t("heading")}
         </h1>
-        <p className="mt-3 text-zinc-400">{t("subtitle")}</p>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">{t("subtitle")}</p>
       </header>
 
-      <div className="mt-10 flex flex-col gap-6">
-        {collections.map((collection) => {
-          const minutes = articleReadingMinutes(collection, locale);
-          const avatarOwner = collection.subject
-            ? collection.subject.kind === "repo"
-              ? collection.subject.id.split("/")[0]
-              : collection.subject.id
-            : null;
+      <div className="mt-6 flex flex-col">
+        {entries.map((entry) => {
+          const Icon = entry.Icon;
           return (
-            <article key={collection.slug}>
+            <article key={entry.href}>
               <Link
-                href={`/collections/${collection.slug}`}
+                href={entry.href}
                 prefetch={false}
                 className="collection-index-entry group block"
               >
                 <div className="flex items-start gap-4">
-                  {avatarOwner ? (
+                  {entry.avatarOwner ? (
                     // eslint-disable-next-line @next/next/no-img-element -- GitHub avatar; the image optimizer would just add Vercel cost
                     <img
-                      src={`https://github.com/${avatarOwner}.png?size=112`}
+                      src={`https://github.com/${entry.avatarOwner}.png?size=112`}
                       alt=""
                       loading="lazy"
                       className="mt-1 h-12 w-12 shrink-0 rounded-xl"
                     />
+                  ) : entry.artwork ? (
+                    <ResearchArtwork images={entry.artwork} />
                   ) : (
                     <span
                       aria-hidden="true"
-                      className="mt-1 h-12 w-12 shrink-0"
-                    />
+                      className="mt-1 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground"
+                    >
+                      <Icon className="h-6 w-6" strokeWidth={1.7} />
+                    </span>
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2 text-xs">
                       <span className="font-medium text-muted-foreground">
-                        {t(`type.${collection.type}`)}
+                        {entry.label}
                       </span>
-                      {collection.tags.map((tag) => (
+                      {entry.tags.map((tag) => (
                         <span
                           key={tag}
                           className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground"
@@ -96,29 +171,29 @@ export function CollectionsIndexView({
                       ))}
                     </div>
                     <h2 className="mt-3 text-xl font-bold text-zinc-100 group-hover:text-white sm:text-2xl">
-                      {pickText(collection.title, locale)}
+                      {entry.title}
                     </h2>
                     <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-zinc-400">
-                      {pickText(collection.intro, locale)}
+                      {entry.description}
                     </p>
                     <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-zinc-500">
-                      <time dateTime={collection.publishedAt}>
+                      <time dateTime={entry.date}>
                         {t("publishedOn", {
-                          date: dateFmt.format(new Date(collection.publishedAt)),
+                          date: dateFmt.format(new Date(entry.date)),
                         })}
                       </time>
-                      {minutes !== null && (
+                      {entry.minutes !== null && (
                         <>
                           <span aria-hidden>·</span>
                           <span>
-                            {tBlog("readingTime", { minutes })}
+                            {tBlog("readingTime", { minutes: entry.minutes })}
                           </span>
                         </>
                       )}
-                      {collection.items.length > 0 && (
+                      {entry.count > 0 && (
                         <>
                           <span aria-hidden>·</span>
-                          <span>{t("itemCount", { count: collection.items.length })}</span>
+                          <span>{t("itemCount", { count: entry.count })}</span>
                         </>
                       )}
                     </div>
@@ -128,7 +203,7 @@ export function CollectionsIndexView({
             </article>
           );
         })}
-        {collections.length === 0 && <p className="text-zinc-500">{t("empty")}</p>}
+        {entries.length === 0 && <p className="text-zinc-500">{t("empty")}</p>}
       </div>
     </main>
   );

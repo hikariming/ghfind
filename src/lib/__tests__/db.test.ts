@@ -6,7 +6,7 @@ import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ROAST_CACHE_VERSION, SCORE_CACHE_VERSION } from "../cache-version";
 import type { ScoreEntry, ScoreWriteIdentity } from "../db";
-import { LEGACY_READ_FALLBACK } from "../release-versions";
+import { LEGACY_READ_FALLBACK, PUBLIC_SCORE_READ_ORDER } from "../release-versions";
 import { PUBLIC_SCAN_COLLECTION_VERSION, type PublicScanSourceStatus } from "../scan-run-types";
 import { score } from "../score";
 import type { RawMetrics, ScanResult } from "../types";
@@ -2276,13 +2276,19 @@ describe("profile snapshots", () => {
     });
   });
 
-  it("reads only canonical profile snapshots and ignores legacy snapshots", async () => {
+  it("prefers canonical profile snapshots, falls back to retained public versions, ignores non-public", async () => {
     const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    // Warm schema (ensureSchema) without depending on sibling tests in this file.
+    await db.getProfileSnapshot("schema-warmup-fixture");
     const username = "profile-version-fixture";
+    // Anonymized handles/versions only — no real GitHub logins.
+    const retainedPublic =
+      PUBLIC_SCORE_READ_ORDER.find((version) => version !== SCORE_CACHE_VERSION) ?? "v16";
     const rows = [
       ["profile-v8", username, 300, JSON.stringify({ followers: 8 }), "v8"],
       ["profile-v12", username, 350, JSON.stringify({ followers: 12 }), "v12"],
       ["profile-local", username, 400, JSON.stringify({ followers: 99 }), "local-fixture"],
+      ["profile-retained", username, 250, JSON.stringify({ followers: 16 }), retainedPublic],
       ["profile-canonical", username, 200, JSON.stringify({ followers: 9 }), SCORE_CACHE_VERSION],
     ];
     for (const row of rows) {
@@ -2300,6 +2306,15 @@ describe("profile snapshots", () => {
     await client.execute({
       sql: `DELETE FROM profile_snapshots WHERE id = ?`,
       args: ["profile-canonical"],
+    });
+    // Retained public snapshot must still surface repos/metrics for historical scores.
+    await expect(db.getProfileSnapshot(username)).resolves.toMatchObject({
+      metrics: { followers: 16 },
+      scanned_at: 250,
+    });
+    await client.execute({
+      sql: `DELETE FROM profile_snapshots WHERE id = ?`,
+      args: ["profile-retained"],
     });
     await expect(db.getProfileSnapshot(username)).resolves.toBeNull();
 

@@ -104,6 +104,23 @@ import type {
 const EMPTY_TAGS: Tags = { zh: [], en: [] };
 const PUBLIC_PROFILE_SCORE_VERSION = RELEASE_VERSION_MANIFEST.compatibility
   .publicScoreReadOrder[0];
+
+/** `profile_snapshots.scan_version` uses the same labels as score_version.
+ *  Canonical writes still pin PUBLIC_PROFILE_SCORE_VERSION; public profile
+ *  reads must also accept retained labels in publicScoreReadOrder so a score
+ *  advance does not blank top_repos / impact_repos until organic rescan. */
+function publicScanVersionSql(column = "scan_version"): string {
+  const list = PUBLIC_SCORE_READ_ORDER.map((version) => `'${version}'`).join(", ");
+  return `${column} IN (${list})`;
+}
+
+function publicScanVersionOrderSql(column = "scan_version"): string {
+  const cases = PUBLIC_SCORE_READ_ORDER.map(
+    (version, index) => `WHEN '${version}' THEN ${index}`,
+  ).join(" ");
+  return `CASE ${column} ${cases} ELSE ${PUBLIC_SCORE_READ_ORDER.length} END`;
+}
+
 const HEAT_LOOKUP_WINDOW_MS = 24 * 60 * 60 * 1000;
 const TRENDING_LOOKUP_WINDOW_MS = 7 * HEAT_LOOKUP_WINDOW_MS;
 const MIN_RECORDED_LOOKUP_COUNT = 1;
@@ -4644,13 +4661,10 @@ export async function getProfileSnapshot(
     const res = await db.execute({
       sql: `SELECT top_repos, impact_repos, signature_work, pinned_repos, organizations, metrics, scanned_at
             FROM profile_snapshots
-            WHERE username = ? AND scan_version = ?
-            ORDER BY scanned_at DESC
+            WHERE username = ? AND ${publicScanVersionSql()}
+            ORDER BY ${publicScanVersionOrderSql()}, scanned_at DESC
             LIMIT 1`,
-      args: [
-        username.toLowerCase(),
-        PUBLIC_PROFILE_SCORE_VERSION,
-      ],
+      args: [username.toLowerCase()],
     });
     const r = res.rows[0];
     if (!r) return null;

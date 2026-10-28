@@ -37,7 +37,7 @@ export function NavLinks({
     item.href
       ? item.exact
         ? pathname === item.href
-        : pathname === item.href || pathname.startsWith(`${item.href}/`)
+        : pathname === item.href || pathname.startsWith(`${item.href}/`) || (item.activePaths ?? []).some(path => pathname === path || pathname.startsWith(`${path}/`))
       : false;
   const groupActive = (item: NavItem) =>
     isActive(item) || (item.children ?? []).some(isActive);

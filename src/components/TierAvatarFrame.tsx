@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   TIER_AVATAR_FRAME_VECTORS,
   tierAvatarFrame,
@@ -6,9 +7,10 @@ import {
 import type { TierAvatarFrameEmojiSize } from "@/lib/tier";
 import type { Tier } from "@/lib/types";
 
-type AvatarFrameSize = "sm" | "md" | "lg";
+type AvatarFrameSize = "feed" | "sm" | "md" | "lg";
 
 interface TierAvatarFrameProps {
+  avatarContent?: ReactNode;
   username: string;
   avatarUrl: string | null;
   tier: Tier;
@@ -25,6 +27,12 @@ const SIZE_CLASS: Record<
     initial: string;
   }
 > = {
+  feed: {
+    shell: "h-10 w-10",
+    avatar: "h-8 w-8",
+    emojiIcon: { normal: "h-3 w-3", large: "h-3.5 w-3.5" },
+    initial: "text-sm",
+  },
   sm: {
     shell: "h-16 w-16",
     avatar: "h-12 w-12",
@@ -46,6 +54,7 @@ const SIZE_CLASS: Record<
 };
 
 export function TierAvatarFrame({
+  avatarContent,
   username,
   avatarUrl,
   tier,
@@ -60,10 +69,10 @@ export function TierAvatarFrame({
   return (
     <div
       className={`relative flex shrink-0 items-center justify-center rounded-full ${classes.shell} ${frame.bg} ring-2 ${frame.ring} ${className}`}
-      style={{ boxShadow: `0 0 34px -10px ${frame.glow}` }}
+      style={{ boxShadow: `var(--tw-ring-shadow, 0 0 #0000), 0 0 ${size === "feed" ? "18px -3px" : "34px -6px"} ${frame.glow}` }}
       aria-label={`${tier} avatar frame`}
     >
-      <div className="absolute inset-2 rounded-full border border-white/10" />
+      <div className={`absolute ${size === "feed" ? "inset-1" : "inset-2"} rounded-full border border-white/10`} />
       {frame.placements.map((placement) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -83,7 +92,9 @@ export function TierAvatarFrame({
         />
       ))}
 
-      {avatarUrl ? (
+      {avatarContent ? (
+        <div className={`relative overflow-hidden rounded-full ring-2 ring-black/80 ${classes.avatar}`}>{avatarContent}</div>
+      ) : avatarUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={avatarUrl}

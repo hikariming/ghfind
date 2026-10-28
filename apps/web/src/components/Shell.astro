@@ -5,7 +5,7 @@
  * islands: search, account, language, theme, and the sponsor slots. Collapse
  * and the mobile drawer are a few lines of vanilla script below.
  */
-import { ArrowUpRight, BookOpen, Bot, BriefcaseBusiness, Building2, Cable, Code2, Compass, FileUser, Flame, HandHeart, Menu, Newspaper, PanelLeftClose, PanelLeftOpen, Sparkles, Star, Swords, Trophy, X } from "lucide-react";
+import { ArrowUpRight, BookOpen, Bot, BriefcaseBusiness, Building2, Cable, Code2, Compass, FileUser, Flame, HandHeart, Menu, Newspaper, PanelLeftClose, PanelLeftOpen, Rss, Sparkles, Star, Swords, Trophy, X } from "lucide-react";
 import { localePath, type Locale } from "@ghfind/i18n";
 import { NAV_GROUPS } from "@/config/nav";
 import { BrandMark } from "@/components/BrandMark";
@@ -33,7 +33,7 @@ const [t, nav, tRepo, messages] = await Promise.all([
 
 const NAV_ICONS = {
   flame: Flame, swords: Swords, trophy: Trophy, code: Code2, star: Star, newspaper: Newspaper,
-  resume: FileUser, briefcase: BriefcaseBusiness, building: Building2, bot: Bot, cable: Cable, sparkles: Sparkles, compass: Compass,
+  resume: FileUser, briefcase: BriefcaseBusiness, building: Building2, bot: Bot, cable: Cable, sparkles: Sparkles, compass: Compass, rss: Rss,
 } as const;
 const iconFor = (token?: string) => NAV_ICONS[token as keyof typeof NAV_ICONS] ?? Code2;
 const href = (p: string) => localePath(locale, p);

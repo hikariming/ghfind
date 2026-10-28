@@ -89,7 +89,7 @@ export function BlogPostView({ locale, slug, post, t }: { locale: string; slug: 
       <article>
       <header>
         <Link
-          href="/blog"
+          href="/collections"
           className="text-sm text-zinc-500 transition-colors hover:text-[var(--primary)]"
         >
           ← {t("backToList")}

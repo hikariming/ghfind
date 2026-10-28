@@ -1233,6 +1233,7 @@ ${"Useful project detail. ".repeat(50)}
 
     expect(result.organizations).toEqual([]);
     expect(result.metrics.username).toBe("alice");
+    expect(result.metrics.github_user_id).toBe("1");
   });
 });
 

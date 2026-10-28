@@ -12,7 +12,19 @@ export default defineConfig({
   // Pages SSR on the Worker and set their own Cache-Control for the edge.
   output: "server",
   adapter: cloudflare({ imageService: "passthrough" }),
-  integrations: [react()],
+  integrations: [
+    react(),
+    {
+      name: "ghfind-command-cache",
+      hooks: {
+        "astro:config:setup": ({ command, updateConfig }) => {
+          // `astro check` runs sync with a different dependency optimizer config.
+          // Sharing its cache with dev deletes files the running server still uses.
+          updateConfig({ vite: { cacheDir: here(`./node_modules/.vite-${command}`) } });
+        },
+      },
+    },
+  ],
   // No server sessions: state lives in the API Worker's cookies. Without this
   // the adapter auto-provisions a SESSION KV namespace on deploy.
   session: false,

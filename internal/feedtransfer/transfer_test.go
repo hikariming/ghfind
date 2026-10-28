@@ -358,16 +358,32 @@ func TestCoverageTracksPhysicalSchemasWithoutClaimingMapping(t *testing.T) {
 	defer db.Close()
 	db.SetMaxOpenConns(1)
 	files, err := filepath.Glob("../../migrations-feed/*.sql")
-	if err != nil || len(files) != 15 {
+	if err != nil || len(files) != 17 {
 		t.Fatal("register the new D1 schema before use")
 	}
+	// Migrations 0016+ own the independent social_feed_* namespace. They must
+	// leave the project-feed transfer schema (version 15) unchanged.
+	projectSchema := func() string {
+		t.Helper()
+		var schema string
+		err := db.QueryRow(`SELECT COALESCE(group_concat(sql, char(10)), '') FROM
+			(SELECT sql FROM sqlite_master WHERE tbl_name GLOB 'feed_*' ORDER BY type, name)`).Scan(&schema)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return schema
+	}
 	for _, path := range files {
+		before := projectSchema()
 		sqlBytes, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if _, err = db.Exec(string(sqlBytes)); err != nil {
 			t.Fatalf("local inventory migration %s: %v", filepath.Base(path), err)
+		}
+		if filepath.Base(path) >= "0016_" && projectSchema() != before {
+			t.Fatalf("social posts migration %s changed the project-feed transfer schema", filepath.Base(path))
 		}
 	}
 	rows, err := db.Query(`SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'feed_%' ORDER BY name`)

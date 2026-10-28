@@ -48,10 +48,16 @@
   "vars": {
     "GHFIND_DEPLOY_ENV": "development"
   },
+  "r2_buckets": [
+    { "binding": "SOCIAL_FEED_MEDIA", "bucket_name": "ghfind-social-media-dev" }
+  ],
   "env": {
     "dev": {
       "name": "ghfind-api-dev",
       "workers_dev": true,
+      "r2_buckets": [
+        { "binding": "SOCIAL_FEED_MEDIA", "bucket_name": "ghfind-social-media-dev" }
+      ],
       "d1_databases": [
         { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d" },
         { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed-dev", "database_id": "bd305af9-2cab-4fe8-8c2f-324391cf105e" }
@@ -84,6 +90,9 @@
     },
     "production": {
       "name": "ghfind-api",
+      "r2_buckets": [
+        { "binding": "SOCIAL_FEED_MEDIA", "bucket_name": "ghfind-social-media" }
+      ],
       "tail_consumers": [{ "service": "ghfind-cost-monitor" }],
       "workers_dev": true,
       // Project-analysis reconcile (apps/api/src/index.ts scheduled): advances

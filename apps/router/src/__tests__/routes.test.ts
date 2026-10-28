@@ -104,6 +104,19 @@ describe("pickTarget", () => {
     }
   });
 
+  it("routes only the new social-post endpoints to api without moving the project Feed", () => {
+    for (const path of ["/api/feed/posts", "/api/feed/posts/p1", "/api/feed/posts/p1/replies", "/api/feed/posts/p1/ancestors",
+      "/api/feed/posts/p1/reaction", "/api/feed/posts/p1/bookmark", "/api/feed/posts/p1/repost", "/api/feed/publishing-capabilities",
+      "/api/feed/post-events", "/api/feed/me/bookmarks", "/api/feed/authors/a1/follow", "/api/feed/media", "/api/feed/media/m1",
+      "/api/internal/social-feed/x-posts"]) {
+      expect(pickTarget(path)).toBe("api");
+    }
+    for (const path of ["/api/feed/projects", "/api/feed/preferences", "/api/feed/events", "/api/feed/posts/p1/unknown",
+      "/api/feed/posts/p1/replies/nested", "/api/feed/media/m1/private", "/api/internal/social-feed/x-posts/extra"]) {
+      expect(pickTarget(path)).toBe("legacy");
+    }
+  });
+
   it("serves unknown pages from web, which renders the 404 page", () => {
     for (const p of ["/about/team", "/aboutx", "/blog/a/b", "/en/collectionsx", "/vs/a/b/c", "/developers/repo/vercel/next.js",
       "/u/a/b", "/blog-md/x", "/ja/blog/x.md", "/does-not-exist", "/en/api", "/en/api/stats"]) {

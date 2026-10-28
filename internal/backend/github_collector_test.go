@@ -94,7 +94,7 @@ func TestGitHubCollectorBuildsGoNativeScanResult(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if scan.Metrics.Username != "alice" || scan.Metrics.MergedPRCount != 480 || scan.Metrics.RecentMergedPRSample != 1 || scan.Metrics.DaysSinceLastActivity == nil || *scan.Metrics.DaysSinceLastActivity != 2 {
+	if scan.Metrics.GitHubUserID == nil || *scan.Metrics.GitHubUserID != "1" || scan.Metrics.Username != "alice" || scan.Metrics.MergedPRCount != 480 || scan.Metrics.RecentMergedPRSample != 1 || scan.Metrics.DaysSinceLastActivity == nil || *scan.Metrics.DaysSinceLastActivity != 2 {
 		t.Fatalf("unexpected metrics: %#v", scan.Metrics)
 	}
 	// The window PR (no id) and the external search PR both land in

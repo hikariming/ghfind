@@ -4779,7 +4779,7 @@ export async function collect(username: string, options: CollectOptions = {}): P
   const now = options.now ?? new Date();
 
   const user = await restGet<RestUser>(`users/${username}`);
-  if (!user || user.id === undefined) {
+  if (!user || !Number.isSafeInteger(user.id) || user.id <= 0) {
     throw new AccountNotFoundError();
   }
   const login = user.login ?? username;
@@ -5089,6 +5089,7 @@ export async function collect(username: string, options: CollectOptions = {}): P
     ? Math.max(0, Math.min(externalMergedPrs.total, mergedPrCount) - attributedPrs) : 0;
   const metrics: RawMetrics = {
     username: login,
+    github_user_id: String(user.id),
     profile_url: user.html_url,
     avatar_url: user.avatar_url,
     name: user.name,

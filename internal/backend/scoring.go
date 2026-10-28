@@ -16,6 +16,8 @@ import (
 // Do not change this formula without changing src/lib/score.ts and its shared
 // regression fixtures in the same review.
 type RawMetrics struct {
+	// Factual score-owner identity; excluded from scoring formulas.
+	GitHubUserID                        *string            `json:"github_user_id,omitempty"`
 	PersonalOriginalProjectQualityScore *float64           `json:"personal_original_project_quality_score,omitempty"`
 	AttributedOriginalRepoShares        map[string]float64 `json:"attributed_original_repo_shares,omitempty"`
 	PresentationCoreChurnShare          *float64           `json:"presentation_core_churn_share,omitempty"`

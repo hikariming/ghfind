@@ -17,6 +17,8 @@ export type NavItem = {
   icon?: string;
   /** Match the pathname exactly instead of treating `href` as a section prefix. */
   exact?: boolean;
+  /** Additional sections represented by this entry. */
+  activePaths?: string[];
   /** Visually emphasise the entry as the primary call to action. */
   featured?: boolean;
   /** Show a Beta badge on this item (for a preview feature outside a Beta group). */
@@ -43,12 +45,12 @@ export const NAV_GROUPS: NavGroup[] = [
     { key: "versus", href: "/vs", exact: true, icon: "swords" },
   ] },
   { label: "groupDiscover", items: [
+    { key: "feed", href: "/feed", icon: "rss", new: true },
     { key: "discover", href: "/discover", icon: "compass", beta: true },
     { key: "talent", href: "/talent", icon: "briefcase", beta: true },
     { key: "leaderboard", href: "/leaderboard", icon: "trophy" },
     { key: "projectBoards", href: "/projects", icon: "code" },
-    { key: "collections", href: "/collections", icon: "star" },
-    { key: "blog", href: "/blog", icon: "newspaper" },
+    { key: "collections", href: "/collections", icon: "star", activePaths: ["/blog"] },
   ] },
   { label: "groupCareer", beta: true, items: [
     { key: "talentMatch", href: "/talent-match", icon: "sparkles", new: true },

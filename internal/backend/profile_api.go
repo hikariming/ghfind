@@ -417,9 +417,14 @@ func decodeJSONSlice[T any](raw sql.NullString) []T {
 func (s *TursoStore) GetProfileSnapshot(ctx context.Context, username string) (*ProfileSnapshotView, error) {
 	var topRepos, impactRepos, signature, pinned, organizations, metrics sql.NullString
 	var scannedAt int64
+	// Prefer the canonical scan_version, then retained public labels, so a score
+	// advance does not blank repos/contributions until organic rescan writes vN.
 	err := s.db.QueryRowContext(ctx, `SELECT top_repos, impact_repos, signature_work, pinned_repos, organizations, metrics, scanned_at
-		FROM profile_snapshots WHERE username = ? AND scan_version = ?
-		ORDER BY scanned_at DESC LIMIT 1`, strings.ToLower(username), canonicalScoreVersion).Scan(
+		FROM profile_snapshots WHERE username = ? AND `+publicScoreVersionClause("scan_version")+`
+		ORDER BY CASE scan_version
+			WHEN ? THEN 0 WHEN ? THEN 1 WHEN ? THEN 2 WHEN ? THEN 3 WHEN ? THEN 4 WHEN ? THEN 5
+			ELSE 6 END, scanned_at DESC LIMIT 1`,
+		append([]any{strings.ToLower(username)}, append(publicScoreVersionArgs(), publicScoreVersionArgs()...)...)...).Scan(
 		&topRepos, &impactRepos, &signature, &pinned, &organizations, &metrics, &scannedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {

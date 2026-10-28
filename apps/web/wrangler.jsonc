@@ -12,8 +12,8 @@
   "assets": { "directory": "./dist/client", "binding": "ASSETS" },
   "observability": { "enabled": true },
   "d1_databases": [
-    { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d" },
-    { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed-dev", "database_id": "bd305af9-2cab-4fe8-8c2f-324391cf105e" }
+    { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d", "migrations_dir": "../../migrations" },
+    { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed-dev", "database_id": "bd305af9-2cab-4fe8-8c2f-324391cf105e", "migrations_dir": "../../migrations-feed" }
   ],
   "vars": {
     "GHFIND_DEPLOY_ENV": "development"

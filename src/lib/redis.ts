@@ -1488,3 +1488,15 @@ export async function setCachedSitemapXml(xml: string): Promise<void> {
     // best-effort
   }
 }
+
+
+/** Cache profile-declared X links by immutable GitHub ID, not mutable handle. */
+export async function getCachedGitHubX(id: string): Promise<string | null | undefined> {
+  try {
+    const value = await cacheStore()?.get<{ url: string | null }>(`github-x:v1:${id}`);
+    return value && (value.url === null || (typeof value.url === "string" && /^https:\/\/x\.com\/[A-Za-z0-9_]{1,15}$/.test(value.url))) ? value.url : undefined;
+  } catch { return undefined; }
+}
+export async function setCachedGitHubX(id: string, url: string | null): Promise<void> {
+  await cacheStore()?.set(`github-x:v1:${id}`, { url }, 86400).catch(() => {});
+}
