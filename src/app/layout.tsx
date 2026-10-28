@@ -25,6 +25,17 @@ const GA_MEASUREMENT_ID =
  */
 const FUNDING_CHOICES_URL = process.env.NEXT_PUBLIC_FUNDING_CHOICES_URL;
 
+/**
+ * GEOInflow browser collector. Root layout covers every page.
+ * Override via env when the Cloudflare Tunnel URL changes.
+ */
+const GEOINFLOW_SCRIPT_SRC =
+  process.env.NEXT_PUBLIC_GEOINFLOW_SCRIPT_URL ??
+  "https://seeks-ampland-loop-defence.trycloudflare.com/script.js";
+const GEOINFLOW_WEBSITE_ID =
+  process.env.NEXT_PUBLIC_GEOINFLOW_WEBSITE_ID ??
+  "e28ebb0f-fcde-4b99-869c-411c0f98978a";
+
 // The verdict route's human-check moved from Vercel BotID to Turnstile
 // (VsVerdictLive gates its auto-fire on a token; the route verifies it).
 
@@ -76,6 +87,12 @@ export default function RootLayout({
             }
           `}
         </Script>
+        {/* GEOInflow: native <script> so data-* is readable via currentScript */}
+        <script
+          defer
+          src={GEOINFLOW_SCRIPT_SRC}
+          data-website-id={GEOINFLOW_WEBSITE_ID}
+        />
         {children}
       </body>
     </html>
