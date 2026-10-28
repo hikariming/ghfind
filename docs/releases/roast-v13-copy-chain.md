@@ -65,11 +65,10 @@ than the v12 single stream. `ROAST_V13_SCOPE` chooses where it runs:
 - `background`: only queued auto re-roast jobs (#566 cron drain, no viewer
   waiting); interactive roasts keep the faster v12 call.
 
-Recommended production path: a follow-up roast release bump (`v12 → v13` in the
-manifest, TS + Go) with `ROAST_GENERATOR=v13 ROAST_V13_SCOPE=background`. The
-#566 on-view queue then shows the previous report labelled 旧版锐评 immediately
-and replaces it with chain copy in the background (rate-limited, no bulk
-re-roast).
+Recommended production path: after score v19 is on `main`, land
+`docs/releases/v19-v13-v7-roast-cache.md`, then set plain vars
+`ROAST_GENERATOR=v13 ROAST_V13_SCOPE=background`. The on-view queue shows the
+previous report labelled 旧版锐评 and replaces it in the background.
 
 ## Rollout
 
