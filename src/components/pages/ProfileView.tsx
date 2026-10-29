@@ -346,7 +346,7 @@ export function ProfileView({
         profileUsername={d.username}
         initialComments={comments}
       />
-      <div className="relative z-10 flex w-full max-w-4xl flex-col">
+      <div className="@container/profile relative z-10 flex w-full max-w-4xl flex-col">
         <JsonLd
           data={profileJsonLd({
             username: d.username,
@@ -389,9 +389,9 @@ export function ProfileView({
           <BadgeReferralBanner owner={d.username} signal={badgeSignal!} />
         )}
 
-      <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-start">
+      <div className="mt-4 flex flex-col gap-6 @min-[52rem]/profile:flex-row @min-[52rem]/profile:items-start">
         {/* Left: sticky identity sidebar — score stays visible while reading */}
-        <aside className="flex flex-col gap-4 lg:sticky lg:top-8 lg:w-80 lg:shrink-0">
+        <aside className="flex flex-col gap-4 @min-[52rem]/profile:sticky @min-[52rem]/profile:top-8 @min-[52rem]/profile:w-80 @min-[52rem]/profile:shrink-0">
       {/* Header card */}
       <div
         data-profile-score-card
@@ -480,7 +480,7 @@ export function ProfileView({
         {isAdvxCampaign && roastLine && (
           <p
             data-advx-mobile-roast
-            className="mt-4 w-full border-s-2 border-orange-400/50 ps-4 text-start text-[0.95rem] leading-relaxed text-zinc-100 lg:hidden"
+            className="mt-4 w-full border-s-2 border-orange-400/50 ps-4 text-start text-[0.95rem] leading-relaxed text-zinc-100 @min-[52rem]/profile:hidden"
           >
             🔥 {roastLine}
           </p>
@@ -614,7 +614,7 @@ export function ProfileView({
       </div>
 
       {isAdvxCampaign && (
-        <div className={`lg:hidden ${advxDivider}`}>
+        <div className={`@min-[52rem]/profile:hidden ${advxDivider}`}>
           <MaterialCardPanel
             baseUrl={SITE_URL}
             username={d.username}
@@ -647,7 +647,7 @@ export function ProfileView({
         <div className="flex min-w-0 flex-1 flex-col">
 
       {isAdvxCampaign && (
-        <div className="mb-6 hidden lg:block">
+        <div className="mb-6 hidden @min-[52rem]/profile:block">
           <MaterialCardPanel
             baseUrl={SITE_URL}
             username={d.username}
@@ -956,7 +956,7 @@ export function ProfileView({
             The stale re-roast stream renders its own line, so skip it there. */}
         {roastLine && !shouldStreamRoast && (
           <p
-            className={`${isAdvxCampaign ? "hidden lg:block" : ""} mb-4 rounded-xl border border-orange-500/30 bg-orange-500/[0.08] p-4 text-[0.95rem] leading-relaxed text-zinc-100`}
+            className={`${isAdvxCampaign ? "hidden @min-[52rem]/profile:block" : ""} mb-4 rounded-xl border border-orange-500/30 bg-orange-500/[0.08] p-4 text-[0.95rem] leading-relaxed text-zinc-100`}
           >
             🔥 {roastLine}
           </p>
