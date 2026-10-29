@@ -3,6 +3,7 @@ import type { Redis } from "@upstash/redis";
 import {
   protectedScan,
   ScanBusyError,
+  ScanDeferredError,
   ScanPendingError,
   scanTtl,
   SCAN_LEASE_MS,
@@ -161,6 +162,21 @@ describe("cold scan admission", () => {
     ).rejects.toBeInstanceOf(ScanPendingError);
     expect(produce).not.toHaveBeenCalled();
     expect(release).not.toHaveBeenCalled();
+  });
+
+  it("returns the owner's failure instead of a false pending response", async () => {
+    let owner = "";
+    const coordinator = {
+      admit: async (value: string) => { owner = value; return 1; },
+      publish: vi.fn(),
+      release: vi.fn(async () => {}),
+      pending: async () => null,
+      failure: async () => ({ owner, code: "github_collect_deadline" }),
+    };
+    await expect(protectedScan({
+      coordinator, key: "scan:fiction-example", read: async () => null,
+      produce: vi.fn(), continueProduce: async () => "deferred", continueWaitMs: 0,
+    })).rejects.toMatchObject({ code: "github_collect_deadline" } satisfies Partial<ScanDeferredError>);
   });
 
   it("produces inline when continueProduce cannot defer", async () => {

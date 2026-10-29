@@ -5,7 +5,7 @@
  */
 import { publishCompleteQuickScan } from "./db";
 import { scanKey } from "./redis";
-import { buildScanResult, logFreshScanFailure } from "./scan-core";
+import { buildScanResult, logFreshScanFailure, scanErrorResponse } from "./scan-core";
 import {
   BACKGROUND_COLLECT_DEADLINE_MS,
   SCAN_BACKGROUND_LEASE_MS,
@@ -46,6 +46,7 @@ export async function completeBackgroundScan(
   if (renewed !== 1) return { ok: false, status: "lease_lost" };
 
   let failed = true;
+  let failureCode = "scan_failed";
   try {
     const scannedAt = Date.now();
     let quickScan = await buildScanResult(username, {
@@ -77,6 +78,7 @@ export async function completeBackgroundScan(
     failed = false;
     return { ok: true, status: "published" };
   } catch (error) {
+    failureCode = scanErrorResponse(error).error;
     logFreshScanFailure(error, {
       route: "scan",
       username,
@@ -84,6 +86,7 @@ export async function completeBackgroundScan(
     });
     return { ok: false, status: "failed" };
   } finally {
-    await slot.release(owner, failed, SCAN_PRODUCER_CAPACITY_KEY).catch(() => {});
+    if (failed) await slot.release(owner, true, SCAN_PRODUCER_CAPACITY_KEY, failureCode).catch(() => {});
+    else await slot.release(owner, false, SCAN_PRODUCER_CAPACITY_KEY).catch(() => {});
   }
 }

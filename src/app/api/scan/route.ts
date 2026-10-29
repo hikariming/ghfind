@@ -19,6 +19,7 @@ import {
   checkScanNetworkRateLimit,
   coalesceScan,
   getCachedScan,
+  getScanFailure,
   getStaleCachedScan,
   isScanPending,
   rateLimitHeaders,
@@ -28,7 +29,7 @@ import {
   scheduleBackgroundRefresh,
 } from "@/lib/scan-background-refresh";
 import { GitHubDataUnavailableError } from "@/lib/github";
-import { SCAN_PENDING_RETRY_AFTER_SECONDS, ScanBusyError, ScanPendingError } from "@/lib/scan-protection";
+import { SCAN_PENDING_RETRY_AFTER_SECONDS, ScanBusyError, ScanDeferredError, ScanPendingError } from "@/lib/scan-protection";
 import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
 import type { ScanResult } from "@/lib/types";
 import {
@@ -80,6 +81,19 @@ function scorePersistenceUnavailable(headers: Record<string, string>) {
       "Retry-After": "5",
     },
   });
+}
+
+function deferredFailureResponse(code: string, headers: Record<string, string>) {
+  const allowed = {
+    account_not_found: 404,
+    github_rate_limited: 503,
+    github_unavailable: 503,
+    github_collect_deadline: 503,
+    scan_busy: 503,
+    scan_failed: 503,
+  } as const;
+  const safeCode = Object.hasOwn(allowed, code) ? code as keyof typeof allowed : "scan_failed";
+  return apiError(safeCode, { status: allowed[safeCode], headers: { ...headers, "Cache-Control": "no-store" } });
 }
 
 class ScorePersistenceError extends Error {}
@@ -446,6 +460,9 @@ export async function POST(req: NextRequest) {
       anonymousSession,
     );
   } catch (error) {
+    if (error instanceof ScanDeferredError) {
+      return attachAnonymousSession(deferredFailureResponse(error.code, { ...idem, ...rlHeaders }), anonymousSession);
+    }
     if (error instanceof ScanPendingError) {
       return attachAnonymousSession(
         scanPendingResponse(username, { ...idem, ...rlHeaders }),
@@ -549,8 +566,15 @@ export async function GET(req: NextRequest) {
       scannedAt: indexed.scannedAt,
     });
   }
-  if (await isScanPending(username)) {
-    return scanPendingResponse(username, pollHeaders);
+  try {
+    if (await isScanPending(username)) return scanPendingResponse(username, pollHeaders);
+    const failure = await getScanFailure(username);
+    if (failure) return deferredFailureResponse(failure, pollHeaders);
+    // Publication can race the initial cache read and remove the pending marker.
+    const published = await getCachedScan(username);
+    if (published) return immediateResponse({ scan: published, cached: true, headers: pollHeaders });
+  } catch {
+    return apiError("scan_busy", { status: 503, headers: pollHeaders });
   }
   return apiError("not_scored", {
     status: 404,

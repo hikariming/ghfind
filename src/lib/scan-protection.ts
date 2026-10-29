@@ -12,6 +12,10 @@ export class ScanPendingError extends Error {
   }
 }
 
+export class ScanDeferredError extends Error {
+  constructor(readonly code: string) { super(code); }
+}
+
 // One in-flight crawl per username, and at most this many cold crawls across
 // every isolate. Ninety-six is 24 in-flight scans for each of the four tokens.
 // Leases recover capacity after an invocation is killed.
@@ -79,6 +83,7 @@ export interface ScanCoordinator {
   /** 1 armed, 0 not owner, -1 cannot defer. Omitted on the Redis coordinator. */
   markPending?(owner: string, username: string, ttlMs: number): Promise<number>;
   pending?(): Promise<{ owner: string; username: string; startedAt: number } | null>;
+  failure?(): Promise<{ owner: string; code: string } | null>;
 }
 
 /** Redis coordinator: the original Lua scripts over lock/capacity/cooldown keys. */
@@ -184,8 +189,12 @@ export async function protectedScan<T>(options: {
             holdLease = true;
             return ready;
           }
+          const failure = await coordinator.failure?.();
+          if (failure?.owner === owner) throw new ScanDeferredError(failure.code);
           await wait();
         }
+        const failure = await coordinator.failure?.();
+        if (failure?.owner === owner) throw new ScanDeferredError(failure.code);
         failed = false;
         holdLease = true;
         throw new ScanPendingError();

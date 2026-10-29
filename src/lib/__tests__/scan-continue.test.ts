@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   buildScanResult: vi.fn(),
   publishCompleteQuickScan: vi.fn(),
   logFreshScanFailure: vi.fn(),
+  scanErrorResponse: vi.fn(),
 }));
 
 vi.mock("../scan-slots", () => ({
@@ -31,6 +32,7 @@ vi.mock("../scan-slots", () => ({
 vi.mock("../scan-core", () => ({
   buildScanResult: mocks.buildScanResult,
   logFreshScanFailure: mocks.logFreshScanFailure,
+  scanErrorResponse: mocks.scanErrorResponse,
 }));
 vi.mock("../db", () => ({
   publishCompleteQuickScan: mocks.publishCompleteQuickScan,
@@ -45,6 +47,7 @@ import { completeBackgroundScan } from "../scan-continue";
 describe("completeBackgroundScan", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.scanErrorResponse.mockReturnValue({ error: "github_collect_deadline", status: 503 });
     mocks.pending.mockResolvedValue({ owner: "owner-a", username: "tj", startedAt: 1 });
     mocks.payload.mockResolvedValue(null);
     mocks.renew.mockResolvedValue(1);
@@ -81,6 +84,13 @@ describe("completeBackgroundScan", () => {
       expect.any(Number),
     );
     expect(mocks.release).toHaveBeenCalledWith("owner-a", false, "scan:active-producers:v1");
+  });
+
+  it("records a deferred collection failure without publishing a score", async () => {
+    mocks.buildScanResult.mockRejectedValue(new Error("deadline"));
+    await expect(completeBackgroundScan("fiction-example", "owner-a")).resolves.toMatchObject({ status: "failed" });
+    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
+    expect(mocks.release).toHaveBeenCalledWith("owner-a", true, "scan:active-producers:v1", "github_collect_deadline");
   });
 
   it("does not overwrite after the owner is gone", async () => {

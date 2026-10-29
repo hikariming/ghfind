@@ -11,7 +11,7 @@ import { DurableObject } from "cloudflare:workers";
  * storage once everything has expired.
  */
 
-type Field = "payload" | "lock" | "cooldown" | "revision" | "stale" | "pending";
+type Field = "payload" | "lock" | "cooldown" | "revision" | "stale" | "pending" | "failure";
 
 interface Entry {
   value: string;
@@ -106,6 +106,7 @@ export class ScanSlot extends DurableObject<Env> {
     try {
       const pool = this.env.SCAN_CAPACITY.get(this.env.SCAN_CAPACITY.idFromName(capacityKey));
       leased = await pool.acquire(owner, leaseMs, capacity);
+      if (leased && this.read("lock") === owner) this.ctx.storage.kv.delete("failure");
     } finally {
       if (!leased && this.read("lock") === owner) this.ctx.storage.kv.delete("lock");
     }
@@ -160,6 +161,14 @@ export class ScanSlot extends DurableObject<Env> {
     }
   }
 
+  /** Most recent deferred failure, retained long enough for polling clients. */
+  failure(): { owner: string; code: string } | null {
+    const raw = this.read("failure");
+    if (!raw) return null;
+    try { return JSON.parse(raw) as { owner: string; code: string }; }
+    catch { return null; }
+  }
+
   /** Stretch the producer lock and capacity lease. 1 while `owner` still holds both. */
   async renew(owner: string, leaseMs: number, capacityKey: string): Promise<number> {
     if (this.read("lock") !== owner) return 0;
@@ -177,11 +186,14 @@ export class ScanSlot extends DurableObject<Env> {
   }
 
   /** RELEASE_SCAN: drop our lock (+15s cooldown on failure) and our capacity lease. */
-  async release(owner: string, failed: boolean, capacityKey: string): Promise<void> {
+  async release(owner: string, failed: boolean, capacityKey: string, failureCode?: string): Promise<void> {
     if (this.read("lock") === owner) {
       this.ctx.storage.kv.delete("lock");
       this.ctx.storage.kv.delete("pending");
-      if (failed) this.write("cooldown", "1", 15_000);
+      if (failed) {
+        this.write("cooldown", "1", 15_000);
+        if (failureCode) this.write("failure", JSON.stringify({ owner, code: failureCode }), 360_000);
+      }
     }
     const pool = this.env.SCAN_CAPACITY.get(this.env.SCAN_CAPACITY.idFromName(capacityKey));
     await pool.release(owner);
@@ -201,7 +213,7 @@ export class ScanSlot extends DurableObject<Env> {
       }
     }
     const now = Date.now();
-    for (const field of ["payload", "lock", "cooldown", "revision", "stale", "pending"] as const) {
+    for (const field of ["payload", "lock", "cooldown", "revision", "stale", "pending", "failure"] as const) {
       this.read(field, now);
     }
     const remaining = [...this.ctx.storage.kv.list<Entry>()];
