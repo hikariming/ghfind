@@ -163,6 +163,21 @@ describe("cold scan admission", () => {
     expect(release).not.toHaveBeenCalled();
   });
 
+  it("returns an early deferred failure instead of waiting and claiming pending", async () => {
+    const release = vi.fn();
+    let owner = "";
+    const coordinator = {
+      admit: async (id: string) => { owner = id; return 1; },
+      publish: vi.fn(), release,
+      failure: async () => ({ owner, code: "github_collect_deadline" }),
+    };
+    await expect(protectedScan({
+      coordinator, key: "scan:fiction", read: async () => null,
+      produce: vi.fn(), continueProduce: async () => "deferred", continueWaitMs: 45_000,
+    })).rejects.toMatchObject({ code: "github_collect_deadline" });
+    expect(release).not.toHaveBeenCalled();
+  });
+
   it("produces inline when continueProduce cannot defer", async () => {
     const release = vi.fn(async () => {});
     const produce = vi.fn(async () => ({ score: 82 }));

@@ -165,7 +165,7 @@ export function GET() {
           summary: "Poll a deferred scan without starting a new GitHub collect",
           description:
             "Read-only. Returns the cached or indexed snapshot as 200, 202 `scan_pending` while the " +
-            "admitted owner is still collecting, or 404 `not_scored` when nothing is in flight.",
+            "admitted owner is still collecting, a terminal scan error after a failed collect, or 404 `not_scored` when nothing is in flight.",
           parameters: [
             { name: "username", in: "query", required: true, schema: { type: "string" }, description: "GitHub login" },
           ],
