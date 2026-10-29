@@ -461,7 +461,8 @@ export async function POST(req: NextRequest) {
     );
   } catch (error) {
     if (error instanceof ScanDeferredError) {
-      return attachAnonymousSession(deferredFailureResponse(error.code, { ...idem, ...rlHeaders }), anonymousSession);
+      const response = deferredFailureResponse(error.code, { ...idem, ...rlHeaders });
+      return attachAnonymousSession(new NextResponse(response.body, response), anonymousSession);
     }
     if (error instanceof ScanPendingError) {
       return attachAnonymousSession(
