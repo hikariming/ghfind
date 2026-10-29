@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   checkScanNetworkRateLimit: vi.fn(),
   coalesceScan: vi.fn(),
   getCachedScan: vi.fn(),
+  getScanFailure: vi.fn(),
   getStaleCachedScan: vi.fn(),
   isScanPending: vi.fn(),
   tryAcquireScanRefresh: vi.fn(),
@@ -46,6 +47,7 @@ vi.mock("@/lib/redis", () => ({
   checkScanNetworkRateLimit: mocks.checkScanNetworkRateLimit,
   coalesceScan: mocks.coalesceScan,
   getCachedScan: mocks.getCachedScan,
+  getScanFailure: mocks.getScanFailure,
   getStaleCachedScan: mocks.getStaleCachedScan,
   isScanPending: mocks.isScanPending,
   tryAcquireScanRefresh: mocks.tryAcquireScanRefresh,
@@ -80,7 +82,7 @@ vi.mock("@/lib/anonymous-session", () => ({
 import { LEGACY_READ_FALLBACK } from "@/lib/release-versions";
 import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
 import { GitHubCollectDeadlineError, GitHubDataUnavailableError } from "@/lib/github";
-import { ScanBusyError, ScanPendingError } from "@/lib/scan-protection";
+import { ScanBusyError, ScanDeferredError, ScanPendingError } from "@/lib/scan-protection";
 import { GET, POST } from "./route";
 
 const quickScan = {
@@ -103,6 +105,7 @@ describe("POST /api/scan immediate quick contract", () => {
     mocks.checkScanNetworkRateLimit.mockResolvedValue({ success: true });
     mocks.rateLimitHeaders.mockReturnValue({});
     mocks.getCachedScan.mockResolvedValue(null);
+    mocks.getScanFailure.mockResolvedValue(null);
     mocks.getStaleCachedScan.mockResolvedValue(null);
     mocks.isScanPending.mockResolvedValue(false);
     mocks.tryAcquireScanRefresh.mockResolvedValue(true);
@@ -326,6 +329,27 @@ describe("POST /api/scan immediate quick contract", () => {
     expect(mocks.getLatestVerifiedCanonicalScan).not.toHaveBeenCalled();
   });
 
+  it("reports a deferred failure that finishes during the initial request", async () => {
+    mocks.coalesceScan.mockRejectedValue(new ScanDeferredError("github_collect_deadline"));
+    const response = await POST(request());
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({ error: "github_collect_deadline" });
+  });
+
+  it("rechecks a published payload when it races the pending read", async () => {
+    mocks.getCachedScan.mockResolvedValueOnce(null).mockResolvedValueOnce(quickScan);
+    const response = await GET(new NextRequest("https://example.test/api/scan?username=fiction-example"));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ scoring: { final_score: 71 } });
+  });
+
+  it("reports a deferred failure during a read-only poll", async () => {
+    mocks.getScanFailure.mockResolvedValue("github_collect_deadline");
+    const response = await GET(new NextRequest("https://example.test/api/scan?username=fiction-example"));
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({ error: "github_collect_deadline" });
+  });
+
   it("returns 202 scan_pending with Retry-After and a GET poll Location", async () => {
     mocks.coalesceScan.mockRejectedValue(new ScanPendingError());
 
@@ -404,6 +428,7 @@ describe("POST /api/scan on-view score version upgrade", () => {
     mocks.checkRateLimit.mockResolvedValue({ success: true });
     mocks.rateLimitHeaders.mockReturnValue({});
     mocks.getCachedScan.mockResolvedValue(null);
+    mocks.getScanFailure.mockResolvedValue(null);
     mocks.getCurrentCanonicalQuickScan.mockResolvedValue(null);
     mocks.getAccountDetail.mockResolvedValue(staleDetail);
     mocks.admitVersionUpgradeRescan.mockResolvedValue({ ok: true });

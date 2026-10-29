@@ -34,6 +34,13 @@ describe("readScanResponse", () => {
     expect(fetch).toHaveBeenCalledWith("/api/scan/jobs/job_aaaaaaaaaaaaaaaa", { cache: "no-store" });
   });
 
+  it("preserves a polling API error as a structured scan error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ error: "scan_failed" }, { status: 503 })));
+    await expect(readScanResponse(Response.json({ error: "scan_pending" }, {
+      status: 202, headers: { Location: "/api/scan?username=fiction-example" },
+    }))).rejects.toMatchObject({ code: "scan_failed" });
+  });
+
   it("polls GET /api/scan until a 200 snapshot arrives", async () => {
     const fetch = vi.fn()
       .mockResolvedValueOnce(

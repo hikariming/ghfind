@@ -444,6 +444,14 @@ export async function coalesceScan(
   });
 }
 
+/** Deferred failures survive release so a poll cannot mistake failure for no scan. */
+export async function getScanFailure(username: string): Promise<string | null> {
+  const slots = scanSlots();
+  if (!slots) return null;
+  try { return (await scanSlot(slots, scanKey(username)).failure())?.code ?? null; }
+  catch { throw new ScanBusyError(); }
+}
+
 /** True while a ScanSlot owner is still collecting this handle. */
 export async function isScanPending(username: string): Promise<boolean> {
   const slots = scanSlots();
@@ -451,7 +459,7 @@ export async function isScanPending(username: string): Promise<boolean> {
   try {
     return (await scanSlot(slots, scanKey(username)).pending()) != null;
   } catch {
-    return false;
+    throw new ScanBusyError();
   }
 }
 

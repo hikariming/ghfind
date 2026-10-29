@@ -97,6 +97,20 @@ describe("ScanSlot", () => {
     expect(await capacity.get("pool").acquire("c", 300_000, 1)).toBe(false);
   });
 
+  it("retains only the owner's deferred failure until a new scan starts", async () => {
+    vi.useFakeTimers({ now: 0 });
+    const slot = world().slots.get("scan:fiction-example");
+    await slot.admit("owner-a", 300_000, "pool", 1);
+    await slot.release("other", true, "pool", "scan_failed");
+    expect(await slot.failure()).toBeNull();
+    await slot.release("owner-a", true, "pool", "github_collect_deadline");
+    expect(await slot.pending()).toBeNull();
+    expect(await slot.failure()).toEqual({ owner: "owner-a", code: "github_collect_deadline" });
+    vi.setSystemTime(15_000);
+    await slot.admit("owner-b", 300_000, "pool", 1);
+    expect(await slot.failure()).toBeNull();
+  });
+
   it("returns -1 when the global pool is full and rolls its lock back", async () => {
     const { slots } = world();
     expect(await slots.get("scan:1").admit("a", 300_000, "pool", 2)).toBe(1);
