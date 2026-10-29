@@ -1125,10 +1125,15 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
     expect(m.impact_repos[0].repo).toBe("is-a-dev/register");
   });
 
-  it("ignores a single drive-by commit (needs ≥2 commits or ≥1 PR)", () => {
-    const m = computeImpactFromContribMap([agg({ commits: 1, prs: 0 })], me);
-    expect(m.impact_repo_count).toBe(0);
-    expect(m.max_impact_repo_stars).toBe(0);
+  it("admits a single drive-by commit with diminishing prestige work weight", () => {
+    const one = computeImpactFromContribMap([agg({ commits: 1, prs: 0 })], me);
+    const full = computeImpactFromContribMap([agg({ commits: 40, prs: 0 })], me);
+    expect(one.impact_repo_count).toBe(1);
+    expect(one.max_impact_repo_stars).toBeGreaterThan(0);
+    expect(prestigeWorkMultiplier(1, 0)).toBeGreaterThan(0);
+    expect(prestigeWorkMultiplier(1, 0)).toBeLessThan(prestigeWorkMultiplier(40, 0));
+    expect(one.impact_prestige_score).toBeLessThan(full.impact_prestige_score);
+    expect(one.impact_prestige_score).toBeLessThan(0.25);
   });
 
   it("weights prestige continuously by landed work instead of using a hard cliff", () => {
@@ -1209,7 +1214,7 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
     expect(m.impact_prestige_score).toBeCloseTo(logRatio(40000, 100000), 4);
   });
 
-  it("credits one git/git default-branch commit despite its non-GitHub merge workflow", () => {
+  it("credits a single default-branch commit on any public repo, with small work weight", () => {
     const m = computeImpactFromContribMap(
       [
         agg({
@@ -1229,12 +1234,15 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
       ],
       me,
     );
-    expect(m.impact_repos).toEqual([
-      { repo: "git/git", stars: 61828, commits: 1, prs: 0 },
-    ]);
-    expect(m.impact_repo_count).toBe(1);
-    expect(m.impact_commit_count).toBe(1);
+    expect(m.impact_repo_count).toBe(2);
+    expect(m.impact_commit_count).toBe(2);
     expect(m.impact_pr_count).toBe(0);
+    expect(m.impact_repos.map((r) => r.repo).sort()).toEqual([
+      "foundation/drive-by",
+      "git/git",
+    ]);
+    // One commit is ~2.5% of full-at; concave log curve keeps prestige well below saturation.
+    expect(m.impact_prestige_score).toBeLessThan(0.25);
   });
 
   it("excludes forks and private repos", () => {
@@ -1740,10 +1748,10 @@ describe("doc-like PR contribution-quality discount", () => {
       core_impact_pr_count: 3,
     };
 
-    expect(lowPrestigeBulkContributionCap(bulkSmallRepoHistory)).toBeGreaterThan(20);
-    expect(lowPrestigeBulkContributionCap(bulkSmallRepoHistory)).toBeLessThan(24);
+    expect(lowPrestigeBulkContributionCap(bulkSmallRepoHistory)!).toBeGreaterThan(20);
+    expect(lowPrestigeBulkContributionCap(bulkSmallRepoHistory)!).toBeLessThan(24);
     expect(score(bulkSmallRepoHistory).sub_scores.contribution_quality).toBeLessThan(24);
-    expect(lowPrestigeBulkContributionCap(sameVolumeHighImpact)).toBe(27);
+    expect(lowPrestigeBulkContributionCap(sameVolumeHighImpact)!).toBeGreaterThan(26);
     expect(score(sameVolumeHighImpact).sub_scores.contribution_quality).toBeGreaterThan(24);
   });
 
@@ -1781,7 +1789,7 @@ describe("doc-like PR contribution-quality discount", () => {
     };
 
     expect(impactPrestigeSignal(m)).toBeGreaterThan(logRatio(10_000, 100_000));
-    expect(lowPrestigeBulkContributionCap(m)).toBe(27);
+    expect(lowPrestigeBulkContributionCap(m)!).toBeGreaterThan(26);
     expect(score(m).sub_scores.contribution_quality).toBeGreaterThan(24);
   });
 });
@@ -1879,8 +1887,10 @@ describe("scoring contract (single PR pool, weighted originals, unscaled follow 
     };
     const withSplit = score(solo).sub_scores.contribution_quality;
     const withoutSplit = score({ ...solo, external_merged_pr_count: undefined }).sub_scores.contribution_quality;
-    expect(withSplit).toBe(withoutSplit);
+    // Known thin outside landings gently drag the ceiling; unknown omits recognition.
+    expect(withSplit).toBeLessThanOrEqual(withoutSplit);
     expect(withSplit).toBeGreaterThanOrEqual(16);
+    expect(withoutSplit).toBeGreaterThanOrEqual(16);
   });
 
   it("keeps the tiny-history acceptance formula below three decided PRs", () => {

@@ -181,36 +181,30 @@ def soft_min(values, k=6):
     return -(peak + math.log(total)) / k
 
 
-def _contribution_evidence_bounds(m: Mapping[str, Any]):
-    def smooth(value):
-        x = max(0, min(1, value))
-        return x*x*(3-2*x)
-    volume = smooth((m["merged_pr_count"]-40)/80)
-    prestige=impact_prestige_signal(m)
-    strong_prestige=smooth((prestige-.65)/.15)
-    core_protection=smooth(((m.get("core_impact_pr_count") or 0)-40)/60)
-    prestige_cap=20+3*smooth((prestige-.3)/.5)+4*strong_prestige+2.5*core_protection*(1-strong_prestige)
-    # Own stars cannot bypass outside adoption. Missing counts mean unknown,
-    # so recognition stays out of the ceiling.
-    bounds = [27, 27-(27-prestige_cap)*volume]
+def contribution_evidence_ceiling(m: Mapping[str, Any]) -> float:
+    """v20 soft CQ bound: prestige exponential + volume blend + recognition drag."""
+    prestige = impact_prestige_signal(m)
+    core = max(0.0, _nz(m.get("core_impact_pr_count"), 0))
+    prestige_lift = 1 / (1 + math.exp(-(prestige - 0.58) / 0.13))
+    core_lift = 1 - math.exp(-core / 90)
+    shaped = 18 + 9 * min(1.0, prestige_lift + 0.12 * core_lift * (1 - prestige_lift))
+    volume_pull = 1 - math.exp(-max(0, m["merged_pr_count"] - 40) / 90)
+    ceiling = 27 - volume_pull * (27 - shaped)
     if m.get("external_merged_pr_count") is not None:
         external = max(0, min(m["external_merged_pr_count"], m["merged_pr_count"]))
-        own = max(0, m["merged_pr_count"]-external)
+        own = max(0, m["merged_pr_count"] - external)
         community = max(0, min(_nz(m.get("own_pr_community"), 0), 1))
-        # The 80-landing scale matches TypeScript and Go.
-        bounds.append(20+7*(1-math.exp(-(external+own*community)/80)))
+        landings = external + own * community
+        recognition_lift = 1 - math.exp(-landings / 100)
+        ceiling -= (1 - recognition_lift) * max(0.0, ceiling - 18)
     legacy = contribution_quality_cap(m)
     if legacy is not None:
-        bounds.append(legacy)
-    return bounds
-
-
-def contribution_evidence_ceiling(m: Mapping[str, Any]) -> float:
-    return soft_min(_contribution_evidence_bounds(m), 6)
+        ceiling = soft_min([ceiling, legacy], 2)
+    return soft_min([27, ceiling], 2)
 
 
 def low_prestige_bulk_contribution_cap(m: Mapping[str, Any]) -> Optional[float]:
-    return min(_contribution_evidence_bounds(m))
+    return contribution_evidence_ceiling(m)
 
 
 def saturate_toward(raw: float, ceiling: float) -> float:

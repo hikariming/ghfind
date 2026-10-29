@@ -2840,8 +2840,10 @@ export interface ImpactMetrics {
 
 /** Cap how many recent years of the contribution graph we aggregate (latency). */
 export const IMPACT_YEAR_CAP = 6;
-/** Min landed commits for a repo to qualify on commits alone (avoids drive-bys). */
-export const IMPACT_COMMIT_MIN = 2;
+/** Min landed commits for a repo to qualify on commits alone. v20: one
+ * default-branch commit is enough to enter; {@link prestigeWorkMultiplier}
+ * then scales credit so a handful of tiny commits to a mega-repo stay small. */
+export const IMPACT_COMMIT_MIN = 1;
 /** Work levels at which a repo gets full prestige credit: prestige needs
  * sustained work, not a handful of PRs. Below these levels, credit follows a
  * concave log curve instead of falling off a cliff. */

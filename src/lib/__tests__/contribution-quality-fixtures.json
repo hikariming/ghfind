@@ -86,12 +86,12 @@
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 17.4,
-        "contribution_quality": 20,
+        "contribution_quality": 18,
         "ecosystem_impact": 12.6,
         "community_influence": 5.8,
         "activity_authenticity": 17
       },
-      "base_score": 82.8,
+      "base_score": 80.8,
       "red_flags": [],
       "risk_assessment": {
         "version": "v10",
@@ -108,11 +108,11 @@
       },
       "risk_notes": [],
       "total_penalty": 0,
-      "final_score": 82.8,
+      "final_score": 80.8,
       "tier": "顶级",
       "tier_label": "顶级开发者 · 一线水准"
     },
-    "cap": 20
+    "cap": 17.99999999238501
   },
   {
     "name": "真实外部贡献者",
@@ -201,12 +201,12 @@
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 12.8,
-        "contribution_quality": 26.8,
+        "contribution_quality": 26.2,
         "ecosystem_impact": 17.6,
         "community_influence": 5.8,
         "activity_authenticity": 17
       },
-      "base_score": 90,
+      "base_score": 89.4,
       "red_flags": [],
       "risk_assessment": {
         "version": "v10",
@@ -223,11 +223,11 @@
       },
       "risk_notes": [],
       "total_penalty": 0,
-      "final_score": 90,
-      "tier": "夯",
-      "tier_label": "封神 · 殿堂级标杆"
+      "final_score": 89.4,
+      "tier": "顶级",
+      "tier_label": "顶级开发者 · 一线水准"
     },
-    "cap": 26.996128409408968
+    "cap": 26.208332833841705
   },
   {
     "name": "只给自己组织提 PR",
@@ -316,12 +316,12 @@
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 17.4,
-        "contribution_quality": 20,
+        "contribution_quality": 18,
         "ecosystem_impact": 12.6,
         "community_influence": 5.8,
         "activity_authenticity": 17
       },
-      "base_score": 82.8,
+      "base_score": 80.8,
       "red_flags": [],
       "risk_assessment": {
         "version": "v10",
@@ -338,11 +338,11 @@
       },
       "risk_notes": [],
       "total_penalty": 0,
-      "final_score": 82.8,
+      "final_score": 80.8,
       "tier": "顶级",
       "tier_label": "顶级开发者 · 一线水准"
     },
-    "cap": 20
+    "cap": 17.99999999238501
   },
   {
     "name": "高拒收率",
@@ -466,12 +466,12 @@
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 17.4,
-        "contribution_quality": 23.3,
+        "contribution_quality": 23.2,
         "ecosystem_impact": 14.8,
         "community_influence": 5.8,
         "activity_authenticity": 17
       },
-      "base_score": 88.3,
+      "base_score": 88.2,
       "red_flags": [
         {
           "flag": "high_pr_rejection",
@@ -501,17 +501,17 @@
                 "decided_pr_count": 400,
                 "wilson_lower": 0.6456
               },
+              "sample_size": 400,
+              "threshold": {
+                "minimum_decisions": 20,
+                "wilson_lower": 0.4
+              },
               "coverage": {
                 "repo": 1,
                 "merged_pr": 0.6,
                 "all_pr": 1
               },
-              "window": "bounded public snapshot: up to 200 repositories, up to 50 merged PRs, up to 30 all-state PRs",
-              "sample_size": 400,
-              "threshold": {
-                "minimum_decisions": 20,
-                "wilson_lower": 0.4
-              }
+              "window": "bounded public snapshot: up to 200 repositories, up to 50 merged PRs, up to 30 all-state PRs"
             }
           }
         ],
@@ -523,11 +523,11 @@
       },
       "risk_notes": [],
       "total_penalty": 2.46,
-      "final_score": 85.84,
+      "final_score": 85.74,
       "tier": "顶级",
       "tier_label": "顶级开发者 · 一线水准"
     },
-    "cap": 25.495575927239155
+    "cap": 23.94638998053567
   },
   {
     "name": "新手少量 PR",
@@ -642,7 +642,7 @@
       "tier": "拉完了",
       "tier_label": "低价值 · 疑似刷量/AI 机器人"
     },
-    "cap": 20.25763907595425
+    "cap": 18.265990185100428
   },
   {
     "name": "官方工作流有落地的头部贡献者",
@@ -732,12 +732,12 @@
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 17.4,
-        "contribution_quality": 26.8,
+        "contribution_quality": 26.5,
         "ecosystem_impact": 18.5,
         "community_influence": 5.8,
         "activity_authenticity": 17
       },
-      "base_score": 95.5,
+      "base_score": 95.2,
       "red_flags": [],
       "risk_assessment": {
         "version": "v10",
@@ -754,11 +754,11 @@
       },
       "risk_notes": [],
       "total_penalty": 0,
-      "final_score": 95.5,
+      "final_score": 95.2,
       "tier": "夯",
       "tier_label": "封神 · 殿堂级标杆"
     },
-    "cap": 26.999682200491662
+    "cap": 26.469877107620803
   },
   {
     "name": "自有项目有外部社区",
@@ -847,12 +847,12 @@
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 17.4,
-        "contribution_quality": 26.8,
+        "contribution_quality": 26.2,
         "ecosystem_impact": 17.6,
         "community_influence": 5.8,
         "activity_authenticity": 17
       },
-      "base_score": 94.6,
+      "base_score": 94,
       "red_flags": [],
       "risk_assessment": {
         "version": "v10",
@@ -869,10 +869,10 @@
       },
       "risk_notes": [],
       "total_penalty": 0,
-      "final_score": 94.6,
+      "final_score": 94,
       "tier": "夯",
       "tier_label": "封神 · 殿堂级标杆"
     },
-    "cap": 26.991803842654463
+    "cap": 26.194773161562562
   }
 ]

@@ -192,54 +192,48 @@ export function softMin(values: number[], k = 6): number {
 }
 
 /**
- * Evidence ceiling for contribution quality. v19 no longer returns a value
- * that `min(raw, cap)` can slam into: callers saturate toward this ceiling.
- * Missing external counts stay unknown and omit recognition, matching v18.
+ * Evidence ceiling for contribution quality (v20). Prestige raises the ceiling
+ * on a smooth exponential — `base + span·(1 − e^{−prestige/k})` — then volume
+ * blends toward that shaped bound. Recognition (when measured) soft-blends with
+ * a mild softmin (k=2). No floor-20 prestigeCap, no volume smoothstep cliff, and
+ * no binding `min()` of stacked caps. Callers saturate toward this ceiling.
+ * Missing external counts stay unknown and omit recognition.
  */
 export function contributionEvidenceCeiling(m: RawMetrics): number {
-  const smooth = (value: number) => { const x = Math.max(0, Math.min(1, value)); return x*x*(3-2*x); };
-  const volume = smooth((m.merged_pr_count - 40) / 80);
   const prestige = impactPrestigeSignal(m);
-  const strongPrestige = smooth((prestige - .65) / .15);
-  const coreProtection = smooth(((m.core_impact_pr_count ?? 0) - 40) / 60);
-  const prestigeCap = 20 + 3*smooth((prestige-.3)/.5) + 4*strongPrestige + 2.5*coreProtection*(1-strongPrestige);
-  const cap = 27 - (27 - prestigeCap) * volume;
-  const bounds = [SUBSCORE_MAX.contribution_quality, cap];
+  const core = Math.max(0, m.core_impact_pr_count ?? 0);
+  // Logistic prestige lift: mid-range stays near the base, strong prestige
+  // approaches the span without smoothstep knees at 0.3 / 0.65.
+  const prestigeLift = 1 / (1 + Math.exp(-(prestige - 0.58) / 0.13));
+  const coreLift = 1 - Math.exp(-core / 90);
+  const shaped = 18 + 9 * Math.min(1, prestigeLift + 0.12 * coreLift * (1 - prestigeLift));
+  // Exponential volume pull — no smoothstep cliff at merged=40/120.
+  const volumePull = 1 - Math.exp(-Math.max(0, m.merged_pr_count - 40) / 90);
+  let ceiling = 27 - volumePull * (27 - shaped);
   if (m.external_merged_pr_count != null) {
     const external = Math.max(0, Math.min(m.external_merged_pr_count, m.merged_pr_count));
     const own = Math.max(0, m.merged_pr_count - external);
     const community = Math.max(0, Math.min(m.own_pr_community ?? 0, 1));
-    // 80 effective landings earn 63% of the seven points above the legacy floor;
-    // roughly 396 are needed for this ceiling to approach 27.0.
-    bounds.push(20 + 7 * (1 - Math.exp(-(external + own * community) / 80)));
+    const landings = external + own * community;
+    // Recognition is a soft drag toward the base when outside landings are thin —
+    // not a second hard floor combined with min()/stiff softmin.
+    const recognitionLift = 1 - Math.exp(-landings / 100);
+    ceiling -= (1 - recognitionLift) * Math.max(0, ceiling - 18);
   }
   const legacy = contributionQualityCap(m);
-  if (legacy != null) bounds.push(legacy);
-  return softMin(bounds, 6);
+  if (legacy != null) ceiling = softMin([ceiling, legacy], 2);
+  return softMin([SUBSCORE_MAX.contribution_quality, ceiling], 2);
 }
 
 /**
- * v18 hard cap, retained so tests can show the cliff this release removes.
- * Same prestige and recognition curves; combines them with `min`.
+ * Live evidence ceiling (v20). Retained under this name so continuity tests and
+ * shared fixtures keep exercising the same bound the score saturates toward.
+ * Pre-v20 this reconstructed a hard `min()` of prestige/recognition floors.
  */
 export function lowPrestigeBulkContributionCap(m: RawMetrics): number | undefined {
   const ceiling = contributionEvidenceCeiling(m);
   if (!Number.isFinite(ceiling)) return undefined;
-  // Reconstruct the v18 min() of the same evidence bounds for callers that
-  // still inspect the legacy cap. The live score uses the soft ceiling.
-  const smooth = (value: number) => { const x = Math.max(0, Math.min(1, value)); return x*x*(3-2*x); };
-  const volume = smooth((m.merged_pr_count - 40) / 80);
-  const prestige = impactPrestigeSignal(m);
-  const strongPrestige = smooth((prestige - .65) / .15);
-  const coreProtection = smooth(((m.core_impact_pr_count ?? 0) - 40) / 60);
-  const prestigeCap = 20 + 3*smooth((prestige-.3)/.5) + 4*strongPrestige + 2.5*coreProtection*(1-strongPrestige);
-  const cap = 27 - (27 - prestigeCap) * volume;
-  if (m.external_merged_pr_count == null) return Math.min(cap, SUBSCORE_MAX.contribution_quality);
-  const external = Math.max(0, Math.min(m.external_merged_pr_count, m.merged_pr_count));
-  const own = Math.max(0, m.merged_pr_count - external);
-  const community = Math.max(0, Math.min(m.own_pr_community ?? 0, 1));
-  const recognitionCap = 20 + 7 * (1 - Math.exp(-(external + own * community) / 80));
-  return Math.min(cap, recognitionCap, SUBSCORE_MAX.contribution_quality);
+  return ceiling;
 }
 
 /**

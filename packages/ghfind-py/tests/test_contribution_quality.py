@@ -21,11 +21,11 @@ def test_stars_cannot_bypass_and_unknown_is_not_zero():
     base = FIXTURES[0]["metrics"]
     for stars in [0, 950, 1000, 1050, 2507, 1000000]:
         quality = score(dict(base, max_stars=stars))["sub_scores"]["contribution_quality"]
-        assert 19 <= quality <= 20
+        assert 17.5 <= quality <= 18.05
     unknown = dict(base)
     unknown.pop("external_merged_pr_count")
     assert low_prestige_bulk_contribution_cap(dict(base, external_merged_pr_count=None)) == low_prestige_bulk_contribution_cap(unknown)
-    assert low_prestige_bulk_contribution_cap(unknown) == pytest.approx(21.944)
+    assert low_prestige_bulk_contribution_cap(unknown) == pytest.approx(24.51023392551076)
     for n in [0, 1, 22, 10000]:
         assert score(dict(base, self_closed_external_pr_count=n, self_closed_own_repo_pr_count=n)) == score(base)
 
@@ -35,5 +35,5 @@ def test_adoption_cap_is_monotone_and_diminishing():
     caps = [low_prestige_bulk_contribution_cap(dict(base, external_merged_pr_count=n)) for n in [0, 80, 160, 320, 600, 1000]]
     assert caps == sorted(caps)
     assert caps[2]-caps[1] < caps[1]-caps[0]
-    assert caps[0] == 20
+    assert caps[0] == pytest.approx(18, abs=1e-5)
     assert caps[-1] <= 27

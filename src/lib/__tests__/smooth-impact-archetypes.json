@@ -123,8 +123,8 @@
       ]
     },
     "ecosystem_impact": 14.4,
-    "contribution_quality": 21.5,
-    "final_score": 73.7
+    "contribution_quality": 20.9,
+    "final_score": 73.1
   },
   {
     "name": "four-repo-spread",
@@ -204,8 +204,8 @@
       ]
     },
     "ecosystem_impact": 18.3,
-    "contribution_quality": 21.5,
-    "final_score": 77.6
+    "contribution_quality": 20.9,
+    "final_score": 77
   },
   {
     "name": "five-repo-core",
@@ -291,7 +291,7 @@
       ]
     },
     "ecosystem_impact": 19.2,
-    "contribution_quality": 23.6,
-    "final_score": 80.6
+    "contribution_quality": 22.8,
+    "final_score": 79.8
   }
 ]

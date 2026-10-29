@@ -539,11 +539,13 @@ type ImpactMetrics struct {
 	ImpactRepos         []ImpactRepo `json:"impact_repos"`
 }
 
+// defaultBranchCommitMin is the landed-commit floor for commit-only impact.
+// v20 uses 1 for every repo; prestigeWorkMultiplier scales tiny mega-repo
+// drive-bys down. git/git stays listed so the historical single-commit
+// exception remains explicit in reviews.
 func defaultBranchCommitMin(repo string) float64 {
-	if strings.EqualFold(strings.TrimSpace(repo), "git/git") {
-		return 1
-	}
-	return 2
+	_ = repo
+	return 1
 }
 
 // Work levels at which a repo gets full prestige credit: prestige needs

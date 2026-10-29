@@ -17,12 +17,13 @@ const (
 	// also accept goPreviousPublicScoreVersion until organic rescan (see
 	// publicScoreVersionClause). Keep this in the same review as
 	// src/lib/cache-version.ts and release-versions.json.
-	goCanonicalScoreVersion       = "v19"
-	goPreviousPublicScoreVersion  = "v18"
-	goSecondPublicScoreVersion    = "v17"
-	goThirdPublicScoreVersion     = "v16"
-	goFourthPublicScoreVersion    = "v15"
-	goFifthPublicScoreVersion     = "v14"
+	goCanonicalScoreVersion       = "v20"
+	goPreviousPublicScoreVersion  = "v19"
+	goSecondPublicScoreVersion    = "v18"
+	goThirdPublicScoreVersion     = "v17"
+	goFourthPublicScoreVersion    = "v16"
+	goFifthPublicScoreVersion     = "v15"
+	goSixthPublicScoreVersion     = "v14"
 	goRetainedPublicScoreVersion  = "v13"
 	goOldestPublicScoreVersion    = "v10"
 	goCanonicalCollectionVersion = "v7"
@@ -30,15 +31,15 @@ const (
 )
 
 func publicScoreVersionClause(column string) string {
-	return column + " IN (?, ?, ?, ?, ?, ?, ?, ?)"
+	return column + " IN (?, ?, ?, ?, ?, ?, ?, ?, ?)"
 }
 
 func publicScoreVersionArgs() []any {
-	return []any{goCanonicalScoreVersion, goPreviousPublicScoreVersion, goSecondPublicScoreVersion, goThirdPublicScoreVersion, goFourthPublicScoreVersion, goFifthPublicScoreVersion, goRetainedPublicScoreVersion, goOldestPublicScoreVersion}
+	return []any{goCanonicalScoreVersion, goPreviousPublicScoreVersion, goSecondPublicScoreVersion, goThirdPublicScoreVersion, goFourthPublicScoreVersion, goFifthPublicScoreVersion, goSixthPublicScoreVersion, goRetainedPublicScoreVersion, goOldestPublicScoreVersion}
 }
 
 func isPublicScoreVersion(version string) bool {
-	return version == goCanonicalScoreVersion || version == goPreviousPublicScoreVersion || version == goSecondPublicScoreVersion || version == goThirdPublicScoreVersion || version == goFourthPublicScoreVersion || version == goFifthPublicScoreVersion || version == goRetainedPublicScoreVersion || version == goOldestPublicScoreVersion
+	return version == goCanonicalScoreVersion || version == goPreviousPublicScoreVersion || version == goSecondPublicScoreVersion || version == goThirdPublicScoreVersion || version == goFourthPublicScoreVersion || version == goFifthPublicScoreVersion || version == goSixthPublicScoreVersion || version == goRetainedPublicScoreVersion || version == goOldestPublicScoreVersion
 }
 
 var ErrScanJobConflict = errors.New("scan job conflicts with an existing result")

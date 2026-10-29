@@ -378,39 +378,33 @@ func softMin(values []float64, k float64) float64 {
 	return -(peak + math.Log(sum)) / k
 }
 
-func contributionEvidenceBounds(m RawMetrics) []float64 {
-	smooth := func(value float64) float64 { x := max(0, min(1, value)); return x * x * (3 - 2*x) }
-	volume := smooth((m.MergedPRCount - 40) / 80)
+// contributionEvidenceCeiling is the v20 soft CQ bound: prestige shapes a
+// base+span exponential, volume blends toward it, and thin recognition gently
+// drags toward the base — no binding min() of stacked floors.
+func contributionEvidenceCeiling(m RawMetrics) float64 {
 	prestige := impactPrestigeSignal(m)
-	strongPrestige := smooth((prestige - .65) / .15)
-	coreProtection := smooth((valueOrZero(m.CoreImpactPRCount) - 40) / 60)
-	prestigeCap := 20 + 3*smooth((prestige-.3)/.5) + 4*strongPrestige + 2.5*coreProtection*(1-strongPrestige)
-	// Stars on own projects do not establish outside adoption. Missing external
-	// counts are unknown, so recognition stays out of the ceiling.
-	bounds := []float64{27, 27 - (27-prestigeCap)*volume}
+	core := valueOrZero(m.CoreImpactPRCount)
+	prestigeLift := 1 / (1 + math.Exp(-(prestige-0.58)/0.13))
+	coreLift := 1 - math.Exp(-core/90)
+	shaped := 18 + 9*min(1, prestigeLift+0.12*coreLift*(1-prestigeLift))
+	volumePull := 1 - math.Exp(-max(0, m.MergedPRCount-40)/90)
+	ceiling := 27 - volumePull*(27-shaped)
 	if m.ExternalMergedPRCount != nil {
 		external := max(0, min(*m.ExternalMergedPRCount, m.MergedPRCount))
 		own := max(0, m.MergedPRCount-external)
 		community := max(0, min(valueOrZero(m.OwnPRCommunity), 1))
-		// Keep the 80-landing scale synchronized with TypeScript and Python.
-		bounds = append(bounds, 20+7*(1-math.Exp(-(external+own*community)/80)))
+		landings := external + own*community
+		recognitionLift := 1 - math.Exp(-landings/100)
+		ceiling -= (1 - recognitionLift) * max(0, ceiling-18)
 	}
 	if cap, applies := contributionQualityCap(m); applies {
-		bounds = append(bounds, cap)
+		ceiling = softMin([]float64{ceiling, cap}, 2)
 	}
-	return bounds
-}
-
-func contributionEvidenceCeiling(m RawMetrics) float64 {
-	return softMin(contributionEvidenceBounds(m), 6)
+	return softMin([]float64{27, ceiling}, 2)
 }
 
 func lowPrestigeBulkContributionCap(m RawMetrics) (float64, bool) {
-	cap := 27.0
-	for _, bound := range contributionEvidenceBounds(m) {
-		cap = min(cap, bound)
-	}
-	return cap, true
+	return contributionEvidenceCeiling(m), true
 }
 
 func saturateToward(raw, ceiling float64) float64 {

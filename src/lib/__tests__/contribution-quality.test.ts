@@ -22,9 +22,9 @@ describe("v18 contribution recognition", () => {
     for (const max_stars of [0, 949, 950, 1000, 1050, 2507, 1000000]) {
       for (const merged_pr_count of [123, 200, 10000]) {
         const m = { ...own, max_stars, merged_pr_count };
-        expect(lowPrestigeBulkContributionCap(m)).toBe(20);
-        expect(score(m).sub_scores.contribution_quality).toBeLessThanOrEqual(20);
-        expect(score(m).sub_scores.contribution_quality).toBeGreaterThanOrEqual(19);
+        expect(lowPrestigeBulkContributionCap(m)!).toBeCloseTo(18, 5);
+        expect(score(m).sub_scores.contribution_quality).toBeLessThanOrEqual(18.05);
+        expect(score(m).sub_scores.contribution_quality).toBeGreaterThanOrEqual(17.5);
       }
     }
   });
@@ -49,14 +49,14 @@ describe("v18 contribution recognition", () => {
     expect(capAt(160) - capAt(80)).toBeLessThan(capAt(80) - capAt(0));
     expect(capAt(123)).toBeLessThan(26);
     const saturated = score({ ...base, external_merged_pr_count: 600 }).sub_scores.contribution_quality;
-    expect(saturated).toBeGreaterThan(26.5);
+    expect(saturated).toBeGreaterThanOrEqual(26.3);
     expect(saturated).toBeLessThanOrEqual(27);
   });
 
   it("keeps legacy unknown ownership distinct from measured zero and bounds inputs", () => {
     const unknown = { ...own, external_merged_pr_count: undefined };
-    expect(lowPrestigeBulkContributionCap(unknown)).toBeCloseTo(21.944, 12);
-    expect(lowPrestigeBulkContributionCap({ ...own, external_merged_pr_count: -100, own_pr_community: -1 })).toBe(20);
+    expect(lowPrestigeBulkContributionCap(unknown)!).toBeCloseTo(24.51023392551076, 8);
+    expect(lowPrestigeBulkContributionCap({ ...own, external_merged_pr_count: -100, own_pr_community: -1 })!).toBeCloseTo(18, 5);
     expect(lowPrestigeBulkContributionCap({ ...own, external_merged_pr_count: 10000 })).toBe(
       lowPrestigeBulkContributionCap({ ...own, external_merged_pr_count: own.merged_pr_count }),
     );
