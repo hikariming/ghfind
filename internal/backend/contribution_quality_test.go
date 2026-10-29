@@ -38,7 +38,7 @@ func TestContributionQualityRecognitionGolden(t *testing.T) {
 	for _, stars := range []float64{0, 950, 1000, 1050, 2507, 1000000} {
 		m := base
 		m.MaxStars = stars
-		if got := Score(m).SubScores.ContributionQuality; got < 19 || got > 20 {
+		if got := Score(m).SubScores.ContributionQuality; got < 17.5 || got > 18.05 {
 			t.Fatalf("own stars bypassed the smooth ceiling: %v", got)
 		}
 	}
@@ -51,7 +51,7 @@ func TestContributionQualityRecognitionGolden(t *testing.T) {
 	}
 	unknown := base
 	unknown.ExternalMergedPRCount = nil
-	if cap, _ := lowPrestigeBulkContributionCap(unknown); math.Abs(cap-21.944) > 1e-12 {
+	if cap, _ := lowPrestigeBulkContributionCap(unknown); math.Abs(cap-24.51023392551076) > 1e-8 {
 		t.Fatalf("unknown ownership cap %v", cap)
 	}
 }

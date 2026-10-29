@@ -3,7 +3,7 @@
     "description": "Real snapshot. 71 authored commits to fixture-account-016/deer-flow landed via a maintainer fork (one sampled PR, so code share stays near the prior); most other external PRs are docs/site work in repos under 200 stars. Target: below 60.",
     "before_final_score": 59.3,
     "expected_final_range": [
-      64.4,
+      64.3,
       64.4
     ],
     "recorded_at": "2026-10-14T00:00:00.000Z",
@@ -567,12 +567,12 @@
       "sub_scores": {
         "account_maturity": 6,
         "original_project_quality": 9.4,
-        "contribution_quality": 20.6,
+        "contribution_quality": 20.5,
         "ecosystem_impact": 7.6,
         "community_influence": 7.8,
         "activity_authenticity": 13
       },
-      "final_score": 64.4
+      "final_score": 64.3
     },
     "v13_metrics": {
       "username": "fixture-account-042",
@@ -1445,12 +1445,12 @@
       "sub_scores": {
         "account_maturity": 1.7,
         "original_project_quality": 18,
-        "contribution_quality": 21.4,
+        "contribution_quality": 21.7,
         "ecosystem_impact": 12.2,
         "community_influence": 5.6,
         "activity_authenticity": 17
       },
-      "final_score": 75.9
+      "final_score": 76.2
     },
     "v13_metrics": {
       "username": "fixture-account-018",
@@ -2729,12 +2729,12 @@
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 15.2,
-        "contribution_quality": 21.4,
+        "contribution_quality": 20.6,
         "ecosystem_impact": 13.5,
         "community_influence": 6.2,
         "activity_authenticity": 17
       },
-      "final_score": 83.3
+      "final_score": 82.5
     },
     "v13_metrics": {
       "username": "fixture-account-035",
@@ -5850,12 +5850,12 @@
       "sub_scores": {
         "account_maturity": 9.9,
         "original_project_quality": 14.3,
-        "contribution_quality": 26.3,
+        "contribution_quality": 25.1,
         "ecosystem_impact": 16,
         "community_influence": 8,
         "activity_authenticity": 17
       },
-      "final_score": 91.5
+      "final_score": 90.3
     },
     "v13_metrics": {
       "username": "fixture-account-074",
@@ -8905,12 +8905,12 @@
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 18,
-        "contribution_quality": 26.5,
+        "contribution_quality": 25.2,
         "ecosystem_impact": 16.2,
         "community_influence": 8,
         "activity_authenticity": 16
       },
-      "final_score": 94.7
+      "final_score": 93.4
     },
     "v13_metrics": {
       "username": "fixture-account-043",
@@ -10175,12 +10175,12 @@
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 15,
-        "contribution_quality": 26.7,
+        "contribution_quality": 25.4,
         "ecosystem_impact": 15.9,
         "community_influence": 8,
         "activity_authenticity": 17
       },
-      "final_score": 92.6
+      "final_score": 91.3
     },
     "v13_metrics": {
       "username": "fixture-account-038",

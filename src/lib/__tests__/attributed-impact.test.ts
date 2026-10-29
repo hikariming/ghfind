@@ -19,7 +19,7 @@ describe("attributed creator impact", () => {
       external_merged_pr_count: 108 - 79,
       own_pr_community: ownPrCommunityShare(repos, "fixture-account-070", 79),
     });
-    expect(score(f.metrics).final_score).toBe(67.6);
+    expect(score(f.metrics).final_score).toBe(68.1);
     expect(impact.impact_repos.map((r) => r.repo)).toContain(repo.repo);
     expect(isEcosystemImpactPr({ repo: repo.repo, repo_stars: 520, trivial: false, title: "fix", churn: 55, changed_files: 1 }, "fixture-account-070", repos)).toBe(true);
     // Community is a competing channel, never added to historical star depth.

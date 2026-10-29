@@ -32,15 +32,15 @@
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 18,
-        "contribution_quality": 26.6,
+        "contribution_quality": 26.3,
         "ecosystem_impact": 18.8,
         "community_influence": 8,
         "activity_authenticity": 17
       },
-      "base_score": 98.4,
+      "base_score": 98.1,
       "red_flags": [],
       "total_penalty": 0,
-      "final_score": 98.4,
+      "final_score": 98.1,
       "tier": "夯",
       "tier_label": "封神 · 殿堂级标杆"
     }

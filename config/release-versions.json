@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "previousRelease": {
-    "score": "v18",
+    "score": "v19",
     "roast": "v12",
     "collection": "v7"
   },
   "targetRelease": {
-    "score": "v19",
+    "score": "v20",
     "roast": "v12",
     "collection": "v7"
   },
@@ -17,6 +17,7 @@
   },
   "compatibility": {
     "publicScoreReadOrder": [
+      "v20",
       "v19",
       "v18",
       "v17",
@@ -28,7 +29,7 @@
     ],
     "roastReplay": [
       {
-        "score": "v19",
+        "score": "v20",
         "roast": "v12"
       }
     ],
@@ -38,6 +39,7 @@
       "v5"
     ],
     "retainedPublicScoreVersions": [
+      "v18",
       "v17",
       "v16",
       "v15",
@@ -51,7 +53,7 @@
     ]
   },
   "legacyReadFallback": {
-    "score": "v18",
+    "score": "v19",
     "roast": "v12",
     "collection": "v7"
   },
@@ -60,5 +62,5 @@
     "approvedMultiComponentIssue": null
   },
   "aliases": [],
-  "releasePlan": "docs/releases/v19-v12-v7-smooth-impact.md"
+  "releasePlan": "docs/releases/v20-v12-v7-smooth-prestige-commit.md"
 }

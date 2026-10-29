@@ -6,9 +6,9 @@
  * change. Development bypasses these caches entirely so local prompt/scoring
  * edits are visible on the next request.
  */
-// v19 saturates contribution quality and ecosystem impact on smooth curves.
-// A few tiny pull requests, or every pull request in one repo, no longer fill those dimensions.
-export const SCORE_CACHE_VERSION = "v19";
+// v20 smooths the v18/v19 contribution prestige ceiling and the commit-to-
+// mega-repo hard cutoff into exponential weight curves (no binding floors).
+export const SCORE_CACHE_VERSION = "v20";
 // v12 keeps language proficiency out of engineering judgments and roast targets.
 export const ROAST_CACHE_VERSION = "v12";
 /**

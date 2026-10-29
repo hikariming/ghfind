@@ -8,7 +8,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 88
     },
-    "expected": 27
+    "expected": 26.653426409720026
   },
   {
     "name": "merged_pr_count-40-0",
@@ -19,7 +19,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 88
     },
-    "expected": 27
+    "expected": 26.653426409720026
   },
   {
     "name": "merged_pr_count-40-0.00001",
@@ -30,7 +30,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 88
     },
-    "expected": 26.999999999999847
+    "expected": 26.65342615186674
   },
   {
     "name": "merged_pr_count-80--0.00001",
@@ -41,7 +41,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 88
     },
-    "expected": 25.37000061125
+    "expected": 25.31702041927304
   },
   {
     "name": "merged_pr_count-80-0",
@@ -52,7 +52,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 88
     },
-    "expected": 25.37
+    "expected": 25.31702010002949
   },
   {
     "name": "merged_pr_count-80-0.00001",
@@ -63,7 +63,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 88
     },
-    "expected": 25.369999388750003
+    "expected": 25.317019780785973
   },
   {
     "name": "merged_pr_count-120--0.00001",
@@ -74,7 +74,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 88
     },
-    "expected": 23.740000000000155
+    "expected": 24.264652786541063
   },
   {
     "name": "merged_pr_count-120-0",
@@ -85,7 +85,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 88
     },
-    "expected": 23.740000000000002
+    "expected": 24.264652575419998
   },
   {
     "name": "merged_pr_count-120-0.00001",
@@ -96,7 +96,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 88
     },
-    "expected": 23.740000000000002
+    "expected": 24.264652364298957
   },
   {
     "name": "max_stars-950--0.00001",
@@ -107,7 +107,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 88
     },
-    "expected": 24.249375
+    "expected": 24.736162243620775
   },
   {
     "name": "max_stars-950-0",
@@ -118,7 +118,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 88
     },
-    "expected": 24.249375
+    "expected": 24.736162243620775
   },
   {
     "name": "max_stars-950-0.00001",
@@ -129,7 +129,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 88
     },
-    "expected": 24.249375
+    "expected": 24.736162243620775
   },
   {
     "name": "max_stars-1000--0.00001",
@@ -140,7 +140,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 88
     },
-    "expected": 24.249375
+    "expected": 24.736162243620775
   },
   {
     "name": "max_stars-1000-0",
@@ -151,7 +151,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 88
     },
-    "expected": 24.249375
+    "expected": 24.736162243620775
   },
   {
     "name": "max_stars-1000-0.00001",
@@ -162,7 +162,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 88
     },
-    "expected": 24.249375
+    "expected": 24.736162243620775
   },
   {
     "name": "max_stars-1050--0.00001",
@@ -173,7 +173,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 88
     },
-    "expected": 24.249375
+    "expected": 24.736162243620775
   },
   {
     "name": "max_stars-1050-0",
@@ -184,7 +184,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 88
     },
-    "expected": 24.249375
+    "expected": 24.736162243620775
   },
   {
     "name": "max_stars-1050-0.00001",
@@ -195,7 +195,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 88
     },
-    "expected": 24.249375
+    "expected": 24.736162243620775
   },
   {
     "name": "impact_prestige_score-0.3--0.00001",
@@ -206,7 +206,7 @@
       "impact_prestige_score": 0.29999,
       "core_impact_pr_count": 88
     },
-    "expected": 22.98375
+    "expected": 23.369449049564142
   },
   {
     "name": "impact_prestige_score-0.3-0",
@@ -217,7 +217,7 @@
       "impact_prestige_score": 0.3,
       "core_impact_pr_count": 88
     },
-    "expected": 22.98375
+    "expected": 23.369478061935446
   },
   {
     "name": "impact_prestige_score-0.3-0.00001",
@@ -228,7 +228,7 @@
       "impact_prestige_score": 0.30001,
       "core_impact_pr_count": 88
     },
-    "expected": 22.98375000303746
+    "expected": 23.369507076073262
   },
   {
     "name": "impact_prestige_score-0.65--0.00001",
@@ -239,7 +239,7 @@
       "impact_prestige_score": 0.6499900000000001,
       "core_impact_pr_count": 88
     },
-    "expected": 24.968186211285037
+    "expected": 25.482182038179307
   },
   {
     "name": "impact_prestige_score-0.65-0",
@@ -250,7 +250,7 @@
       "impact_prestige_score": 0.65,
       "core_impact_pr_count": 88
     },
-    "expected": 24.968249999999998
+    "expected": 25.482251080468494
   },
   {
     "name": "impact_prestige_score-0.65-0.00001",
@@ -261,7 +261,7 @@
       "impact_prestige_score": 0.65001,
       "core_impact_pr_count": 88
     },
-    "expected": 24.968313806084083
+    "expected": 25.4823201208802
   },
   {
     "name": "impact_prestige_score-0.8--0.00001",
@@ -272,7 +272,7 @@
       "impact_prestige_score": 0.7999900000000001,
       "core_impact_pr_count": 88
     },
-    "expected": 26.999999977163423
+    "expected": 26.245204360831696
   },
   {
     "name": "impact_prestige_score-0.8-0",
@@ -283,7 +283,7 @@
       "impact_prestige_score": 0.8,
       "core_impact_pr_count": 88
     },
-    "expected": 27
+    "expected": 26.245236237634742
   },
   {
     "name": "impact_prestige_score-0.8-0.00001",
@@ -294,7 +294,7 @@
       "impact_prestige_score": 0.80001,
       "core_impact_pr_count": 88
     },
-    "expected": 27
+    "expected": 26.245268112171694
   },
   {
     "name": "core_impact_pr_count-40--0.00001",
@@ -305,7 +305,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 39.99999
     },
-    "expected": 22.359375
+    "expected": 24.659301048926928
   },
   {
     "name": "core_impact_pr_count-40-0",
@@ -316,7 +316,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 40
     },
-    "expected": 22.359375
+    "expected": 24.659301069603174
   },
   {
     "name": "core_impact_pr_count-40-0.00001",
@@ -327,7 +327,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 40.00001
     },
-    "expected": 22.359375000000178
+    "expected": 24.659301090279413
   },
   {
     "name": "core_impact_pr_count-70--0.00001",
@@ -338,7 +338,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 69.99999
     },
-    "expected": 23.41406197265625
+    "expected": 24.712023708327717
   },
   {
     "name": "core_impact_pr_count-70-0",
@@ -349,7 +349,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 70
     },
-    "expected": 23.4140625
+    "expected": 24.712023723127487
   },
   {
     "name": "core_impact_pr_count-70-0.00001",
@@ -360,7 +360,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 70.00001
     },
-    "expected": 23.414063027343747
+    "expected": 24.71202373792725
   },
   {
     "name": "core_impact_pr_count-100--0.00001",
@@ -371,7 +371,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 99.99999
     },
-    "expected": 24.468749999999822
+    "expected": 24.749765939000838
   },
   {
     "name": "core_impact_pr_count-100-0",
@@ -382,7 +382,7 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 100
     },
-    "expected": 24.46875
+    "expected": 24.749765949596682
   },
   {
     "name": "core_impact_pr_count-100-0.00001",
@@ -393,6 +393,6 @@
       "impact_prestige_score": 0.55,
       "core_impact_pr_count": 100.00001
     },
-    "expected": 24.46875
+    "expected": 24.74976596019253
   }
 ]
