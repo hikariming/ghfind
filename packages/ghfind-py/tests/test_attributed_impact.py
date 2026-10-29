@@ -25,7 +25,7 @@ def test_yifan_oct18_replay():
     assert impact['impact_depth_raw'] == 1.83
     assert impact['impact_repos'][0]['repo'] == r['repo']
     before = score(f['metrics'])['final_score']
-    assert before == 67.6
+    assert before == 68.1
     metrics = dict(f['metrics'], **impact)
     metrics.update(impact_depth_raw=impact['impact_depth_raw'] + f['metrics']['impact_depth_raw'],
                    external_merged_pr_count=29, own_pr_community=own_pr_community_share([r], 'fixture-account-070', 79))

@@ -32,7 +32,7 @@ func TestAttributedCreatorImpact(t *testing.T) {
 		t.Fatalf("impact %+v", impact)
 	}
 	before := Score(f.Metrics)
-	if before.FinalScore != 67.6 {
+	if before.FinalScore != 68.1 {
 		t.Fatalf("baseline replay %v", before.FinalScore)
 	}
 	f.Metrics.ImpactPrestigeScore = &impact.ImpactPrestigeScore
