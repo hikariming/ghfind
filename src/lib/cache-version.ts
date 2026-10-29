@@ -9,15 +9,18 @@
 // v19 saturates contribution quality and ecosystem impact on smooth curves.
 // A few tiny pull requests, or every pull request in one repo, no longer fill those dimensions.
 export const SCORE_CACHE_VERSION = "v19";
-// v12 keeps language proficiency out of engineering judgments and roast targets.
-export const ROAST_CACHE_VERSION = "v12";
+// v13 is the roast-cache release that pairs with the multi-step copy chain
+// (src/lib/roast-v13). Opening a profile whose report is still on v12 marks it
+// stale and enqueues on-view auto re-roast. The generator flag is separate:
+// without ROAST_GENERATOR=v13 the regenerated report still uses the v12 single
+// call, but is stored under ROAST_CACHE_VERSION=v13.
+export const ROAST_CACHE_VERSION = "v13";
 /**
  * Roast copy generator, selected per deployment. `ROAST_GENERATOR=v13` runs the
  * multi-step copy chain (src/lib/roast-v13); anything else keeps the v12 single
- * call. The generator is an implementation detail of the current roast release:
- * reports stay stored and cached under ROAST_CACHE_VERSION, so flipping the flag
- * never marks existing reports stale (TS and Go readers keep agreeing). A roast
- * release bump in the manifest is the separate step that regenerates old reports.
+ * call. Reports are always stored under ROAST_CACHE_VERSION (currently v13).
+ * Flipping the generator alone never changes the cache key; only a roast
+ * release bump (this constant + the manifest) regenerates old reports.
  *
  * `ROAST_V13_SCOPE=background` limits the chain to queued auto re-roast jobs
  * (no viewer waiting); the default `all` also uses it for interactive roasts.
