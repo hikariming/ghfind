@@ -12,6 +12,11 @@ export class ScanPendingError extends Error {
   }
 }
 
+/** A deferred owner finished unsuccessfully; code is an allowlisted API error. */
+export class DeferredScanError extends Error {
+  constructor(readonly code: string) { super(code); }
+}
+
 // One in-flight crawl per username, and at most this many cold crawls across
 // every isolate. Ninety-six is 24 in-flight scans for each of the four tokens.
 // Leases recover capacity after an invocation is killed.
@@ -79,6 +84,7 @@ export interface ScanCoordinator {
   /** 1 armed, 0 not owner, -1 cannot defer. Omitted on the Redis coordinator. */
   markPending?(owner: string, username: string, ttlMs: number): Promise<number>;
   pending?(): Promise<{ owner: string; username: string; startedAt: number } | null>;
+  failure?(): Promise<{ owner: string; code: string } | null>;
 }
 
 /** Redis coordinator: the original Lua scripts over lock/capacity/cooldown keys. */
@@ -184,7 +190,17 @@ export async function protectedScan<T>(options: {
             holdLease = true;
             return ready;
           }
+          const outcome = await coordinator.failure?.();
+          if (outcome?.owner === owner) {
+            holdLease = true;
+            throw new DeferredScanError(outcome.code);
+          }
           await wait();
+        }
+        const outcome = await coordinator.failure?.();
+        if (outcome?.owner === owner) {
+          holdLease = true;
+          throw new DeferredScanError(outcome.code);
         }
         failed = false;
         holdLease = true;

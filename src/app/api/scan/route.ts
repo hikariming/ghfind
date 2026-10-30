@@ -19,6 +19,7 @@ import {
   checkScanNetworkRateLimit,
   coalesceScan,
   getCachedScan,
+  getScanFailure,
   getStaleCachedScan,
   isScanPending,
   rateLimitHeaders,
@@ -28,7 +29,7 @@ import {
   scheduleBackgroundRefresh,
 } from "@/lib/scan-background-refresh";
 import { GitHubDataUnavailableError } from "@/lib/github";
-import { SCAN_PENDING_RETRY_AFTER_SECONDS, ScanBusyError, ScanPendingError } from "@/lib/scan-protection";
+import { SCAN_PENDING_RETRY_AFTER_SECONDS, DeferredScanError, ScanBusyError, ScanPendingError } from "@/lib/scan-protection";
 import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
 import type { ScanResult } from "@/lib/types";
 import {
@@ -549,8 +550,29 @@ export async function GET(req: NextRequest) {
       scannedAt: indexed.scannedAt,
     });
   }
-  if (await isScanPending(username)) {
-    return scanPendingResponse(username, pollHeaders);
+  let pending: boolean;
+  try {
+    pending = await isScanPending(username);
+  } catch {
+    return apiError("scan_busy", { status: 503, headers: { ...pollHeaders, "Retry-After": "15" } });
+  }
+  if (pending) return scanPendingResponse(username, pollHeaders);
+  // Publication can land between the first cache read and the pending read.
+  const completed = await getCachedScan(username);
+  if (completed) {
+    return immediateResponse({ scan: completed, cached: true, headers: pollHeaders });
+  }
+  let failure: string | null;
+  try {
+    failure = await getScanFailure(username);
+  } catch {
+    return apiError("scan_busy", { status: 503, headers: { ...pollHeaders, "Retry-After": "15" } });
+  }
+  if (failure) {
+    const { error, status, retry_after } = scanErrorResponse(new DeferredScanError(failure));
+    return apiError(error as Parameters<typeof apiError>[0], {
+      status, headers: { ...pollHeaders, ...(retry_after ? { "Retry-After": String(retry_after) } : {}) },
+    });
   }
   return apiError("not_scored", {
     status: 404,

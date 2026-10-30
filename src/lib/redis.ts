@@ -451,8 +451,16 @@ export async function isScanPending(username: string): Promise<boolean> {
   try {
     return (await scanSlot(slots, scanKey(username)).pending()) != null;
   } catch {
-    return false;
+    throw new ScanBusyError();
   }
+}
+
+/** Read the terminal outcome without leaking upstream error details. */
+export async function getScanFailure(username: string): Promise<string | null> {
+  const slots = scanSlots();
+  if (!slots) return null;
+  try { return (await scanSlot(slots, scanKey(username)).failure())?.code ?? null; }
+  catch { throw new ScanBusyError(); }
 }
 
 /**
