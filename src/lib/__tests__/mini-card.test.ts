@@ -28,7 +28,7 @@ const base: MiniCardOptions = {
   avatar: null,
   score: 92.41,
   tier: "夯",
-  tierLabel: TIER_LABEL_EN["夯"],
+  tierLabel: "Near the summit · Hall of fame",
   scores,
   languages: ["Python", "Go", "TypeScript"],
   rank: 128,
@@ -91,8 +91,8 @@ describe("mini card", () => {
   });
 
   it("uses the -600 tier hue for light so small type stays readable", () => {
-    expect(renderMiniCardSvg({ ...base, theme: "dark" })).toContain("#F59E0B");
-    expect(renderMiniCardSvg({ ...base, theme: "light" })).toContain("#D97706");
+    expect(renderMiniCardSvg({ ...base, theme: "dark" })).toContain("#F6C744");
+    expect(renderMiniCardSvg({ ...base, theme: "light" })).toContain("#A87700");
   });
 
   it("escapes display names and handles rather than injecting markup", () => {
@@ -112,15 +112,16 @@ describe("mini card", () => {
     const zh = { ...base, lang: "zh" as const, displayName: "光明" };
     const svg = renderMiniCardSvg(zh);
     expect(svg).toContain("光明");
-    expect(svg).toContain("夯");
+    expect(svg).toContain("大乘");
     expect(svg).toContain("前 0.8%");
     expect(svg).toContain("第 128 / 21,384");
     expect(svg).toContain("↑2.3 周");
+    expect(svg).not.toContain("夯");
     expect(svg).not.toContain("GOD");
     // Only radar has room for the tier blurb; bars carries the tier chip instead.
     expect(
-      renderMiniCardSvg({ ...zh, variant: "radar", tierLabel: "封神 · 殿堂级标杆" }),
-    ).toContain("封神 · 殿堂级标杆");
+      renderMiniCardSvg({ ...zh, variant: "radar", tierLabel: "大道将成 · 殿堂标杆" }),
+    ).toContain("大道将成 · 殿堂标杆");
   });
 
   it("renders the English meta line with a thousands separator", () => {
@@ -128,7 +129,8 @@ describe("mini card", () => {
     expect(svg).toContain("Top 0.8%");
     expect(svg).toContain("#128 / 21,384");
     expect(svg).toContain("↑2.3 wk");
-    expect(svg).toContain("GOD");
+    expect(svg).toContain("Grand Asc.");
+    expect(svg).toContain("Lv.92");
   });
 
   it("hides week-over-week drops — the card is a brag surface", () => {
@@ -231,11 +233,10 @@ describe("mini card", () => {
   });
 
   it("gives the tier word room to breathe next to inline text", () => {
-    // A bold "GOD" measures wider than 0.6em/char; the label after it must not
-    // start inside it.
+    // Realm chip + blurb must not collide.
     const svg = renderMiniCardSvg({ ...base, variant: "radar" });
-    expect(svg).not.toContain(">GODLegendary");
-    const label = /<text x="(\d+)" y="116"[^>]*>Legendary/.exec(svg);
+    expect(svg).not.toContain(">Grand Asc.Near");
+    const label = /<text x="(\d+)" y="116"[^>]*>Near the summit/.exec(svg);
     expect(label).not.toBeNull();
     expect(Number(label?.[1])).toBeGreaterThanOrEqual(48);
   });

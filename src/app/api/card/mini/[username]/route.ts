@@ -9,8 +9,9 @@
  * Defaults (`bars`, `auto`, `en`) are the safest thing to paste into a README.
  *
  * Every read here is a PK/index seek or a cached aggregate, and the response
- * carries a 6h CDN cache: README views are served by the CDN and GitHub's camo
- * proxy, so the function barely runs even on a popular profile.
+ * carries a short CDN cache (SCORE_CARD_CACHE: 10 min fresh + background
+ * revalidation) so a rescan shows up within minutes while README views are
+ * still mostly served by the edge and GitHub's camo proxy.
  */
 
 import { TIER_LABEL_EN } from "@/lib/badge";
@@ -27,7 +28,7 @@ import { getGoProfileCardPresentation } from "@/lib/go-profile.server";
 import { tierFor } from "@/lib/score-presentation";
 import { getCurrentTitleSponsor } from "@/lib/sponsor.server";
 import { publicDisplayName, USERNAME_RE } from "@/lib/username";
-import { avatarDataUrl, CDN_CACHE } from "../../assets";
+import { avatarDataUrl, SCORE_CARD_CACHE } from "../../assets";
 import { decodeRouteParam } from "@/lib/route-params";
 
 export const runtime = "nodejs";
@@ -112,6 +113,6 @@ export async function GET(
       theme,
       lang,
     }),
-    CDN_CACHE,
+    SCORE_CARD_CACHE,
   );
 }

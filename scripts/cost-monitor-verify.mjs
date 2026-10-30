@@ -64,7 +64,10 @@ export async function verifyMonitor(env,options={}){
   };
   const request=async(method,path,requestMs)=>{
     check();let response;
-    const signal=AbortSignal.any([run.signal,AbortSignal.timeout(Math.max(1,Math.min(requestMs,remaining())))]);
+    // A request timeout clamped to the run deadline races the run timer; when it
+    // fires first, that is still the deadline, not an unknown transport outcome.
+    const left=remaining(),clamped=left<=requestMs,timeout=AbortSignal.timeout(Math.max(1,Math.min(requestMs,left)));
+    const signal=AbortSignal.any([run.signal,timeout]);
     try{
       response=await fetcher(new URL(path,base).href,{method,redirect:"manual",headers:{authorization:`Bearer ${env.MONITOR_ADMIN_TOKEN}`},signal});
       // Auth and redirects are definitive failures; do not wait on their bodies.
@@ -73,6 +76,7 @@ export async function verifyMonitor(env,options={}){
       return {http:response.status,...body};
     }catch(error){
       if(error instanceof MonitorVerificationError)throw error;
+      if(clamped&&timeout.aborted)fail("deadline_exceeded");
       check();return {http:response?.status??null,json:false,transport:true};
     }
   };

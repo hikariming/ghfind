@@ -19,6 +19,8 @@ const REVIEWED_NEXT_API_ROUTES = new Set([
   "src/app/api/auth/signout/route.ts",
   "src/app/api/me/route.ts",
   "src/app/api/roast/route.ts",
+  // On-view re-roast after a roast-release upgrade: enqueue (gated) + status poll.
+  "src/app/api/roast/auto/route.ts",
   "src/app/api/scan/route.ts",
   "src/app/api/blog-comments/[slug]/route.ts",
   "src/app/api/campaigns/[campaign]/leaderboard/route.ts",
@@ -43,6 +45,24 @@ const REVIEWED_NEXT_API_ROUTES = new Set([
   "src/app/api/discover/internal/route.ts",
   // Owner-uploaded discover covers. GET is public; writes require the GitHub owner.
   "src/app/api/discover/covers/[owner]/[repo]/route.ts",
+  // Social posts: shared handlers also mounted in the API Worker. Public reads;
+  // same-origin, session-gated writes; publishing additionally requires score eligibility.
+  "src/app/api/feed/authors/[id]/route.ts",
+  "src/app/api/feed/authors/[id]/follow/route.ts",
+  "src/app/api/feed/me/bookmarks/route.ts",
+  "src/app/api/feed/media/[id]/route.ts",
+  "src/app/api/feed/media/route.ts",
+  "src/app/api/feed/post-events/route.ts",
+  "src/app/api/feed/posts/[id]/ancestors/route.ts",
+  "src/app/api/feed/posts/[id]/bookmark/route.ts",
+  "src/app/api/feed/posts/[id]/reaction/route.ts",
+  "src/app/api/feed/posts/[id]/replies/route.ts",
+  "src/app/api/feed/posts/[id]/repost/route.ts",
+  "src/app/api/feed/posts/[id]/route.ts",
+  "src/app/api/feed/posts/route.ts",
+  "src/app/api/feed/publishing-capabilities/route.ts",
+  // Content-only X import: dedicated SOCIAL_FEED_INGEST_SECRET bearer token.
+  "src/app/api/internal/social-feed/x-posts/route.ts",
   "src/app/api/feed/events/route.ts",
   "src/app/api/feed/preferences/route.ts",
   "src/app/api/feed/profile/route.ts",
@@ -56,6 +76,8 @@ const REVIEWED_NEXT_API_ROUTES = new Set([
   "src/app/api/score/[username]/route.ts",
   // Public sponsor listing: D1-backed, anonymous-safe fields only.
   "src/app/api/sponsors/route.ts",
+  // First-party sponsor link hop: 302 to an active sponsorship's stored URL only.
+  "src/app/api/sponsors/[id]/visit/route.ts",
   "src/app/api/search-users/route.ts",
   "src/app/api/stats/route.ts",
   // Public read-only sponsor listing backed by D1.
@@ -76,6 +98,8 @@ const REVIEWED_NEXT_API_ROUTES = new Set([
   "src/app/api/internal/project-analyses/reconcile/route.ts",
   "src/app/api/internal/feed/reconcile/route.ts",
   "src/app/api/internal/feed/tags/review/route.ts",
+  // Curated X timeline ingest for /feed: ADMIN_SECRET only, KV-backed, no-store.
+  "src/app/api/internal/x-timeline/route.ts",
   "src/app/api/material-card/[username]/route.tsx",
   "src/app/api/og/blog/[slug]/route.tsx",
   "src/app/api/og/home/route.tsx",

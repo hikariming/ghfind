@@ -56,6 +56,8 @@ func TestGitHubCollectorBuildsGoNativeScanResult(t *testing.T) {
 		_ = json.NewDecoder(request.Body).Decode(&body)
 		var data string
 		switch {
+		case strings.Contains(body.Query, "query OriginalInventory"):
+			data = `{"user":{"forks":{"totalCount":0},"repositories":{"nodes":[{"name":"project","nameWithOwner":"alice/project","isFork":false,"diskUsage":250,"stargazerCount":40,"forkCount":4,"issues":{"totalCount":3},"primaryLanguage":{"name":"Go"},"description":"A useful service for testing","pushedAt":"2026-07-30T00:00:00Z"}],"pageInfo":{"hasNextPage":false}}}}`
 		case strings.Contains(body.Query, "type: ISSUE, first: $count"):
 			data = `{"search":{"issueCount":3,"nodes":[{"id":"PR_9","mergedAt":"2025-05-01T00:00:00Z","repository":{"nameWithOwner":"popular/project","stargazerCount":20000,"isPrivate":false,"isFork":false,"owner":{"login":"popular"}}}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}`
 		case strings.Contains(body.Query, "CodeSamplePr"):
@@ -94,7 +96,7 @@ func TestGitHubCollectorBuildsGoNativeScanResult(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if scan.Metrics.Username != "alice" || scan.Metrics.MergedPRCount != 480 || scan.Metrics.RecentMergedPRSample != 1 || scan.Metrics.DaysSinceLastActivity == nil || *scan.Metrics.DaysSinceLastActivity != 2 {
+	if scan.Metrics.GitHubUserID == nil || *scan.Metrics.GitHubUserID != "1" || scan.Metrics.Username != "alice" || scan.Metrics.MergedPRCount != 480 || scan.Metrics.RecentMergedPRSample != 1 || scan.Metrics.DaysSinceLastActivity == nil || *scan.Metrics.DaysSinceLastActivity != 2 {
 		t.Fatalf("unexpected metrics: %#v", scan.Metrics)
 	}
 	// The window PR (no id) and the external search PR both land in

@@ -25,11 +25,11 @@ describe("release version contract", () => {
     expect(isRetainedPublicScoreArtifact("v13", "v5", "a".repeat(64))).toBe(true);
   });
 
-  it("advances score alone to v16 and retains v15/v14/v13/v10", () => {
-    expect(RELEASE_VERSION_MANIFEST.previousRelease).toEqual({ score: "v15", roast: "v12", collection: "v6" });
-    expect(RELEASE_VERSION_MANIFEST.targetRelease).toEqual({ score: "v16", roast: "v12", collection: "v6" });
+  it("advances collection to v8 and keeps score v19", () => {
+    expect(RELEASE_VERSION_MANIFEST.previousRelease).toEqual({ score: "v19", roast: "v12", collection: "v7" });
+    expect(RELEASE_VERSION_MANIFEST.targetRelease).toEqual({ score: "v19", roast: "v12", collection: "v8" });
     expect(RELEASE_VERSION_MANIFEST.legacyReadFallback).toEqual(RELEASE_VERSION_MANIFEST.previousRelease);
-    expect(RELEASE_VERSION_MANIFEST.compatibility.publicScoreReadOrder).toEqual(["v16", "v15", "v14", "v13", "v10"]);
+    expect(RELEASE_VERSION_MANIFEST.compatibility.publicScoreReadOrder).toEqual(["v19", "v18", "v17", "v16", "v15", "v14", "v13", "v10"]);
   });
 
   it("cannot introduce a newly readable score through collection compatibility", () => {
@@ -61,8 +61,8 @@ describe("release version contract", () => {
     expect(releaseVersionErrors(manifest, manifest.targetRelease)).toEqual([]);
   });
 
-  it("keeps v5 history behind collection v6", () => {
-    expect(RELEASE_VERSION_MANIFEST.compatibility.collectionReadOrder).toEqual(["v6", "v5"]);
+  it("keeps v7/v6/v5 history behind collection v8", () => {
+    expect(RELEASE_VERSION_MANIFEST.compatibility.collectionReadOrder).toEqual(["v8", "v7", "v6", "v5"]);
   });
 
   it("includes the previous collection only after a collection-version change", () => {

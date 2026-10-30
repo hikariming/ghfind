@@ -1,3 +1,4 @@
+import { listPosts } from "@/lib/blog";
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { listCollections } from "@/lib/collections";
@@ -35,6 +36,7 @@ export default async function CollectionsIndexPage({
     <CollectionsIndexView
       locale={locale}
       collections={await listCollections()}
+      posts={listPosts(locale)}
       t={asTranslator(t)}
       tBlog={asTranslator(tBlog)}
     />

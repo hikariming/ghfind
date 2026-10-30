@@ -38,6 +38,11 @@ export interface AccountDetail {
   risk_assessment?: RiskAssessment | null;
   risk_notes?: RiskSignal[];
   score_breakdown?: ScoreBreakdown | null;
+  /** Older-roast-release report on a current score; shown only as 旧版锐评. */
+  stale_roast?: string;
+  stale_roast_en?: string;
+  stale_roast_version?: string;
+  stale_roast_en_version?: string;
 }
 
 export interface ScoreBreakdown {

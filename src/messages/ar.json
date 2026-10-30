@@ -40,10 +40,11 @@
     "developers": "المطورون",
     "projectBoards": "لوحات المشاريع",
     "projects": "المشاريع",
-    "collections": "اختيارات المحرر",
+    "collections": "بحث معمّق",
     "languages": "اللغات",
     "organizations": "المنظمات",
     "versus": "مواجهة المطورين",
+    "mfcp": "MFCP للمصادر المفتوحة",
     "blog": "الأبحاث",
     "openMenu": "افتح القائمة",
     "closeMenu": "أغلق القائمة",
@@ -54,12 +55,14 @@
     "groupCareer": "المسار المهني",
     "groupTools": "Integrations",
     "beta": "Beta",
+    "event": "فعالية",
     "hint": {
       "roast": "قيّم أي حساب GitHub في 30 ثانية مع تعليق لاذع",
       "versus": "واجه بين مطوّرَين وجهًا لوجه",
+      "mfcp": "برنامج MFCP لإرشاد المصادر المفتوحة، التسجيل مفتوح الآن",
       "leaderboard": "تصفّح أفضل المطورين حسب التقييم",
       "projectBoards": "اكتشف مشاريع مفتوحة المصدر بارزة حسب المجال",
-      "collections": "مشاريع ومطورون اختارهم المحرر",
+      "collections": "قصص المطورين ومشاريع مفتوحة المصدر مختارة وأبحاث حول منظومة GitHub.",
       "blog": "بيانات ورؤى حول منظومة المطورين",
       "resume": "أنشئ سيرة ذاتية للمطور من بيانات GitHub",
       "talent": "اعثر على مطورين يستحقون التعرف عليهم",
@@ -67,11 +70,13 @@
       "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens",
       "jobs": "وظائف شاغرة في شركات الذكاء الاصطناعي والمصادر المفتوحة",
       "talentMatch": "تقرير مواهب بالذكاء الاصطناعي ومطابقة الوظائف ونصائح للتطور",
-      "discover": "اكتشف المستودعات عالية القيمة بالشبكة أو السحب"
+      "discover": "اكتشف المستودعات عالية القيمة بالشبكة أو السحب",
+      "feed": "اقرأ منشورات المطورين والمنشورات من X"
     },
     "cliApi": "CLI & API",
     "jobs": "الوظائف",
-    "talentMatch": "مطابقة المواهب"
+    "talentMatch": "مطابقة المواهب",
+    "feed": "لك"
   },
   "globalSearch": {
     "open": "افتح البحث الشامل",
@@ -124,7 +129,7 @@
     "title": "الكود المصدري وخوارزمية التقييم مفتوحا المصدر · شاهدهما على GitHub"
   },
   "home": {
-    "brand": "لاذع",
+    "brand": "تقييم",
     "headline": "اكتشف أفضل المطورين — وكُن واحدًا منهم.",
     "subtitle": "ابدأ بتقييم صريح بلا مجاملة من 0 إلى 100. اعرف أين تقف، واعرف إلى أين تتجه.",
     "boardHeading": "🏆 أفضل المطورين",
@@ -232,11 +237,11 @@
     }
   },
   "collections": {
-    "metaTitle": "مختارات المؤسس: مشاريع ومطورون · ghfind",
-    "metaDescription": "مجموعات منسّقة من مشاريع GitHub ومطورين بارزين، مدعومة بمحرك ghfind لجودة المساهمين.",
+    "metaTitle": "بحث معمّق · ghfind",
+    "metaDescription": "قصص المطورين ومشاريع مفتوحة المصدر مختارة وأبحاث حول منظومة GitHub.",
     "eyebrow": "مختارات المؤسس",
-    "heading": "مشاريع ومطورون مختارون",
-    "subtitle": "ليست قائمة نجوم أخرى — كل اختيار يأتي مع بيانات المحرك: من يبني المشروع وما مستواه.",
+    "heading": "بحث معمّق",
+    "subtitle": "قصص المطورين ومشاريع مفتوحة المصدر مختارة وأبحاث حول منظومة GitHub.",
     "empty": "لا توجد مجموعات بعد — عُد قريبًا.",
     "itemCount": "{count} اختيارًا",
     "publishedOn": "نُشر في {date}",
@@ -254,7 +259,7 @@
     "avgScoreLabel": "متوسط نقاط المساهمين",
     "followersLabel": "متابعون",
     "totalStarsLabel": "إجمالي النجوم",
-    "backToCollections": "كل المجموعات",
+    "backToCollections": "العودة إلى البحث المعمّق",
     "dataNote": "النقاط والفئات تأتي من محرك تقييم ghfind وتتحدّث مع كل فحص جديد."
   },
   "discoveryNext": {
@@ -343,18 +348,26 @@
     "similarSub": "أقرب ملف، وتقييم متقارب",
     "impactHeading": "🏆 مساهمات بارزة",
     "impactSub": "مستودعات مفتوحة المصدر شهيرة ساهم فيها (commits + PRs)",
+    "impactDisclosure": "مساهمات بارزة ({count})",
     "worksHeading": "🛠 أعمال مميزة",
     "worksSub": "مستودعاته الشهيرة والمثبّتة",
-    "stackHeading": "🧬 التقنيات والمجالات",
-    "stackLangLabel": "أبرز اللغات",
-    "stackTopicsLabel": "المجالات",
     "orgsLabel": "المنظمات",
     "commits": "commit",
     "prs": "PR",
-    "roastHeading": "🔥 التحميص الكامل",
+    "verdictLabel": "تقييم موجز",
     "roastEmpty": "هذا التحميص لم يُؤرشف بعد — <a>احكم عليه مجددًا من الصفحة الرئيسية</a> لتوليده.",
     "scoreStateStaleTitle": "نتيجة تاريخية",
     "scoreStateStaleBody": "حُسبت هذه النتيجة بقواعد سابقة، وستظل ظاهرة حتى يستبدلها فحص جديد موثوق.",
+    "scoreStateRescanAction": "إعادة التقييم",
+    "scoreStateRescanRunning": "جارٍ إعادة التقييم وفق القواعد الحالية…",
+    "scoreStateRescanReport": "جارٍ إنشاء تحميص جديد…",
+    "scoreStateRescanError": "فشلت إعادة التقييم، جرّب لاحقًا",
+    "roastStaleLabel": "تقييم الإصدار السابق",
+    "roastStaleHint": "كُتب هذا التقييم وفق القواعد السابقة، للاطلاع فقط.",
+    "roastRegenerating": "جارٍ كتابة التقييم وفق القواعد الحالية…",
+    "roastRegeneratePending": "لم يُكتب تقييم الإصدار الحالي بعد",
+    "roastRegenerateFailed": "تعذّرت كتابة التقييم الجديد، أعد التقييم يدويًا",
+    "roastRegenerateSlow": "ما زال التقييم الجديد قيد الكتابة، أعد التحميل بعد قليل",
     "scoreStatePendingTitle": "النتيجة الحالية · التقرير قيد الانتظار",
     "scoreStatePendingBody": "النتيجة الحتمية محدثة، أما تقرير الذكاء الاصطناعي الاختياري فلم يُنشأ بعد.",
     "scoreStateReadyTitle": "النتيجة والتقرير الحاليان",
@@ -365,6 +378,13 @@
     "liveRateLimited": "طلبات تحميص كثيرة الآن — جرّب بعد دقيقة.",
     "liveExpired": "انتهت صلاحية الفحص قبل اكتمال التحميص.",
     "liveGoHome": "حمّص مجددًا من الصفحة الرئيسية ←",
+    "liveRetry": "حاول مرة أخرى",
+    "roastProgressTitle": "نكتب تحميصك…",
+    "roastStage1": "نقرأ نتيجة الفحص",
+    "roastStage2": "نختار ما يستحق الكتابة",
+    "roastStage3": "نسوّد النكات",
+    "roastStage4": "نطابق الأرقام وأسماء المستودعات",
+    "roastStage5": "نرتب اللمسة الأخيرة",
     "modalTitle": "🔥 تحميصك جاهز",
     "modalRoastHeading": "التحميص الكامل",
     "modalFirstJudged": "🥇 أنت أول من يُحكَم عليه — رائد حقيقي",
@@ -372,14 +392,20 @@
     "modalViewProfile": "عرض الملف الكامل",
     "modalBadgeCta": "احصل على شارة GitHub الخاصة بك",
     "modalClose": "إغلاق",
-    "battlesHeading": "⚔️ المعارك",
-    "battlesSub": "مبارزات خاضها هذا المطور",
-    "battleWin": "فوز",
-    "battleLoss": "خسارة",
-    "battleTie": "تعادل",
     "selfCta": "قيّم حساب GitHub الخاص بك ←",
     "reportLangNotice": "تقرير التحميص المولّد بالذكاء الاصطناعي متاح حاليًا بالإنجليزية والصينية فقط — أنت تقرأ النسخة الإنجليزية.",
-    "coCreatorShare": "قيادة / بناء مشترك (حصة {share}%)"
+    "coCreatorShare": "قيادة / بناء مشترك (حصة {share}%)",
+    "scoreReadyHint": "النتيجة جاهزة، والتقييم في الطريق",
+    "adventurerLevel": "مستوى المغامر",
+    "preciseScoreTitle": "النتيجة المركّبة {score}",
+    "liveTimeout": "انتهت مهلة انتظار التقييم. أعد المحاولة لاحقًا؛ تبقى الدرجة والتقييم السابق.",
+    "scoreStateRescanTimeout": "انتهت مهلة إعادة التقييم. أعد المحاولة لاحقًا",
+    "evaluateStageFetch": "جلب البيانات",
+    "evaluateStageAnalyze": "تحليل المستودعات",
+    "evaluateStageRoast": "كتابة التقييم",
+    "evaluateError": "لم تكتمل هذه المحاولة. اضغط إعادة المحاولة للتجربة مرة أخرى.",
+    "evaluateTimeout": "استغرق الإنشاء وقتًا أطول قليلًا. اضغط إعادة المحاولة للتجربة مرة أخرى.",
+    "evaluateRetry": "إعادة المحاولة"
   },
   "reactions": {
     "heading": "تفاعلات المجتمع",
@@ -396,15 +422,16 @@
     "clown": "ولا يسوى"
   },
   "rescan": {
-    "button": "🔄 إعادة الفحص",
+    "button": "إعادة التقييم",
     "scanning": "جارٍ الفحص…",
-    "roasting": "جارٍ التحميص…",
-    "error": "فشل الفحص، جرّب لاحقًا",
-    "cooldown": "التحديث متاح بعد {hours} ساعة"
+    "roasting": "جارٍ إنشاء التعليق…",
+    "error": "فشل التقييم، حاول لاحقًا",
+    "cooldown": "التحديث متاح بعد {hours} ساعة",
+    "timeout": "انتهت مهلة التقييم. أعد المحاولة لاحقًا"
   },
   "detailMeta": {
     "unratedTitle": "{username} · ملف المطور",
-    "title": "{username} — {score}/100 · {tier} | ghfind",
+    "title": "{username} — Lv.{level} · {realm} | ghfind",
     "descWithTags": "{tags} — شاهد تقرير تقييم {username} الكامل على ghfind.com.",
     "descPlain": "تقرير قيمة وموثوقية {username} على GitHub — ghfind.com.",
     "notFoundTitle": "الحساب غير موجود · ghfind",
@@ -417,7 +444,7 @@
     "judging": "جارٍ الحكم…",
     "byoLink": "استخدم نموذجك / مفتاح API الخاص بك",
     "scanning": "ننبش تاريخ {username}… نقرأ الـ commits، ونفحص الـ PRs، ونعدّ النجوم، ونشمشم رائحة النشاط المزيّف",
-    "roastLabel": "🔥 التحميص",
+    "roastLabel": "التقييم",
     "roastThinking": "الذكاء الاصطناعي يطبخ تحميصًا لاذعًا — لحظات ويصل…",
     "roastPending": "نُحضّر التحميص",
     "firstJudged": "🥇 أنت أول من يُحكَم عليه — رائد حقيقي",
@@ -524,25 +551,25 @@
     "brand": "🔥 ghfind · شاهد أين تقف"
   },
   "tiers": {
-    "god": {
-      "name": "GOD",
-      "blurb": "أسطوري · قاعة المشاهير"
-    },
-    "elite": {
-      "name": "ELITE",
-      "blurb": "نخبة · مطور من الطراز الأول"
-    },
-    "solid": {
-      "name": "SOLID",
-      "blurb": "متين · موثوق"
+    "trash": {
+      "name": "تكثيف التشّي",
+      "blurb": "خطوات أولى · بناء الأساس"
     },
     "npc": {
-      "name": "NPC",
-      "blurb": "عادي · لا شيء يلفت"
+      "name": "تكوين النواة",
+      "blurb": "نواة تشكّلت · حدة ظاهرة"
     },
-    "trash": {
-      "name": "TRASH",
-      "blurb": "قيمة متدنية · على الأرجح نشاط مزيّف"
+    "solid": {
+      "name": "تمارين الفراغ",
+      "blurb": "إتقان بلا جهد"
+    },
+    "elite": {
+      "name": "اندماج الجسد",
+      "blurb": "في انسجام · معلّم رفيع"
+    },
+    "god": {
+      "name": "الصعود الأعظم",
+      "blurb": "قرب القمة · قاعة المشاهير"
     }
   },
   "dimensions": {
@@ -582,7 +609,7 @@
     "subtitle": "ملاحظات مبنية على البيانات من تقييم مساهمات GitHub حقيقية على نطاق واسع.",
     "readingTime": "{minutes} دقيقة قراءة",
     "notTranslated": "هذه المقالة لم تُترجم بعد — نعرض النسخة الإنجليزية الأصلية.",
-    "backToList": "كل الأبحاث",
+    "backToList": "العودة إلى البحث المعمّق",
     "empty": "لا توجد مقالات بعد."
   },
   "footer": {
@@ -641,8 +668,8 @@
         "body": "تُقيَّم اللقطة عبر نضج الحساب، وجودة المشاريع الأصلية، وجودة المساهمات، والأثر في المنظومة، والتأثير المجتمعي، وأصالة النشاط، مع عقوبات على تفريخ الـ PR وتضخيم النجوم وأنماط السبام القالبية."
       },
       {
-        "title": "3. الحصول على تقييم وفئة وتحميص",
-        "body": "تحصل على تقييم قابل لإعادة الإنتاج من 0 إلى 100 مع فئة تمتد من Trash إلى God، وتفصيل لكل بُعد يُظهر بالضبط ما الذي يشدّ تقييمك إلى الأسفل، و— فقط إن طلبته — تحميصًا لاذعًا مكتوبًا بالذكاء الاصطناعي."
+        "title": "3. احصل على مستوى المغامر والعالم والتعليق الساخر",
+        "body": "تحصل على مستوى مغامر قابل للتكرار (Lv.1–100)، وعالم تنمية من تكثيف التشّي إلى الصعود الأعظم، وتفصيلًا حسب الأبعاد يوضح ما يخفض الدرجة، و—فقط إذا طلبت—تعليقًا ساخرًا ذكيًا من الذكاء الاصطناعي."
       }
     ],
     "numbersHeading": "ghfind بالأرقام",
@@ -1795,5 +1822,316 @@
     "partitionSkill": "Skill",
     "partitionMicroservice": "Microservices",
     "partitionSandbox": "Sandbox"
+  },
+  "stream": {
+    "postTitle": "منشور",
+    "replyPlaceholder": "اكتب ردك",
+    "replySend": "رد",
+    "metaTitle": "لك · ghfind",
+    "metaDescription": "منشورات المطورين على X في موجز واحد.",
+    "prototype": "نموذج أولي",
+    "demoData": "بيانات تجريبية: مصادر البيانات الحية غير متاحة هنا.",
+    "heading": "لك",
+    "tabForYou": "لك",
+    "tabFollowing": "المتابَعون",
+    "channels": "القنوات",
+    "kind": {
+      "project": "المشاريع",
+      "developer": "المطوّرون",
+      "talent": "المواهب",
+      "article": "المقالات",
+      "collection": "المجموعات",
+      "job": "الوظائف",
+      "post": "على X"
+    },
+    "kindOne": {
+      "project": "مشروع",
+      "developer": "مطوّر",
+      "talent": "موهبة",
+      "article": "مقال",
+      "collection": "مجموعة",
+      "job": "وظيفة",
+      "post": "منشور X"
+    },
+    "layoutList": "قائمة",
+    "layoutMasonry": "شبكة",
+    "sponsored": "مُموَّل",
+    "available": "متاح للعمل",
+    "score": "النتيجة",
+    "productScore": "نتيجة المنتج",
+    "minutesRead": "قراءة {minutes} دقيقة",
+    "like": "إعجاب",
+    "unlike": "إلغاء الإعجاب",
+    "save": "حفظ",
+    "unsave": "إزالة من المحفوظات",
+    "share": "مشاركة",
+    "comments": "التعليقات",
+    "more": "المزيد",
+    "notInterested": "غير مهتم",
+    "copyLink": "نسخ الرابط",
+    "openOriginal": "فتح الصفحة كاملة",
+    "linkCopied": "تم نسخ الرابط",
+    "hidden": "حسنًا، سنعرض لك محتوى أقل من هذا النوع.",
+    "undo": "تراجع",
+    "follow": "متابعة",
+    "following": "تتابعه",
+    "followedToast": "أنت تتابع {name} الآن",
+    "related": "محتوى مشابه",
+    "discussion": "انضم إلى النقاش في الصفحة الكاملة",
+    "close": "إغلاق",
+    "stats": {
+      "confidence": "الثقة",
+      "community": "المجتمع",
+      "language": "اللغة",
+      "lookups": "مرات البحث",
+      "delta": "هذا الأسبوع",
+      "location": "الموقع",
+      "project": "المشروع",
+      "stars": "النجوم",
+      "salary": "الراتب",
+      "note": "سبب المتابعة"
+    },
+    "loadingMore": "جارٍ تحميل المزيد…",
+    "endTitle": "لقد شاهدت كل شيء",
+    "endBody": "حدّث الصفحة لإعادة الترتيب وفق ما أعجبك للتو.",
+    "refresh": "تحديث",
+    "retuned": "تم الضبط وفق ذوقك · تحديث",
+    "followingEmptyTitle": "تابع أشخاصًا لملء هذا القسم",
+    "followingEmptyBody": "تابع الكتّاب لقراءة منشوراتهم على X هنا.",
+    "feedEmpty": "لا توجد منشورات X لعرضها بعد.",
+    "savedEmpty": "لا شيء محفوظ بعد. اضغط على علامة الحفظ في أي منشور.",
+    "railDailyProjects": "مشاريع اليوم مفتوحة المصدر",
+    "railDailyProjectsEmpty": "لا توجد مشاريع مقترحة اليوم.",
+    "railDailyProjectsMore": "تصفح ترتيب المشاريع",
+    "railInterests": "اهتماماتك",
+    "railInterestsEmpty": "أعجب ببعض المنشورات أو احفظها، وستتعلّم الخلاصة ما يهمّك.",
+    "railReset": "إعادة تعيين",
+    "railTopDevelopers": "مطوّرون صاعدون",
+    "railCtaTitle": "ما ترتيبك؟",
+    "railCtaBody": "استكشف مساهماتك العامة على GitHub خلال 30 ثانية.",
+    "railCtaButton": "قيّم حسابي على GitHub",
+    "navHome": "الرئيسية",
+    "navDiscover": "استكشاف",
+    "navScore": "تقييم",
+    "navSaved": "المحفوظات",
+    "navLeaderboard": "الترتيب",
+    "doubleTapHint": "انقر مرتين للإعجاب",
+    "backToTop": "العودة إلى الأعلى",
+    "counter": {
+      "lookups": "{count} مرة بحث",
+      "stars": "{count} نجمة",
+      "items": "{count} اختيار"
+    },
+    "badge": {
+      "hot": "رائج",
+      "new": "جديد",
+      "editor": "اختيار المحرر"
+    },
+    "pulseTotal": "تم تقييم {count} مطوّرًا حتى الآن",
+    "pulseTrending": "الأكثر تداولًا خلال 24 ساعة",
+    "pulseLookups": "{count} مشاهدة",
+    "aiRoast": "رأي الذكاء الاصطناعي",
+    "aiNote": "من إنشاء نموذج التقييم في ghfind",
+    "dimsTitle": "ستة أبعاد",
+    "beat": "يتفوّق على {percent}% من المطوّرين",
+    "rankOf": "المرتبة {rank} من {total}",
+    "weekDelta": "{delta} هذا الأسبوع",
+    "facts": {
+      "followers": "المتابِعون",
+      "totalStars": "إجمالي النجوم",
+      "mergedPrs": "طلبات الدمج المقبولة",
+      "contributions": "المساهمات (سنة)",
+      "years": "سنوات على GitHub"
+    },
+    "topRepos": "أبرز المستودعات",
+    "battles": "سجل المواجهات",
+    "battleWon": "فوز",
+    "battleLost": "خسارة",
+    "battleDraw": "تعادل",
+    "battleViews": "{count} مشاهد",
+    "similar": "مطوّرون مشابهون",
+    "reactionsTitle": "تفاعلات المجتمع",
+    "reactionsCta": "صوّت في الملف الشخصي",
+    "projectDims": {
+      "pain": "الحاجة",
+      "effectiveness": "الفعالية",
+      "experience": "التجربة",
+      "valueDensity": "كثافة القيمة"
+    },
+    "projectScoreTitle": "تفصيل نتيجة المنتج",
+    "audience": "لمن هو",
+    "risks": "ما يجب الانتباه إليه",
+    "talentProjects": "المشاريع",
+    "ownProject": "قاد",
+    "prProject": "ساهم",
+    "sources": "مصادر عامة",
+    "picksTitle": "اختيارات هذه المجموعة",
+    "toc": "المحتويات",
+    "excerpt": "مقتطف",
+    "readFull": "اقرأ النص كاملًا",
+    "jobDescription": "عن الوظيفة",
+    "companySite": "موقع الشركة",
+    "moreFrom": "المزيد من {name}",
+    "editorPicks": "اختيارات المحرر",
+    "commentsTitle": "التعليقات",
+    "commentsEmpty": "لا توجد تعليقات بعد. كن أول من يعلّق.",
+    "commentPlaceholder": "اكتب شيئًا…",
+    "commentAnonymousHint": "دون تسجيل دخول، يُنشر باسم مجهول",
+    "commentSend": "إرسال",
+    "anonymous": "مجهول",
+    "commentFailed": "تعذّر الإرسال. حاول لاحقًا.",
+    "commentRateLimited": "تمهّل قليلًا",
+    "commentLinks": "لا يُسمح بالروابط في التعليقات",
+    "commentsClosed": "التعليقات غير متاحة هنا بعد؛ راجع الصفحة الكاملة.",
+    "justNow": "الآن",
+    "quick": {
+      "developer": {
+        "a": "نتيجة منصفة",
+        "b": "علّمني 🙏",
+        "c": "تابعتك، عمل رائع"
+      },
+      "talent": {
+        "a": "اتجاه رائع",
+        "b": "لنتحدث",
+        "c": "تابعتك"
+      },
+      "article": {
+        "a": "تعلّمت الكثير",
+        "b": "ملهم جدًا",
+        "c": "أريد المزيد"
+      },
+      "collection": {
+        "a": "تم الحفظ",
+        "b": "المزيد من هذا النوع",
+        "c": "اختيار أول رائع"
+      }
+    },
+    "loadingDetail": "جارٍ التحميل…",
+    "railEditor": "اختيارات المحرر",
+    "xCategory": {
+      "researcher": "باحث",
+      "builder": "مُنشئ",
+      "media": "إعلام تقني",
+      "developer": "مطوّر متميّز"
+    },
+    "viewOnX": "عرض على X",
+    "xMetrics": {
+      "replies": "الردود",
+      "reposts": "إعادات النشر",
+      "likes": "الإعجابات",
+      "views": "المشاهدات"
+    },
+    "xLatest": "مؤخرًا على X",
+    "railVoices": "أصوات تستحق المتابعة",
+    "railVoicesHint": "باحثون ومُنشئون وإعلام تقني ومطوّرون بنتيجة 80+ على ghfind فقط.",
+    "xSource": "من X · المقاييس أرقام حقيقية من X",
+    "ghfindProfile": "الملف على ghfind",
+    "demoX": "منشورات X حاليًا بيانات تجريبية: الحسابات والمحتوى خياليان، وتُستبدل تلقائيًا عند وصول منشورات حقيقية.",
+    "showTranslation": "عرض الترجمة",
+    "showOriginal": "عرض الأصل",
+    "translatedBy": "ترجمة وكيل ghfind",
+    "feed": {
+      "addImage": "إضافة صور",
+      "cancel": "إلغاء",
+      "capabilitiesError": "تعذر التحقق من أهلية النشر. يمكنك مواصلة القراءة.",
+      "checking": "جارٍ التحقق من أهلية النشر…",
+      "composerPlaceholder": "شارك ما تبنيه أو ما تفكر فيه",
+      "conversationDescription": "اقرأ المنشور والردود السابقة، ويمكنك الرد على أي منشور في المحادثة.",
+      "copyFailed": "تعذر نسخ الرابط. يرجى المحاولة مجددًا.",
+      "deleteHint": "حذف هذا المنشور؟ ستبقى الردود متصلة بعلامة المنشور المحذوف.",
+      "deletePost": "حذف المنشور",
+      "deleted": "تم حذف هذا المنشور.",
+      "dislike": "لا يعجبني",
+      "earlierReplies": "عرض الردود السابقة",
+      "empty": "لا توجد منشورات بعد.",
+      "end": "اطلعت على أحدث المنشورات.",
+      "followingEmpty": "تابع المطورين لعرض منشوراتهم وإعادات النشر هنا.",
+      "imageDescription": "وصف الصورة (اختياري)",
+      "loadMore": "تحميل المزيد",
+      "localInteractions": "التفاعلات على ghfind",
+      "loginRequired": "سجل الدخول للتفاعل. القراءة متاحة للجميع.",
+      "mediaCount": "يمكنك إرفاق 4 صور كحد أقصى.",
+      "mediaInvalid": "استخدم JPEG أو PNG أو WebP أو GIF، بحد أقصى 10 MB لكل صورة.",
+      "myBookmarks": "المحفوظات",
+      "noReplies": "لا توجد ردود بعد.",
+      "openConversation": "فتح محادثة {name}",
+      "openImage": "فتح الصورة",
+      "privateBookmarks": "محفوظاتك خاصة بك.",
+      "publish": "نشر",
+      "publishAccessTitle": "قبل النشر",
+      "publishRequirement": "يتطلب النشر والرد حساب GitHub موثقًا ودرجة ghfind تبلغ 60 على الأقل.",
+      "published": "تم النشر على ghfind.",
+      "publishing": "جارٍ النشر…",
+      "rateLimited": "طلبات كثيرة جدًا. انتظر قليلًا وحاول مجددًا.",
+      "removeImage": "إزالة الصورة",
+      "repost": "إعادة نشر",
+      "repostedBy": "أعاد {name} النشر",
+      "requestFailed": "تعذر إكمال الطلب. يرجى المحاولة مجددًا.",
+      "retry": "إعادة المحاولة",
+      "unavailable": "هذا المنشور غير متاح.",
+      "undoDislike": "إلغاء عدم الإعجاب",
+      "undoRepost": "إلغاء إعادة النشر",
+      "unfollow": "إلغاء المتابعة",
+      "viewQuotedPost": "عرض المنشور المقتبس",
+      "quotedPostPreviewUnavailable": "المعاينة غير متاحة",
+      "viewAttachedLink": "عرض الرابط المرفق",
+      "attachedLinkPreviewUnavailable": "افتح الرابط لعرض المحتوى",
+      "viewOnX": "عرض المنشور الأصلي على X",
+      "showOriginal": "الأصل",
+      "showTranslated": "مترجَم",
+      "translationToggle": "عرض النص الأصلي أو المترجَم",
+      "views": "المشاهدات على ghfind",
+      "viewReplies": "عرض الردود",
+      "scoreBelowMinimum": "تقييمك المحفوظ أقل من 60. لا يمكنك النشر أو الرد.",
+      "scoreMissing": "لم يتم العثور على تقييم محفوظ. تحقق أولاً من تقييم حسابك على GitHub.",
+      "verifyScore": "تعذر التحقق من ملكية التقييم المحفوظ. يرجى المحاولة مرة أخرى.",
+      "rescanAccount": "إعادة الفحص من ملفي الشخصي",
+      "authorCard": {
+        "followingAction": "Following",
+        "follow": "Follow",
+        "followsYou": "Follows you",
+        "retry": "Could not load · Retry",
+        "loading": "Loading…",
+        "score": "ghfind score",
+        "unscored": "Not scored",
+        "following": "Following",
+        "followers": "Followers",
+        "source": "Follow counts from ghfind"
+      }
+    }
+  },
+  "realms": {
+    "qi": {
+      "name": "تكثيف التشّي",
+      "blurb": "خطوات أولى · بناء الأساس"
+    },
+    "foundation": {
+      "name": "تأسيس الأساس",
+      "blurb": "الأساس جاهز · تقدّم ثابت"
+    },
+    "goldenCore": {
+      "name": "تكوين النواة",
+      "blurb": "نواة تشكّلت · حدة ظاهرة"
+    },
+    "nascentSoul": {
+      "name": "الروح الناشئة",
+      "blurb": "روح استيقظت · أسلوب خاص"
+    },
+    "deity": {
+      "name": "تحوّل الإله",
+      "blurb": "ذهن صافٍ · تأثير حقيقي"
+    },
+    "voidRefining": {
+      "name": "تمارين الفراغ",
+      "blurb": "إتقان بلا جهد"
+    },
+    "integration": {
+      "name": "اندماج الجسد",
+      "blurb": "في انسجام · معلّم رفيع"
+    },
+    "mahayana": {
+      "name": "الصعود الأعظم",
+      "blurb": "قرب القمة · قاعة المشاهير"
+    }
   }
 }

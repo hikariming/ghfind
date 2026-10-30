@@ -104,7 +104,7 @@ test("bounded responses and logs never expose provider content, URLs or credenti
 });
 
 test("real abort timers bound an in-flight POST and do not retry it",async()=>{
-  for(const limits of [{durationMs:30,requestMs:100},{durationMs:300,requestMs:20}]){
+  for(const limits of [{durationMs:300,requestMs:1000},{durationMs:1000,requestMs:20}]){
     let posts=0;const logs=[];
     const result=verifyMonitor(env,{limits,log:row=>logs.push(row),fetcher:async(_url,init)=>{
       if(init.method==="GET")return ready();

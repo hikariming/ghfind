@@ -44,7 +44,8 @@ func contributionRepoFromGraph(repo *graphContributionRepo) ContribRepoAgg {
 
 // fetchCommitContribReposByYear mirrors the Node collector's bounded GraphQL
 // aliases. GraphQL permits each contribution window to cover only one year.
-func (c *GitHubClient) fetchCommitContribReposByYear(ctx context.Context, username string, years []int) ([]ContribRepoAgg, error) {
+func (c *GitHubClient) fetchCommitContribReposByYear(ctx context.Context, username string, years []int, scopes ...*collectionScope) ([]ContribRepoAgg, error) {
+	scope := sourceScope(scopes)
 	unique := map[int]bool{}
 	for _, year := range years {
 		unique[year] = true
@@ -54,19 +55,54 @@ func (c *GitHubClient) fetchCommitContribReposByYear(ctx context.Context, userna
 		capped = append(capped, year)
 	}
 	sort.Slice(capped, func(i, j int) bool { return capped[i] > capped[j] })
-	if len(capped) > impactYearCap {
+	if !scope.Full && len(capped) > impactYearCap {
+		scope.note("commit_year_cap")
 		capped = capped[:impactYearCap]
 	}
 	if len(capped) == 0 {
 		return nil, nil
 	}
 	perYear, err := c.fetchCommitContribsBatch(ctx, username, capped)
-	if errors.Is(err, ErrGitHubResourceLimit) && len(capped) > 1 {
+	completedYears := map[int]bool{}
+	recoverResourceLimitedYear := func(year int) ([]graphCommitContribNode, error) {
+		// Quick mode notes and escalates. Full mode subdivides silently on success;
+		// note commit_resource_limit only when the year still cannot be recovered.
+		if !scope.Full {
+			scope.note("commit_resource_limit")
+			return nil, nil
+		}
+		from := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+		to := time.Date(year+1, 1, 1, 0, 0, 0, 0, time.UTC).Add(-time.Second)
+		nodes, e := c.fetchCompleteCommitWindow(ctx, username, from, to)
+		if errors.Is(e, ErrGitHubResourceLimit) {
+			scope.note("commit_resource_limit")
+			return nil, nil
+		}
+		if e != nil {
+			return nil, e
+		}
+		completedYears[year] = true
+		return nodes, nil
+	}
+	if errors.Is(err, ErrGitHubResourceLimit) {
+		// Quick mode notes and skips; full mode subdivides via fetchCompleteCommitWindow
+		// so a pathological year is not silently dropped (mirrors Node collector).
 		perYear = make([][]graphCommitContribNode, len(capped))
 		for index, year := range capped {
-			single, singleErr := c.fetchCommitContribsBatch(ctx, username, []int{year})
+			var singleErr error
+			var single [][]graphCommitContribNode
+			if len(capped) == 1 {
+				singleErr = err
+			} else {
+				single, singleErr = c.fetchCommitContribsBatch(ctx, username, []int{year})
+			}
 			if errors.Is(singleErr, ErrGitHubResourceLimit) {
-				continue // Node behaviour: one pathological year does not fail the scan.
+				nodes, e := recoverResourceLimitedYear(year)
+				if e != nil {
+					return nil, e
+				}
+				perYear[index] = nodes
+				continue
 			}
 			if singleErr != nil {
 				return nil, singleErr
@@ -82,6 +118,20 @@ func (c *GitHubClient) fetchCommitContribReposByYear(ctx context.Context, userna
 	monthsByRepo := map[string]map[string]bool{}
 	order := []string{}
 	for index, nodes := range perYear {
+		if !completedYears[capped[index]] && len(nodes) >= githubPageSize {
+			if scope.Full {
+				from := time.Date(capped[index], 1, 1, 0, 0, 0, 0, time.UTC)
+				to := time.Date(capped[index]+1, 1, 1, 0, 0, 0, 0, time.UTC).Add(-time.Second)
+				var e error
+				nodes, e = c.fetchCompleteCommitWindow(ctx, username, from, to)
+				if e != nil {
+					return nil, e
+				}
+				completedYears[capped[index]] = true
+			} else {
+				scope.note("commit_repository_cap")
+			}
+		}
 		for _, node := range nodes {
 			if node.Repository == nil || node.Repository.NameWithOwner == "" {
 				continue
@@ -139,7 +189,7 @@ func sortedMonths(months map[string]bool) []string {
 	return result
 }
 
-func (c *GitHubClient) fetchCommitContribsBatch(ctx context.Context, username string, years []int) ([][]graphCommitContribNode, error) {
+func (c *GitHubClient) fetchCommitContribsBatch(ctx context.Context, username string, years []int, windows ...[2]string) ([][]graphCommitContribNode, error) {
 	declarations := []string{"$login: String!"}
 	aliases := []string{}
 	variables := map[string]any{"login": username}
@@ -148,6 +198,10 @@ func (c *GitHubClient) fetchCommitContribsBatch(ctx context.Context, username st
 		aliases = append(aliases, fmt.Sprintf("y%d: contributionsCollection(from: $from%d, to: $to%d) { ...RepoContribs }", index, index, index))
 		variables[fmt.Sprintf("from%d", index)] = fmt.Sprintf("%d-01-01T00:00:00Z", year)
 		variables[fmt.Sprintf("to%d", index)] = fmt.Sprintf("%d-12-31T23:59:59Z", year)
+		if len(windows) > index {
+			variables[fmt.Sprintf("from%d", index)] = windows[index][0]
+			variables[fmt.Sprintf("to%d", index)] = windows[index][1]
+		}
 	}
 	query := "query(" + strings.Join(declarations, ", ") + `) {
   user(login: $login) { ` + strings.Join(aliases, " ") + ` }
@@ -321,6 +375,14 @@ type graphPageInfo struct {
 
 // fetchMergedPRNodes returns the newest merged PRs (all repos), up to maxPRs.
 func (c *GitHubClient) fetchMergedPRNodes(ctx context.Context, username string, maxPRs int) ([]mergedPRNode, error) {
+	return c.fetchMergedPRNodesSince(ctx, username, maxPRs, "")
+}
+
+// fetchMergedPRNodesSince reads the existing merged window. since is ignored:
+// this connection is ordered by CREATED_AT, while the watermark is mergedAt.
+// Stopping early would miss a PR created before the watermark and merged after it.
+func (c *GitHubClient) fetchMergedPRNodesSince(ctx context.Context, username string, maxPRs int, since string) ([]mergedPRNode, error) {
+	_ = since
 	nodes := []mergedPRNode{}
 	var after *string
 	for len(nodes) < maxPRs {
@@ -352,8 +414,14 @@ func (c *GitHubClient) fetchMergedPRNodes(ctx context.Context, username string, 
 		}
 		page := result.User.PullRequests
 		nodes = append(nodes, page.Nodes...)
-		if page.PageInfo == nil || !page.PageInfo.HasNextPage || page.PageInfo.EndCursor == nil || *page.PageInfo.EndCursor == "" || len(page.Nodes) == 0 {
+		if page.PageInfo == nil {
+			return nil, ErrGitHubUnavailable
+		}
+		if !page.PageInfo.HasNextPage {
 			break
+		}
+		if page.PageInfo.EndCursor == nil || *page.PageInfo.EndCursor == "" || len(page.Nodes) == 0 || (after != nil && *after == *page.PageInfo.EndCursor) {
+			return nil, ErrGitHubUnavailable
 		}
 		after = page.PageInfo.EndCursor
 	}
@@ -373,6 +441,14 @@ type externalMergedPRs struct {
 // external work out of the newest-300 window. Best-effort: only a rate limit
 // fails the scan; other errors return nil (single-pool contribution volume).
 func (c *GitHubClient) fetchExternalMergedPRs(ctx context.Context, username string, maxPRs int) (*externalMergedPRs, error) {
+	return c.fetchExternalMergedPRsSince(ctx, username, maxPRs, "")
+}
+
+// fetchExternalMergedPRsSince reads the existing search window. since is
+// ignored: search is ordered by created time, not mergedAt, and still pages
+// from the start. Stopping on mergedAt would miss a late merge of an older PR.
+func (c *GitHubClient) fetchExternalMergedPRsSince(ctx context.Context, username string, maxPRs int, since string) (*externalMergedPRs, error) {
+	_ = since
 	search := "is:pr is:merged is:public author:" + username + " -user:" + username + " sort:created-desc"
 	result := &externalMergedPRs{Nodes: []mergedPRNode{}}
 	var after *string
@@ -407,10 +483,11 @@ func (c *GitHubClient) fetchExternalMergedPRs(ctx context.Context, username stri
 		result.Total = page.Search.IssueCount
 		kept := 0
 		for _, node := range page.Search.Nodes {
-			if node.Repository != nil {
-				result.Nodes = append(result.Nodes, node)
-				kept++
+			if node.Repository == nil {
+				continue
 			}
+			result.Nodes = append(result.Nodes, node)
+			kept++
 		}
 		info := page.Search.PageInfo
 		if info == nil || !info.HasNextPage || info.EndCursor == nil || *info.EndCursor == "" || kept == 0 {
@@ -634,4 +711,35 @@ func boundedContributionYearsActive(years []int, createdAt *string, now time.Tim
 		}
 	}
 	return count
+}
+
+// GitHub cannot page commitContributionsByRepository. Split only saturated
+// time windows, discard their truncated parent, and sum disjoint children.
+func (c *GitHubClient) fetchCompleteCommitWindow(ctx context.Context, login string, from, to time.Time) ([]graphCommitContribNode, error) {
+	if !to.After(from) {
+		return nil, ErrGitHubResourceLimit
+	}
+	mid := from.Add((to.Sub(from) / time.Second / 2) * time.Second)
+	result := []graphCommitContribNode{}
+	for _, window := range [][2]time.Time{{from, mid}, {mid.Add(time.Second), to}} {
+		if window[0].After(window[1]) {
+			continue
+		}
+		batch, err := c.fetchCommitContribsBatch(ctx, login, []int{from.Year()}, [2]string{window[0].Format(time.RFC3339), window[1].Format(time.RFC3339)})
+		if err != nil && !errors.Is(err, ErrGitHubResourceLimit) {
+			return nil, err
+		}
+		var nodes []graphCommitContribNode
+		if err == nil {
+			nodes = batch[0]
+		}
+		if err != nil || len(nodes) >= githubPageSize {
+			nodes, err = c.fetchCompleteCommitWindow(ctx, login, window[0], window[1])
+			if err != nil {
+				return nil, err
+			}
+		}
+		result = append(result, nodes...)
+	}
+	return result, nil
 }

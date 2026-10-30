@@ -2,13 +2,13 @@ import { getScoreBrief, getWeeklyBaselines, resolveWeeklyDelta } from "@/lib/db"
 import { buildBadge, type BadgeLang } from "@/lib/badge";
 import { USERNAME_RE } from "@/lib/username";
 import { decodeRouteParam } from "@/lib/route-params";
+import { SCORE_CARD_CACHE } from "../../card/assets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// 6h at the edge with a day of stale-while-revalidate — README views are served
-// from the CDN (and GitHub's camo cache), so the function barely runs.
-const RATED_CACHE = "public, max-age=0, s-maxage=21600, stale-while-revalidate=86400";
+// Same short edge window as the cards, so a rescan reaches README badges in minutes.
+const RATED_CACHE = SCORE_CARD_CACHE;
 // Unrated/invalid: shorter, so a freshly-scored account flips to its real badge soon.
 const UNRATED_CACHE = "public, max-age=0, s-maxage=300, stale-while-revalidate=600";
 

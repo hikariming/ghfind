@@ -60,7 +60,7 @@ export function GET() {
             "tier, sub-scores, and percentile. If the account is already indexed you get the stored " +
             "payload (`source: \"indexed\"`, with tags/roast_line). Otherwise a synchronous quick " +
             "scan collects and persists the " +
-            "result (`source: \"quick\"`, `coverage: \"quick\"`, includes red_flags, no LLM copy). " +
+            "result (`source: \"quick\"`, `coverage: \"complete_public\"`, includes red_flags, no LLM copy). " +
             "When only an old compatible stored score exists, the response may be `source: \"legacy_v5_v5_v3\"`, " +
             "`coverage: \"legacy\"`, `stale: true`. The only 404 is a GitHub login that does not exist. Rate limited per IP.",
           parameters: [
@@ -937,7 +937,7 @@ export function GET() {
               enum: ["indexed", "quick", "legacy_v5_v5_v3"],
               description: "indexed = current stored score; quick = current deterministic worker scan; legacy_v5_v5_v3 = compatible stale fallback",
             },
-            coverage: { type: "string", enum: ["quick", "legacy"], description: "quick for current Go collection; legacy for accepted old stored scores" },
+            coverage: { type: "string", enum: ["quick", "partial_public", "complete_public", "legacy"], description: "Observed collection coverage; quick for historical bounded snapshots, legacy for prior-collection artifacts" },
             stale: { type: "boolean", description: "true only for compatible legacy fallback scores" },
             cached: { type: "boolean", description: "quick path only: served from the scan cache" },
             red_flags: {

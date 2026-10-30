@@ -5,7 +5,7 @@
  */
 import { publishCompleteQuickScan } from "./db";
 import { scanKey } from "./redis";
-import { buildScanResult, logFreshScanFailure } from "./scan-core";
+import { buildScanResult, discardIncrementalCursor, logFreshScanFailure } from "./scan-core";
 import {
   BACKGROUND_COLLECT_DEADLINE_MS,
   SCAN_BACKGROUND_LEASE_MS,
@@ -14,6 +14,7 @@ import {
   scanTtl,
 } from "./scan-protection";
 import { parsePayload, scanSlot, scanSlots } from "./scan-slots";
+import { needsFullScan } from "./scan-coverage";
 import type { ScanResult } from "./types";
 
 export type ScanContinueStatus =
@@ -36,7 +37,7 @@ export async function completeBackgroundScan(
   if (!pending || pending.owner !== owner) return { ok: false, status: "owner_mismatch" };
 
   const existing = parsePayload<ScanResult>(await slot.payload());
-  if (existing) {
+  if (existing && !pending.refresh) {
     await slot.release(owner, false, SCAN_PRODUCER_CAPACITY_KEY).catch(() => {});
     return { ok: true, status: "already_published" };
   }
@@ -47,7 +48,16 @@ export async function completeBackgroundScan(
   let failed = true;
   try {
     const scannedAt = Date.now();
-    const quickScan = await buildScanResult(username, { deadlineMs: BACKGROUND_COLLECT_DEADLINE_MS });
+    let quickScan = await buildScanResult(username, {
+      deadlineMs: BACKGROUND_COLLECT_DEADLINE_MS,
+      ...(pending.full ? { full: true } : {}),
+    });
+    if (needsFullScan(quickScan)) {
+      const remaining = BACKGROUND_COLLECT_DEADLINE_MS - (Date.now() - scannedAt);
+      if (remaining <= 0) throw new Error("background collection budget exhausted");
+      discardIncrementalCursor(quickScan);
+      quickScan = await buildScanResult(username, { full: true, deadlineMs: remaining });
+    }
     if (!(await publishCompleteQuickScan(quickScan, scannedAt))) {
       logFreshScanFailure(new Error("score persistence"), {
         route: "scan",

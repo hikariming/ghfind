@@ -3,9 +3,13 @@ package backend
 import (
 	"context"
 	"errors"
+	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
 // GitHubCollector owns the factual, deterministic collection that used to run
@@ -24,6 +28,47 @@ func NewGitHubCollector(client *GitHubClient) *GitHubCollector {
 }
 
 func (c *GitHubCollector) Collect(ctx context.Context, username string) (ScanResult, error) {
+	return c.collect(ctx, username, false)
+}
+
+func (c *GitHubCollector) CollectFull(ctx context.Context, username string) (ScanResult, error) {
+	return c.collect(ctx, username, true)
+}
+
+// SeedScan loads GetUser plus the contribution overview. The worker uses
+// those cheap totals to decide whether the rest of the scan stays in this
+// process or is split into part jobs. The returned client rate reading is
+// the tightest X-RateLimit-Remaining observed while seeding.
+func (c *GitHubCollector) SeedScan(ctx context.Context, username string) (scanSeedSignals, githubUser, contributionOverview, *contribStats, float64, *time.Time, error) {
+	var zero scanSeedSignals
+	if c == nil || c.github == nil || !c.github.HasToken() {
+		return zero, githubUser{}, contributionOverview{}, nil, 0, nil, ErrGitHubAuthRequired
+	}
+	user, err := c.github.GetUser(ctx, username)
+	if err != nil {
+		return zero, githubUser{}, contributionOverview{}, nil, 0, nil, err
+	}
+	if user.ID <= 0 || math.IsNaN(user.ID) || math.IsInf(user.ID, 0) || math.Trunc(user.ID) != user.ID || user.ID > 9007199254740991 || user.Login == "" {
+		return zero, githubUser{}, contributionOverview{}, nil, 0, nil, ErrGitHubAccountNotFound
+	}
+	overview, stats, lastYear, err := c.github.fetchContributionOverview(ctx, username)
+	if err != nil {
+		return zero, githubUser{}, contributionOverview{}, nil, 0, nil, err
+	}
+	latestEvent, _ := c.github.LatestPublicActivity(ctx, username)
+	remaining, known := c.github.MinObservedRateRemaining()
+	signals := scanSeedSignals{
+		PublicRepos:   user.PublicRepos,
+		MergedPRs:     overview.MergedPRCount,
+		ClosedPRs:     overview.ClosedPRCount,
+		ExternalAtCap: overview.MergedPRCount >= float64(externalMergedPRCap),
+		RateRemaining: remaining,
+		RateKnown:     known,
+	}
+	return signals, user, overview, stats, lastYear, latestEvent, nil
+}
+
+func (c *GitHubCollector) collect(ctx context.Context, username string, full bool) (ScanResult, error) {
 	if c == nil || c.github == nil || !c.github.HasToken() {
 		return ScanResult{}, ErrGitHubAuthRequired
 	}
@@ -32,22 +77,20 @@ func (c *GitHubCollector) Collect(ctx context.Context, username string) (ScanRes
 	if err != nil {
 		return ScanResult{}, err
 	}
-	if user.ID == 0 || user.Login == "" {
+	if user.ID <= 0 || math.IsNaN(user.ID) || math.IsInf(user.ID, 0) || math.Trunc(user.ID) != user.ID || user.ID > 9007199254740991 || user.Login == "" {
 		return ScanResult{}, ErrGitHubAccountNotFound
 	}
 	login, loginLower := user.Login, strings.ToLower(user.Login)
-	repos := []githubRepo{}
-	for _, page := range []int{1, 2} {
-		chunk, err := c.github.ListUserRepos(ctx, username, page)
-		if err != nil {
-			return ScanResult{}, err
+	repos, forkCount, reposIncomplete, err := c.github.ownedOriginalInventory(ctx, login, full)
+	if err != nil {
+		return ScanResult{}, err
+	}
+	if sink, ok := ctx.Value(inventoryCapture{}).(inventoryCapture); ok {
+		if sink.Repos != nil {
+			*sink.Repos = append([]githubRepo(nil), repos...)
 		}
-		if len(chunk) == 0 {
-			break
-		}
-		repos = append(repos, chunk...)
-		if len(chunk) < 100 {
-			break
+		if sink.ForkCount != nil {
+			*sink.ForkCount = forkCount
 		}
 	}
 	overview, stats, lastYearContributions, err := c.github.fetchContributionOverview(ctx, username)
@@ -57,31 +100,132 @@ func (c *GitHubCollector) Collect(ctx context.Context, username string) (ScanRes
 	// Public events are deliberately best-effort in the Node implementation.
 	latestEvent, _ := c.github.LatestPublicActivity(ctx, username)
 
-	commitContribs, err := c.github.fetchCommitContribReposByYear(ctx, login, overview.ContributionYears)
-	if err != nil && !errors.Is(err, ErrGitHubResourceLimit) {
+	// Each independent source owns its outputs. Wait before hydration/impact;
+	// two concurrent source jobs bound Search pressure and token contention.
+	var commitContribs []ContribRepoAgg
+	var workflowLanded []workflowLandedPR
+	var external *externalMergedPRs
+	var windowNodes []mergedPRNode
+	commitScope, workflowScope := &collectionScope{Full: full}, &collectionScope{Full: full}
+	mergedAggregationIncomplete := !full && overview.MergedPRCount > mergedPRWindow
+	group, sourceCtx := errgroup.WithContext(ctx)
+	group.SetLimit(2)
+	group.Go(func() error {
+		var e error
+		commitContribs, e = c.github.fetchCommitContribReposByYear(sourceCtx, login, overview.ContributionYears, commitScope)
+		if errors.Is(e, ErrGitHubResourceLimit) {
+			commitScope.note("commit_resource_limit")
+			return nil
+		}
+		return e
+	})
+	group.Go(func() error {
+		var e error
+		workflowLanded, e = c.github.fetchWorkflowLandedPRs(sourceCtx, login, overview.ClosedPRCount, workflowScope)
+		return e
+	})
+	group.Go(func() error {
+		// Full uses the native paginated connection, avoiding Search's 1000-result ceiling.
+		if full {
+			return nil
+		}
+		var e error
+		external, e = c.github.fetchExternalMergedPRs(sourceCtx, login, externalMergedPRCap)
+		return e
+	})
+	group.Go(func() error {
+		limit := mergedPRWindow
+		if full {
+			limit = int(^uint(0) >> 1)
+		}
+		var e error
+		windowNodes, e = c.github.fetchMergedPRNodes(sourceCtx, login, limit)
+		if errors.Is(e, ErrGitHubResourceLimit) {
+			mergedAggregationIncomplete = true
+			return nil
+		}
+		return e
+	})
+	if err := group.Wait(); err != nil {
 		return ScanResult{}, err
 	}
-	commitAggregationUnavailable := len(overview.ContributionYears) > 0 && commitContribs == nil
-	workflowLanded, _ := c.github.fetchWorkflowLandedPRs(ctx, login, overview.ClosedPRCount)
-	external, err := c.github.fetchExternalMergedPRs(ctx, login, externalMergedPRCap)
+	organizations, err := c.github.fetchOrganizations(ctx, login)
 	if err != nil {
 		return ScanResult{}, err
 	}
+	commitAggregationUnavailable := len(overview.ContributionYears) > 0 && commitContribs == nil
+	if full {
+		external = &externalMergedPRs{Nodes: []mergedPRNode{}}
+		for _, node := range windowNodes {
+			if node.Repository != nil && !node.Repository.IsPrivate && !strings.EqualFold(ownerLoginFromRepo(node.Repository.NameWithOwner), login) {
+				external.Nodes = append(external.Nodes, node)
+			}
+		}
+		external.Total = float64(len(external.Nodes))
+	}
+	reasons := []string{}
+	if reposIncomplete {
+		reasons = append(reasons, "original_repos_page_limit")
+	}
+	if !full && user.PublicRepos > quickRepoPages*githubPageSize {
+		reasons = append(reasons, "public_repos_quick_limit")
+	}
+	if !full && external != nil && (external.Total >= externalMergedPRCap || len(external.Nodes) >= externalMergedPRCap) {
+		reasons = append(reasons, "external_merged_pr_cap")
+	}
+	if external == nil {
+		reasons = append(reasons, "external_merged_unavailable")
+	}
+	if mergedAggregationIncomplete {
+		reasons = append(reasons, "merged_pr_window")
+	}
+	if commitAggregationUnavailable {
+		reasons = append(reasons, "commit_aggregation_unavailable")
+	}
+	reasons = append(reasons, commitScope.Reasons...)
+	reasons = append(reasons, workflowScope.Reasons...)
+	return c.finishCollectedScan(ctx, finishScanInput{
+		Full: full, Now: now, User: user, Login: login, LoginLower: loginLower,
+		Overview: overview, Stats: stats, LastYear: lastYearContributions, LatestEvent: latestEvent,
+		Repos: repos, ForkCount: forkCount, Organizations: organizations,
+		CommitContribs: commitContribs, WorkflowLanded: workflowLanded, External: external,
+		WindowNodes: windowNodes, Reasons: reasons,
+		MergedIncomplete: mergedAggregationIncomplete, CommitUnavailable: commitAggregationUnavailable,
+	})
+}
+
+func (c *GitHubCollector) finishCollectedScan(ctx context.Context, in finishScanInput) (ScanResult, error) {
+	full := in.Full
+	now := in.Now
+	user := in.User
+	login := in.Login
+	loginLower := in.LoginLower
+	overview := in.Overview
+	stats := in.Stats
+	lastYearContributions := in.LastYear
+	latestEvent := in.LatestEvent
+	repos := in.Repos
+	forkCount := in.ForkCount
+	organizations := in.Organizations
+	commitContribs := in.CommitContribs
+	workflowLanded := in.WorkflowLanded
+	external := in.External
+	windowNodes := in.WindowNodes
+	reasons := append([]string(nil), in.Reasons...)
+	mergedAggregationIncomplete := in.MergedIncomplete
+	commitAggregationUnavailable := in.CommitUnavailable
 	externalNodes := []mergedPRNode{}
 	if external != nil {
 		externalNodes = external.Nodes
 	}
-	mergedAggregationIncomplete := overview.MergedPRCount > 300
-	// The newest-300 window plus the separately queried external PRs, so own
-	// PR traffic cannot crowd older external work out of the aggregate.
-	windowNodes, err := c.github.fetchMergedPRNodes(ctx, login, 300)
-	if errors.Is(err, ErrGitHubResourceLimit) {
-		mergedAggregationIncomplete = true
-		windowNodes = nil
-	} else if err != nil {
-		return ScanResult{}, err
+	collection := &CollectionCoverage{Mode: "quick", Coverage: "complete_public", TruncationReasons: reasons}
+	if full {
+		collection.Mode = "full"
 	}
-	mergedContribs := AggregateMergedPRNodes(append(windowNodes, externalNodes...))
+	if len(reasons) > 0 {
+		collection.Coverage = "partial_public"
+	}
+	mergedContribs := AggregateMergedPRNodes(append(append([]mergedPRNode{}, windowNodes...), externalNodes...))
 	workflowContribs := make([]ContribRepoAgg, 0, len(workflowLanded))
 	workflowIDs := map[string]bool{}
 	for _, workflow := range workflowLanded {
@@ -94,9 +238,12 @@ func (c *GitHubCollector) Collect(ctx context.Context, username string) (ScanRes
 		return ScanResult{}, err
 	}
 	signaledContributions := ApplyImpactRepoSignals(contributions, signals)
-	organizations, err := c.github.fetchOrganizations(ctx, login)
-	if err != nil {
-		return ScanResult{}, err
+	if organizations == nil {
+		var orgErr error
+		organizations, orgErr = c.github.fetchOrganizations(ctx, login)
+		if orgErr != nil {
+			return ScanResult{}, orgErr
+		}
 	}
 
 	original, forks, empty := []githubRepo{}, []githubRepo{}, []githubRepo{}
@@ -341,7 +488,7 @@ func (c *GitHubCollector) Collect(ctx context.Context, username string) (ScanRes
 		attributedShares[strings.ToLower(repoDisplayName(repo))] = projectShare(repo.AttributionShare)
 	}
 
-	metrics := RawMetrics{ContentSkillStarShare: &contentShare, ContentSkillConfidence: &contentConfidence, Username: login, ProfileURL: user.HTMLURL, AvatarURL: user.AvatarURL, Name: user.Name, Bio: user.Bio, Company: user.Company, AccountAgeYears: accountAgeYears(user.CreatedAt, now), CreatedAt: user.CreatedAt, Followers: user.Followers, Following: user.Following, PublicRepos: user.PublicRepos, FetchedRepoCount: float64(len(repos)), OriginalRepoCount: float64(len(original) + len(attributed)), NonemptyOriginalRepoCount: nonemptyOriginal, ForkRepoCount: float64(len(forks)), EmptyOriginalRepoCount: float64(len(empty)), TotalStars: repoStarsTotal(starRepos), MaxStars: repoStarsMax(starRepos), WeightedTotalStars: floatPointer(weightedTotalStars), WeightedMaxStars: floatPointer(weightedMaxStars), TopRepoEngagementRatio: engagement, AttributedOriginalRepoCount: floatPointer(float64(len(attributed))), AttributedOriginalRepoStars: floatPointer(attributedStars), AttributedOriginalRepos: attributedNames, BestOriginalRepoQualityScore: floatPointer(bestQuality), BestOriginalRepoQualityRepo: bestRepo, TopStarredOriginalRepoQualityScore: floatPointer(topStarredQuality), TopStarredOriginalRepoQualityRepo: topStarredRepo, MergedPRCount: overview.MergedPRCount, WorkflowLandedPRCount: floatPointer(float64(len(workflowLanded))), TotalPRCount: overview.AllPRCount, IssuesCreated: overview.IssuesCreated, LastYearContributions: lastYearContributions, ActivityTypeCount: activityTypeCount(stats, lastYearContributions, overview.AllPRCount, overview.IssuesCreated), ContributionYearsActive: boundedContributionYearsActive(overview.ContributionYears, user.CreatedAt, now), DaysSinceLastActivity: daysSinceActivity, RecentMergedPRSample: float64(len(recentPRs)), RecentTrivialPRCount: trivial, RecentDocLikePRCount: floatPointer(docLike), RecentDocLikePRRatio: floatPointer(ratio(docLike, float64(len(recentPRs)))), RecentExternalPRSample: floatPointer(externalCount), RecentExternalDocLikePRCount: floatPointer(externalDocLike), RecentExternalDocLikePRRatio: floatPointer(ratio(externalDocLike, externalCount)), ExternalTrivialPRCount: externalTrivial, MaxImpactRepoStars: impact.MaxImpactRepoStars, ImpactPrestigeScore: floatPointer(impact.ImpactPrestigeScore), ImpactPRCount: impact.ImpactPRCount, WorkflowLandedImpactPRCount: floatPointer(workflowImpact), ImpactDepthRaw: impact.ImpactDepthRaw, VerifiedImpactPRCount: floatPointer(quality.VerifiedImpactPRCount), CoreImpactPRCount: floatPointer(quality.CoreImpactPRCount), DocLikeImpactPRCount: floatPointer(quality.DocLikeImpactPRCount), UnverifiedImpactPRCount: floatPointer(quality.UnverifiedImpactPRCount), ImpactRepoCount: floatPointer(impact.ImpactRepoCount), ImpactCommitCount: floatPointer(impact.ImpactCommitCount), CommitContributionAggregationUnavailable: commitAggregationUnavailable, MergedPRContributionAggregationIncomplete: mergedAggregationIncomplete, StarInflationSuspect: starInflation, ClosedUnmergedPRCount: closed.ClosedUnmergedPRCount, MaintainerClosedUnmergedPRCount: floatPointer(closed.MaintainerClosedUnmergedPRCount), SelfClosedExternalPRCount: floatPointer(closed.SelfClosedExternalPRCount), SelfClosedOwnRepoPRCount: floatPointer(closed.SelfClosedOwnRepoPRCount), UnknownClosedUnmergedPRCount: floatPointer(closed.UnknownClosedUnmergedPRCount), PRRejectionRate: rejectionRate, RecentPRSample: flood.RecentPRSample, TopRepoPRTarget: flood.TopRepoPRTarget, TopRepoPRShare: flood.TopRepoPRShare, TemplatedPRRatio: flood.TemplatedPRRatio, PRFloodSuspect: flood.PRFloodSuspect}
+	metrics := RawMetrics{ContentSkillStarShare: &contentShare, ContentSkillConfidence: &contentConfidence, Username: login, GitHubUserID: stringPointer(strconv.FormatFloat(user.ID, 'f', 0, 64)), ProfileURL: user.HTMLURL, AvatarURL: user.AvatarURL, Name: user.Name, Bio: user.Bio, Company: user.Company, AccountAgeYears: accountAgeYears(user.CreatedAt, now), CreatedAt: user.CreatedAt, Followers: user.Followers, Following: user.Following, PublicRepos: user.PublicRepos, FetchedRepoCount: float64(len(repos)) + forkCount, OriginalRepoCount: float64(len(original) + len(attributed)), NonemptyOriginalRepoCount: nonemptyOriginal, ForkRepoCount: forkCount, EmptyOriginalRepoCount: float64(len(empty)), TotalStars: repoStarsTotal(starRepos), MaxStars: repoStarsMax(starRepos), WeightedTotalStars: floatPointer(weightedTotalStars), WeightedMaxStars: floatPointer(weightedMaxStars), TopRepoEngagementRatio: engagement, AttributedOriginalRepoCount: floatPointer(float64(len(attributed))), AttributedOriginalRepoStars: floatPointer(attributedStars), AttributedOriginalRepos: attributedNames, BestOriginalRepoQualityScore: floatPointer(bestQuality), BestOriginalRepoQualityRepo: bestRepo, TopStarredOriginalRepoQualityScore: floatPointer(topStarredQuality), TopStarredOriginalRepoQualityRepo: topStarredRepo, MergedPRCount: overview.MergedPRCount, WorkflowLandedPRCount: floatPointer(float64(len(workflowLanded))), TotalPRCount: overview.AllPRCount, IssuesCreated: overview.IssuesCreated, LastYearContributions: lastYearContributions, ActivityTypeCount: activityTypeCount(stats, lastYearContributions, overview.AllPRCount, overview.IssuesCreated), ContributionYearsActive: boundedContributionYearsActive(overview.ContributionYears, user.CreatedAt, now), DaysSinceLastActivity: daysSinceActivity, RecentMergedPRSample: float64(len(recentPRs)), RecentTrivialPRCount: trivial, RecentDocLikePRCount: floatPointer(docLike), RecentDocLikePRRatio: floatPointer(ratio(docLike, float64(len(recentPRs)))), RecentExternalPRSample: floatPointer(externalCount), RecentExternalDocLikePRCount: floatPointer(externalDocLike), RecentExternalDocLikePRRatio: floatPointer(ratio(externalDocLike, externalCount)), ExternalTrivialPRCount: externalTrivial, MaxImpactRepoStars: impact.MaxImpactRepoStars, ImpactPrestigeScore: floatPointer(impact.ImpactPrestigeScore), ImpactPRCount: impact.ImpactPRCount, WorkflowLandedImpactPRCount: floatPointer(workflowImpact), ImpactDepthRaw: impact.ImpactDepthRaw, VerifiedImpactPRCount: floatPointer(quality.VerifiedImpactPRCount), CoreImpactPRCount: floatPointer(quality.CoreImpactPRCount), DocLikeImpactPRCount: floatPointer(quality.DocLikeImpactPRCount), UnverifiedImpactPRCount: floatPointer(quality.UnverifiedImpactPRCount), ImpactRepoCount: floatPointer(impact.ImpactRepoCount), ImpactRepos: impact.ImpactRepos, ImpactCommitCount: floatPointer(impact.ImpactCommitCount), CommitContributionAggregationUnavailable: commitAggregationUnavailable, MergedPRContributionAggregationIncomplete: mergedAggregationIncomplete, StarInflationSuspect: starInflation, ClosedUnmergedPRCount: closed.ClosedUnmergedPRCount, MaintainerClosedUnmergedPRCount: floatPointer(closed.MaintainerClosedUnmergedPRCount), SelfClosedExternalPRCount: floatPointer(closed.SelfClosedExternalPRCount), SelfClosedOwnRepoPRCount: floatPointer(closed.SelfClosedOwnRepoPRCount), UnknownClosedUnmergedPRCount: floatPointer(closed.UnknownClosedUnmergedPRCount), PRRejectionRate: rejectionRate, RecentPRSample: flood.RecentPRSample, TopRepoPRTarget: flood.TopRepoPRTarget, TopRepoPRShare: flood.TopRepoPRShare, TemplatedPRRatio: flood.TemplatedPRRatio, PRFloodSuspect: flood.PRFloodSuspect}
 	metrics.PersonalOriginalProjectQualityScore = &personalQuality
 	metrics.AttributedOriginalRepoShares = attributedShares
 	applyPresentationSignals(&metrics, recentPRs, login, attributedNames)
@@ -371,7 +518,7 @@ func (c *GitHubCollector) Collect(ctx context.Context, username string) (ScanRes
 	signatureWork := BuildRecentSignatureWork(impact.ImpactRepos, recentPRs)
 	signatureWork.OrganizationMaintainedRepos = organizationMaintained
 	signatureWork.EstimatedContributionLanguages = estimatedContributionLanguages
-	return ScanResult{Metrics: metrics, TopRepos: topRepos, RecentPRs: recentPRs, FloodPRTitles: flood.FloodPRTitles, ImpactRepos: impact.ImpactRepos, VerifiedImpactPRs: verifiedImpact, SignatureWork: signatureWork, PinnedRepos: overview.PinnedRepos, Organizations: organizations, Scoring: scoring}, nil
+	return ScanResult{Collection: collection, Metrics: metrics, TopRepos: topRepos, RecentPRs: recentPRs, FloodPRTitles: flood.FloodPRTitles, ImpactRepos: impact.ImpactRepos, VerifiedImpactPRs: verifiedImpact, SignatureWork: signatureWork, PinnedRepos: overview.PinnedRepos, Organizations: organizations, Scoring: scoring}, nil
 }
 
 func floatPointer(value float64) *float64 { return &value }

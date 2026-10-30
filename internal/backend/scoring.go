@@ -16,6 +16,8 @@ import (
 // Do not change this formula without changing src/lib/score.ts and its shared
 // regression fixtures in the same review.
 type RawMetrics struct {
+	// Factual score-owner identity; excluded from scoring formulas.
+	GitHubUserID                        *string            `json:"github_user_id,omitempty"`
 	PersonalOriginalProjectQualityScore *float64           `json:"personal_original_project_quality_score,omitempty"`
 	AttributedOriginalRepoShares        map[string]float64 `json:"attributed_original_repo_shares,omitempty"`
 	PresentationCoreChurnShare          *float64           `json:"presentation_core_churn_share,omitempty"`
@@ -81,27 +83,28 @@ type RawMetrics struct {
 	ImpactDepthRaw                     float64  `json:"impact_depth_raw"`
 	// ImpactQualityCap is legacy: no longer produced or scored (per-repo code
 	// share replaced it), kept so older snapshots round-trip.
-	ImpactQualityCap                          *float64 `json:"impact_quality_cap,omitempty"`
-	VerifiedImpactPRCount                     *float64 `json:"verified_impact_pr_count,omitempty"`
-	CoreImpactPRCount                         *float64 `json:"core_impact_pr_count,omitempty"`
-	DocLikeImpactPRCount                      *float64 `json:"doc_like_impact_pr_count,omitempty"`
-	UnverifiedImpactPRCount                   *float64 `json:"unverified_impact_pr_count,omitempty"`
-	ImpactRepoCount                           *float64 `json:"impact_repo_count,omitempty"`
-	ImpactCommitCount                         *float64 `json:"impact_commit_count,omitempty"`
-	CommitContributionAggregationUnavailable  bool     `json:"commit_contribution_aggregation_unavailable"`
-	MergedPRContributionAggregationIncomplete bool     `json:"merged_pr_contribution_aggregation_incomplete"`
-	StarInflationSuspect                      bool     `json:"star_inflation_suspect"`
-	ClosedUnmergedPRCount                     float64  `json:"closed_unmerged_pr_count"`
-	MaintainerClosedUnmergedPRCount           *float64 `json:"maintainer_closed_unmerged_pr_count,omitempty"`
-	SelfClosedExternalPRCount                 *float64 `json:"self_closed_external_pr_count,omitempty"`
-	SelfClosedOwnRepoPRCount                  *float64 `json:"self_closed_own_repo_pr_count,omitempty"`
-	UnknownClosedUnmergedPRCount              *float64 `json:"unknown_closed_unmerged_pr_count,omitempty"`
-	PRRejectionRate                           float64  `json:"pr_rejection_rate"`
-	RecentPRSample                            float64  `json:"recent_pr_sample"`
-	TopRepoPRTarget                           *string  `json:"top_repo_pr_target"`
-	TopRepoPRShare                            float64  `json:"top_repo_pr_share"`
-	TemplatedPRRatio                          float64  `json:"templated_pr_ratio"`
-	PRFloodSuspect                            bool     `json:"pr_flood_suspect"`
+	ImpactQualityCap                          *float64     `json:"impact_quality_cap,omitempty"`
+	VerifiedImpactPRCount                     *float64     `json:"verified_impact_pr_count,omitempty"`
+	CoreImpactPRCount                         *float64     `json:"core_impact_pr_count,omitempty"`
+	DocLikeImpactPRCount                      *float64     `json:"doc_like_impact_pr_count,omitempty"`
+	UnverifiedImpactPRCount                   *float64     `json:"unverified_impact_pr_count,omitempty"`
+	ImpactRepoCount                           *float64     `json:"impact_repo_count,omitempty"`
+	ImpactRepos                               []ImpactRepo `json:"impact_repos,omitempty"`
+	ImpactCommitCount                         *float64     `json:"impact_commit_count,omitempty"`
+	CommitContributionAggregationUnavailable  bool         `json:"commit_contribution_aggregation_unavailable"`
+	MergedPRContributionAggregationIncomplete bool         `json:"merged_pr_contribution_aggregation_incomplete"`
+	StarInflationSuspect                      bool         `json:"star_inflation_suspect"`
+	ClosedUnmergedPRCount                     float64      `json:"closed_unmerged_pr_count"`
+	MaintainerClosedUnmergedPRCount           *float64     `json:"maintainer_closed_unmerged_pr_count,omitempty"`
+	SelfClosedExternalPRCount                 *float64     `json:"self_closed_external_pr_count,omitempty"`
+	SelfClosedOwnRepoPRCount                  *float64     `json:"self_closed_own_repo_pr_count,omitempty"`
+	UnknownClosedUnmergedPRCount              *float64     `json:"unknown_closed_unmerged_pr_count,omitempty"`
+	PRRejectionRate                           float64      `json:"pr_rejection_rate"`
+	RecentPRSample                            float64      `json:"recent_pr_sample"`
+	TopRepoPRTarget                           *string      `json:"top_repo_pr_target"`
+	TopRepoPRShare                            float64      `json:"top_repo_pr_share"`
+	TemplatedPRRatio                          float64      `json:"templated_pr_ratio"`
+	PRFloodSuspect                            bool         `json:"pr_flood_suspect"`
 }
 
 type SubScores struct {
@@ -352,15 +355,202 @@ func ownPRCommunityCredit(m RawMetrics) float64 {
 	return LogRatio(own, ownPRVolumeFullAt) * ownPRCommunityBonus * community
 }
 
-func lowPrestigeBulkContributionCap(m RawMetrics) (float64, bool) {
+// softMin is the log-sum-exp soft minimum. It approaches the smaller input
+// without the hard cut v18 applied to contribution quality.
+func softMin(values []float64, k float64) float64 {
+	finite := make([]float64, 0, len(values))
+	for _, value := range values {
+		if !math.IsInf(value, 0) && !math.IsNaN(value) {
+			finite = append(finite, value)
+		}
+	}
+	if len(finite) == 0 {
+		return math.Inf(1)
+	}
+	peak := -k * finite[0]
+	for _, value := range finite[1:] {
+		peak = max(peak, -k*value)
+	}
+	sum := 0.0
+	for _, value := range finite {
+		sum += math.Exp(-k*value - peak)
+	}
+	return -(peak + math.Log(sum)) / k
+}
+
+func contributionEvidenceBounds(m RawMetrics) []float64 {
 	smooth := func(value float64) float64 { x := max(0, min(1, value)); return x * x * (3 - 2*x) }
 	volume := smooth((m.MergedPRCount - 40) / 80)
-	protection := smooth((m.MaxStars - 950) / 100)
 	prestige := impactPrestigeSignal(m)
 	strongPrestige := smooth((prestige - .65) / .15)
 	coreProtection := smooth((valueOrZero(m.CoreImpactPRCount) - 40) / 60)
 	prestigeCap := 20 + 3*smooth((prestige-.3)/.5) + 4*strongPrestige + 2.5*coreProtection*(1-strongPrestige)
-	return 27 - (27-prestigeCap)*volume*(1-protection), true
+	// Stars on own projects do not establish outside adoption. Missing external
+	// counts are unknown, so recognition stays out of the ceiling.
+	bounds := []float64{27, 27 - (27-prestigeCap)*volume}
+	if m.ExternalMergedPRCount != nil {
+		external := max(0, min(*m.ExternalMergedPRCount, m.MergedPRCount))
+		own := max(0, m.MergedPRCount-external)
+		community := max(0, min(valueOrZero(m.OwnPRCommunity), 1))
+		// Keep the 80-landing scale synchronized with TypeScript and Python.
+		bounds = append(bounds, 20+7*(1-math.Exp(-(external+own*community)/80)))
+	}
+	if cap, applies := contributionQualityCap(m); applies {
+		bounds = append(bounds, cap)
+	}
+	return bounds
+}
+
+func contributionEvidenceCeiling(m RawMetrics) float64 {
+	return softMin(contributionEvidenceBounds(m), 6)
+}
+
+func lowPrestigeBulkContributionCap(m RawMetrics) (float64, bool) {
+	cap := 27.0
+	for _, bound := range contributionEvidenceBounds(m) {
+		cap = min(cap, bound)
+	}
+	return cap, true
+}
+
+func saturateToward(raw, ceiling float64) float64 {
+	if raw <= 0 {
+		return 0
+	}
+	if math.IsInf(ceiling, 1) {
+		return raw
+	}
+	if ceiling <= 0 {
+		return 0
+	}
+	return softMin([]float64{raw, ceiling}, 3)
+}
+
+func clampUnit(value float64) float64 { return max(0, min(1, value)) }
+
+func impactSubstance(m RawMetrics) float64 {
+	trivialCount := max(0, m.ExternalTrivialPRCount)
+	sample := max(0, m.RecentMergedPRSample)
+	trivialKnown := sample > 0 || trivialCount > 0
+	trivialShare := 0.0
+	if trivialKnown {
+		trivialShare = trivialCount / max(sample, max(trivialCount, 1))
+	}
+	core := max(0, valueOrZero(m.CoreImpactPRCount))
+	docLike := max(0, valueOrZero(m.DocLikeImpactPRCount))
+	classKnown := core+docLike > 0
+	classQuality := 1.0
+	if classKnown {
+		classQuality = 0.45 + 0.55*core/(core+docLike)
+	}
+	presentationKnown := m.PresentationChurnShare != nil
+	presentation := 0.0
+	if presentationKnown {
+		presentation = clampUnit(*m.PresentationChurnShare)
+	}
+	if !trivialKnown && !classKnown && !presentationKnown {
+		return 1
+	}
+	work := max(m.ImpactPRCount, max(sample, max(trivialCount, max(core+docLike, 1))))
+	trivialCoverage := 0.0
+	if trivialKnown {
+		trivialCoverage = min(1, max(sample, trivialCount)/work)
+	}
+	classCoverage := 0.0
+	if classKnown {
+		classCoverage = min(1, (core+docLike)/work)
+	}
+	presentationCoverage := 0.0
+	if presentationKnown {
+		covered := sample
+		if m.PresentationPRSample != nil {
+			covered = *m.PresentationPRSample
+		}
+		presentationCoverage = min(1, max(covered, 0)/work)
+	}
+	quality := (1 - trivialCoverage*0.55*trivialShare) * (1 - classCoverage*(1-classQuality)) * (1 - presentationCoverage*0.5*presentation)
+	return max(0.18, min(1, 0.22+0.78*quality))
+}
+
+func repoConcentration(repos []ImpactRepo) float64 {
+	if len(repos) == 0 {
+		return 0
+	}
+	total := 0.0
+	for _, repo := range repos {
+		total += max(0, repo.PRs)
+	}
+	hhi := 0.0
+	if total > 0 {
+		for _, repo := range repos {
+			share := max(0, repo.PRs) / total
+			hhi += share * share
+		}
+	} else {
+		share := 1 / float64(len(repos))
+		hhi = share * float64(len(repos))
+	}
+	if len(repos) <= 1 {
+		return 1
+	}
+	equal := 1 / float64(len(repos))
+	return clampUnit((hhi - equal) / (1 - equal))
+}
+
+func dominantRepoWork(m RawMetrics) float64 {
+	if len(m.ImpactRepos) > 0 {
+		maxWork := 0.0
+		for _, repo := range m.ImpactRepos {
+			work := max(0, repo.PRs) + max(0, repo.Commits)/4
+			if work > maxWork {
+				maxWork = work
+			}
+		}
+		return maxWork
+	}
+	return max(0, m.ImpactPRCount) + max(0, valueOrZero(m.ImpactCommitCount))/4
+}
+
+func impactBreadth(m RawMetrics) float64 {
+	known := false
+	concentration := 0.0
+	if len(m.ImpactRepos) > 0 {
+		known = true
+		concentration = repoConcentration(m.ImpactRepos)
+	} else if valueOrZero(m.ImpactRepoCount) > 0 {
+		known = true
+		if *m.ImpactRepoCount <= 1 {
+			concentration = 1
+		}
+	}
+	if !known {
+		return 1
+	}
+	// Sustained dominant-repo work softens concentration; drive-bys stay near the floor.
+	work := dominantRepoWork(m)
+	maintainerRelief := 1 - math.Exp(-work/60)
+	effectiveConcentration := concentration * (1 - 0.4*maintainerRelief)
+	spread := math.Pow(1-effectiveConcentration, 1.15)
+	return 0.62 + 0.38*spread
+}
+
+func impactTouch(m RawMetrics) float64 {
+	// A present commit count, even zero, means the collector measured work.
+	// Older snapshots omit it; do not treat that omission as zero PRs.
+	if m.ImpactCommitCount == nil && m.ImpactPRCount == 0 && len(m.ImpactRepos) == 0 && valueOrZero(m.ImpactRepoCount) == 0 {
+		return 1
+	}
+	prs := max(0, m.ImpactPRCount)
+	commits := max(0, valueOrZero(m.ImpactCommitCount))
+	landed := 1 - math.Exp(-(prs+commits/4)/18)
+	core := max(0, valueOrZero(m.CoreImpactPRCount))
+	docLike := max(0, valueOrZero(m.DocLikeImpactPRCount))
+	if core+docLike <= 0 {
+		return landed
+	}
+	coverage := min(1, (core+docLike)/max(prs, max(core+docLike, 1)))
+	coreMix := 0.35 + 0.65*core/(core+docLike)
+	return landed * (1 - coverage*(1-coreMix))
 }
 
 func hasSocialOnlyDormantSignal(m RawMetrics) bool {
@@ -440,16 +630,13 @@ func Score(m RawMetrics) Scoring {
 	}
 	acceptance = min(acceptance, 6)
 	contributionRaw := prVolume + ownPRCommunityCredit(m) + acceptance - docLikePRVolumeDiscount(m, acceptance) + LogRatio(m.IssuesCreated, 100)*5 + highImpactCorePRBonus(m)*(1-(1-presentationDiscount(m))*.8)
-	contributionCap := 27.0
-	if cap, applies := contributionQualityCap(m); applies {
-		contributionCap = min(contributionCap, cap)
-	}
-	if cap, applies := lowPrestigeBulkContributionCap(m); applies {
-		contributionCap = min(contributionCap, cap)
-	}
-	sub.ContributionQuality = roundToEven(min(contributionRaw, contributionCap), 1)
+	sub.ContributionQuality = roundToEven(saturateToward(max(0, contributionRaw), contributionEvidenceCeiling(m)), 1)
 
-	ecosystemRaw := (impactPrestigeSignal(m)*9 + min(m.ImpactDepthRaw/8, 1)*11) * ecosystemPresentationDiscount(m) * (1 - (1-contentSkillDiscount(m))*(1-externalPRShare(m)))
+	substance := impactSubstance(m)
+	breadth := impactBreadth(m)
+	prestige := 9 * impactPrestigeSignal(m) * substance * impactTouch(m) * (0.72 + 0.28*breadth)
+	depth := 11 * (1 - math.Exp(-max(0, m.ImpactDepthRaw)/4)) * substance * breadth
+	ecosystemRaw := (prestige + depth) * ecosystemPresentationDiscount(m) * (1 - (1-contentSkillDiscount(m))*(1-externalPRShare(m)))
 	sub.EcosystemImpact = roundToEven(ecosystemRaw, 1)
 
 	followerPoints := LogRatio(m.Followers, 2000) * 5

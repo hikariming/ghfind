@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProjectAnalysisRun } from "../project-analysis-db";
 import {
+  archiveMosooThread,
   createMosooProjectAnalysisThread,
   getMosooProjectAnalysisSnapshot,
   MosooProjectAnalysisError,
@@ -217,6 +218,34 @@ describe("Mosoo project analysis client", () => {
     expect(error).toBeInstanceOf(MosooProjectAnalysisError);
     expect(error).toMatchObject({ code: "mosoo_rate_limited", retryAfterSeconds: 12 });
     expect(String(error)).not.toContain("test-token");
+  });
+
+  it("archives a Thread with a best-effort POST that never throws", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ thread: { id: "thread/1", status: "IDLE" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(archiveMosooThread("thread/1")).resolves.toEqual({ archived: true });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://mosoo.test/api/v1/threads/thread%2F1/archive",
+      expect.objectContaining({ method: "POST" }),
+    );
+
+    vi.stubGlobal("fetch", vi.fn(async () =>
+      Response.json({ error: { code: "internal_error", message: "boom" } }, { status: 503 }),
+    ));
+    await expect(archiveMosooThread("thread-1")).resolves.toMatchObject({
+      archived: false,
+      errorCode: "mosoo_unavailable",
+    });
+
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new TypeError("network down");
+    }));
+    const outcome = await archiveMosooThread("thread-1");
+    expect(outcome.archived).toBe(false);
+    expect(JSON.stringify(outcome)).not.toContain("test-token");
+
+    delete process.env.MOSOO_API_TOKEN;
+    await expect(archiveMosooThread("thread-1")).resolves.toMatchObject({ archived: false });
   });
 
   it("reads a Thread snapshot and the exact committed artifact names", async () => {

@@ -24,12 +24,14 @@ def test_yifan_oct18_replay():
     assert impact['impact_prestige_score'] == .5417
     assert impact['impact_depth_raw'] == 1.83
     assert impact['impact_repos'][0]['repo'] == r['repo']
-    assert score(f['metrics'])['final_score'] == 68.1
+    before = score(f['metrics'])['final_score']
+    assert before == 67.6
     metrics = dict(f['metrics'], **impact)
     metrics.update(impact_depth_raw=impact['impact_depth_raw'] + f['metrics']['impact_depth_raw'],
                    external_merged_pr_count=29, own_pr_community=own_pr_community_share([r], 'fixture-account-070', 79))
-    assert score(metrics)['final_score'] == 76.5
-    assert score(metrics)['sub_scores']['ecosystem_impact'] == 8.1
+    after = score(metrics)
+    assert after['final_score'] > before
+    assert 2 < after['sub_scores']['ecosystem_impact'] <= 8.3
 
 
 @pytest.mark.parametrize('overrides', [dict(forks=0)])

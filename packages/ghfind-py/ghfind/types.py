@@ -125,7 +125,7 @@ class RoastLine(TypedDict):
 
 class ScorePayload(TypedDict, total=False):
     source: str  # "indexed", "quick", or "legacy_v5_v5_v3"
-    coverage: str  # "quick" for current Go collection, "legacy" for fallback
+    coverage: str  # "partial_public" / "complete_public"; historical "quick" / "legacy"
     stale: bool  # true only for compatible legacy fallback scores
     cached: bool  # quick path only
     username: str

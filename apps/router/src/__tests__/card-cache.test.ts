@@ -14,7 +14,7 @@ describe("cardRequest", () => {
 
   it("keys a card by the params that change its output, defaults dropped", () => {
     expect(canonical("/api/card/mini/octocat")).toBe("/api/card/mini/octocat");
-    expect(canonical("/api/card/mini/octocat?v=1728000000&theme=auto&variant=bars&lang=en")).toBe(
+    expect(canonical("/api/card/mini/octocat?v=abc&theme=auto&variant=bars&lang=en")).toBe(
       "/api/card/mini/octocat",
     );
     expect(canonical("/api/card/mini/octocat?lang=zh&variant=radar&theme=dark&utm_source=x")).toBe(
@@ -28,6 +28,26 @@ describe("cardRequest", () => {
     expect(canonical("/api/badge/octocat?lang=en&v=2")).toBe("/api/badge/octocat");
     expect(canonical("/api/material-card/octocat?theme=light")).toBe("/api/material-card/octocat?theme=light");
     expect(card("/api/card/mini/octocat?v=1")?.redirect).toBe(false);
+  });
+
+  it("keeps a scan-version v (scanned_at) in the key so a rescan misses the cache", () => {
+    expect(canonical("/api/card/mini/octocat?v=1700000000000&theme=auto")).toBe(
+      "/api/card/mini/octocat?v=1700000000000",
+    );
+    expect(canonical("/api/card/mini/octocat?lang=zh&v=1700000000")).toBe("/api/card/mini/octocat?lang=zh&v=1700000000");
+    expect(canonical("/api/card/octocat?v=1700000000000&theme=light")).toBe(
+      "/api/card/octocat?theme=light&v=1700000000000",
+    );
+    expect(canonical("/api/material-card/octocat?v=1700000000000")).toBe("/api/material-card/octocat?v=1700000000000");
+    expect(canonical("/api/badge/octocat?v=1700000000000")).toBe("/api/badge/octocat?v=1700000000000");
+    // Junk busters stay out of the key: too short, too long, non-numeric.
+    for (const v of ["1", "123456789", "17000000000000", "1700000000000x", "-1700000000"]) {
+      expect(canonical(`/api/card/mini/octocat?v=${encodeURIComponent(v)}`)).toBe("/api/card/mini/octocat");
+    }
+    // First occurrence wins, as for every other param.
+    expect(canonical("/api/card/mini/octocat?v=1700000000000&v=1800000000000")).toBe(
+      "/api/card/mini/octocat?v=1700000000000",
+    );
   });
 
   it("matches values exactly, like the handlers' parsers", () => {
@@ -99,6 +119,33 @@ describe("serveCard", () => {
     expect(await second.text()).toBe("<svg>?theme=dark</svg>");
     expect(second.headers.get("Cache-Control")).toBe(CDN_CACHE);
     expect(upstream.urls).toHaveLength(1);
+  });
+
+  it("re-renders after a rescan when the page bumps v to the new scanned_at", async () => {
+    let score = "70.00";
+    const urls: string[] = [];
+    const fetcher = {
+      fetch: async (request: Request) => {
+        urls.push(request.url);
+        return new Response(`<svg>${score}</svg>`, {
+          headers: { "Content-Type": "image/svg+xml", "Cache-Control": CDN_CACHE },
+        });
+      },
+    } as unknown as Fetcher;
+    const get = async (path: string) =>
+      (await serveCard(new Request(`https://ghfind.com${path}`), card(path)!, fetcher)).text();
+
+    expect(await get("/api/card/mini/fixture-user?lang=zh&v=1700000000000")).toBe("<svg>70.00</svg>");
+    expect(await get("/api/card/mini/fixture-user?lang=zh&v=1700000000000")).toBe("<svg>70.00</svg>");
+    expect(urls).toHaveLength(1);
+
+    score = "80.00"; // rescan: new scanned_at, new score
+    expect(await get("/api/card/mini/fixture-user?lang=zh&v=1700000600000")).toBe("<svg>80.00</svg>");
+    // Forwarded with v so the API Workers Cache keys on it too.
+    expect(urls).toEqual([
+      "https://ghfind.com/api/card/mini/fixture-user?lang=zh&v=1700000000000",
+      "https://ghfind.com/api/card/mini/fixture-user?lang=zh&v=1700000600000",
+    ]);
   });
 
   it("does not cache responses the handler keeps out of shared caches", async () => {

@@ -38,6 +38,7 @@ vi.mock("@/lib/scan-core", () => ({
   buildScanResult: mocks.buildScanResult,
   logFreshScanFailure: mocks.logFreshScanFailure,
   scanErrorResponse: mocks.scanErrorResponse,
+  discardIncrementalCursor: vi.fn(),
 }));
 
 import { GET } from "./route";
@@ -107,7 +108,7 @@ describe("GET /api/score immediate quick contract", () => {
       params: Promise.resolve({ username: "fixture-user" }),
     });
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({ source: "indexed", stale: false, coverage: "quick", final_score: 64 });
+    await expect(response.json()).resolves.toMatchObject({ source: "indexed", stale: true, coverage: "legacy", final_score: 64 });
     expect(mocks.buildScanResult).not.toHaveBeenCalled();
     expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
   });

@@ -1,5 +1,14 @@
 import { projectShare } from "./co-creator";
+import { getScanDatabase } from "./db";
 import { ScanBusyError } from "./scan-protection";
+import {
+  commitPendingCursors,
+  loadScanCursors,
+  planInventoryCursor,
+  scanIncrementalEnabled,
+  type CursorRepo,
+  type PendingScanCursors,
+} from "./scan-cursor";
 import {
   AccountNotFoundError,
   GitHubAuthRequiredError,
@@ -199,22 +208,129 @@ export function buildPublicSignatureWork(
  * Wrap calls in `coalesceScan()` (single-flight + cache) so a burst of identical
  * requests only crawls GitHub once.
  */
+export interface BuildScanResultOptions {
+  deadlineMs?: number;
+  full?: boolean;
+  /**
+   * Clock for cursor age. Tests pin this. Production uses the current time.
+   * Ignored when the incremental flag is off.
+   */
+  now?: Date;
+}
+
+const pendingScanCursors = new WeakMap<ScanResult, PendingScanCursors>();
+
+/**
+ * Drop a partial quick scan's incremental book. The deepen collects a full
+ * inventory page and that page is the only cursor recorded. PR sources stay
+ * full window pulls and are not stored as watermarks.
+ */
+export function discardIncrementalCursor(scan: ScanResult): void {
+  pendingScanCursors.delete(scan);
+}
+
+/**
+ * Deterministic scan. With `GHFIND_SCAN_INCREMENTAL_ENABLED` off this is the
+ * current collect path. With it on, inventory may resume from the stored
+ * `pushedAt` watermark. The cursor book stays off the snapshot and is written
+ * only after `publishCompleteQuickScan` commits.
+ */
 export async function buildScanResult(
   username: string,
-  options: { deadlineMs?: number } = {},
+  options: BuildScanResultOptions = {},
 ): Promise<ScanResult> {
-  const collected = await collect(username, {
+  const { collected, pending } = await collectScan(username, options);
+  const scored = { ...collected, scoring: score(collected.metrics) };
+  const scan: ScanResult = {
+    ...scored,
+    signature_work: buildRecentSignatureWork(scored),
+  };
+  if (pending && pending.repos.length > 0) pendingScanCursors.set(scan, pending);
+  return scan;
+}
+
+async function collectScan(
+  username: string,
+  options: BuildScanResultOptions,
+): Promise<{ collected: Awaited<ReturnType<typeof collect>>; pending: PendingScanCursors | null }> {
+  const base = {
     cache: collectorCache,
     deadlineMs: options.deadlineMs ?? COLLECT_DEADLINE_MS,
+  };
+  if (!scanIncrementalEnabled()) {
+    return { collected: await collect(username, { ...base, full: options.full }), pending: null };
+  }
+  const db = getScanDatabase();
+  if (!db) {
+    return { collected: await collect(username, { ...base, full: options.full }), pending: null };
+  }
+  const now = options.now ?? new Date();
+  const loaded = await loadScanCursors(db, username);
+  const plan = planInventoryCursor(loaded.book, now, loaded.schemaMismatch);
+  const incremental = !options.full && !plan.full && plan.since !== "";
+  let captured: { repos: CursorRepo[]; forkCount: number } | null = null;
+  const collected = await collect(username, {
+    ...base,
+    full: options.full,
+    captureInventory: (page) => {
+      captured = page;
+    },
+    ...(incremental
+      ? {
+          inventorySince: plan.since,
+          inventoryBaseline: {
+            repos: loaded.book.repos?.repos ?? [],
+            forkCount: loaded.book.repos?.forkCount ?? 0,
+          },
+        }
+      : {}),
   });
-  const scan = {
-    ...collected,
-    scoring: score(collected.metrics),
-  };
+  // A quick scan that is still partial owes the existing deepen. This run's
+  // incremental page is not a cursor. The full inventory page, collected by
+  // the deepen, is the one that gets recorded.
+  if (
+    !options.full &&
+    collected.collection?.mode === "quick" &&
+    collected.collection.coverage === "partial_public"
+  ) {
+    return { collected, pending: null };
+  }
+  const page = captured as { repos: CursorRepo[]; forkCount: number } | null;
+  if (!page || page.repos.length === 0) return { collected, pending: null };
+  const reconciled = Boolean(options.full) || plan.full;
   return {
-    ...scan,
-    signature_work: buildRecentSignatureWork(scan),
+    collected,
+    pending: {
+      book: loaded.book,
+      plan: reconciled ? { ...plan, full: true, since: "" } : plan,
+      repos: page.repos,
+      forkCount: page.forkCount,
+      reconciled,
+      now,
+    },
   };
+}
+
+/**
+ * Write a staged inventory cursor after the public scan row commits.
+ * No-op when the flag is off, the scan did not stage a book, or the write
+ * fails after one retry. Never fails the scan. The book is not part of the
+ * public snapshot.
+ */
+export async function commitScanCursorsAfterPersist(scan: ScanResult): Promise<void> {
+  if (!scanIncrementalEnabled()) return;
+  const pending = pendingScanCursors.get(scan);
+  if (!pending) return;
+  const db = getScanDatabase();
+  if (!db) return;
+  try {
+    await commitPendingCursors(db, pending);
+  } catch {
+    console.error("scan_cursor_commit_failed", {
+      username: /^[a-z0-9-]{1,39}$/i.test(pending.book.username) ? pending.book.username : "invalid",
+      category: "cursor_write",
+    });
+  }
 }
 
 /**
@@ -244,6 +360,7 @@ export function applyPublicContributionAggregate(
     impact_prestige_score: impact.impact_prestige_score,
     impact_depth_raw: impact.impact_depth_raw,
     impact_repo_count: impact.impact_repo_count,
+    impact_repos: impact.impact_repos,
     impact_commit_count: impact.impact_commit_count,
     impact_pr_count: impact.impact_pr_count,
     ...quality,

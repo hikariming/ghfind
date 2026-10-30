@@ -82,16 +82,23 @@
       "top_repo_pr_target": null
     },
     "expected": {
-      "final_score": 49.6,
+      "final_score": 49.4,
       "sub_scores": {
         "account_maturity": 7.2,
         "original_project_quality": 7.9,
         "contribution_quality": 6.9,
-        "ecosystem_impact": 3.3,
+        "ecosystem_impact": 3.1,
         "community_influence": 8,
         "activity_authenticity": 16.3
-      }
-    }
+      },
+      "base_score": 49.4,
+      "red_flags": [],
+      "total_penalty": 0,
+      "tier": "NPC",
+      "tier_label": "稳步积累 · 继续打磨作品"
+    },
+    "calibration_contribution_quality": 6.9,
+    "calibration_ecosystem_impact": 3.1
   },
   {
     "name": "fixture-external-maintainer",
@@ -176,16 +183,23 @@
       "top_repo_pr_target": null
     },
     "expected": {
-      "final_score": 90.8,
+      "final_score": 89.7,
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 11.7,
-        "contribution_quality": 27,
+        "contribution_quality": 25.9,
         "ecosystem_impact": 17.1,
         "community_influence": 8,
         "activity_authenticity": 17
-      }
-    }
+      },
+      "base_score": 89.7,
+      "red_flags": [],
+      "total_penalty": 0,
+      "tier": "顶级",
+      "tier_label": "顶级开发者 · 一线水准"
+    },
+    "calibration_contribution_quality": 27,
+    "calibration_ecosystem_impact": 17.1
   },
   {
     "name": "fixture-attributed-engineer",
@@ -274,12 +288,19 @@
       "sub_scores": {
         "account_maturity": 6,
         "original_project_quality": 11.9,
-        "contribution_quality": 21.4,
-        "ecosystem_impact": 13.4,
+        "contribution_quality": 21.3,
+        "ecosystem_impact": 13.5,
         "community_influence": 5.4,
         "activity_authenticity": 13.8
-      }
-    }
+      },
+      "base_score": 71.9,
+      "red_flags": [],
+      "total_penalty": 0,
+      "tier": "人上人",
+      "tier_label": "优质贡献者 · 值得信任"
+    },
+    "calibration_contribution_quality": 21.4,
+    "calibration_ecosystem_impact": 13.5
   },
   {
     "name": "fixture-application-author",
@@ -364,16 +385,23 @@
       "top_repo_pr_target": null
     },
     "expected": {
-      "final_score": 72.6,
+      "final_score": 72.3,
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 17.4,
-        "contribution_quality": 21,
-        "ecosystem_impact": 2.5,
+        "contribution_quality": 20.3,
+        "ecosystem_impact": 2.9,
         "community_influence": 5.8,
         "activity_authenticity": 15.9
-      }
-    }
+      },
+      "base_score": 71.9,
+      "red_flags": [],
+      "total_penalty": 0,
+      "tier": "人上人",
+      "tier_label": "优质贡献者 · 值得信任"
+    },
+    "calibration_contribution_quality": 21,
+    "calibration_ecosystem_impact": 2.9
   },
   {
     "name": "fixture-code-tool-author",
@@ -457,15 +485,22 @@
       "top_repo_pr_target": null
     },
     "expected": {
-      "final_score": 70.2,
+      "final_score": 71.7,
       "sub_scores": {
         "account_maturity": 7.6,
         "original_project_quality": 15.2,
         "contribution_quality": 18.4,
-        "ecosystem_impact": 8,
+        "ecosystem_impact": 9.5,
         "community_influence": 5.4,
         "activity_authenticity": 15.6
-      }
-    }
+      },
+      "base_score": 71.7,
+      "red_flags": [],
+      "total_penalty": 0,
+      "tier": "人上人",
+      "tier_label": "优质贡献者 · 值得信任"
+    },
+    "calibration_contribution_quality": 18.4,
+    "calibration_ecosystem_impact": 9.5
   }
 ]

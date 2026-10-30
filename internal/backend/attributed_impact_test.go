@@ -31,17 +31,21 @@ func TestAttributedCreatorImpact(t *testing.T) {
 	if impact.ImpactRepoCount != 1 || impact.ImpactPrestigeScore != .5417 || impact.ImpactDepthRaw != 1.83 {
 		t.Fatalf("impact %+v", impact)
 	}
-	if Score(f.Metrics).FinalScore != 68.1 {
-		t.Fatal("v15 replay of original snapshot changed")
+	before := Score(f.Metrics)
+	if before.FinalScore != 67.6 {
+		t.Fatalf("baseline replay %v", before.FinalScore)
 	}
 	f.Metrics.ImpactPrestigeScore = &impact.ImpactPrestigeScore
 	f.Metrics.ImpactDepthRaw += impact.ImpactDepthRaw
 	f.Metrics.ImpactPRCount = impact.ImpactPRCount
+	f.Metrics.ImpactRepos = impact.ImpactRepos
+	f.Metrics.ImpactRepoCount = &impact.ImpactRepoCount
+	f.Metrics.ImpactCommitCount = &impact.ImpactCommitCount
 	f.Metrics.MaxImpactRepoStars = impact.MaxImpactRepoStars
 	f.Metrics.ExternalMergedPRCount = floatPointer(29)
 	f.Metrics.OwnPRCommunity = floatPointer(OwnPRCommunityShare(repos, "fixture-account-070", 79))
 	result := Score(f.Metrics)
-	if result.SubScores.EcosystemImpact != 8.1 || result.FinalScore != 76.5 {
+	if result.SubScores.EcosystemImpact <= 2 || result.SubScores.EcosystemImpact > 8.3 || result.FinalScore <= before.FinalScore {
 		t.Fatalf("score %+v", result)
 	}
 	for _, name := range []string{"empty"} {

@@ -25,25 +25,26 @@
     "signOutFailed": "Could not sign out. Check your connection and try again."
   },
   "meta": {
-    "title": "ghfind | Savage GitHub Score, Self-Test & Discover Top Devs",
-    "description": "ghfind: a 0-100 GitHub value & trust score plus a savage roast in 30s. See your gaps, self-test and grow, then discover top developers and get found.",
-    "ogTitle": "ghfind | Savage GitHub Score, Self-Test & Discover Top Devs",
-    "ogDescription": "ghfind: score any GitHub account and discover top developers. 0-100 value & trust score + a savage roast in 30 seconds, plus a ranked developer board.",
-    "twDescription": "Score any GitHub dev + discover the best on ghfind. 0-100 score & savage roast in 30s.",
+    "title": "ghfind | Witty GitHub Score, Self-Test & Discover Top Devs",
+    "description": "ghfind: enter a GitHub handle, get a 0–100 trust/value score and a witty, fair roast in ~30s. Spot gaps, grow, and discover strong developers.",
+    "ogTitle": "ghfind | Witty GitHub Score, Self-Test & Discover Top Devs",
+    "ogDescription": "ghfind: enter a GitHub handle, get a 0–100 trust/value score and a witty, fair roast in ~30s. Spot gaps, grow, and discover strong developers.",
+    "twDescription": "Score a GitHub account in ~30s with a witty roast. Discover top developers on ghfind.",
     "siteName": "ghfind"
   },
   "nav": {
-    "brand": "ghfind",
+    "brand": "Roast",
     "roast": "GitHub Roast",
     "leaderboard": "Developer Board",
     "discover": "Discover",
     "developers": "Developers",
     "projectBoards": "Project Boards",
     "projects": "Projects",
-    "collections": "Editor's Picks",
+    "collections": "Deep Research",
     "languages": "Languages",
     "organizations": "Organizations",
     "versus": "Dev Versus",
+    "mfcp": "MFCP Open Source",
     "blog": "Research",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
@@ -54,12 +55,14 @@
     "groupCareer": "Career",
     "groupTools": "Integrations",
     "beta": "Beta",
+    "event": "Event",
     "hint": {
-      "roast": "Score any GitHub account in 30 seconds, with a savage one-liner",
+      "roast": "Score any GitHub account in 30 seconds, with a witty one-liner",
       "versus": "Put two developers head to head",
+      "mfcp": "MFCP open source mentorship program, now enrolling",
       "leaderboard": "Browse top developers by score",
       "projectBoards": "Find notable open-source projects by field",
-      "collections": "Projects and developers hand-picked by the editor",
+      "collections": "Developer stories, curated open-source projects, and research on the GitHub ecosystem.",
       "blog": "Data and insights on the developer ecosystem",
       "resume": "Build a developer résumé from your GitHub data",
       "talent": "Find developers worth knowing",
@@ -67,11 +70,13 @@
       "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens",
       "jobs": "Open roles at AI and open-source companies",
       "talentMatch": "AI talent report, role matching and growth advice",
-      "discover": "Swipe or scroll a compact feed of high-value repos"
+      "discover": "Swipe or scroll a compact feed of high-value repos",
+      "feed": "Read developers’ posts and X updates"
     },
     "cliApi": "CLI & API",
     "jobs": "Jobs",
-    "talentMatch": "Talent Match"
+    "talentMatch": "Talent Match",
+    "feed": "For you"
   },
   "globalSearch": {
     "open": "Open global search",
@@ -124,7 +129,7 @@
     "title": "Source code & scoring algorithm are open source · View on GitHub"
   },
   "home": {
-    "brand": "Savage",
+    "brand": "Witty",
     "headline": "Discover the best developers — and become one.",
     "subtitle": "Start with a brutally honest 0–100 score. See where you stand, learn where to go.",
     "boardHeading": "🏆 Best developers",
@@ -146,18 +151,18 @@
     "pageJumpLabel": "Go to page",
     "collapse": "Collapse",
     "trendView": "🚀 Trending",
-    "scoreView": "💯 Top Scores",
+    "scoreView": "⚔ Level board",
     "trendLabel": "Trend",
     "trendTitle": "Trend score: 80% score + 15% unique 7-day visitor heat + 5% recent lookup decay",
-    "scoreLabel": "Score",
-    "scoreTitle": "0-100 value and trust score based on public GitHub data",
+    "scoreLabel": "Level",
+    "scoreTitle": "Adventurer level (Lv.1–100) derived from public GitHub signals",
     "heatView": "🔥 Most Roasted",
     "heatLabel": "Heat",
     "heatTitle": "Successful roast count",
     "vsButton": "Challenge",
     "viewDetail": "View @{username}'s score detail",
     "trendSubtitle": "Trend blends score, unique 7-day visitor heat, and recent lookup recency; heat is normalized so raw attention cannot overwhelm quality.",
-    "scoreSubtitle": "Ranked by the 0-100 value and trust score.",
+    "scoreSubtitle": "Sorted by underlying composite score; shown as adventurer level.",
     "heatSubtitle": "Ranked by total successful roast lookups.",
     "windowAria": "Time range",
     "window24h": "24h",
@@ -232,11 +237,11 @@
     }
   },
   "collections": {
-    "metaTitle": "Founder's picks: projects & developers · ghfind",
-    "metaDescription": "Hand-curated collections of standout GitHub projects and developers, backed by ghfind's contributor-quality engine.",
+    "metaTitle": "Deep Research · ghfind",
+    "metaDescription": "Developer stories, curated open-source projects, and research on the GitHub ecosystem.",
     "eyebrow": "Founder's picks",
-    "heading": "Curated projects & developers",
-    "subtitle": "Not another star list — every pick ships with engine data on who builds it and how good they are.",
+    "heading": "Deep Research",
+    "subtitle": "Developer stories, curated open-source projects, and research on the GitHub ecosystem.",
     "empty": "No collections yet — check back soon.",
     "itemCount": "{count} picks",
     "publishedOn": "Published {date}",
@@ -254,7 +259,7 @@
     "avgScoreLabel": "avg contributor score",
     "followersLabel": "followers",
     "totalStarsLabel": "total stars",
-    "backToCollections": "All collections",
+    "backToCollections": "Back to Deep Research",
     "dataNote": "Scores and tiers come from the ghfind scoring engine and refresh with every new scan."
   },
   "discoveryNext": {
@@ -343,18 +348,26 @@
     "similarSub": "Closest profile, nearby score",
     "impactHeading": "🏆 Notable contributions",
     "impactSub": "Popular open-source repos they've shipped to (commits + PRs)",
+    "impactDisclosure": "Notable contributions ({count})",
     "worksHeading": "🛠 Featured work",
     "worksSub": "Representative repos ranked by concrete contribution first, stars second",
-    "stackHeading": "🧬 Stack & domains",
-    "stackLangLabel": "Top languages",
-    "stackTopicsLabel": "Domains",
     "orgsLabel": "Organizations",
     "commits": "commits",
     "prs": "PRs",
-    "roastHeading": "🔥 Full roast",
+    "verdictLabel": "Quick Verdict",
     "roastEmpty": "This roast hasn't been archived yet — <a>judge again from the home page</a> to generate it.",
     "scoreStateStaleTitle": "Historical score",
     "scoreStateStaleBody": "This score predates the current scoring release. It remains visible until a verified rescan replaces it.",
+    "scoreStateRescanAction": "Re-evaluate",
+    "scoreStateRescanRunning": "Re-evaluating under the current rules…",
+    "scoreStateRescanReport": "Writing the new roast…",
+    "scoreStateRescanError": "Re-evaluation failed, try again later",
+    "roastStaleLabel": "Previous-release roast",
+    "roastStaleHint": "This roast was written under the previous rules; for reference only.",
+    "roastRegenerating": "Writing the roast under the current rules…",
+    "roastRegeneratePending": "The current-release roast hasn't been written yet",
+    "roastRegenerateFailed": "Couldn't write the new roast — try Re-evaluate",
+    "roastRegenerateSlow": "Still writing the new roast — refresh in a bit",
     "scoreStatePendingTitle": "Current score · report pending",
     "scoreStatePendingBody": "The deterministic score is current. The optional AI report has not been generated yet.",
     "scoreStateReadyTitle": "Current score and report",
@@ -372,14 +385,27 @@
     "modalViewProfile": "View full profile",
     "modalBadgeCta": "Get your GitHub badge",
     "modalClose": "Close",
-    "battlesHeading": "⚔️ Battles",
-    "battlesSub": "PK duels this dev has fought",
-    "battleWin": "Win",
-    "battleLoss": "Loss",
-    "battleTie": "Tie",
     "selfCta": "Rate your own GitHub →",
     "reportLangNotice": "The AI roast report is currently written in English and Chinese only — you're reading the English version.",
-    "coCreatorShare": "Led / co-built ({share}% share)"
+    "coCreatorShare": "Led / co-built ({share}% credited share)",
+    "roastProgressTitle": "Writing your roast…",
+    "roastStage1": "Reading the scan",
+    "roastStage2": "Picking what is worth writing",
+    "roastStage3": "Drafting the punchlines",
+    "roastStage4": "Checking numbers and repo names",
+    "roastStage5": "Laying out the finish",
+    "liveRetry": "Try again",
+    "scoreReadyHint": "Level is ready — roast incoming",
+    "adventurerLevel": "Adventurer Level",
+    "preciseScoreTitle": "Composite {score}",
+    "liveTimeout": "The roast timed out — stopped waiting. Retry later; any existing score and prior roast stay on the page.",
+    "scoreStateRescanTimeout": "Re-evaluation timed out — stopped waiting. Try again later",
+    "evaluateStageFetch": "Fetching data",
+    "evaluateStageAnalyze": "Analyzing repos",
+    "evaluateStageRoast": "Writing the roast",
+    "evaluateError": "That run did not finish. Tap retry to try again.",
+    "evaluateTimeout": "That took a bit long. Tap retry to try again.",
+    "evaluateRetry": "Retry"
   },
   "reactions": {
     "heading": "Community reactions",
@@ -396,15 +422,16 @@
     "clown": "Can't even"
   },
   "rescan": {
-    "button": "🔄 Re-detect",
+    "button": "Re-evaluate",
     "scanning": "Scanning…",
     "roasting": "Roasting…",
-    "error": "Detection failed, try again later",
-    "cooldown": "Refresh available in {hours}h"
+    "error": "Evaluation failed, try again later",
+    "cooldown": "Available again in {hours}h",
+    "timeout": "Roast timed out — stopped waiting. Try again later"
   },
   "detailMeta": {
     "unratedTitle": "{username} · Developer profile",
-    "title": "{username} — {score}/100 · {tier} | ghfind",
+    "title": "{username} — Lv.{level} · {realm} | ghfind",
     "descWithTags": "{tags} — see {username}'s full score report on ghfind.com.",
     "descPlain": "{username}'s GitHub value & trust report — ghfind.com.",
     "notFoundTitle": "Account not found · ghfind",
@@ -418,7 +445,7 @@
     "byoLink": "Use your own model / API key",
     "scanning": "Digging up {username}'s history… reading commits, checking PRs, counting stars, sniffing out farmed activity",
     "roastLabel": "🔥 Roast",
-    "roastThinking": "The AI is cooking up a savage roast — coming right up…",
+    "roastThinking": "AI is crafting a witty, fair roast…",
     "roastPending": "Preparing the roast",
     "firstJudged": "🥇 You're the first to be judged — a true pioneer",
     "rankLine": "<hl>📊 Ranked #{rank}</hl><muted> of {total} developers</muted>",
@@ -428,7 +455,7 @@
     "pasteGithub": "📌 Pin to GitHub",
     "copied": "Copied ✓",
     "privateNote": "Note: the score uses public signals only — private contributions don't count, so active members of private orgs may be underrated.",
-    "shareText": "My GitHub just got judged: {score}/100 · {tier} ({tierLabel}){beat}. Rate yours 👉 ghfind.com",
+    "shareText": "My GitHub just got judged: {score} · {tier} ({tierLabel}){beat}. Rate yours 👉 ghfind.com",
     "shareBeat": ", beating {beat}% of developers",
     "errEmpty": "Enter a GitHub username or profile URL first.",
     "errNeedTurnstile": "Please complete the verification below first.",
@@ -524,25 +551,25 @@
     "brand": "🔥 ghfind · see how you stack up"
   },
   "tiers": {
-    "god": {
-      "name": "GOD",
-      "blurb": "Legendary · Hall of Fame"
-    },
-    "elite": {
-      "name": "ELITE",
-      "blurb": "Elite · Top-tier dev"
-    },
-    "solid": {
-      "name": "SOLID",
-      "blurb": "Solid · Trustworthy"
+    "trash": {
+      "name": "Qi Condensation",
+      "blurb": "First steps · Building the base"
     },
     "npc": {
-      "name": "NPC",
-      "blurb": "Average · Unremarkable"
+      "name": "Core Formation",
+      "blurb": "Core formed · Showing an edge"
     },
-    "trash": {
-      "name": "TRASH",
-      "blurb": "Low-value · Likely farmed"
+    "solid": {
+      "name": "Spatial Tempering",
+      "blurb": "Effortless mastery"
+    },
+    "elite": {
+      "name": "Body Integration",
+      "blurb": "In harmony · Top-tier master"
+    },
+    "god": {
+      "name": "Grand Ascension",
+      "blurb": "Near the summit · Hall of fame"
     }
   },
   "dimensions": {
@@ -582,7 +609,7 @@
     "subtitle": "Data notes from scoring real GitHub contribution at scale.",
     "readingTime": "{minutes} min read",
     "notTranslated": "This article hasn't been translated yet — showing the English original.",
-    "backToList": "All research",
+    "backToList": "Back to Deep Research",
     "empty": "No articles yet."
   },
   "footer": {
@@ -641,8 +668,8 @@
         "body": "The snapshot is scored across account maturity, original and led project quality, contribution quality, ecosystem impact, community influence, and activity authenticity, with penalties for PR-farming, star inflation, and template-spam patterns."
       },
       {
-        "title": "3. Get a score, tier, and roast",
-        "body": "You get a reproducible 0-100 score with a tier from Trash to God, a per-dimension breakdown showing exactly what holds the score down, and — only if you ask for it — a savage AI-written roast."
+        "title": "3. Get your adventurer level, realm, and roast",
+        "body": "You get a reproducible adventurer level (Lv.1–100), a cultivation realm from Qi Condensation to Grand Ascension, a per-dimension breakdown showing exactly what holds the score down, and — only if you ask for it — a witty, fair AI-written roast."
       }
     ],
     "numbersHeading": "ghfind by the numbers",
@@ -883,7 +910,7 @@
     "summonRoasting": "Roasting…",
     "summonError": "Summon failed, try again later",
     "bothMissing": "Neither has been judged yet — summon them first, then duel.",
-    "verdictGenerating": "🤖 The AI is cooking up a savage verdict…",
+    "verdictGenerating": "🤖 The AI is cooking up a witty verdict…",
     "adviceHeading": "💡 How to level up",
     "saveImage": "📸 Save battle image",
     "saving": "Rendering…",
@@ -891,7 +918,7 @@
     "embedCopied": "✅ Copied — paste it into your README",
     "shareText": "{a} vs {b} — who's more hardcore? Watch this GitHub duel on ghfind.com ⚔️",
     "trendingHeading": "🔥 Trending battles",
-    "trendingSub": "The most-watched GitHub developer PKs — tap in for the savage verdict",
+    "trendingSub": "The most-watched GitHub developer PKs — tap in for the witty verdict",
     "trendingEmpty": "No battles on the board yet. Type \"a vs b\" on the home page to fire the first shot.",
     "notRated": "Unjudged",
     "verdictMissing": "Hold your verdict — summon them to the ring first.",
@@ -1795,5 +1822,316 @@
     "partitionSkill": "Skill",
     "partitionMicroservice": "Microservices",
     "partitionSandbox": "Sandbox"
+  },
+  "stream": {
+    "postTitle": "Post",
+    "replyPlaceholder": "Post your reply",
+    "replySend": "Reply",
+    "metaTitle": "For you · ghfind",
+    "metaDescription": "Read developers’ ideas and share your open-source work.",
+    "prototype": "Prototype",
+    "demoData": "Demo data: live sources are unavailable here.",
+    "heading": "For you",
+    "tabForYou": "For you",
+    "tabFollowing": "Following",
+    "channels": "Channels",
+    "kind": {
+      "project": "Projects",
+      "developer": "Developers",
+      "talent": "Talent",
+      "article": "Articles",
+      "collection": "Collections",
+      "job": "Jobs",
+      "post": "On X"
+    },
+    "kindOne": {
+      "project": "Project",
+      "developer": "Developer",
+      "talent": "Talent",
+      "article": "Article",
+      "collection": "Collection",
+      "job": "Job",
+      "post": "X post"
+    },
+    "layoutList": "List",
+    "layoutMasonry": "Grid",
+    "sponsored": "Sponsored",
+    "available": "Open to work",
+    "score": "Score",
+    "productScore": "Product score",
+    "minutesRead": "{minutes} min read",
+    "like": "Like",
+    "unlike": "Unlike",
+    "save": "Save",
+    "unsave": "Remove from saved",
+    "share": "Share",
+    "comments": "Comments",
+    "more": "More",
+    "notInterested": "Not interested",
+    "copyLink": "Copy link",
+    "openOriginal": "Open full page",
+    "linkCopied": "Link copied",
+    "hidden": "Got it. You'll see less like this.",
+    "undo": "Undo",
+    "follow": "Follow",
+    "following": "Following",
+    "followedToast": "Following {name}",
+    "related": "More like this",
+    "discussion": "Join the discussion on the full page",
+    "close": "Close",
+    "stats": {
+      "confidence": "Confidence",
+      "community": "Community",
+      "language": "Language",
+      "lookups": "Lookups",
+      "delta": "This week",
+      "location": "Location",
+      "project": "Project",
+      "stars": "Stars",
+      "salary": "Salary",
+      "note": "Why follow"
+    },
+    "loadingMore": "Loading more…",
+    "endTitle": "You're all caught up",
+    "endBody": "Refresh to re-rank with what you just liked.",
+    "refresh": "Refresh",
+    "retuned": "Tuned to your taste · refresh",
+    "followingEmptyTitle": "Follow people to fill this tab",
+    "followingEmptyBody": "Follow authors to read their X posts here.",
+    "feedEmpty": "No X posts to show yet.",
+    "savedEmpty": "Nothing saved yet. Tap the bookmark on any post.",
+    "railDailyProjects": "Today’s open-source projects",
+    "railDailyProjectsEmpty": "No project picks available today.",
+    "railDailyProjectsMore": "Browse project rankings",
+    "railInterests": "Your interests",
+    "railInterestsEmpty": "Like or save a few posts and the stream learns what you're into.",
+    "railReset": "Reset",
+    "railTopDevelopers": "Rising developers",
+    "railCtaTitle": "Where do you rank?",
+    "railCtaBody": "Explore your public GitHub contributions in 30 seconds.",
+    "railCtaButton": "Score my GitHub",
+    "navHome": "Home",
+    "navDiscover": "Discover",
+    "navScore": "Score",
+    "navSaved": "Saved",
+    "navLeaderboard": "Ranks",
+    "doubleTapHint": "Double-tap to like",
+    "backToTop": "Back to top",
+    "counter": {
+      "lookups": "{count} lookups",
+      "stars": "{count} stars",
+      "items": "{count} picks"
+    },
+    "badge": {
+      "hot": "Hot",
+      "new": "New",
+      "editor": "Editor's pick"
+    },
+    "pulseTotal": "{count} developers scored so far",
+    "pulseTrending": "Trending 24h",
+    "pulseLookups": "{count} views",
+    "aiRoast": "AI take",
+    "aiNote": "Generated by the ghfind scoring model",
+    "dimsTitle": "Six dimensions",
+    "beat": "Beats {percent}% of developers",
+    "rankOf": "#{rank} of {total}",
+    "weekDelta": "{delta} this week",
+    "facts": {
+      "followers": "Followers",
+      "totalStars": "Total stars",
+      "mergedPrs": "Merged PRs",
+      "contributions": "Contributions (1y)",
+      "years": "Years on GitHub"
+    },
+    "topRepos": "Top repositories",
+    "battles": "VS record",
+    "battleWon": "W",
+    "battleLost": "L",
+    "battleDraw": "D",
+    "battleViews": "{count} watched",
+    "similar": "Similar developers",
+    "reactionsTitle": "Community reactions",
+    "reactionsCta": "Vote on the profile",
+    "projectDims": {
+      "pain": "Pain",
+      "effectiveness": "Effectiveness",
+      "experience": "Experience",
+      "valueDensity": "Value density"
+    },
+    "projectScoreTitle": "Product score breakdown",
+    "audience": "Who it's for",
+    "risks": "Watch out for",
+    "talentProjects": "Projects",
+    "ownProject": "Led",
+    "prProject": "Contributed",
+    "sources": "Public sources",
+    "picksTitle": "Picks in this collection",
+    "toc": "Contents",
+    "excerpt": "Excerpt",
+    "readFull": "Read the full piece",
+    "jobDescription": "About the role",
+    "companySite": "Company site",
+    "moreFrom": "More from {name}",
+    "editorPicks": "Editor's picks",
+    "commentsTitle": "Comments",
+    "commentsEmpty": "No comments yet. Be the first.",
+    "commentPlaceholder": "Say something…",
+    "commentAnonymousHint": "No login needed, posted anonymously",
+    "commentSend": "Send",
+    "anonymous": "Anonymous",
+    "commentFailed": "Couldn't send. Try again later.",
+    "commentRateLimited": "Slow down a little",
+    "commentLinks": "Links aren't allowed in comments",
+    "commentsClosed": "Comments aren't available here yet; see the full page.",
+    "justNow": "just now",
+    "quick": {
+      "developer": {
+        "a": "Fair score",
+        "b": "Teach me 🙏",
+        "c": "Followed, great work"
+      },
+      "talent": {
+        "a": "Great direction",
+        "b": "Let's talk",
+        "c": "Followed"
+      },
+      "article": {
+        "a": "Learned a lot",
+        "b": "Very insightful",
+        "c": "Want more of this"
+      },
+      "collection": {
+        "a": "Saved",
+        "b": "More like this please",
+        "c": "Great first pick"
+      }
+    },
+    "loadingDetail": "Loading…",
+    "railEditor": "Editor's picks",
+    "xCategory": {
+      "researcher": "Researcher",
+      "builder": "Builder",
+      "media": "Tech media",
+      "developer": "Top developer"
+    },
+    "viewOnX": "View on X",
+    "xMetrics": {
+      "replies": "Replies",
+      "reposts": "Reposts",
+      "likes": "Likes",
+      "views": "Views"
+    },
+    "xLatest": "Lately on X",
+    "railVoices": "Voices worth following",
+    "railVoicesHint": "Researchers, builders, tech media, and developers scoring 80+ on ghfind only.",
+    "xSource": "From X · metrics are live X numbers",
+    "ghfindProfile": "ghfind profile",
+    "demoX": "X posts are demo data for now: accounts and posts are fictional and are replaced once real posts are pushed.",
+    "showTranslation": "Show translation",
+    "showOriginal": "Show original",
+    "translatedBy": "Translated by the ghfind agent",
+    "feed": {
+      "addImage": "Add images",
+      "cancel": "Cancel",
+      "capabilitiesError": "Publishing eligibility could not be checked. You can still browse.",
+      "checking": "Checking publishing eligibility…",
+      "composerPlaceholder": "What’s happening?",
+      "conversationDescription": "Read the post, its earlier replies, and reply to any post in the conversation.",
+      "copyFailed": "Could not copy the link. Please try again.",
+      "deleteHint": "Delete this post? Replies will remain connected to a deleted-post placeholder.",
+      "deletePost": "Delete post",
+      "deleted": "This post has been deleted.",
+      "dislike": "Dislike",
+      "earlierReplies": "View earlier replies",
+      "empty": "No posts yet.",
+      "end": "You are all caught up.",
+      "followingEmpty": "Follow developers to see their posts and reposts here.",
+      "imageDescription": "Image description (optional)",
+      "loadMore": "Load more",
+      "localInteractions": "Interactions on ghfind",
+      "loginRequired": "Sign in to interact. Reading is open to everyone.",
+      "mediaCount": "You can attach up to 4 images.",
+      "mediaInvalid": "Use JPEG, PNG, WebP or GIF images, up to 10 MB each.",
+      "myBookmarks": "My bookmarks",
+      "noReplies": "No replies yet.",
+      "openConversation": "Open the conversation by {name}",
+      "openImage": "Open image",
+      "privateBookmarks": "Your bookmarks are private.",
+      "publish": "Post",
+      "publishAccessTitle": "Before you post",
+      "publishRequirement": "A verified GitHub account with a ghfind score of 60 or higher is required to post or reply.",
+      "published": "Published on ghfind.",
+      "publishing": "Publishing…",
+      "rateLimited": "Too many requests. Please wait a moment and try again.",
+      "removeImage": "Remove image",
+      "repost": "Repost",
+      "repostedBy": "Reposted by {name}",
+      "requestFailed": "Could not complete the request. Please try again.",
+      "retry": "Retry",
+      "unavailable": "This post is unavailable.",
+      "undoDislike": "Undo dislike",
+      "undoRepost": "Undo repost",
+      "unfollow": "Unfollow",
+      "viewQuotedPost": "View quoted post",
+      "quotedPostPreviewUnavailable": "Preview unavailable",
+      "viewAttachedLink": "View attached link",
+      "attachedLinkPreviewUnavailable": "Open the link to view its content",
+      "viewOnX": "View original post on X",
+      "showOriginal": "Original",
+      "showTranslated": "Translated",
+      "translationToggle": "Show original or translated text",
+      "views": "Views on ghfind",
+      "viewReplies": "View replies",
+      "scoreBelowMinimum": "Your saved score is below 60. Posting and replying are unavailable.",
+      "scoreMissing": "No saved score was found. Check your GitHub account score first.",
+      "verifyScore": "We could not verify ownership of your saved score. Please retry.",
+      "rescanAccount": "Rescan from my profile",
+      "authorCard": {
+        "followingAction": "Following",
+        "follow": "Follow",
+        "followsYou": "Follows you",
+        "retry": "Could not load · Retry",
+        "loading": "Loading…",
+        "score": "ghfind score",
+        "unscored": "Not scored",
+        "following": "Following",
+        "followers": "Followers",
+        "source": "Follow counts from ghfind"
+      }
+    }
+  },
+  "realms": {
+    "qi": {
+      "name": "Qi Condensation",
+      "blurb": "First steps · Building the base"
+    },
+    "foundation": {
+      "name": "Foundation Establishment",
+      "blurb": "Foundation laid · Steady progress"
+    },
+    "goldenCore": {
+      "name": "Core Formation",
+      "blurb": "Core formed · Showing an edge"
+    },
+    "nascentSoul": {
+      "name": "Nascent Soul",
+      "blurb": "Soul awakened · Own style"
+    },
+    "deity": {
+      "name": "Deity Transformation",
+      "blurb": "Clear-minded · Real influence"
+    },
+    "voidRefining": {
+      "name": "Spatial Tempering",
+      "blurb": "Effortless mastery"
+    },
+    "integration": {
+      "name": "Body Integration",
+      "blurb": "In harmony · Top-tier master"
+    },
+    "mahayana": {
+      "name": "Grand Ascension",
+      "blurb": "Near the summit · Hall of fame"
+    }
   }
 }

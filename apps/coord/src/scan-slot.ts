@@ -22,6 +22,8 @@ export interface ScanPending {
   owner: string;
   username: string;
   startedAt: number;
+  full?: boolean;
+  refresh?: boolean;
 }
 
 interface ScanContinueApi {
@@ -131,10 +133,10 @@ export class ScanSlot extends DurableObject<Env> {
    * owner, -1 = this deployment cannot continue (no API binding) so the
    * caller must produce inline.
    */
-  markPending(owner: string, username: string, ttlMs: number): number {
+  markPending(owner: string, username: string, ttlMs: number, options?: { full?: boolean; refresh?: boolean }): number {
     if (this.read("lock") !== owner) return 0;
     if (!this.env.GHFIND_API) return -1;
-    const pending: ScanPending = { owner, username, startedAt: Date.now() };
+    const pending: ScanPending = { owner, username, startedAt: Date.now(), ...options };
     this.write("pending", JSON.stringify(pending), ttlMs);
     void this.ctx.storage.setAlarm(Date.now());
     return 1;

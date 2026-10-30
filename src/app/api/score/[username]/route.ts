@@ -1,3 +1,5 @@
+import { scanCoverage } from "@/lib/scan-coverage";
+import { scheduleFullScanIfNeeded } from "@/lib/scan-background-refresh";
 import { NextRequest } from "next/server";
 import {
   getAccountDetail,
@@ -99,7 +101,7 @@ async function liveScoreResponse(scan: ScanResult, cached: boolean, headers: Rec
   return json(
     {
       source: "quick",
-      coverage: "quick",
+      coverage: scanCoverage(scan),
       cached,
       username: metrics.username,
       display_name: metrics.name,
@@ -141,7 +143,7 @@ async function persistedScoreResponse(
   return json(
     {
       source: options.source,
-      coverage: options.current ? "quick" : "legacy",
+      coverage: options.current ? (detail.scan_coverage ?? "quick") : "legacy",
       stale: !options.current,
       username: detail.username,
       display_name: detail.display_name,
@@ -168,7 +170,7 @@ async function persistedScoreResponse(
   );
 }
 
-/** Public deterministic score: bounded quick collection only, never queue work. */
+/** Public deterministic score; oversized collections deepen in the background. */
 export async function GET(
   req: NextRequest,
   ctx: { params: Promise<{ username: string }> },
@@ -238,6 +240,7 @@ export async function GET(
       const scannedAt = Date.now();
       const quickScan = await buildScanResult(handle);
       if (!(await persistQuickScan(quickScan, scannedAt))) throw new ScorePersistenceError();
+      scheduleFullScanIfNeeded(quickScan);
       return quickScan;
       });
     }

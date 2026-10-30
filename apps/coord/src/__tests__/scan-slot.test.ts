@@ -195,8 +195,8 @@ describe("redis.ts scan paths on Durable Objects", () => {
     return import("../../../../src/lib/redis");
   }
 
-  function useDurableObjects() {
-    const w = world();
+  function useDurableObjects(api?: Parameters<typeof world>[0]) {
+    const w = world(api);
     vi.stubEnv("UPSTASH_REDIS_REST_URL", "");
     vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "");
     vi.stubEnv("NODE_ENV", "production");
@@ -209,6 +209,28 @@ describe("redis.ts scan paths on Durable Objects", () => {
 
   const scan = (login: string) =>
     ({ metrics: { username: login }, login }) as unknown as import("../../../../src/lib/types").ScanResult;
+
+  it("durably queues one full refresh past a warm cache without inline work or interactive wait", async () => {
+    const run = vi.fn(async () => ({ ok: true, status: "published" }));
+    const { slots } = useDurableObjects({ run });
+    vi.doMock("../../../../src/lib/score", () => ({ score: () => ({ final: 1 }) }));
+    const { coalesceScan, scanKey } = await loadRedis();
+    const { ScanPendingError } = await import("../../../../src/lib/scan-protection");
+    const slot = slots.get(scanKey("fiction-highfork"));
+    await slot.admit("old", 360_000, "scan:active-producers:v1", 96);
+    await slot.publish("old", JSON.stringify(scan("fiction-highfork")), 60, true);
+    await slot.release("old", false, "scan:active-producers:v1");
+    const producer = vi.fn(async () => scan("fiction-highfork"));
+    const options = { force: true, background: true, continueOnDeadline: true, full: true };
+    await expect(coalesceScan("fiction-highfork", producer, options)).rejects.toBeInstanceOf(ScanPendingError);
+    const pending = await slot.pending();
+    expect(pending).toMatchObject({ full: true, refresh: true, username: "fiction-highfork" });
+    await expect(coalesceScan("FICTION-HIGHFORK", producer, options)).rejects.toBeInstanceOf(ScanPendingError);
+    expect((await slot.pending())?.owner).toBe(pending?.owner);
+    expect(producer).not.toHaveBeenCalled();
+    await slot.alarm();
+    expect(run).toHaveBeenCalledExactlyOnceWith("fiction-highfork", pending?.owner);
+  });
 
   it("coalesces concurrent cold scans into one producer", async () => {
     useDurableObjects();

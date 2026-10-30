@@ -75,3 +75,6 @@ scripts/talent-match/out/
 .dev.vars*
 tmp/
 /platform/runtime/wrangler.web.production.generated.json
+
+# Private local development accounts, sessions and isolated databases
+/.local/

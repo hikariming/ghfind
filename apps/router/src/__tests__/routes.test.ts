@@ -49,10 +49,10 @@ describe("pickTarget", () => {
   });
 
   it("serves migrated API routes from api, by whole path only", () => {
-    for (const p of ["/api/leaderboard", "/api/stats", "/api/search-users", "/api/developers", "/api/talent", "/api/sponsors", "/api/facet-rank/torvalds", "/api/campaigns/advx/leaderboard"]) {
+    for (const p of ["/api/leaderboard", "/api/stats", "/api/search-users", "/api/developers", "/api/talent", "/api/sponsors", "/api/sponsors/sponsor-example/visit", "/api/facet-rank/torvalds", "/api/campaigns/advx/leaderboard"]) {
       expect(pickTarget(p)).toBe("api");
     }
-    for (const p of ["/api/talent/123/x", "/api/campaigns/advx/leaderboard/events/x", "/api/leaderboard/x", "/api/facet-rank", "/api/does-not-exist"]) {
+    for (const p of ["/api/talent/123/x", "/api/campaigns/advx/leaderboard/events/x", "/api/leaderboard/x", "/api/sponsors/x", "/api/sponsors/x/visit/y", "/api/facet-rank", "/api/does-not-exist"]) {
       expect(pickTarget(p)).toBe("legacy");
     }
   });
@@ -101,6 +101,19 @@ describe("pickTarget", () => {
     }
     for (const p of ["/api/feed/projects", "/api/feed/events", "/api/internal/feed/reconcile", "/api/admin/backfill-other", "/api/scan/x", "/api/score", "/api/profile"]) {
       expect(pickTarget(p)).toBe("legacy");
+    }
+  });
+
+  it("routes only the new social-post endpoints to api without moving the project Feed", () => {
+    for (const path of ["/api/feed/posts", "/api/feed/posts/p1", "/api/feed/posts/p1/replies", "/api/feed/posts/p1/ancestors",
+      "/api/feed/posts/p1/reaction", "/api/feed/posts/p1/bookmark", "/api/feed/posts/p1/repost", "/api/feed/publishing-capabilities",
+      "/api/feed/post-events", "/api/feed/me/bookmarks", "/api/feed/authors/a1/follow", "/api/feed/media", "/api/feed/media/m1",
+      "/api/internal/social-feed/x-posts"]) {
+      expect(pickTarget(path)).toBe("api");
+    }
+    for (const path of ["/api/feed/projects", "/api/feed/preferences", "/api/feed/events", "/api/feed/posts/p1/unknown",
+      "/api/feed/posts/p1/replies/nested", "/api/feed/media/m1/private", "/api/internal/social-feed/x-posts/extra"]) {
+      expect(pickTarget(path)).toBe("legacy");
     }
   });
 

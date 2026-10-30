@@ -69,14 +69,14 @@
         "account_maturity": 10,
         "original_project_quality": 18,
         "contribution_quality": 22.7,
-        "ecosystem_impact": 20,
+        "ecosystem_impact": 16.1,
         "community_influence": 8,
         "activity_authenticity": 15.9
       },
-      "base_score": 94.6,
+      "base_score": 90.7,
       "red_flags": [],
       "total_penalty": 0,
-      "final_score": 94.6,
+      "final_score": 90.7,
       "tier": "夯",
       "tier_label": "封神 · 殿堂级标杆"
     }
@@ -233,16 +233,16 @@
         "account_maturity": 10,
         "original_project_quality": 16.2,
         "contribution_quality": 21.7,
-        "ecosystem_impact": 10.7,
+        "ecosystem_impact": 2.2,
         "community_influence": 8,
         "activity_authenticity": 4.5
       },
-      "base_score": 71.1,
+      "base_score": 62.6,
       "red_flags": [],
       "total_penalty": 0,
-      "final_score": 71.1,
-      "tier": "人上人",
-      "tier_label": "优质贡献者 · 值得信任"
+      "final_score": 62.6,
+      "tier": "NPC",
+      "tier_label": "普通账号 · 特征平庸存疑"
     }
   },
   {
@@ -405,15 +405,15 @@
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 18,
-        "contribution_quality": 27,
-        "ecosystem_impact": 20,
+        "contribution_quality": 26.9,
+        "ecosystem_impact": 19.1,
         "community_influence": 8,
         "activity_authenticity": 13.9
       },
-      "base_score": 96.9,
+      "base_score": 95.9,
       "red_flags": [],
       "total_penalty": 0,
-      "final_score": 96.9,
+      "final_score": 95.9,
       "tier": "夯",
       "tier_label": "封神 · 殿堂级标杆"
     }

@@ -67,9 +67,9 @@ describe("Durable Object rate limiting", () => {
     const { checkRateLimit, rateLimitHeaders } = await loadRedis();
 
     const first = await checkRateLimit("198.51.100.10");
-    expect(first).toMatchObject({ success: true, limit: 10, remaining: 9 });
+    expect(first).toMatchObject({ success: true, limit: 15, remaining: 14 });
     expect(first.unavailable).toBeUndefined();
-    expect(rateLimitHeaders(first)).toMatchObject({ "RateLimit-Limit": "10", "RateLimit-Remaining": "9" });
+    expect(rateLimitHeaders(first)).toMatchObject({ "RateLimit-Limit": "15", "RateLimit-Remaining": "14" });
     // Same key shape as @upstash/ratelimit: `<prefix>:<identifier>`.
     expect(calls).toEqual(["rl:scan:198.51.100.10"]);
   });
@@ -80,15 +80,15 @@ describe("Durable Object rate limiting", () => {
     productionWithDurableObjects(ns);
     const { checkRateLimit, rateLimitHeaders } = await loadRedis();
 
-    for (let i = 0; i < 10; i++) expect((await checkRateLimit("203.0.113.9")).success).toBe(true);
+    for (let i = 0; i < 15; i++) expect((await checkRateLimit("203.0.113.9")).success).toBe(true);
     const blocked = await checkRateLimit("203.0.113.9");
     expect(blocked).toMatchObject({ success: false, remaining: 0, reset: 1_001 * 60_000 });
     expect(rateLimitHeaders(blocked)["Retry-After"]).toBe("59");
-    expect(calls).toHaveLength(11);
+    expect(calls).toHaveLength(16);
 
     // Blocked until the window ends: no further Durable Object calls.
     expect((await checkRateLimit("203.0.113.9")).success).toBe(false);
-    expect(calls).toHaveLength(11);
+    expect(calls).toHaveLength(16);
 
     // A different identifier has its own budget.
     expect((await checkRateLimit("203.0.113.10")).success).toBe(true);

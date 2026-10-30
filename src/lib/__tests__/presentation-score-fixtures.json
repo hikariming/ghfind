@@ -34,11 +34,11 @@
         "fixture-account-063/omi"
       ],
       "attributed_original_repo_shares": {
-        "fixture-account-016/deer-flow": 8.254181368192397e-05,
-        "fixture-owner-016/adventurex-2025": 7.223618154379307e-06,
+        "fixture-account-016/deer-flow": 0.00008254181368192397,
+        "fixture-owner-016/adventurex-2025": 0.000007223618154379307,
         "fixture-owner-019/openyurt.io": 0.00013938240018098743,
-        "fixture-owner-010/hydrorollsite": 1.0881714727108589e-05,
-        "fixture-account-063/omi": 3.765939972732856e-05
+        "fixture-owner-010/hydrorollsite": 0.000010881714727108589,
+        "fixture-account-063/omi": 0.00003765939972732856
       },
       "best_original_repo_quality_score": 0.95,
       "best_original_repo_quality_repo": "fixture-account-042/recruiting-skills",
@@ -99,11 +99,11 @@
         "account_maturity": 6,
         "original_project_quality": 9.5,
         "contribution_quality": 13.8,
-        "ecosystem_impact": 4.5,
+        "ecosystem_impact": 3.4,
         "community_influence": 7.8,
         "activity_authenticity": 13
       },
-      "base_score": 54.6,
+      "base_score": 53.5,
       "red_flags": [],
       "risk_assessment": {
         "version": "v10",
@@ -120,9 +120,9 @@
       },
       "risk_notes": [],
       "total_penalty": 0,
-      "final_score": 54.6,
+      "final_score": 53.5,
       "tier": "NPC",
-      "tier_label": "普通账号 · 特征平庸存疑"
+      "tier_label": "稳步积累 · 继续打磨作品"
     }
   },
   {
@@ -231,12 +231,12 @@
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 16.2,
-        "contribution_quality": 22.2,
-        "ecosystem_impact": 9.9,
+        "contribution_quality": 21.8,
+        "ecosystem_impact": 7.1,
         "community_influence": 5.6,
         "activity_authenticity": 15.9
       },
-      "base_score": 79.8,
+      "base_score": 76.6,
       "red_flags": [],
       "risk_assessment": {
         "version": "v10",
@@ -253,7 +253,7 @@
       },
       "risk_notes": [],
       "total_penalty": 0,
-      "final_score": 79.8,
+      "final_score": 76.6,
       "tier": "人上人",
       "tier_label": "优质贡献者 · 值得信任"
     }
@@ -302,7 +302,7 @@
         "fixture-owner-012/kitup": 0.9999891321345273,
         "fixture-account-039/mosoo": 0.026381007916618782,
         "fixture-account-039/tokener-cli": 0.9999907328373667,
-        "fixture-owner-018/fixture-owner-018": 5.842938036428414e-05,
+        "fixture-owner-018/fixture-owner-018": 0.00005842938036428414,
         "fixture-owner-042/semantic-router": 0.0002628757242105954,
         "fixture-account-039/mosoo-agent-driver": 0.025469880169628825
       },
@@ -364,12 +364,12 @@
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 15.9,
-        "contribution_quality": 27,
-        "ecosystem_impact": 19,
+        "contribution_quality": 26.8,
+        "ecosystem_impact": 18.9,
         "community_influence": 6.6,
         "activity_authenticity": 17
       },
-      "base_score": 95.5,
+      "base_score": 95.2,
       "red_flags": [],
       "risk_assessment": {
         "version": "v10",
@@ -386,7 +386,7 @@
       },
       "risk_notes": [],
       "total_penalty": 0,
-      "final_score": 95.5,
+      "final_score": 95.2,
       "tier": "夯",
       "tier_label": "封神 · 殿堂级标杆"
     }
@@ -430,12 +430,12 @@
       ],
       "attributed_original_repo_shares": {
         "fixture-account-050/dsh-plugin-upgrade-skill": 0.997594504962869,
-        "fixture-account-037/videolingo": 3.196945661357926e-07,
+        "fixture-account-037/videolingo": 3.196945661357926e-7,
         "fixture-account-003/qwenpaw": 0.00013957936803068863,
-        "fixture-account-039/dify": 4.583632384868418e-09,
-        "fixture-account-010/arco-design-pro-vue": 4.027270507271016e-06,
+        "fixture-account-039/dify": 4.583632384868418e-9,
+        "fixture-account-010/arco-design-pro-vue": 0.000004027270507271016,
         "fixture-owner-045/pindata": 0.004437343154612945,
-        "fixture-account-008/dsh-desktop": 5.9303794188898866e-06
+        "fixture-account-008/dsh-desktop": 0.0000059303794188898866
       },
       "best_original_repo_quality_score": 1,
       "best_original_repo_quality_repo": "fixture-account-035/dshfind",
@@ -495,12 +495,12 @@
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 15.3,
-        "contribution_quality": 27,
-        "ecosystem_impact": 16.2,
+        "contribution_quality": 21.8,
+        "ecosystem_impact": 15.8,
         "community_influence": 6.2,
         "activity_authenticity": 17
       },
-      "base_score": 91.7,
+      "base_score": 86.1,
       "red_flags": [],
       "risk_assessment": {
         "version": "v10",
@@ -517,9 +517,9 @@
       },
       "risk_notes": [],
       "total_penalty": 0,
-      "final_score": 91.7,
-      "tier": "夯",
-      "tier_label": "封神 · 殿堂级标杆"
+      "final_score": 86.1,
+      "tier": "顶级",
+      "tier_label": "顶级开发者 · 一线水准"
     }
   },
   {
@@ -563,9 +563,9 @@
         "fixture-account-035/dshfind": 0.02427309741462087,
         "fixture-account-039/mosoo": 0.0067499237912015675,
         "fixture-owner-044/yuiju": 0.011722038615447562,
-        "fixture-owner-003/dubbo-go": 3.44874270075839e-05,
+        "fixture-owner-003/dubbo-go": 0.0000344874270075839,
         "fixture-owner-011/keypocket": 0.005352659791584178,
-        "fixture-account-039/dify": 1.0360882904486496e-06
+        "fixture-account-039/dify": 0.0000010360882904486496
       },
       "best_original_repo_quality_score": 1,
       "best_original_repo_quality_repo": "fixture-account-012/ScriptForge",
@@ -626,11 +626,11 @@
         "account_maturity": 8,
         "original_project_quality": 7.9,
         "contribution_quality": 23.8,
-        "ecosystem_impact": 16,
+        "ecosystem_impact": 14.7,
         "community_influence": 4.3,
         "activity_authenticity": 16.9
       },
-      "base_score": 76.9,
+      "base_score": 75.6,
       "red_flags": [],
       "risk_assessment": {
         "version": "v10",
@@ -647,7 +647,7 @@
       },
       "risk_notes": [],
       "total_penalty": 0,
-      "final_score": 76.9,
+      "final_score": 75.6,
       "tier": "人上人",
       "tier_label": "优质贡献者 · 值得信任"
     }
@@ -756,12 +756,12 @@
       "sub_scores": {
         "account_maturity": 10,
         "original_project_quality": 9.9,
-        "contribution_quality": 27,
-        "ecosystem_impact": 19.9,
+        "contribution_quality": 26.8,
+        "ecosystem_impact": 19.7,
         "community_influence": 7.2,
         "activity_authenticity": 17
       },
-      "base_score": 91,
+      "base_score": 90.6,
       "red_flags": [],
       "risk_assessment": {
         "version": "v10",
@@ -778,7 +778,7 @@
       },
       "risk_notes": [],
       "total_penalty": 0,
-      "final_score": 91,
+      "final_score": 90.6,
       "tier": "夯",
       "tier_label": "封神 · 殿堂级标杆"
     }
@@ -818,11 +818,11 @@
         "fixture-account-063/omi"
       ],
       "attributed_original_repo_shares": {
-        "fixture-account-016/deer-flow": 8.254181368192397e-05,
-        "fixture-owner-016/adventurex-2025": 7.223618154379307e-06,
+        "fixture-account-016/deer-flow": 0.00008254181368192397,
+        "fixture-owner-016/adventurex-2025": 0.000007223618154379307,
         "fixture-owner-019/openyurt.io": 0.00013938240018098743,
-        "fixture-owner-010/hydrorollsite": 1.0881714727108589e-05,
-        "fixture-account-063/omi": 3.765939972732856e-05
+        "fixture-owner-010/hydrorollsite": 0.000010881714727108589,
+        "fixture-account-063/omi": 0.00003765939972732856
       },
       "best_original_repo_quality_score": 0.95,
       "best_original_repo_quality_repo": "fixture-account-042/recruiting-skills",
@@ -883,11 +883,11 @@
         "account_maturity": 6,
         "original_project_quality": 9.5,
         "contribution_quality": 13.8,
-        "ecosystem_impact": 4.5,
+        "ecosystem_impact": 3.4,
         "community_influence": 7.8,
         "activity_authenticity": 13
       },
-      "base_score": 54.6,
+      "base_score": 53.5,
       "red_flags": [],
       "risk_assessment": {
         "version": "v10",
@@ -904,9 +904,9 @@
       },
       "risk_notes": [],
       "total_penalty": 0,
-      "final_score": 54.6,
+      "final_score": 53.5,
       "tier": "NPC",
-      "tier_label": "普通账号 · 特征平庸存疑"
+      "tier_label": "稳步积累 · 继续打磨作品"
     }
   },
   {
@@ -944,11 +944,11 @@
         "fixture-account-063/omi"
       ],
       "attributed_original_repo_shares": {
-        "fixture-account-016/deer-flow": 8.254181368192397e-05,
-        "fixture-owner-016/adventurex-2025": 7.223618154379307e-06,
+        "fixture-account-016/deer-flow": 0.00008254181368192397,
+        "fixture-owner-016/adventurex-2025": 0.000007223618154379307,
         "fixture-owner-019/openyurt.io": 0.00013938240018098743,
-        "fixture-owner-010/hydrorollsite": 1.0881714727108589e-05,
-        "fixture-account-063/omi": 3.765939972732856e-05
+        "fixture-owner-010/hydrorollsite": 0.000010881714727108589,
+        "fixture-account-063/omi": 0.00003765939972732856
       },
       "best_original_repo_quality_score": 0.95,
       "best_original_repo_quality_repo": "fixture-account-042/recruiting-skills",
@@ -1009,11 +1009,11 @@
         "account_maturity": 6,
         "original_project_quality": 9.5,
         "contribution_quality": 13.8,
-        "ecosystem_impact": 4.5,
+        "ecosystem_impact": 3.4,
         "community_influence": 7.8,
         "activity_authenticity": 13
       },
-      "base_score": 54.6,
+      "base_score": 53.5,
       "red_flags": [],
       "risk_assessment": {
         "version": "v10",
@@ -1030,9 +1030,9 @@
       },
       "risk_notes": [],
       "total_penalty": 0,
-      "final_score": 54.6,
+      "final_score": 53.5,
       "tier": "NPC",
-      "tier_label": "普通账号 · 特征平庸存疑"
+      "tier_label": "稳步积累 · 继续打磨作品"
     }
   }
 ]

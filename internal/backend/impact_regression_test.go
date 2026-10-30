@@ -69,6 +69,7 @@ func TestImpactRegressionFixturesMatchNode(t *testing.T) {
 			m.ImpactPrestigeScore = &impact.ImpactPrestigeScore
 			m.ImpactDepthRaw = impact.ImpactDepthRaw
 			m.ImpactRepoCount = &impact.ImpactRepoCount
+			m.ImpactRepos = impact.ImpactRepos
 			m.ImpactCommitCount = &impact.ImpactCommitCount
 			m.ImpactPRCount = impact.ImpactPRCount
 			m.VerifiedImpactPRCount = &quality.VerifiedImpactPRCount

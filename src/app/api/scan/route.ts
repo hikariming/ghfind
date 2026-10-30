@@ -1,7 +1,10 @@
+import { scanCoverage } from "@/lib/scan-coverage";
+import { scheduleFullScanIfNeeded } from "@/lib/scan-background-refresh";
 import { NextRequest, NextResponse, after } from "next/server";
 import { notifyCampaignCardGenerated } from "@/lib/campaign-notify";
 import { campaignSlug, type CampaignSlug } from "@/lib/campaigns";
 import {
+  getAccountDetail,
   hasLegacyReadFallbackProfile,
   getCurrentCanonicalQuickScan,
   getLatestVerifiedCanonicalScan,
@@ -11,6 +14,7 @@ import {
   recordCampaignParticipant,
 } from "@/lib/db";
 import {
+  admitVersionUpgradeRescan,
   checkRateLimit,
   checkScanNetworkRateLimit,
   coalesceScan,
@@ -18,8 +22,11 @@ import {
   getStaleCachedScan,
   isScanPending,
   rateLimitHeaders,
-  tryAcquireScanRefresh,
 } from "@/lib/redis";
+import {
+  maybeScheduleVisitRefresh,
+  scheduleBackgroundRefresh,
+} from "@/lib/scan-background-refresh";
 import { GitHubDataUnavailableError } from "@/lib/github";
 import { SCAN_PENDING_RETRY_AFTER_SECONDS, ScanBusyError, ScanPendingError } from "@/lib/scan-protection";
 import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
@@ -35,6 +42,14 @@ import { buildScanResult, logFreshScanFailure, scanErrorResponse } from "@/lib/s
 import { LEGACY_READ_FALLBACK, RUNTIME_RELEASE_VERSIONS } from "@/lib/release-versions";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { normalizeUsername } from "@/lib/username";
+import {
+  AUTO_RESCAN_TRIGGER,
+  autoRescanDisabled,
+  autoRescanMaxPerHour,
+  isAutomatedClient,
+  type AutoRescanDeferral,
+} from "@/lib/auto-rescan";
+import { needsScoreVersionUpgrade } from "@/lib/score-version";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -114,30 +129,14 @@ async function produceFreshScan(username: string): Promise<ScanResult> {
   const scannedAt = Date.now();
   const quickScan = await buildScanResult(username);
   if (!(await persistQuickScan(quickScan, scannedAt))) throw new ScorePersistenceError();
+  scheduleFullScanIfNeeded(quickScan);
   return Object.assign(quickScan, { scanned_at: scannedAt });
-}
-
-async function refreshScanInBackground(username: string): Promise<void> {
-  if (!(await tryAcquireScanRefresh(username))) return;
-  try {
-    await coalesceScan(username, () => produceFreshScan(username), { background: true });
-  } catch (error) {
-    logFreshScanFailure(error, {
-      route: "scan",
-      username,
-      persistenceFailure: error instanceof ScorePersistenceError,
-    });
-  }
-}
-
-function scheduleBackgroundRefresh(username: string): void {
-  after(() => refreshScanInBackground(username));
 }
 
 async function staleReadResponse(input: {
   scan: ScanResult;
   headers: Record<string, string>;
-  coverage: "quick" | "legacy";
+  coverage: ReturnType<typeof scanCoverage> | "legacy";
   servedScoreVersion: string;
   scannedAt?: number;
   legacy?: boolean;
@@ -239,18 +238,59 @@ function immediateResponse(input: {
     {
       ...input.scan,
       cached: input.cached,
-      // The bounded collector is the product contract. It never waits for a
-      // second full-history pass before scoring or roasting the account.
-      coverage: "quick",
+      coverage: scanCoverage(input.scan),
       ...(scannedAt ? { scanned_at: scannedAt } : {}),
     },
     { headers: input.headers },
   );
 }
 
+const AUTO_RESCAN_DEFERRAL_STATUS: Record<AutoRescanDeferral, number> = {
+  disabled: 503,
+  automated_client: 403,
+  not_stale: 409,
+  cooldown: 429,
+  budget: 429,
+  unavailable: 503,
+};
+
+/**
+ * The on-view version-upgrade rescan was not started. Quiet for the page: it
+ * keeps showing the historical score and the manual 重新评测 action.
+ */
+function autoRescanDeferred(
+  username: string,
+  reason: AutoRescanDeferral,
+  headers: Record<string, string>,
+  retryAfter?: number,
+) {
+  console.log("auto_rescan", { outcome: "deferred", reason, username });
+  return NextResponse.json(
+    {
+      error: "auto_rescan_deferred",
+      reason,
+      message: `automatic re-evaluation deferred: ${reason}`,
+      hint: "The stored historical score stays visible; a manual rescan is still available.",
+    },
+    {
+      status: AUTO_RESCAN_DEFERRAL_STATUS[reason],
+      headers: {
+        ...headers,
+        "Cache-Control": "no-store",
+        ...(retryAfter ? { "Retry-After": String(retryAfter) } : {}),
+      },
+    },
+  );
+}
+
 export async function POST(req: NextRequest) {
   const idem = idempotencyHeaders(req);
-  let body: { username?: unknown; turnstileToken?: unknown; campaign?: unknown };
+  let body: {
+    username?: unknown;
+    turnstileToken?: unknown;
+    campaign?: unknown;
+    trigger?: unknown;
+  };
   try {
     body = await req.json();
   } catch {
@@ -265,9 +305,25 @@ export async function POST(req: NextRequest) {
     return apiError("invalid_body", { status: 400, headers: idem });
   }
 
+  if (body.trigger !== undefined && body.trigger !== AUTO_RESCAN_TRIGGER) {
+    return apiError("invalid_body", { status: 400, headers: idem });
+  }
+  // On-view re-evaluation of a score from an older scoring release. Only the
+  // profile page's own browser fetch may start it; see auto-rescan.ts.
+  const autoUpgrade = body.trigger === AUTO_RESCAN_TRIGGER;
+  if (autoUpgrade) {
+    if (autoRescanDisabled()) return autoRescanDeferred(username, "disabled", idem);
+    if (isAutomatedClient(req.headers)) {
+      return autoRescanDeferred(username, "automated_client", idem);
+    }
+  }
+
   const ip = clientIp(req);
   const auth = await machineAuth(req);
   if (auth === "invalid") return apiError("unauthorized", { status: 401, headers: idem });
+  if (autoUpgrade && auth !== "absent") {
+    return autoRescanDeferred(username, "automated_client", idem);
+  }
   let anonymousSession: AnonymousSession | null = null;
   if (auth === "absent") {
     const token = typeof body.turnstileToken === "string" ? body.turnstileToken : null;
@@ -286,8 +342,9 @@ export async function POST(req: NextRequest) {
   // A verified, signed browser session is the interactive path. If Turnstile
   // is unavailable/misconfigured and no session can be issued, retain the IP
   // guard as a fail-safe rather than making the scan route unlimited.
-  const limit = isMachineCaller || !anonymousSession
-    ? await checkRateLimit(principal)
+  // The automatic path always pays the per-IP scan limit, even with a session.
+  const limit = isMachineCaller || !anonymousSession || autoUpgrade
+    ? await checkRateLimit(autoUpgrade ? ip : principal)
     : { success: true };
   const rlHeaders = rateLimitHeaders(limit);
   if (!limit.success) {
@@ -311,7 +368,7 @@ export async function POST(req: NextRequest) {
   }
   // `?force=1` (RescanButton) bypasses the cache read so a rescan reflects the
   // fresh snapshot immediately; admission/rate limits above still apply.
-  const force = req.nextUrl.searchParams.get("force") === "1";
+  const force = !autoUpgrade && req.nextUrl.searchParams.get("force") === "1";
   const cached = force ? null : await getCachedScan(username);
   if (cached) {
     // The cached snapshot was persisted by its producing quick scan. Replaying
@@ -327,6 +384,13 @@ export async function POST(req: NextRequest) {
     const indexed = await getCurrentCanonicalQuickScan(username);
     if (indexed) {
       await recordSuccessfulLookup(indexed.scan.metrics.username, ip, campaign);
+      // Cache miss but durable snapshot still present: serve it immediately and,
+      // when older than ~24h, kick a score-only background refresh (no LLM).
+      maybeScheduleVisitRefresh({
+        username,
+        scannedAt: indexed.scannedAt,
+        headers: req.headers,
+      });
       return attachAnonymousSession(
         immediateResponse({
           scan: indexed.scan,
@@ -337,6 +401,38 @@ export async function POST(req: NextRequest) {
         anonymousSession,
       );
     }
+  }
+
+  if (autoUpgrade) {
+    // Re-check staleness server-side: the client's view could be outdated, and
+    // this path must never turn into a generic "scan anyone" endpoint.
+    const detail = await getAccountDetail(username);
+    if (
+      !detail ||
+      !needsScoreVersionUpgrade({
+        scoreVersion: detail.score_version,
+        sourceCollectionVersion: detail.score_source_collection_version,
+        sourceSnapshotHash: detail.score_source_snapshot_hash,
+      })
+    ) {
+      return attachAnonymousSession(
+        autoRescanDeferred(username, "not_stale", { ...idem, ...rlHeaders }),
+        anonymousSession,
+      );
+    }
+    const admission = await admitVersionUpgradeRescan(username, autoRescanMaxPerHour());
+    if (!admission.ok) {
+      return attachAnonymousSession(
+        autoRescanDeferred(username, admission.reason, { ...idem, ...rlHeaders }, admission.retryAfter),
+        anonymousSession,
+      );
+    }
+    console.log("auto_rescan", {
+      outcome: "started",
+      username,
+      from_score_version: detail.score_version ?? null,
+      to_score_version: SCORE_CACHE_VERSION,
+    });
   }
 
   try {
@@ -371,7 +467,7 @@ export async function POST(req: NextRequest) {
           await staleReadResponse({
             scan: staleCached,
             headers: fallbackHeaders,
-            coverage: "quick",
+            coverage: scanCoverage(staleCached),
             servedScoreVersion: SCORE_CACHE_VERSION,
           }),
           anonymousSession,
@@ -385,7 +481,7 @@ export async function POST(req: NextRequest) {
           await staleReadResponse({
             scan: verified.scan,
             headers: fallbackHeaders,
-            coverage: "quick",
+            coverage: scanCoverage(verified.scan),
             servedScoreVersion: SCORE_CACHE_VERSION,
             scannedAt: verified.scannedAt,
           }),

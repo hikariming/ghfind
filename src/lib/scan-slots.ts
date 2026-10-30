@@ -11,6 +11,8 @@ export interface ScanSlotPending {
   owner: string;
   username: string;
   startedAt: number;
+  full?: boolean;
+  refresh?: boolean;
 }
 
 /** RPC surface of apps/coord's ScanSlot Durable Object. */
@@ -30,7 +32,7 @@ interface ScanSlotStub {
     staleTtlSeconds?: number,
   ): Promise<number>;
   release(owner: string, failed: boolean, capacityKey: string): Promise<void>;
-  markPending(owner: string, username: string, ttlMs: number): Promise<number>;
+  markPending(owner: string, username: string, ttlMs: number, options?: { full?: boolean; refresh?: boolean }): Promise<number>;
   pending(): Promise<ScanSlotPending | null>;
   renew(owner: string, leaseMs: number, capacityKey: string): Promise<number>;
 }

@@ -40,10 +40,11 @@
     "developers": "Developers",
     "projectBoards": "Tableros de proyectos",
     "projects": "Proyectos",
-    "collections": "Selección del editor",
+    "collections": "Investigación a fondo",
     "languages": "Lenguajes",
     "organizations": "Organizaciones",
     "versus": "Duelo de devs",
+    "mfcp": "MFCP Open Source",
     "blog": "Investigación",
     "openMenu": "Abrir menú",
     "closeMenu": "Cerrar menú",
@@ -54,12 +55,14 @@
     "groupCareer": "Carrera",
     "groupTools": "Integrations",
     "beta": "Beta",
+    "event": "Evento",
     "hint": {
       "roast": "Puntúa una cuenta de GitHub en 30 segundos, con una frase sin piedad",
       "versus": "Enfrenta a dos desarrolladores",
+      "mfcp": "Programa de mentoría open source MFCP, inscripciones abiertas",
       "leaderboard": "Explora los mejores desarrolladores por puntuación",
       "projectBoards": "Descubre proyectos open source destacados por área",
-      "collections": "Proyectos y desarrolladores elegidos por el editor",
+      "collections": "Historias de desarrolladores, proyectos de código abierto seleccionados e investigación sobre GitHub.",
       "blog": "Datos y análisis del ecosistema de desarrolladores",
       "resume": "Crea un currículum de desarrollador con tus datos de GitHub",
       "talent": "Encuentra desarrolladores que vale la pena conocer",
@@ -67,11 +70,13 @@
       "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens",
       "jobs": "Vacantes en empresas de IA y open source",
       "talentMatch": "Informe de talento con IA, encaje con puestos y consejos",
-      "discover": "Explora repos de alto valor en cuadrícula o deslizando"
+      "discover": "Explora repos de alto valor en cuadrícula o deslizando",
+      "feed": "Lee publicaciones de desarrolladores y de X"
     },
     "cliApi": "CLI & API",
     "jobs": "Empleo",
-    "talentMatch": "Talent Match"
+    "talentMatch": "Talent Match",
+    "feed": "Para ti"
   },
   "globalSearch": {
     "open": "Abrir búsqueda global",
@@ -124,7 +129,7 @@
     "title": "El código fuente y el algoritmo de scoring son open source · Ver en GitHub"
   },
   "home": {
-    "brand": "Sin piedad",
+    "brand": "Roast",
     "headline": "Descubre a los mejores developers — y conviértete en uno.",
     "subtitle": "Empieza con un score de 0 a 100 brutalmente honesto. Mira dónde estás parado y hacia dónde ir.",
     "boardHeading": "🏆 Los mejores developers",
@@ -232,11 +237,11 @@
     }
   },
   "collections": {
-    "metaTitle": "Selección del fundador: proyectos y desarrolladores · ghfind",
-    "metaDescription": "Colecciones curadas de proyectos y desarrolladores destacados de GitHub, respaldadas por el motor de calidad de contribuidores de ghfind.",
+    "metaTitle": "Investigación a fondo · ghfind",
+    "metaDescription": "Historias de desarrolladores, proyectos de código abierto seleccionados e investigación sobre GitHub.",
     "eyebrow": "Selección del fundador",
-    "heading": "Proyectos y desarrolladores seleccionados",
-    "subtitle": "No es otra lista de estrellas: cada selección incluye datos del motor sobre quién lo construye y qué nivel tiene.",
+    "heading": "Investigación a fondo",
+    "subtitle": "Historias de desarrolladores, proyectos de código abierto seleccionados e investigación sobre GitHub.",
     "empty": "Aún no hay colecciones; vuelve pronto.",
     "itemCount": "{count} selecciones",
     "publishedOn": "Publicado el {date}",
@@ -254,7 +259,7 @@
     "avgScoreLabel": "puntuación media de contribuidores",
     "followersLabel": "seguidores",
     "totalStarsLabel": "estrellas totales",
-    "backToCollections": "Todas las colecciones",
+    "backToCollections": "Volver a Investigación a fondo",
     "dataNote": "Las puntuaciones y los niveles provienen del motor de ghfind y se actualizan con cada nuevo escaneo."
   },
   "discoveryNext": {
@@ -343,18 +348,26 @@
     "similarSub": "Perfil más cercano, score similar",
     "impactHeading": "🏆 Contribuciones destacadas",
     "impactSub": "Repos open source populares a los que ha aportado (commits + PRs)",
+    "impactDisclosure": "Contribuciones destacadas ({count})",
     "worksHeading": "🛠 Trabajo destacado",
     "worksSub": "Sus propios repositorios populares y fijados",
-    "stackHeading": "🧬 Stack y dominios",
-    "stackLangLabel": "Lenguajes principales",
-    "stackTopicsLabel": "Dominios",
     "orgsLabel": "Organizaciones",
     "commits": "commits",
     "prs": "PRs",
-    "roastHeading": "🔥 Roast completo",
+    "verdictLabel": "Veredicto breve",
     "roastEmpty": "Este roast todavía no está archivado — <a>vuelve a juzgar desde la página de inicio</a> para generarlo.",
     "scoreStateStaleTitle": "Puntuación histórica",
     "scoreStateStaleBody": "Esta puntuación pertenece a reglas anteriores. Seguirá visible hasta que un nuevo escaneo verificado la reemplace.",
+    "scoreStateRescanAction": "Reevaluar",
+    "scoreStateRescanRunning": "Reevaluando con las reglas actuales…",
+    "scoreStateRescanReport": "Generando el nuevo roast…",
+    "scoreStateRescanError": "La reevaluación falló, inténtalo más tarde",
+    "roastStaleLabel": "Roast de la versión anterior",
+    "roastStaleHint": "Este roast se escribió con las reglas anteriores; solo como referencia.",
+    "roastRegenerating": "Escribiendo el roast con las reglas actuales…",
+    "roastRegeneratePending": "El roast de la versión actual aún no está listo",
+    "roastRegenerateFailed": "No se pudo escribir el nuevo roast; reevalúa manualmente",
+    "roastRegenerateSlow": "Aún se está escribiendo el nuevo roast; recarga en un momento",
     "scoreStatePendingTitle": "Puntuación actual · reporte pendiente",
     "scoreStatePendingBody": "La puntuación determinista está actualizada. El reporte opcional de IA aún no se ha generado.",
     "scoreStateReadyTitle": "Puntuación y reporte actuales",
@@ -365,6 +378,13 @@
     "liveRateLimited": "Demasiados roasts ahora mismo — inténtalo en un minuto.",
     "liveExpired": "El escaneo expiró antes de que el roast terminara.",
     "liveGoHome": "Roastear de nuevo desde la página de inicio →",
+    "liveRetry": "Reintentar",
+    "roastProgressTitle": "Escribiendo tu roast…",
+    "roastStage1": "Leyendo el escaneo",
+    "roastStage2": "Eligiendo lo que merece escribirse",
+    "roastStage3": "Redactando los remates",
+    "roastStage4": "Comprobando cifras y nombres de repos",
+    "roastStage5": "Cerrando la maquetación",
     "modalTitle": "🔥 Tu roast ya llegó",
     "modalRoastHeading": "Roast completo",
     "modalFirstJudged": "🥇 Eres la primera persona en ser juzgada — pionero de verdad",
@@ -372,14 +392,20 @@
     "modalViewProfile": "Ver perfil completo",
     "modalBadgeCta": "Consigue tu badge para GitHub",
     "modalClose": "Cerrar",
-    "battlesHeading": "⚔️ Batallas",
-    "battlesSub": "Duelos PK que este dev ha peleado",
-    "battleWin": "Victoria",
-    "battleLoss": "Derrota",
-    "battleTie": "Empate",
     "selfCta": "Evalúa tu propio GitHub →",
     "reportLangNotice": "El reporte de roast de la IA por ahora solo se escribe en inglés y chino — estás leyendo la versión en inglés.",
-    "coCreatorShare": "Liderado / cocreado ({share}%)"
+    "coCreatorShare": "Liderado / cocreado ({share}%)",
+    "scoreReadyHint": "La puntuación ya está. El roast llega enseguida",
+    "adventurerLevel": "Nivel de aventurero",
+    "preciseScoreTitle": "Puntuación {score}",
+    "liveTimeout": "La evaluación agotó el tiempo de espera. Inténtalo más tarde; se conserva la puntuación y el roast previos.",
+    "scoreStateRescanTimeout": "La reevaluación agotó el tiempo de espera. Inténtalo más tarde",
+    "evaluateStageFetch": "Obteniendo datos",
+    "evaluateStageAnalyze": "Analizando repos",
+    "evaluateStageRoast": "Generando el roast",
+    "evaluateError": "Esta vez no terminó. Pulsa reintentar para probar de nuevo.",
+    "evaluateTimeout": "Esta generación tardó un poco. Pulsa reintentar para probar de nuevo.",
+    "evaluateRetry": "Reintentar"
   },
   "reactions": {
     "heading": "Reacciones de la comunidad",
@@ -396,15 +422,16 @@
     "clown": "No puedo con esto"
   },
   "rescan": {
-    "button": "🔄 Volver a detectar",
-    "scanning": "Escaneando…",
-    "roasting": "Roasteando…",
-    "error": "La detección falló, inténtalo más tarde",
-    "cooldown": "Podrás refrescar en {hours}h"
+    "button": "Reevaluar",
+    "scanning": "Analizando…",
+    "roasting": "Generando comentario…",
+    "error": "La evaluación falló, inténtalo más tarde",
+    "cooldown": "Podrás refrescar en {hours}h",
+    "timeout": "La evaluación agotó el tiempo de espera. Inténtalo más tarde"
   },
   "detailMeta": {
     "unratedTitle": "{username} · Perfil de desarrollador",
-    "title": "{username} — {score}/100 · {tier} | ghfind",
+    "title": "{username} — Lv.{level} · {realm} | ghfind",
     "descWithTags": "{tags} — mira el reporte completo del score de {username} en ghfind.com.",
     "descPlain": "Reporte de valor y confianza de GitHub de {username} — ghfind.com.",
     "notFoundTitle": "Cuenta no encontrada · ghfind",
@@ -417,7 +444,7 @@
     "judging": "Juzgando…",
     "byoLink": "Usa tu propio modelo / API key",
     "scanning": "Desenterrando el historial de {username}… leyendo commits, revisando PRs, contando stars, olfateando actividad inflada",
-    "roastLabel": "🔥 Roast",
+    "roastLabel": "Roast",
     "roastThinking": "La IA está cocinando un roast sin piedad — ya casi sale…",
     "roastPending": "Preparando el roast",
     "firstJudged": "🥇 Eres la primera persona en ser juzgada — pionero de verdad",
@@ -524,25 +551,25 @@
     "brand": "🔥 ghfind · mira cómo te comparas"
   },
   "tiers": {
-    "god": {
-      "name": "GOD",
-      "blurb": "Legendario · Salón de la Fama"
-    },
-    "elite": {
-      "name": "ELITE",
-      "blurb": "Élite · Dev de primer nivel"
-    },
-    "solid": {
-      "name": "SOLID",
-      "blurb": "Sólido · Confiable"
+    "trash": {
+      "name": "Condensación Qi",
+      "blurb": "Primeros pasos · Construyendo la base"
     },
     "npc": {
-      "name": "NPC",
-      "blurb": "Promedio · Nada memorable"
+      "name": "Formación Núcleo",
+      "blurb": "Núcleo formado · Mostrando filo"
     },
-    "trash": {
-      "name": "TRASH",
-      "blurb": "Bajo valor · Probablemente inflado"
+    "solid": {
+      "name": "Templado Espacial",
+      "blurb": "Maestría sin esfuerzo"
+    },
+    "elite": {
+      "name": "Integ. Corporal",
+      "blurb": "En armonía · Maestro de élite"
+    },
+    "god": {
+      "name": "Gran Ascensión",
+      "blurb": "Cerca de la cumbre · Salón de la fama"
     }
   },
   "dimensions": {
@@ -582,7 +609,7 @@
     "subtitle": "Notas con datos de evaluar contribución real en GitHub a escala.",
     "readingTime": "{minutes} min de lectura",
     "notTranslated": "Este artículo todavía no está traducido — se muestra el original en inglés.",
-    "backToList": "Todo el research",
+    "backToList": "Volver a Investigación a fondo",
     "empty": "Todavía no hay artículos."
   },
   "footer": {
@@ -641,8 +668,8 @@
         "body": "La instantánea se evalúa en madurez de la cuenta, calidad de proyectos originales, calidad de contribuciones, impacto en el ecosistema, influencia en la comunidad y autenticidad de la actividad, con penalizaciones por farmeo de PRs, inflación de stars y patrones de spam con plantillas."
       },
       {
-        "title": "3. Recibe score, nivel y roast",
-        "body": "Recibes un score reproducible de 0 a 100 con un nivel que va de Trash a God, un desglose por dimensión que muestra exactamente qué frena tu score y — solo si lo pides — un roast sin piedad escrito por IA."
+        "title": "3. Obtén tu nivel de aventurero, reino y roast",
+        "body": "Obtienes un nivel de aventurero reproducible (Lv.1–100), un reino de cultivo de Condensación Qi a Gran Ascensión, un desglose por dimensiones que muestra qué baja la puntuación y —solo si lo pides— un roast ingenioso escrito por IA."
       }
     ],
     "numbersHeading": "ghfind en números",
@@ -1795,5 +1822,316 @@
     "partitionSkill": "Skill",
     "partitionMicroservice": "Microservices",
     "partitionSandbox": "Sandbox"
+  },
+  "stream": {
+    "postTitle": "Publicación",
+    "replyPlaceholder": "Publica tu respuesta",
+    "replySend": "Responder",
+    "metaTitle": "Para ti · ghfind",
+    "metaDescription": "Publicaciones de desarrolladores en X, en un solo feed.",
+    "prototype": "Prototipo",
+    "demoData": "Datos de demostración: aquí no hay conexión con las fuentes en vivo.",
+    "heading": "Para ti",
+    "tabForYou": "Para ti",
+    "tabFollowing": "Siguiendo",
+    "channels": "Canales",
+    "kind": {
+      "project": "Proyectos",
+      "developer": "Desarrolladores",
+      "talent": "Talento",
+      "article": "Artículos",
+      "collection": "Colecciones",
+      "job": "Empleos",
+      "post": "En X"
+    },
+    "kindOne": {
+      "project": "Proyecto",
+      "developer": "Desarrollador",
+      "talent": "Talento",
+      "article": "Artículo",
+      "collection": "Colección",
+      "job": "Empleo",
+      "post": "Post de X"
+    },
+    "layoutList": "Lista",
+    "layoutMasonry": "Cuadrícula",
+    "sponsored": "Patrocinado",
+    "available": "Busca empleo",
+    "score": "Puntuación",
+    "productScore": "Puntuación de producto",
+    "minutesRead": "{minutes} min de lectura",
+    "like": "Me gusta",
+    "unlike": "Quitar me gusta",
+    "save": "Guardar",
+    "unsave": "Quitar de guardados",
+    "share": "Compartir",
+    "comments": "Comentarios",
+    "more": "Más",
+    "notInterested": "No me interesa",
+    "copyLink": "Copiar enlace",
+    "openOriginal": "Abrir página completa",
+    "linkCopied": "Enlace copiado",
+    "hidden": "Entendido. Verás menos contenido así.",
+    "undo": "Deshacer",
+    "follow": "Seguir",
+    "following": "Siguiendo",
+    "followedToast": "Ahora sigues a {name}",
+    "related": "Contenido similar",
+    "discussion": "Únete a la conversación en la página completa",
+    "close": "Cerrar",
+    "stats": {
+      "confidence": "Confianza",
+      "community": "Comunidad",
+      "language": "Lenguaje",
+      "lookups": "Consultas",
+      "delta": "Esta semana",
+      "location": "Ubicación",
+      "project": "Proyecto",
+      "stars": "Estrellas",
+      "salary": "Salario",
+      "note": "Por qué seguir"
+    },
+    "loadingMore": "Cargando más…",
+    "endTitle": "Ya lo viste todo",
+    "endBody": "Actualiza para reordenar según lo que acabas de marcar.",
+    "refresh": "Actualizar",
+    "retuned": "Ajustado a tus gustos · actualizar",
+    "followingEmptyTitle": "Sigue a personas para llenar esta pestaña",
+    "followingEmptyBody": "Sigue a autores para leer aquí sus publicaciones de X.",
+    "feedEmpty": "Todavía no hay publicaciones de X.",
+    "savedEmpty": "Aún no has guardado nada. Toca el marcador en cualquier publicación.",
+    "railDailyProjects": "Proyectos de código abierto de hoy",
+    "railDailyProjectsEmpty": "Hoy no hay proyectos recomendados.",
+    "railDailyProjectsMore": "Ver clasificación de proyectos",
+    "railInterests": "Tus intereses",
+    "railInterestsEmpty": "Da me gusta o guarda algunas publicaciones y el feed aprenderá lo que te interesa.",
+    "railReset": "Restablecer",
+    "railTopDevelopers": "Desarrolladores en ascenso",
+    "railCtaTitle": "¿En qué puesto estás?",
+    "railCtaBody": "Explora tus contribuciones públicas en GitHub en 30 segundos.",
+    "railCtaButton": "Evaluar mi GitHub",
+    "navHome": "Inicio",
+    "navDiscover": "Descubrir",
+    "navScore": "Evaluar",
+    "navSaved": "Guardados",
+    "navLeaderboard": "Ranking",
+    "doubleTapHint": "Toca dos veces para dar me gusta",
+    "backToTop": "Volver arriba",
+    "counter": {
+      "lookups": "{count} consultas",
+      "stars": "{count} estrellas",
+      "items": "{count} seleccionados"
+    },
+    "badge": {
+      "hot": "Popular",
+      "new": "Nuevo",
+      "editor": "Selección editorial"
+    },
+    "pulseTotal": "{count} desarrolladores evaluados hasta ahora",
+    "pulseTrending": "Tendencia 24 h",
+    "pulseLookups": "{count} visitas",
+    "aiRoast": "Opinión de la IA",
+    "aiNote": "Generado por el modelo de evaluación de ghfind",
+    "dimsTitle": "Seis dimensiones",
+    "beat": "Supera al {percent}% de los desarrolladores",
+    "rankOf": "Puesto {rank} de {total}",
+    "weekDelta": "{delta} esta semana",
+    "facts": {
+      "followers": "Seguidores",
+      "totalStars": "Estrellas totales",
+      "mergedPrs": "PR fusionados",
+      "contributions": "Contribuciones (1 año)",
+      "years": "Años en GitHub"
+    },
+    "topRepos": "Repositorios destacados",
+    "battles": "Historial VS",
+    "battleWon": "V",
+    "battleLost": "D",
+    "battleDraw": "E",
+    "battleViews": "{count} espectadores",
+    "similar": "Desarrolladores similares",
+    "reactionsTitle": "Reacciones de la comunidad",
+    "reactionsCta": "Vota en el perfil",
+    "projectDims": {
+      "pain": "Problema",
+      "effectiveness": "Eficacia",
+      "experience": "Experiencia",
+      "valueDensity": "Densidad de valor"
+    },
+    "projectScoreTitle": "Desglose de la puntuación de producto",
+    "audience": "Para quién es",
+    "risks": "A tener en cuenta",
+    "talentProjects": "Proyectos",
+    "ownProject": "Lideró",
+    "prProject": "Contribuyó",
+    "sources": "Fuentes públicas",
+    "picksTitle": "Selección de esta colección",
+    "toc": "Contenido",
+    "excerpt": "Extracto",
+    "readFull": "Leer el texto completo",
+    "jobDescription": "Sobre el puesto",
+    "companySite": "Sitio de la empresa",
+    "moreFrom": "Más de {name}",
+    "editorPicks": "Selección editorial",
+    "commentsTitle": "Comentarios",
+    "commentsEmpty": "Aún no hay comentarios. Sé el primero.",
+    "commentPlaceholder": "Escribe algo…",
+    "commentAnonymousHint": "Sin iniciar sesión, se publica de forma anónima",
+    "commentSend": "Enviar",
+    "anonymous": "Anónimo",
+    "commentFailed": "No se pudo enviar. Inténtalo más tarde.",
+    "commentRateLimited": "Ve un poco más despacio",
+    "commentLinks": "No se permiten enlaces en los comentarios",
+    "commentsClosed": "Aquí aún no se puede comentar; visita la página completa.",
+    "justNow": "ahora mismo",
+    "quick": {
+      "developer": {
+        "a": "Puntuación justa",
+        "b": "Enséñame 🙏",
+        "c": "Te sigo, gran trabajo"
+      },
+      "talent": {
+        "a": "Gran dirección",
+        "b": "Hablemos",
+        "c": "Te sigo"
+      },
+      "article": {
+        "a": "Aprendí mucho",
+        "b": "Muy revelador",
+        "c": "Quiero más de esto"
+      },
+      "collection": {
+        "a": "Guardado",
+        "b": "Más como esta, por favor",
+        "c": "Gran primera elección"
+      }
+    },
+    "loadingDetail": "Cargando…",
+    "railEditor": "Selección editorial",
+    "xCategory": {
+      "researcher": "Investigador",
+      "builder": "Creador",
+      "media": "Medio tecnológico",
+      "developer": "Desarrollador top"
+    },
+    "viewOnX": "Ver en X",
+    "xMetrics": {
+      "replies": "Respuestas",
+      "reposts": "Reposts",
+      "likes": "Me gusta",
+      "views": "Vistas"
+    },
+    "xLatest": "Últimamente en X",
+    "railVoices": "Voces que vale la pena seguir",
+    "railVoicesHint": "Solo investigadores, creadores, medios tecnológicos y desarrolladores con 80+ en ghfind.",
+    "xSource": "Desde X · las métricas son cifras reales de X",
+    "ghfindProfile": "Perfil en ghfind",
+    "demoX": "Por ahora, los posts de X son datos de demostración: cuentas y contenidos ficticios que se reemplazan al recibir posts reales.",
+    "showTranslation": "Mostrar traducción",
+    "showOriginal": "Ver original",
+    "translatedBy": "Traducido por el agente de ghfind",
+    "feed": {
+      "addImage": "Añadir imágenes",
+      "cancel": "Cancelar",
+      "capabilitiesError": "No se pudo comprobar el permiso para publicar. Puedes seguir leyendo.",
+      "checking": "Comprobando el permiso para publicar…",
+      "composerPlaceholder": "Comparte lo que estás creando o pensando",
+      "conversationDescription": "Lee la publicación y las respuestas anteriores. Puedes responder a cualquier publicación de la conversación.",
+      "copyFailed": "No se pudo copiar el enlace. Inténtalo de nuevo.",
+      "deleteHint": "¿Eliminar esta publicación? Las respuestas seguirán conectadas a un marcador de publicación eliminada.",
+      "deletePost": "Eliminar publicación",
+      "deleted": "Esta publicación se ha eliminado.",
+      "dislike": "No me gusta",
+      "earlierReplies": "Ver respuestas anteriores",
+      "empty": "Aún no hay publicaciones.",
+      "end": "Estás al día.",
+      "followingEmpty": "Sigue a desarrolladores para ver sus publicaciones y republicaciones.",
+      "imageDescription": "Descripción de imagen (opcional)",
+      "loadMore": "Cargar más",
+      "localInteractions": "Interacciones en ghfind",
+      "loginRequired": "Inicia sesión para interactuar. Cualquiera puede leer.",
+      "mediaCount": "Puedes adjuntar hasta 4 imágenes.",
+      "mediaInvalid": "Usa JPEG, PNG, WebP o GIF de hasta 10 MB por imagen.",
+      "myBookmarks": "Mis guardados",
+      "noReplies": "Aún no hay respuestas.",
+      "openConversation": "Abrir la conversación de {name}",
+      "openImage": "Abrir imagen",
+      "privateBookmarks": "Tus guardados son privados.",
+      "publish": "Publicar",
+      "publishAccessTitle": "Antes de publicar",
+      "publishRequirement": "Para publicar o responder necesitas una cuenta de GitHub verificada y al menos 60 puntos en ghfind.",
+      "published": "Publicado en ghfind.",
+      "publishing": "Publicando…",
+      "rateLimited": "Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.",
+      "removeImage": "Quitar imagen",
+      "repost": "Republicar",
+      "repostedBy": "Republicado por {name}",
+      "requestFailed": "No se pudo completar la solicitud. Inténtalo de nuevo.",
+      "retry": "Reintentar",
+      "unavailable": "Esta publicación no está disponible.",
+      "undoDislike": "Deshacer no me gusta",
+      "undoRepost": "Deshacer republicación",
+      "unfollow": "Dejar de seguir",
+      "viewQuotedPost": "Ver publicación citada",
+      "quotedPostPreviewUnavailable": "Vista previa no disponible",
+      "viewAttachedLink": "Ver enlace adjunto",
+      "attachedLinkPreviewUnavailable": "Abre el enlace para ver el contenido",
+      "viewOnX": "Ver publicación original en X",
+      "showOriginal": "Original",
+      "showTranslated": "Traducido",
+      "translationToggle": "Ver texto original o traducido",
+      "views": "Visualizaciones en ghfind",
+      "viewReplies": "Ver respuestas",
+      "scoreBelowMinimum": "Tu puntuación guardada es inferior a 60. No puedes publicar ni responder.",
+      "scoreMissing": "No hay una puntuación guardada. Consulta primero la puntuación de tu cuenta de GitHub.",
+      "verifyScore": "No pudimos verificar la titularidad de tu puntuación guardada. Inténtalo de nuevo.",
+      "rescanAccount": "Volver a analizar desde mi perfil",
+      "authorCard": {
+        "followingAction": "Following",
+        "follow": "Follow",
+        "followsYou": "Follows you",
+        "retry": "Could not load · Retry",
+        "loading": "Loading…",
+        "score": "ghfind score",
+        "unscored": "Not scored",
+        "following": "Following",
+        "followers": "Followers",
+        "source": "Follow counts from ghfind"
+      }
+    }
+  },
+  "realms": {
+    "qi": {
+      "name": "Condensación Qi",
+      "blurb": "Primeros pasos · Construyendo la base"
+    },
+    "foundation": {
+      "name": "Fundación",
+      "blurb": "Base lista · Progreso constante"
+    },
+    "goldenCore": {
+      "name": "Formación Núcleo",
+      "blurb": "Núcleo formado · Mostrando filo"
+    },
+    "nascentSoul": {
+      "name": "Alma Nascente",
+      "blurb": "Alma despierta · Estilo propio"
+    },
+    "deity": {
+      "name": "Transf. Divina",
+      "blurb": "Mente clara · Influencia real"
+    },
+    "voidRefining": {
+      "name": "Templado Espacial",
+      "blurb": "Maestría sin esfuerzo"
+    },
+    "integration": {
+      "name": "Integ. Corporal",
+      "blurb": "En armonía · Maestro de élite"
+    },
+    "mahayana": {
+      "name": "Gran Ascensión",
+      "blurb": "Cerca de la cumbre · Salón de la fama"
+    }
   }
 }

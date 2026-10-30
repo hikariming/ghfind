@@ -17,25 +17,28 @@ const (
 	// also accept goPreviousPublicScoreVersion until organic rescan (see
 	// publicScoreVersionClause). Keep this in the same review as
 	// src/lib/cache-version.ts and release-versions.json.
-	goCanonicalScoreVersion      = "v16"
-	goPreviousPublicScoreVersion = "v15"
-	goSecondPublicScoreVersion   = "v14"
-	goRetainedPublicScoreVersion = "v13"
-	goOldestPublicScoreVersion   = "v10"
-	goCanonicalCollectionVersion = "v5"
+	goCanonicalScoreVersion       = "v19"
+	goPreviousPublicScoreVersion  = "v18"
+	goSecondPublicScoreVersion    = "v17"
+	goThirdPublicScoreVersion     = "v16"
+	goFourthPublicScoreVersion    = "v15"
+	goFifthPublicScoreVersion     = "v14"
+	goRetainedPublicScoreVersion  = "v13"
+	goOldestPublicScoreVersion    = "v10"
+	goCanonicalCollectionVersion = "v8"
 	progressMinGapMilliseconds   = int64(time.Hour / time.Millisecond)
 )
 
 func publicScoreVersionClause(column string) string {
-	return column + " IN (?, ?, ?, ?, ?)"
+	return column + " IN (?, ?, ?, ?, ?, ?, ?, ?)"
 }
 
 func publicScoreVersionArgs() []any {
-	return []any{goCanonicalScoreVersion, goPreviousPublicScoreVersion, goSecondPublicScoreVersion, goRetainedPublicScoreVersion, goOldestPublicScoreVersion}
+	return []any{goCanonicalScoreVersion, goPreviousPublicScoreVersion, goSecondPublicScoreVersion, goThirdPublicScoreVersion, goFourthPublicScoreVersion, goFifthPublicScoreVersion, goRetainedPublicScoreVersion, goOldestPublicScoreVersion}
 }
 
 func isPublicScoreVersion(version string) bool {
-	return version == goCanonicalScoreVersion || version == goPreviousPublicScoreVersion || version == goSecondPublicScoreVersion || version == goRetainedPublicScoreVersion || version == goOldestPublicScoreVersion
+	return version == goCanonicalScoreVersion || version == goPreviousPublicScoreVersion || version == goSecondPublicScoreVersion || version == goThirdPublicScoreVersion || version == goFourthPublicScoreVersion || version == goFifthPublicScoreVersion || version == goRetainedPublicScoreVersion || version == goOldestPublicScoreVersion
 }
 
 var ErrScanJobConflict = errors.New("scan job conflicts with an existing result")
@@ -130,9 +133,8 @@ func (s *TursoStore) PersistCollectedScan(ctx context.Context, job ScanJob, scan
       (id, username, score_version, collection_version, state, coverage,
        source_status, quick_scan, snapshot, snapshot_hash, started_at,
        completed_at, updated_at)
-      VALUES (?, ?, ?, ?, 'complete_public', 'complete_public', ?, ?, ?, ?, ?, ?, ?)`,
-		job.ID, username, goCanonicalScoreVersion, goCanonicalCollectionVersion,
-		`{"quick":"complete","original_repos":"complete","native_prs":"complete","workflow_landings":"complete","commit_recovery":"complete"}`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		job.ID, username, goCanonicalScoreVersion, goCanonicalCollectionVersion, persistedScanCoverage(scan), persistedScanCoverage(scan), persistedSourceStatus(scan),
 		string(snapshot), string(snapshot), snapshotHash, scannedAt, scannedAt, scannedAt); err != nil {
 		return false, fmt.Errorf("insert public scan result: %w", err)
 	}
@@ -205,7 +207,7 @@ func (s *TursoStore) PersistCollectedScan(ctx context.Context, job ScanJob, scan
 func (s *TursoStore) GetCollectedScan(ctx context.Context, jobID string) (*ScanResult, error) {
 	var encoded string
 	err := s.db.QueryRowContext(ctx, `SELECT snapshot FROM public_scan_runs
-      WHERE id = ? AND state = 'complete_public' LIMIT 1`, jobID).Scan(&encoded)
+      WHERE id = ? AND state IN ('complete_public', 'partial_public') LIMIT 1`, jobID).Scan(&encoded)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -220,4 +222,75 @@ func (s *TursoStore) GetCollectedScan(ctx context.Context, jobID string) (*ScanR
 	// raw metrics preserves the published score formula on every read.
 	scan.Scoring = Score(scan.Metrics)
 	return &scan, nil
+}
+
+func persistedSourceStatus(scan ScanResult) string {
+	if len(scan.SourceStatus) > 0 {
+		return string(scan.SourceStatus)
+	}
+	return scanSourceStatus(scan)
+}
+
+func persistedScanCoverage(scan ScanResult) string {
+	if scan.Collection != nil {
+		return scan.Collection.Coverage
+	}
+	return "complete_public" // compatibility for pre-v7 internal callers
+}
+
+// scanSourceStatus maps collection evidence onto the public source contract.
+// A partial scan no longer marks every unfinished source pending: each
+// truncation reason names the source that actually failed, stayed
+// unavailable, or is still owed a later retry. Sources with no reason are
+// complete. Collection stays v7 because the JSON object shape is unchanged.
+func scanSourceStatus(scan ScanResult) string {
+	status := map[string]string{
+		scanSourceQuick:            scanSourceStateComplete,
+		scanSourceOriginalRepos:    scanSourceStateComplete,
+		scanSourceNativePRs:        scanSourceStateComplete,
+		scanSourceWorkflowLandings: scanSourceStateComplete,
+		scanSourceCommitRecovery:   scanSourceStateComplete,
+	}
+	if scan.Collection == nil || scan.Collection.Coverage != "partial_public" {
+		encoded, _ := json.Marshal(status)
+		return string(encoded)
+	}
+	for _, reason := range scan.Collection.TruncationReasons {
+		source, state := sourceStateForTruncation(reason)
+		if source == "" {
+			continue
+		}
+		if status[source] == scanSourceStateFailed {
+			continue
+		}
+		status[source] = state
+	}
+	encoded, err := json.Marshal(status)
+	if err != nil {
+		return `{"quick":"complete","original_repos":"pending","native_prs":"pending","workflow_landings":"pending","commit_recovery":"pending"}`
+	}
+	return string(encoded)
+}
+
+func sourceStateForTruncation(reason string) (string, string) {
+	switch reason {
+	case "original_repos_page_limit", "public_repos_quick_limit":
+		return scanSourceOriginalRepos, scanSourceStatePending
+	case "original_repos_unavailable":
+		return scanSourceOriginalRepos, scanSourceStateFailed
+	case "external_merged_pr_cap", "merged_pr_window":
+		return scanSourceNativePRs, scanSourceStatePending
+	case "external_merged_unavailable":
+		return scanSourceNativePRs, scanSourceStateUnavailable
+	case "workflow_unavailable":
+		return scanSourceWorkflowLandings, scanSourceStateUnavailable
+	case "workflow_page_limit", "workflow_candidate_cap", "workflow_cursor":
+		return scanSourceWorkflowLandings, scanSourceStatePending
+	case "commit_aggregation_unavailable", "commit_resource_limit":
+		return scanSourceCommitRecovery, scanSourceStateUnavailable
+	case "commit_year_cap", "commit_repository_cap":
+		return scanSourceCommitRecovery, scanSourceStatePending
+	default:
+		return "", ""
+	}
 }

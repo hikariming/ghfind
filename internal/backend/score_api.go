@@ -27,6 +27,7 @@ type RoastLine struct {
 }
 
 type StoredScoreDetail struct {
+	ScanCoverage      string
 	Username          string
 	DisplayName       *string
 	AvatarURL         *string
@@ -140,6 +141,18 @@ func (s *TursoStore) GetStoredScore(ctx context.Context, username string) (*Stor
 		detail.RiskAssessment = parseRiskAssessment(riskAssessment.String)
 		detail.RiskNotes = parseRiskNotes(riskNotes.String)
 		detail.LegacyFallback = detail.ScoreVersion == legacyRoastScoreVersion && ((roastVersion.String == legacyRoastVersion && roast.Valid && roast.String != "") || (roastENVersion.String == legacyRoastVersion && roastEN.Valid && roastEN.String != ""))
+		// The one-liner belongs to the newest report; withhold it unless that
+		// report is on the current roast release (or the legacy continuity path).
+		if !detail.LegacyFallback && roastVersion.String != roastArtifactVersion && roastENVersion.String != roastArtifactVersion {
+			detail.RoastLine = RoastLine{}
+		}
+		if detail.CollectionVersion == goCanonicalCollectionVersion && canonicalSnapshotHashPattern.MatchString(detail.SnapshotHash) {
+			var coverage string
+			err := s.db.QueryRowContext(ctx, `SELECT coverage FROM public_scan_runs WHERE username = ? AND snapshot_hash = ? AND collection_version = ? ORDER BY started_at DESC LIMIT 1`, strings.ToLower(detail.Username), detail.SnapshotHash, detail.CollectionVersion).Scan(&coverage)
+			if err == nil && (coverage == "partial_public" || coverage == "complete_public") {
+				detail.ScanCoverage = coverage
+			}
+		}
 		return &detail, nil
 	}
 
@@ -230,7 +243,7 @@ func (s *APIServer) storedScorePayload(ctx context.Context, detail StoredScoreDe
 	}
 	return map[string]any{
 		"source":          source,
-		"coverage":        map[bool]string{true: "quick", false: "legacy"}[current],
+		"coverage":        storedScanCoverage(detail, current),
 		"stale":           !current,
 		"username":        detail.Username,
 		"display_name":    detail.DisplayName,
@@ -267,7 +280,7 @@ func (s *APIServer) liveScorePayload(ctx context.Context, scan ScanResult, cache
 	}
 	return map[string]any{
 		"source":          "quick",
-		"coverage":        "quick",
+		"coverage":        scanCoverage(scan),
 		"cached":          cached,
 		"username":        scan.Metrics.Username,
 		"display_name":    scan.Metrics.Name,
@@ -488,4 +501,14 @@ func (s *APIServer) scoreFailure(w http.ResponseWriter, legacy *StoredScoreDetai
 		resultHeaders["Retry-After"] = retry
 	}
 	writeJSON(w, status, response, resultHeaders)
+}
+
+func storedScanCoverage(detail StoredScoreDetail, current bool) string {
+	if !current {
+		return "legacy"
+	}
+	if detail.ScanCoverage != "" {
+		return detail.ScanCoverage
+	}
+	return "quick"
 }

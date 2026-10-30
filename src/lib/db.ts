@@ -104,6 +104,23 @@ import type {
 const EMPTY_TAGS: Tags = { zh: [], en: [] };
 const PUBLIC_PROFILE_SCORE_VERSION = RELEASE_VERSION_MANIFEST.compatibility
   .publicScoreReadOrder[0];
+
+/** `profile_snapshots.scan_version` uses the same labels as score_version.
+ *  Canonical writes still pin PUBLIC_PROFILE_SCORE_VERSION; public profile
+ *  reads must also accept retained labels in publicScoreReadOrder so a score
+ *  advance does not blank top_repos / impact_repos until organic rescan. */
+function publicScanVersionSql(column = "scan_version"): string {
+  const list = PUBLIC_SCORE_READ_ORDER.map((version) => `'${version}'`).join(", ");
+  return `${column} IN (${list})`;
+}
+
+function publicScanVersionOrderSql(column = "scan_version"): string {
+  const cases = PUBLIC_SCORE_READ_ORDER.map(
+    (version, index) => `WHEN '${version}' THEN ${index}`,
+  ).join(" ");
+  return `CASE ${column} ${cases} ELSE ${PUBLIC_SCORE_READ_ORDER.length} END`;
+}
+
 const HEAT_LOOKUP_WINDOW_MS = 24 * 60 * 60 * 1000;
 const TRENDING_LOOKUP_WINDOW_MS = 7 * HEAT_LOOKUP_WINDOW_MS;
 const MIN_RECORDED_LOOKUP_COUNT = 1;
@@ -478,6 +495,11 @@ function heatIpHash(ip: string): string {
 
 let client: Client | null = null;
 let schemaReady: Promise<void> | null = null;
+
+/** Database used by the scan path. Null when neither D1 nor Turso is configured. */
+export function getScanDatabase(): Client | null {
+  return getClient();
+}
 
 function getClient(): Client | null {
   if (client) return client;
@@ -1770,13 +1792,15 @@ function mapPublicScanJob(row: Record<string, unknown>): PublicScanJob {
 }
 
 /**
- * Atomically publish a bounded quick scan and its deterministic score.
- * The quick snapshot is the production score contract for every account.
+ * Publish collected evidence and its deterministic score. The name remains for
+ * existing callers; collection metadata distinguishes quick/full and completeness.
  */
 export async function publishCompleteQuickScan(
   scan: ScanResult,
   scannedAt = Date.now(),
 ): Promise<ScoreWriteIdentity | null> {
+  const coverage = scan.collection?.coverage ?? "complete_public";
+  const sources = coverage === "complete_public" ? PUBLIC_SCAN_COMPLETE_SOURCES : { ...PUBLIC_SCAN_PENDING_SOURCES, quick: "complete" as const };
   const snapshot = JSON.stringify(scan);
   const snapshotHash = createHash("sha256").update(snapshot).digest("hex");
   const materialized = materializeCanonicalScore({
@@ -1787,7 +1811,7 @@ export async function publishCompleteQuickScan(
     collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
     scannedAt,
     mode: "quick",
-    sourceStatus: PUBLIC_SCAN_COMPLETE_SOURCES,
+    sourceStatus: sources,
   });
   if (!materialized) return null;
 
@@ -1808,18 +1832,20 @@ export async function publishCompleteQuickScan(
               (id, username, score_version, collection_version, state, coverage,
                source_status, quick_scan, snapshot, snapshot_hash,
                started_at, completed_at, updated_at)
-            SELECT ?, ?, ?, ?, 'complete_public', 'complete_public', ?, ?, ?, ?, ?, ?, ?
+            SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             WHERE NOT EXISTS (
               SELECT 1 FROM public_scan_runs
               WHERE username = ? AND score_version = ? AND collection_version = ?
-                AND state = 'complete_public' AND snapshot_hash = ? AND started_at = ?
+                AND state = ? AND snapshot_hash = ? AND started_at = ?
             )`,
       args: [
         randomUUID(),
         materialized.scoreEntry.username,
         SCORE_CACHE_VERSION,
         PUBLIC_SCAN_COLLECTION_VERSION,
-        JSON.stringify(PUBLIC_SCAN_COMPLETE_SOURCES),
+        coverage,
+        coverage,
+        JSON.stringify(sources),
         snapshot,
         snapshot,
         snapshotHash,
@@ -1829,12 +1855,19 @@ export async function publishCompleteQuickScan(
         materialized.scoreEntry.username,
         SCORE_CACHE_VERSION,
         PUBLIC_SCAN_COLLECTION_VERSION,
+        coverage,
         snapshotHash,
         scannedAt,
       ],
     });
     await advanceScoreDetailRevision(materialized.scoreEntry.username);
     await recordProfileSnapshot(materialized.scan);
+    // Cursor book is not part of the snapshot. A failed write does not roll
+    // back the public scan; the next scan reconciles a missing cursor.
+    // Dynamic import keeps this module from initializing scan-core, which
+    // reads the database through getScanDatabase.
+    const { commitScanCursorsAfterPersist } = await import("./scan-core");
+    await commitScanCursorsAfterPersist(scan);
     return scoreWrite.identity;
   } catch (error) {
     logPublicScanDbFailure("publish_quick_score", error);
@@ -4644,13 +4677,10 @@ export async function getProfileSnapshot(
     const res = await db.execute({
       sql: `SELECT top_repos, impact_repos, signature_work, pinned_repos, organizations, metrics, scanned_at
             FROM profile_snapshots
-            WHERE username = ? AND scan_version = ?
-            ORDER BY scanned_at DESC
+            WHERE username = ? AND ${publicScanVersionSql()}
+            ORDER BY ${publicScanVersionOrderSql()}, scanned_at DESC
             LIMIT 1`,
-      args: [
-        username.toLowerCase(),
-        PUBLIC_PROFILE_SCORE_VERSION,
-      ],
+      args: [username.toLowerCase()],
     });
     const r = res.rows[0];
     if (!r) return null;
@@ -4813,12 +4843,28 @@ export async function updateRoast(
       ],
       "write",
     );
-    return (
-      Number(updated.rowsAffected ?? 0) === 1 && Number(snapshot.rowsAffected ?? 0) === 1
-    );
+    const persisted =
+      Number(updated.rowsAffected ?? 0) === 1 && Number(snapshot.rowsAffected ?? 0) === 1;
+    if (persisted) await refreshScoreDetailAfterRoast(normalizedUsername);
+    return persisted;
   } catch (e) {
     console.error("updateRoast failed:", e);
     return false;
+  }
+}
+
+/**
+ * The cached public score detail (/api/score, verdicts) embeds roast_line and
+ * the version-gated report fields, so a persisted report must move readers to
+ * a fresh namespace like a score publication does. The row is already
+ * committed; a coordination failure only leaves the old detail until its TTL
+ * and must not turn the persisted report into a failure.
+ */
+async function refreshScoreDetailAfterRoast(username: string): Promise<void> {
+  try {
+    await advanceScoreDetailRevision(username);
+  } catch (error) {
+    console.error("updateRoast: score detail revision not advanced", { username, error });
   }
 }
 
@@ -6029,6 +6075,7 @@ export async function filterExistingRepoKeys(keys: string[]): Promise<Set<string
 }
 
 export interface AccountDetail {
+  scan_coverage?: PublicScanCoverage | "quick";
   username: string;
   display_name: string | null;
   avatar_url: string | null;
@@ -6057,6 +6104,14 @@ export interface AccountDetail {
   prev_scanned_at: number | null;
   risk_assessment?: RiskAssessment | null;
   risk_notes?: RiskSignal[];
+  /**
+   * Report from an older roast release on a current score. Never the current
+   * report: the page labels it 旧版锐评 while the auto re-roast regenerates it.
+   */
+  stale_roast?: string;
+  stale_roast_en?: string;
+  stale_roast_version?: string;
+  stale_roast_en_version?: string;
 }
 
 export interface ArchivedRoast {
@@ -6424,6 +6479,14 @@ export async function getRetiredAccountIdentity(username: string): Promise<{
   return row ? { username: String(row.username), displayName: row.display_name ? String(row.display_name) : null } : null;
 }
 
+/** A non-empty report written by an older roast release (see AccountDetail.stale_roast). */
+function staleRoastArtifact(version: unknown, report: unknown): { version: string; report: string } | null {
+  return typeof version === "string" && version && version !== ROAST_CACHE_VERSION &&
+    typeof report === "string" && report.trim()
+    ? { version, report }
+    : null;
+}
+
 /** Full persisted record for one account's detail page (null if absent/hidden). */
 export async function getAccountDetail(username: string): Promise<AccountDetail | null> {
   const db = getClient();
@@ -6478,7 +6541,26 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       : legacyReadFallback
         ? LEGACY_READ_FALLBACK.roast
         : null;
+    const zhCurrent = Boolean(artifactRoastVersion) && r.roast_version === artifactRoastVersion;
+    const enCurrent = Boolean(artifactRoastVersion) && r.roast_en_version === artifactRoastVersion;
+    // Every report generation rewrites the bilingual one-liner, so it is
+    // current exactly when one of the reports is (mirrors the Go profile API).
+    const roastLineCurrent = readableArtifacts && (zhCurrent || enCurrent);
+    const staleZh = canonicalScore && resolvedCurrentScore && !zhCurrent
+      ? staleRoastArtifact(r.roast_version, r.roast)
+      : null;
+    const staleEn = canonicalScore && resolvedCurrentScore && !enCurrent
+      ? staleRoastArtifact(r.roast_en_version, r.roast_en)
+      : null;
+    let scanCoverage: PublicScanCoverage | "quick" = "quick";
+    if (r.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION && typeof r.score_source_snapshot_hash === "string") {
+      const evidence = await db.execute({ sql: `SELECT coverage FROM public_scan_runs WHERE username = ? AND snapshot_hash = ? AND collection_version = ? ORDER BY started_at DESC LIMIT 1`,
+        args: [String(r.username).toLowerCase(), r.score_source_snapshot_hash, PUBLIC_SCAN_COLLECTION_VERSION] });
+      const value = evidence.rows[0]?.coverage;
+      if (value === "partial_public" || value === "complete_public") scanCoverage = value;
+    }
     return {
+      scan_coverage: scanCoverage,
       username: String(r.username),
       display_name: r.display_name as string | null,
       avatar_url: r.avatar_url as string | null,
@@ -6486,18 +6568,14 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       final_score: Number(r.final_score),
       tier: String(r.tier) as Tier,
       tags: readableArtifacts ? parseTags(r.tags) : EMPTY_TAGS,
-      roast_line: readableArtifacts ? parseRoastLine(r.roast_line) : EMPTY_ROAST_LINE,
+      roast_line: roastLineCurrent ? parseRoastLine(r.roast_line) : EMPTY_ROAST_LINE,
       sub_scores: parseSubScores(r.sub_scores),
       risk_assessment: parseRiskAssessment(r.risk_assessment),
       risk_notes: parseRiskNotes(r.risk_notes),
-      roast:
-        artifactRoastVersion && r.roast_version === artifactRoastVersion
-          ? ((r.roast as string | null) ?? null)
-          : null,
-      roast_en:
-        artifactRoastVersion && r.roast_en_version === artifactRoastVersion
-          ? ((r.roast_en as string | null) ?? null)
-          : null,
+      roast: zhCurrent ? ((r.roast as string | null) ?? null) : null,
+      roast_en: enCurrent ? ((r.roast_en as string | null) ?? null) : null,
+      ...(staleZh ? { stale_roast: staleZh.report, stale_roast_version: staleZh.version } : {}),
+      ...(staleEn ? { stale_roast_en: staleEn.report, stale_roast_en_version: staleEn.version } : {}),
       score_version: typeof r.score_version === "string" ? r.score_version : null,
       legacy_read_fallback: legacyReadFallback,
       score_source_collection_version:

@@ -22,10 +22,17 @@ describe('v16 continuous content evidence',()=>{
 
 import scoreFixtures from './content-skill-score-fixtures.json';
 import {score} from '../score';
-for(const f of scoreFixtures)it(`v16 score parity: ${f.name}`,()=>{
+for(const f of scoreFixtures)it(`content calibration and current score parity: ${f.name}`,()=>{
  const result=score(f.metrics as RawMetrics);
  expect(result.sub_scores).toEqual(f.expected.sub_scores);
  expect(result.final_score).toBe(f.expected.final_score);
  if(f.name==='fixture-skill-influencer')expect(result.final_score).toBeGreaterThanOrEqual(46);
- else expect(Math.abs(result.final_score-f.before_score)).toBeLessThanOrEqual(1.5);
+ else {
+  // v16 calibrated content only. Later contribution and ecosystem curves have
+  // their own goldens, so this bound puts those dimensions back first.
+  const contentCalibratedScore = result.final_score
+    - result.sub_scores.contribution_quality + f.calibration_contribution_quality
+    - result.sub_scores.ecosystem_impact + f.calibration_ecosystem_impact;
+  expect(Math.abs(contentCalibratedScore-f.before_score)).toBeLessThanOrEqual(1.5);
+ }
 });

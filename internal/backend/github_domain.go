@@ -1,9 +1,11 @@
 package backend
 
 import (
+	"encoding/json"
 	"math"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -92,16 +94,21 @@ type ImpactRepo struct {
 }
 
 type ScanResult struct {
-	Metrics           RawMetrics    `json:"metrics"`
-	TopRepos          []TopRepo     `json:"top_repos"`
-	RecentPRs         []RecentPR    `json:"recent_prs"`
-	FloodPRTitles     []string      `json:"flood_pr_titles"`
-	ImpactRepos       []ImpactRepo  `json:"impact_repos,omitempty"`
-	VerifiedImpactPRs []RecentPR    `json:"verified_impact_prs,omitempty"`
-	SignatureWork     SignatureWork `json:"signature_work"`
-	PinnedRepos       []string      `json:"pinned_repos,omitempty"`
-	Organizations     []string      `json:"organizations,omitempty"`
-	Scoring           Scoring       `json:"scoring"`
+	Collection        *CollectionCoverage `json:"collection,omitempty"`
+	Metrics           RawMetrics          `json:"metrics"`
+	TopRepos          []TopRepo           `json:"top_repos"`
+	RecentPRs         []RecentPR          `json:"recent_prs"`
+	FloodPRTitles     []string            `json:"flood_pr_titles"`
+	ImpactRepos       []ImpactRepo        `json:"impact_repos,omitempty"`
+	VerifiedImpactPRs []RecentPR          `json:"verified_impact_prs,omitempty"`
+	SignatureWork     SignatureWork       `json:"signature_work"`
+	PinnedRepos       []string            `json:"pinned_repos,omitempty"`
+	Organizations     []string            `json:"organizations,omitempty"`
+	Scoring           Scoring             `json:"scoring"`
+	// SourceStatus is the per-source ledger written to public_scan_runs.
+	// It stays off the snapshot JSON so a split and an in-process collect
+	// of the same facts keep the same snapshot hash.
+	SourceStatus json.RawMessage `json:"-"`
 }
 
 func repoDisplayName(repo TopRepo) string {
@@ -253,7 +260,11 @@ func TopStarredOriginalRepoQuality(repos []TopRepo, loginLower string, now time.
 		return 0, nil
 	}
 	name := repoDisplayName(*top)
-	return OriginalRepoQualityScore(*top, loginLower, now) * projectShare(top.AttributionShare), &name
+	// The repo is selected by credited stars, and its stars are already
+	// weighted by share in star points: multiplying quality by share again
+	// would double-count attribution and read a co-maintained product as a
+	// low-quality profile/config repo.
+	return OriginalRepoQualityScore(*top, loginLower, now), &name
 }
 
 type AnyPR struct {
@@ -848,7 +859,16 @@ func ComputeOrgRepoAttribution(repo ContribRepoAgg, organizations, pinnedRepos [
 		if share <= 0 {
 			return nil
 		}
-		evidence := []string{formatNumber(f.UserCommits) + "/" + formatNumber(f.TotalCommits) + " commits; leader " + formatNumber(f.LeadingCommits), formatNumber(f.UserMergedPRs) + "/" + formatNumber(f.TotalMergedPRs) + " merged PRs; " + formatNumber(f.ActiveYears) + " active years", formatNumber(f.CoreChurn) + " core lines in " + formatNumber(f.Samples) + " complete samples"}
+		evidence := []string{formatNumber(f.UserCommits) + "/" + formatNumber(f.TotalCommits) + " commits; leader " + formatNumber(f.LeadingCommits), formatNumber(f.UserMergedPRs) + "/" + formatNumber(f.TotalMergedPRs) + " merged PRs; " + formatNumber(f.ActiveYears) + " active years", formatNumber(math.Round(f.CoreChurn)) + " core lines in " + formatNumber(f.Samples) + " complete samples"}
+		if f.RecentTotalCommits != nil {
+			evidence = append(evidence, formatNumber(coNZ(f.RecentUserCommits))+"/"+formatNumber(*f.RecentTotalCommits)+" commits in the last "+strconv.Itoa(recentMaintenanceDays)+" days")
+		}
+		if f.RecentTotalMergedPRs != nil {
+			evidence = append(evidence, formatNumber(coNZ(f.RecentUserMergedPRs))+"/"+formatNumber(*f.RecentTotalMergedPRs)+" merged PRs in the last "+strconv.Itoa(recentMaintenanceDays)+" days")
+		}
+		if coNZ(f.ReviewedPRs) > 0 {
+			evidence = append(evidence, "reviewed "+formatNumber(*f.ReviewedPRs)+" PRs by others")
+		}
 		if firstCommitMatch {
 			evidence = append(evidence, "first commit author is "+strings.ToLower(creatorLogins[0]))
 		}

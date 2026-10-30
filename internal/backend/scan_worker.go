@@ -12,7 +12,7 @@ import (
 	"github.com/rabbitmq/amqp091-go"
 )
 
-const scanWorkerProcessTimeout = 2 * time.Minute
+const scanWorkerProcessTimeout = 5 * time.Minute
 
 type ScanCollector interface {
 	Collect(context.Context, string) (ScanResult, error)
@@ -90,11 +90,31 @@ func (w *ScanWorker) Run(ctx context.Context) error {
 	if err := channel.Qos(concurrency, 0, false); err != nil {
 		return fmt.Errorf("configure scan worker prefetch: %w", err)
 	}
-	deliveries, err := channel.Consume(scanQueue, "ghfind-scan-worker", false, false, false, false, nil)
+	parentDeliveries, err := channel.Consume(scanQueue, "ghfind-scan-worker", false, false, false, false, nil)
 	if err != nil {
 		return fmt.Errorf("consume scan jobs: %w", err)
 	}
-	return w.consumeDeliveries(ctx, deliveries, concurrency)
+	if !w.config.ScanFanoutEnabled {
+		return w.consumeDeliveries(ctx, parentDeliveries, concurrency)
+	}
+	partDeliveries, err := channel.Consume(scanPartQueue, "ghfind-scan-part", false, false, false, false, nil)
+	if err != nil {
+		return fmt.Errorf("consume scan part jobs: %w", err)
+	}
+	assembleDeliveries, err := channel.Consume(scanAssembleQueue, "ghfind-scan-assemble", false, false, false, false, nil)
+	if err != nil {
+		return fmt.Errorf("consume scan assemble jobs: %w", err)
+	}
+	errCh := make(chan error, 3)
+	go func() { errCh <- w.consumeDeliveries(ctx, parentDeliveries, concurrency) }()
+	go func() { errCh <- w.consumePartDeliveries(ctx, partDeliveries, concurrency) }()
+	go func() { errCh <- w.consumeAssembleDeliveries(ctx, assembleDeliveries, concurrency) }()
+	select {
+	case <-ctx.Done():
+		return nil
+	case err := <-errCh:
+		return err
+	}
 }
 
 // consumeDeliveries processes deliveries with bounded parallelism. Each job
@@ -178,7 +198,33 @@ func (w *ScanWorker) process(ctx context.Context, job ScanJob) (workerDispositio
 		w.metrics.recordWorkerJobRetry(ScanJobKind, time.Since(startedAt))
 		return workerRetry, "status store unavailable: " + err.Error()
 	}
-	scan, err := w.collector.Collect(ctx, job.Username)
+	if w.config.ScanFanoutEnabled {
+		if fanout, ok := w.collector.(scanFanoutCollector); ok {
+			if store, ok := w.results.(ScanPartStore); ok {
+				split, err := w.maybeSplitScan(ctx, job, fanout, store)
+				if err != nil {
+					if errors.Is(err, ErrGitHubAccountNotFound) || errors.Is(err, ErrGitHubAuthRequired) {
+						w.metrics.recordWorkerJobFailed(ScanJobKind, "permanent", time.Since(startedAt))
+						return workerDead, err.Error()
+					}
+					w.metrics.recordWorkerJobRetry(ScanJobKind, time.Since(startedAt))
+					return workerRetry, err.Error()
+				}
+				if split {
+					w.metrics.recordWorkerJobCompleted(ScanJobKind, "split", time.Since(startedAt))
+					return workerCompleted, ""
+				}
+			}
+		}
+	}
+	var scan ScanResult
+	var pending *pendingScanCursors
+	var err error
+	if w.config.ScanIncrementalEnabled {
+		scan, pending, err = w.collectIncremental(ctx, job)
+	} else {
+		scan, err = w.collector.Collect(ctx, job.Username)
+	}
 	if err != nil {
 		if errors.Is(err, ErrGitHubAccountNotFound) || errors.Is(err, ErrGitHubAuthRequired) {
 			w.metrics.recordWorkerJobFailed(ScanJobKind, "permanent", time.Since(startedAt))
@@ -187,40 +233,54 @@ func (w *ScanWorker) process(ctx context.Context, job ScanJob) (workerDispositio
 		w.metrics.recordWorkerJobRetry(ScanJobKind, time.Since(startedAt))
 		return workerRetry, err.Error()
 	}
-	created, err := w.results.PersistCollectedScan(ctx, job, scan)
-	if errors.Is(err, ErrScanJobConflict) {
-		w.metrics.recordWorkerJobFailed(ScanJobKind, "conflict", time.Since(startedAt))
-		return workerDead, err.Error()
-	}
-	if err != nil {
-		w.metrics.recordWorkerJobRetry(ScanJobKind, time.Since(startedAt))
-		return workerRetry, err.Error()
-	}
-	if w.scanCache != nil {
-		// Turso remains the authoritative result. A cache failure must never make
-		// a successfully committed scan retry and write a newer-looking score.
-		if err := w.scanCache.SetCachedScan(ctx, scan.Metrics.Username, scan); err != nil {
-			w.log.Warn("cache collected scan", "job_id", job.ID, "error", err)
+	if quickCoverageExceeded(scan) {
+		if fullCollector, ok := w.collector.(interface {
+			CollectFull(context.Context, string) (ScanResult, error)
+		}); ok {
+			var captured []githubRepo
+			var forkCount float64
+			scan, err = fullCollector.CollectFull(context.WithValue(ctx, inventoryCapture{}, inventoryCapture{Repos: &captured, ForkCount: &forkCount}), job.Username)
+			if err != nil {
+				return workerRetry, err.Error()
+			}
+			if w.config.ScanIncrementalEnabled {
+				if store, ok := w.results.(ScanCursorStore); ok {
+					book, loadErr := store.LoadScanCursors(ctx, job.Username)
+					if loadErr == nil {
+						now := time.Now().UTC()
+						if collector, ok := w.collector.(*GitHubCollector); ok && collector.clock != nil {
+							now = collector.clock().UTC()
+						}
+						// Only the inventory page was captured. PR sources stay
+						// on their previous watermarks until a full PR read.
+						repoPlan := planScanCursors(book, now)[scanCursorRepos]
+						repoPlan.Source = scanCursorRepos
+						repoPlan.Full = true
+						repoPlan.Since = ""
+						pending = &pendingScanCursors{
+							book: book, plans: map[string]scanCursorPlan{scanCursorRepos: repoPlan},
+							repos: captured, forkCount: forkCount, now: now,
+						}
+					}
+				}
+			}
 		}
 	}
-	if created {
-		recordSuccessfulScanOutcome(ctx, w.outcomes, w.lookupGate, w.revisions, scan.Metrics.Username, job.LookupHash, job.Campaign, time.Now().UTC())
+	disposition, reason := w.persistFinishedScan(ctx, job, scan, pending)
+	if disposition == workerCompleted {
+		result := "created"
+		if reason == "duplicate_delivery" {
+			result = "duplicate"
+		}
+		w.metrics.recordWorkerJobCompleted(ScanJobKind, result, time.Since(startedAt))
+		return workerCompleted, ""
 	}
-	completed := newScanJobStatus(job, JobCompleted, "")
-	completed.Attempt = attempt
-	if !created {
-		completed.Error = "duplicate_delivery"
+	if disposition == workerDead {
+		w.metrics.recordWorkerJobFailed(ScanJobKind, "conflict", time.Since(startedAt))
+		return workerDead, reason
 	}
-	if err := w.statuses.Put(ctx, completed); err != nil {
-		w.metrics.recordWorkerJobRetry(ScanJobKind, time.Since(startedAt))
-		return workerRetry, "status store unavailable: " + err.Error()
-	}
-	result := "created"
-	if !created {
-		result = "duplicate"
-	}
-	w.metrics.recordWorkerJobCompleted(ScanJobKind, result, time.Since(startedAt))
-	return workerCompleted, ""
+	w.metrics.recordWorkerJobRetry(ScanJobKind, time.Since(startedAt))
+	return workerRetry, reason
 }
 
 func (w *ScanWorker) releaseFlight(ctx context.Context, job ScanJob) {

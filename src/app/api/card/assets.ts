@@ -7,9 +7,21 @@
 import QRCode from "qrcode";
 import { SITE_URL } from "@/lib/site";
 
-/** Long edge cache: README/social scrapers hit the CDN, not the function. */
+/** Long edge cache for content that never changes per user (OG home/blog). */
 export const CDN_CACHE =
   "public, max-age=0, s-maxage=21600, stale-while-revalidate=86400";
+
+/**
+ * Edge cache for anything that renders a user's score (cards, badges): a
+ * rescan or score-version bump must show up within minutes, not the 6h+24h
+ * of {@link CDN_CACHE}. The router isolate cache and the API Workers Cache
+ * both honor s-maxage / stale-while-revalidate, so this bounds staleness at
+ * every edge layer. `max-age=0` keeps browsers and GitHub camo revalidating;
+ * never `immutable`. The on-page previews add `?v=<scanned_at>`, which the
+ * router keeps in the cache key, so they refresh immediately after a rescan.
+ */
+export const SCORE_CARD_CACHE =
+  "public, max-age=0, s-maxage=600, stale-while-revalidate=3600";
 
 /**
  * Pre-fetch an avatar to a data URL so a flaky fetch can't break rendering.

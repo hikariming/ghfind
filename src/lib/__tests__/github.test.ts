@@ -1,3 +1,4 @@
+import { stubGithubFetch } from "./inventory-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildRoastMessages } from "../prompt";
 import { score } from "../score";
@@ -145,7 +146,7 @@ function firstCommitOrgCollectFetch(input: {
         return jsonResponse({ data: { r0: { issues: { totalCount: 0 } } } });
       }
       if (query.includes("pullRequests(first:")) {
-        return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
+        return jsonResponse({ data: { user: { pullRequests: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } } } });
       }
       if (query.includes("isFork") && query.includes("defaultBranchRef")) {
         return jsonResponse({
@@ -313,8 +314,7 @@ describe("collect", () => {
   });
 
   it("fails when required GitHub GraphQL data is unavailable", async () => {
-    vi.stubGlobal(
-      "fetch",
+    stubGithubFetch(
       vi.fn(async (input: string | URL | Request) => {
         const url =
           typeof input === "string"
@@ -359,8 +359,7 @@ describe("collect", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-18T12:00:00Z"));
 
-    vi.stubGlobal(
-      "fetch",
+    stubGithubFetch(
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
         const url =
           typeof input === "string"
@@ -439,7 +438,7 @@ describe("collect", () => {
           if (
             query.includes("pullRequests(first: $count, orderBy: {field: CREATED_AT, direction: DESC})")
           ) {
-            return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
+            return jsonResponse({ data: { user: { pullRequests: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } } } });
           }
 
           if (
@@ -492,8 +491,7 @@ describe("collect", () => {
     let overviewQuery = "";
     let combinedAttempts = 0;
     let boundedMergedAggregationCalls = 0;
-    vi.stubGlobal(
-      "fetch",
+    stubGithubFetch(
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
         const url =
           typeof input === "string"
@@ -589,11 +587,11 @@ describe("collect", () => {
 
           if (query.includes("pullRequests(first: $count, states: MERGED, after:") && !query.includes("files(first:")) {
             boundedMergedAggregationCalls += 1;
-            return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
+            return jsonResponse({ data: { user: { pullRequests: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } } } });
           }
 
           if (query.includes("pullRequests(first:")) {
-            return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
+            return jsonResponse({ data: { user: { pullRequests: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } } } });
           }
 
           return jsonResponse({ data: { user: null } });
@@ -618,8 +616,7 @@ describe("collect", () => {
   });
 
   it("keeps the newest 300 merged PRs as an impact lower bound when history is larger", async () => {
-    vi.stubGlobal(
-      "fetch",
+    stubGithubFetch(
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
         const url =
           typeof input === "string"
@@ -855,7 +852,7 @@ ${"Useful project detail. ".repeat(50)}
         }
 
         if (query.includes("pullRequests(states: MERGED, first:")) {
-          return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
+          return jsonResponse({ data: { user: { pullRequests: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } } } });
         }
 
         if (query.includes("issues(states: OPEN)")) {
@@ -863,7 +860,7 @@ ${"Useful project detail. ".repeat(50)}
         }
 
         if (query.includes("pullRequests(first:")) {
-          return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
+          return jsonResponse({ data: { user: { pullRequests: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } } } });
         }
 
         if (query.includes("repository(owner:")) {
@@ -906,7 +903,7 @@ ${"Useful project detail. ".repeat(50)}
 
       return jsonResponse({}, 404);
     });
-    vi.stubGlobal("fetch", fetchMock);
+    stubGithubFetch( fetchMock);
 
     const result = await collect("dev");
 
@@ -932,8 +929,7 @@ ${"Useful project detail. ".repeat(50)}
   });
 
   it.each([false, true])("preserves founding evidence with organization membership=%s", async (member) => {
-    vi.stubGlobal(
-      "fetch",
+    stubGithubFetch(
       firstCommitOrgCollectFetch({
         login: "alice",
         owner: "lab",
@@ -960,8 +956,7 @@ ${"Useful project detail. ".repeat(50)}
   });
 
   it("attributes a substantive co-builder without claiming first authorship", async () => {
-    vi.stubGlobal(
-      "fetch",
+    stubGithubFetch(
       firstCommitOrgCollectFetch({
         login: "alice",
         owner: "lab",
@@ -981,8 +976,7 @@ ${"Useful project detail. ".repeat(50)}
   });
 
   it("does not count unmerged PR contribution graph entries as high-star impact", async () => {
-    vi.stubGlobal(
-      "fetch",
+    stubGithubFetch(
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
         const url =
           typeof input === "string"
@@ -1129,8 +1123,7 @@ ${"Useful project detail. ".repeat(50)}
   });
 
   it("degrades gracefully when organization lookup lacks read:org scope", async () => {
-    vi.stubGlobal(
-      "fetch",
+    stubGithubFetch(
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
         const url =
           typeof input === "string"
@@ -1206,7 +1199,7 @@ ${"Useful project detail. ".repeat(50)}
             return jsonResponse({
               data: {
                 user: {
-                  pullRequests: { nodes: [] },
+                  pullRequests: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } },
                 },
               },
             });
@@ -1218,7 +1211,7 @@ ${"Useful project detail. ".repeat(50)}
             return jsonResponse({
               data: {
                 user: {
-                  pullRequests: { nodes: [] },
+                  pullRequests: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } },
                 },
               },
             });
@@ -1233,6 +1226,7 @@ ${"Useful project detail. ".repeat(50)}
 
     expect(result.organizations).toEqual([]);
     expect(result.metrics.username).toBe("alice");
+    expect(result.metrics.github_user_id).toBe("1");
   });
 });
 
@@ -1284,7 +1278,7 @@ describe("fetchImpactRepoSignals", () => {
         },
       });
     });
-    vi.stubGlobal("fetch", fetchMock);
+    stubGithubFetch( fetchMock);
 
     const signals = await fetchImpactRepoSignals(repos, "me", "U_me");
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -1296,8 +1290,7 @@ describe("fetchImpactRepoSignals", () => {
   });
 
   it("measures community engagement alongside the merge sample", async () => {
-    vi.stubGlobal(
-      "fetch",
+    stubGithubFetch(
       vi.fn(async () =>
         jsonResponse({
           data: {
@@ -1320,10 +1313,10 @@ describe("fetchImpactRepoSignals", () => {
   });
 
   it("degrades to no signals on query errors but surfaces rate limits", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ errors: [{ message: "timeout" }] })));
+    stubGithubFetch( vi.fn(async () => jsonResponse({ errors: [{ message: "timeout" }] })));
     expect((await fetchImpactRepoSignals(repos, "me", "U_me")).size).toBe(0);
 
-    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ message: "rate limited" }, 429)));
+    stubGithubFetch( vi.fn(async () => jsonResponse({ message: "rate limited" }, 429)));
     await expect(fetchImpactRepoSignals(repos, "me", "U_me")).rejects.toThrow();
   });
 });
@@ -1340,8 +1333,7 @@ describe("fetchDurablePullRequestPage", () => {
   });
 
   it("returns durable merged PR facts and an opaque resume cursor", async () => {
-    vi.stubGlobal(
-      "fetch",
+    stubGithubFetch(
       vi.fn(async (input: string | URL | Request) => {
         const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
         if (url === "https://api.github.com/graphql") {
@@ -1449,8 +1441,7 @@ describe("ghFetch rotation + failover", () => {
   it("round-robins the Authorization token across sequential requests", async () => {
     process.env.GITHUB_TOKEN = "t1,t2,t3";
     const seen: (string | undefined)[] = [];
-    vi.stubGlobal(
-      "fetch",
+    stubGithubFetch(
       vi.fn(async (_input: unknown, init?: RequestInit) => {
         seen.push(authOf(init));
         return jsonResponse({ ok: true });
@@ -1479,7 +1470,7 @@ describe("ghFetch rotation + failover", () => {
       }
       return jsonResponse({ recovered: true });
     });
-    vi.stubGlobal("fetch", fetchMock);
+    stubGithubFetch( fetchMock);
 
     const res = await ghFetch("https://api.github.com/x");
 
@@ -1498,7 +1489,7 @@ describe("ghFetch rotation + failover", () => {
       if (auths.length === 1) return new Response("{}", { status: 401 });
       return jsonResponse({ ok: true });
     });
-    vi.stubGlobal("fetch", fetchMock);
+    stubGithubFetch( fetchMock);
 
     const res = await ghFetch("https://api.github.com/x");
 
@@ -1510,7 +1501,7 @@ describe("ghFetch rotation + failover", () => {
   it("does not retry a definitive 404", async () => {
     process.env.GITHUB_TOKEN = "t1,t2";
     const fetchMock = vi.fn(async () => new Response("{}", { status: 404 }));
-    vi.stubGlobal("fetch", fetchMock);
+    stubGithubFetch( fetchMock);
 
     const res = await ghFetch("https://api.github.com/x");
 
@@ -1556,14 +1547,14 @@ describe("external merged PRs and per-repo code samples", () => {
         },
       });
     });
-    vi.stubGlobal("fetch", fetchMock);
+    stubGithubFetch( fetchMock);
     const result = await fetchExternalMergedPrs("alice");
     expect(result?.total).toBe(2);
     expect(result?.nodes.map((n) => n.id)).toEqual(["PR_1", "PR_2"]);
 
-    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ errors: [{ message: "boom" }] })));
+    stubGithubFetch( vi.fn(async () => jsonResponse({ errors: [{ message: "boom" }] })));
     expect(await fetchExternalMergedPrs("alice")).toBeNull();
-    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ message: "rate limited" }, 429)));
+    stubGithubFetch( vi.fn(async () => jsonResponse({ message: "rate limited" }, 429)));
     await expect(fetchExternalMergedPrs("alice")).rejects.toThrow();
   });
 
@@ -1607,7 +1598,7 @@ describe("external merged PRs and per-repo code samples", () => {
         },
       });
     });
-    vi.stubGlobal("fetch", fetchMock);
+    stubGithubFetch( fetchMock);
     const samples = await collectImpactCodeSamples(
       [agg("org/engine", 9000, 1), agg("org/docsy", 5000, 3), agg("org/tiny", 50, 9)],
       "alice",

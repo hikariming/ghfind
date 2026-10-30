@@ -232,7 +232,7 @@ export interface Percentile {
 }
 
 export type ScoreSource = "indexed" | "quick" | "legacy_v5_v5_v3";
-export type ScoreCoverage = "quick" | "legacy";
+export type ScoreCoverage = "quick" | "partial_public" | "complete_public" | "legacy";
 
 /** Meta emitted by the roast stream after the bounded ±10 LLM adjustment. */
 export interface RoastMeta {
@@ -250,7 +250,8 @@ export interface ScorePayload {
   /** `indexed` = current stored score; `quick` = worker-backed deterministic
    * quick scan; `legacy_v5_v5_v3` = compatible stale fallback. */
   source: ScoreSource;
-  /** `quick` for current Go collection; `legacy` for accepted old stored scores. */
+  /** Observed completeness; `quick` for historical snapshots without evidence,
+   * `legacy` for accepted prior-collection artifacts. */
   coverage?: ScoreCoverage;
   /** True only for compatible legacy fallback scores. */
   stale?: boolean;

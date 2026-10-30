@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/tursodatabase/libsql-client-go/libsql"
@@ -36,6 +37,10 @@ type ScoreSnapshotStore interface {
 // TursoStore uses the official remote libSQL driver and existing credentials.
 type TursoStore struct {
 	db *sql.DB
+	// cursorSchema remembers a successful CREATE TABLE. A failure leaves the
+	// flag clear so the next call can retry.
+	cursorSchemaMu sync.Mutex
+	cursorSchemaOK bool
 }
 
 func OpenTursoStore(config Config) (*TursoStore, error) {

@@ -3,10 +3,8 @@ import { getGoProfileCardPresentation } from "@/lib/go-profile.server";
 import { renderMaterialCardSvg } from "@/lib/material-card";
 import { tierFor } from "@/lib/score-presentation";
 import { getCurrentTitleSponsor } from "@/lib/sponsor.server";
-import { tierAvatarFrame } from "@/lib/tier";
-import { tierAvatarFrameIconDataUrl } from "@/lib/tier-emoji.server";
 import { publicDisplayName, USERNAME_RE } from "@/lib/username";
-import { avatarDataUrl, CDN_CACHE, qrDataUrl, qrModuleColor } from "../../card/assets";
+import { avatarDataUrl, SCORE_CARD_CACHE, qrDataUrl, qrModuleColor } from "../../card/assets";
 import { parseTheme } from "../../card/[username]/cards";
 import { decodeRouteParam } from "@/lib/route-params";
 
@@ -31,10 +29,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
   const tags = detail.tags.zh;
   const scores = detail.sub_scores;
   const color = BADGE_COLOR[tier];
-  const [avatar, qr, tierIcon, titleSponsor] = await Promise.all([
+  const [avatar, qr, titleSponsor] = await Promise.all([
     avatarDataUrl(detail.avatar_url),
     qrDataUrl(`/u/${detail.username}?ref=material`, qrModuleColor(color, theme)),
-    tierAvatarFrameIconDataUrl(tierAvatarFrame(tier).icon),
     getCurrentTitleSponsor(),
   ]);
   const svg = renderMaterialCardSvg({
@@ -49,14 +46,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
     color,
     theme,
     qr,
-    tierIcon,
     sponsorLogo: titleSponsor?.logo ?? null,
     sponsorName: titleSponsor?.name ?? null,
   });
 
   return new Response(svg, {
     headers: {
-      "Cache-Control": isPreview ? "no-store" : CDN_CACHE,
+      "Cache-Control": isPreview ? "no-store" : SCORE_CARD_CACHE,
       "Content-Type": "image/svg+xml; charset=utf-8",
     },
   });

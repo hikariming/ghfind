@@ -2,7 +2,7 @@
 
 import { SponsorMark } from "@/components/SponsorMark";
 import { useSponsorRecords } from "@/components/SponsorData";
-import type { SponsorTier } from "@/lib/sponsorships";
+import { sponsorVisitHref, type SponsorTier } from "@/lib/sponsorships";
 import styles from "@/components/SponsorHolders.module.css";
 
 export function SponsorHolders({
@@ -43,13 +43,14 @@ export function SponsorHolders({
         <span>{name}</span>
       </>
     );
-    if (duplicate || !holder.url) {
+    const href = sponsorVisitHref(holder);
+    if (duplicate || !href) {
       return <span key={holder.id} className={className}>{contents}</span>;
     }
     return (
       <a
         key={holder.id}
-        href={holder.url}
+        href={href}
         target="_blank"
         rel="noopener noreferrer sponsored"
         className={className}

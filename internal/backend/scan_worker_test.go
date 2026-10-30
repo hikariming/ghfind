@@ -183,6 +183,20 @@ func (p *fakeScanPublisher) PublishScanDead(_ context.Context, job ScanJob, _ st
 	p.dead = append(p.dead, job)
 	return nil
 }
+func (p *fakeScanPublisher) PublishScanPart(context.Context, ScanPartJob) error { return nil }
+func (p *fakeScanPublisher) PublishScanPartRetry(context.Context, ScanPartJob, time.Duration) error {
+	return nil
+}
+func (p *fakeScanPublisher) PublishScanPartDead(context.Context, ScanPartJob, string) error {
+	return nil
+}
+func (p *fakeScanPublisher) PublishScanAssemble(context.Context, ScanAssembleJob) error { return nil }
+func (p *fakeScanPublisher) PublishScanAssembleRetry(context.Context, ScanAssembleJob, time.Duration) error {
+	return nil
+}
+func (p *fakeScanPublisher) PublishScanAssembleDead(context.Context, ScanAssembleJob, string) error {
+	return nil
+}
 
 func TestScanWorkerPersistsGoCollectedResultAndMarksDuplicate(t *testing.T) {
 	statuses := &fakeStatusStore{}

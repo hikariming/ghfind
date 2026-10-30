@@ -1,14 +1,18 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
+import { tagsForLocale } from "@/lib/roast-tags";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { RoastReport } from "./RoastReport";
 import remarkGfm from "remark-gfm";
 import { Link, useRouter } from "@/i18n/navigation";
 import { DIMENSIONS } from "@/lib/dimensions";
 import { splitReport } from "@/lib/report";
 import { consumeRoastStream, pendingScanKey } from "@/lib/roast-stream";
+import { writePendingEvaluate } from "@/lib/home-handoff";
+import { isRoastClientTimeout, roastClientSignal } from "@/lib/roast-client-timeout";
 import { readScanResponse } from "@/lib/scan-job-client";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 import type { RoastLine, RoastMeta, ScanResult, SubScoreKey, Tags, Tier } from "@/lib/types";
@@ -24,10 +28,15 @@ import { ShareCard } from "./ShareCard";
 import { ShareCardExportHost } from "./ShareCardExportHost";
 import { createShareCardBlob } from "./shareCardExport";
 import { TierAvatarFrame } from "./TierAvatarFrame";
+import { AdventurerLevel } from "@/components/realm/AdventurerLevel";
+import { RealmChip } from "@/components/realm/RealmGlyph";
+import { realmForScore } from "@/lib/realm";
 import { Turnstile, turnstileEnabled } from "./Turnstile";
 import { isStaleScanPayload, StaleScanHint } from "./StaleScanHint";
 import { Omnibox } from "./Omnibox";
 import { DimensionStarChart } from "./DimensionStarChart";
+import { RoastProgressCard } from "./RoastProgressCard";
+import { useRoastProgress } from "./useRoastProgress";
 import { SITE_URL } from "@/lib/site";
 import { normLang } from "@/lib/lang";
 import { trackEvent } from "@/lib/track";
@@ -54,6 +63,7 @@ export function Roaster({
   const t = useTranslations("roaster");
   const tScan = useTranslations("scanErrors");
   const tTier = useTranslations("tiers");
+  const tRealm = useTranslations("realms");
   const tDetail = useTranslations("detail");
   const tDim = useTranslations("dimensions");
   const locale = useLocale();
@@ -65,9 +75,6 @@ export function Roaster({
   const [scanning, setScanning] = useState(false);
   const [scanPending, setScanPending] = useState(false);
   const [roasting, setRoasting] = useState(false);
-  // Live progress label streamed from the server during the (slow, reasoning-model)
-  // judge → roast wait, so the card shows "正在校准评分… (8s)" instead of a frozen spinner.
-  const [thinking, setThinking] = useState("");
   const [scan, setScan] = useState<ScanResult | null>(null);
   const [report, setReport] = useState("");
   const [error, setError] = useState("");
@@ -86,6 +93,11 @@ export function Roaster({
   const [metaRoast, setMetaRoast] = useState<RoastLine | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
   const lastPrefillRef = useRef<string | null>(null);
+  const progress = useRoastProgress(roasting, scan?.metrics.username || username || "pending", locale);
+  const progressRef = useRef(progress);
+  useEffect(() => {
+    progressRef.current = progress;
+  });
 
   // Deep-link prefill (?username=): seed the Omnibox; it renders the value and
   // the user hits Enter to roast. (Focus/scroll now live inside the Omnibox.)
@@ -98,10 +110,10 @@ export function Roaster({
 
   const runRoast = useCallback(
     async (scanResult: ScanResult) => {
+      progressRef.current.reset();
       setRoasting(true);
       setReport("");
       setMetaRoast(null);
-      setThinking("");
 
       // Apply a decoded RoastMeta (header fast path or in-band M-frame) to the
       // score card / tags / one-liner.
@@ -143,6 +155,7 @@ export function Roaster({
         const res = await fetch("/api/roast", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: roastClientSignal(),
           // `lang` selects the English vs Chinese prompt + per-language cache.
           body: JSON.stringify({ scan: scanResult, byoKey, lang: locale }),
         });
@@ -157,15 +170,23 @@ export function Roaster({
         // Shared decoder: reads the X-Roast-Meta header fallback, then the frame
         // protocol (T progress / M meta / E error) followed by report markdown.
         await consumeRoastStream(res, {
-          onThinking: setThinking,
-          onMeta: applyMeta,
-          onReport: setReport,
+          onGenerator: (generator) => progressRef.current.setGenerator(generator),
+          onStarted: (startedAt) => progressRef.current.noteStarted(startedAt),
+          onThinking: (label) => progressRef.current.noteThinking(label),
+          onMeta: (meta) => {
+            progressRef.current.markComplete();
+            applyMeta(meta);
+          },
+          onReport: (text) => {
+            if (text.trim()) progressRef.current.markComplete();
+            setReport(text);
+          },
           onError: (data) => {
             if (!handleError(data)) setError(t("errRoastFailed"));
           },
         });
-      } catch {
-        setError(t("errNetworkRoast"));
+      } catch (error) {
+        setError(t(isRoastClientTimeout(error) ? "errRoastTimeout" : "errNetworkRoast"));
       } finally {
         setRoasting(false);
       }
@@ -197,11 +218,27 @@ export function Roaster({
       setDisplay(null);
       setTags(null);
       setMetaRoast(null);
-      setThinking("");
-      setScanning(true);
       // Funnel top: the user committed to a roast. `source` lets us split the
       // home scanner from other entry points if they get instrumented later.
       trackEvent("scan_start", { source: analyticsSource });
+      const byoKeyEarly: ByoKeyConfig | null = loadByoKey();
+      const forceProfileHandoffEarly =
+        process.env.NODE_ENV !== "production" && searchParams.get("profile") === "1";
+      // Default path: leave the homepage immediately so the profile route owns
+      // the waiting shell (skeleton + stage spinner). BYO-key stays on-home.
+      if (!byoKeyEarly || forceProfileHandoffEarly) {
+        writePendingEvaluate(uname, {
+          turnstileToken: token || undefined,
+          campaign: campaign ?? null,
+          startedAt: Date.now(),
+        });
+        setScanning(true);
+        const profileParams = new URLSearchParams({ roasting: "1" });
+        if (campaign) profileParams.set("campaign", campaign);
+        router.push(`/u/${uname}?${profileParams.toString()}`);
+        return;
+      }
+      setScanning(true);
       const presentScan = (result: ScanResult) => {
         setScanPending(false);
         setStaleScan(isStaleScanPayload(result));
@@ -292,7 +329,7 @@ export function Roaster({
   const shareText =
     scan && display
       ? t("shareText", {
-          score: display.score.toFixed(2),
+          score: `Lv.${Math.floor(display.score)}`,
           tier: tTier(`${TIER_KEY[display.tier]}.name`),
           tierLabel: display.tierLabel,
           beat: beatText,
@@ -460,22 +497,31 @@ export function Roaster({
             <TierAvatarFrame
               username={scan.metrics.username}
               avatarUrl={scan.metrics.avatar_url}
+              score={display.score}
               tier={display.tier}
               size="lg"
               className="mt-5"
             />
             <div className={`mt-4 text-6xl font-black tabular-nums ${style.text}`}>
-              {display.score.toFixed(2)}
-              <span className="text-2xl text-zinc-600">/100</span>
+              <AdventurerLevel score={display.score} caption={tDetail("adventurerLevel")} size="lg" />
             </div>
             {staleScan && <StaleScanHint show />}
             <div className={`mt-1 text-2xl font-bold ${style.text}`}>
-              {style.emoji} {tTier(`${TIER_KEY[display.tier]}.name`)}
+              <RealmChip realm={realmForScore(display.score)} name={tRealm(`${realmForScore(display.score).id}.name`)} />
             </div>
+            {roasting && !roastLine && !reportBody ? (
+              <p className="mt-2 text-sm text-zinc-400">{tDetail("scoreReadyHint")}</p>
+            ) : null}
 
             {/* Savage one-liner only — full scoring report renders below the card */}
-            <div className="mt-4 w-full rounded-xl border border-orange-500/20 bg-orange-500/[0.04] p-4 text-start">
-              <div className="mb-2 text-base font-bold text-orange-400">{t("roastLabel")}</div>
+            <div
+              className={
+                roasting && !roastLine
+                  ? "mt-4 w-full text-start"
+                  : "mt-4 w-full rounded-xl border border-orange-500/20 bg-orange-500/[0.04] p-4 text-start"
+              }
+            >
+              <div className={`mb-2 text-base font-bold ${style.text}`}>{t("roastLabel")}</div>
               {roastLine ? (
                 <p
                   className={`text-sm leading-relaxed text-zinc-100 ${
@@ -484,25 +530,34 @@ export function Roaster({
                 >
                   {roastLine}
                 </p>
-              ) : (
-                <div className="flex flex-col items-center gap-3 py-3 text-center">
-                  <div className="flex gap-1.5">
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-orange-400 [animation-delay:-0.3s]" />
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-orange-400 [animation-delay:-0.15s]" />
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-orange-400" />
-                  </div>
-                  <div className="text-sm text-zinc-400 tabular-nums">
-                    {roasting ? thinking || t("roastThinking") : t("roastPending")}
-                  </div>
+              ) : roasting && !progress.hidden ? (
+                <div className={progress.fading ? "opacity-0 transition-opacity duration-300 motion-reduce:transition-none" : ""}>
+                  <RoastProgressCard
+                    percent={progress.percent}
+                    title={tDetail("roastProgressTitle")}
+                    stage={
+                      [
+                        tDetail("roastStage1"),
+                        tDetail("roastStage2"),
+                        tDetail("roastStage3"),
+                        tDetail("roastStage4"),
+                        tDetail("roastStage5"),
+                      ][progress.stageIndex] ?? tDetail("roastStage1")
+                    }
+                    score={scan.scoring.final_score}
+                    tier={display.tier}
+                  />
                 </div>
+              ) : (
+                <p className="text-center text-sm text-foreground/70">{t("roastPending")}</p>
               )}
 
-              {tags && (tags.zh.length > 0 || tags.en.length > 0) && (
-                <div className="mt-3 flex flex-wrap gap-1.5 border-t border-white/10 pt-3">
-                  {[...tags.zh, ...tags.en].map((tag, i) => (
+              {tagsForLocale(tags, locale).length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2 border-t border-white/10 pt-3">
+                  {tagsForLocale(tags, locale).map((tag, i) => (
                     <span
                       key={`${tag}-${i}`}
-                      className="rounded-full border border-orange-400/30 bg-orange-500/10 px-2.5 py-0.5 text-xs font-medium text-orange-200"
+                      className="rounded-full border border-zinc-500/25 bg-zinc-500/[0.08] px-2 py-0.5 text-[10px] font-medium tracking-wide text-zinc-400"
                     >
                       #{tag}
                     </span>
@@ -518,6 +573,7 @@ export function Roaster({
               <DimensionStarChart
                 scores={scan.scoring.sub_scores}
                 labels={dimensionLabels}
+                score={scan.scoring.final_score}
                 tier={display.tier}
               />
             </div>
@@ -578,14 +634,11 @@ export function Roaster({
               outside the card, above the leaderboard */}
           {reportBody && (
             <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-7">
-              <div
-                dir="ltr"
-                className={`report text-[0.95rem] text-zinc-200 ${
-                  roasting && !roastLine ? "caret" : ""
-                }`}
-              >
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{reportBody}</ReactMarkdown>
-              </div>
+              <RoastReport
+                markdown={reportBody}
+                className={roasting && !roastLine ? "caret" : ""}
+                tier={display?.tier}
+              />
             </div>
           )}
 

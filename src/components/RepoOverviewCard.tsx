@@ -138,7 +138,7 @@ function tierBarClass(tier: Tier): string {
     顶级: "bg-violet-400/80",
     人上人: "bg-emerald-400/80",
     NPC: "bg-slate-400/70",
-    拉完了: "bg-rose-500/80",
+    拉完了: "bg-zinc-500/80",
   };
   return map[tier] ?? "bg-slate-400/70";
 }

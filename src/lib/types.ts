@@ -154,6 +154,8 @@ export interface SignatureWork {
 
 export interface RawMetrics {
   username: string;
+  /** Stable REST user identity captured with these score facts; never a scoring signal. */
+  github_user_id?: string;
   profile_url: string | null;
   avatar_url: string | null;
   name: string | null;
@@ -246,6 +248,8 @@ export interface RawMetrics {
   unverified_impact_pr_count?: number;
   // All-time per-repo impact aggregates (commits + PRs into popular repos).
   // Optional so existing RawMetrics literals / fixtures stay valid.
+  /** Per-repo landed work used for the v19 breadth curve. Missing on old snapshots. */
+  impact_repos?: ImpactRepo[];
   impact_repo_count?: number;
   impact_commit_count?: number;
   /** GitHub rejected the per-repository commit contribution graph for this
@@ -343,6 +347,7 @@ export interface Scoring {
 
 /** Full scan payload — same shape the Python script prints. */
 export interface ScanResult {
+  collection?: import("./scan-coverage").CollectionCoverage;
   metrics: RawMetrics;
   top_repos: TopRepo[];
   recent_prs: RecentPr[];

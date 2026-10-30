@@ -20,12 +20,25 @@ const LEGACY_PREFIXES: readonly string[] = ["/_next/"];
  * /api/campaigns/:c/leaderboard/events are not migrated yet.
  */
 const API_ROUTES: readonly RegExp[] = [
+  /^\/api\/feed\/authors\/[^/]+$/,
+  // New social posts are independent from the legacy project Feed routes.
+  /^\/api\/feed\/posts$/,
+  /^\/api\/feed\/posts\/[^/]+$/,
+  /^\/api\/feed\/posts\/[^/]+\/(?:replies|ancestors|reaction|bookmark|repost)$/,
+  /^\/api\/feed\/publishing-capabilities$/,
+  /^\/api\/feed\/post-events$/,
+  /^\/api\/feed\/me\/bookmarks$/,
+  /^\/api\/feed\/authors\/[^/]+\/follow$/,
+  /^\/api\/feed\/media$/,
+  /^\/api\/feed\/media\/[^/]+$/,
+  /^\/api\/internal\/social-feed\/x-posts$/,
   /^\/api\/leaderboard$/,
   /^\/api\/stats$/,
   /^\/api\/search-users$/,
   /^\/api\/developers$/,
   /^\/api\/talent$/,
   /^\/api\/sponsors$/,
+  /^\/api\/sponsors\/[^/]+\/visit$/,
   /^\/api\/facet-rank\/[^/]+$/,
   /^\/api\/campaigns\/[^/]+\/leaderboard$/,
   // Batch 2: README-embedded / social images (SVG badges and cards, PNG
@@ -66,6 +79,7 @@ const API_ROUTES: readonly RegExp[] = [
   /^\/api\/score\/[^/]+$/,
   /^\/api\/scan$/,
   /^\/api\/roast$/,
+  /^\/api\/roast\/auto$/,
   /^\/api\/vs-verdict$/,
   /^\/api\/project-analyses$/,
   /^\/api\/project-analyses\/[^/]+$/,

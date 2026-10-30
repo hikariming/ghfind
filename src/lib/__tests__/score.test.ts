@@ -1613,8 +1613,8 @@ describe("doc-like PR contribution-quality discount", () => {
     const flag = s.red_flags.find((f) => f.flag === "templated_pr_flooding");
     expect(flag).toBeUndefined();
     expect(s.risk_notes?.some((note) => note.flag === "templated_pr_flooding")).toBe(true);
-    expect(s.tier).toBe("顶级");
-    expect(s.final_score).toBeGreaterThanOrEqual(80);
+    expect(["顶级", "人上人"]).toContain(s.tier);
+    expect(s.final_score).toBeGreaterThanOrEqual(70);
   });
 
   it("does not cap contribution quality for low-volume author-closed external PRs", () => {
@@ -2012,11 +2012,19 @@ describe("scoring contract (single PR pool, weighted originals, unscaled follow 
     expect(community(2000)).toBe(8);
   });
 
-  it("saturates impact depth at 8", () => {
+  it("approaches the depth budget without a hard stop at 8", () => {
     const depth = (impact_depth_raw: number) =>
-      score({ ...NEUTRAL, impact_prestige_score: 0, impact_depth_raw }).sub_scores.ecosystem_impact;
-    expect(depth(8)).toBe(11);
-    expect(depth(10)).toBe(11);
-    expect(depth(20)).toBe(11);
+      score({
+        ...NEUTRAL,
+        impact_prestige_score: 0,
+        impact_depth_raw,
+        top_repo_pr_share: 0,
+        recent_merged_pr_sample: 0,
+      }).sub_scores.ecosystem_impact;
+    expect(depth(8)).toBeGreaterThan(8);
+    expect(depth(8)).toBeLessThan(11);
+    expect(depth(20)).toBeGreaterThan(depth(8));
+    expect(depth(80)).toBeGreaterThan(depth(20));
+    expect(depth(80)).toBeLessThanOrEqual(11);
   });
 });

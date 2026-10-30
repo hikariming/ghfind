@@ -71,7 +71,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // (fallback pages canonicalize onto en anyway, so a missing translation only
   // costs an extra hreflang hint, never a duplicate-content page).
   const blogRoutes: MetadataRoute.Sitemap = [
-    entry("/blog", { changeFrequency: "weekly", priority: 0.7 }),
     ...getPostSlugs().map((slug) => {
       const post = getPost(slug, "en");
       return entry(`/blog/${slug}`, {

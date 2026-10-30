@@ -484,7 +484,7 @@ func (s *APIServer) mcpSearchUsers(ctx context.Context, rawQuery string) any {
 
 func (s *APIServer) mcpStoredScorePayload(ctx context.Context, detail StoredScoreDetail, source string, current bool) map[string]any {
 	return map[string]any{
-		"source": source, "coverage": map[bool]string{true: "quick", false: "legacy"}[current], "stale": !current,
+		"source": source, "coverage": storedScanCoverage(detail, current), "stale": !current,
 		"username": detail.Username, "display_name": detail.DisplayName, "final_score": detail.FinalScore,
 		"tier": detail.Tier, "tier_key": tierKey(detail.Tier), "sub_scores": detail.SubScores,
 		"base_score": storedBaseScore(detail.SubScores), "total_penalty": storedRiskPenalty(detail.RiskAssessment),
@@ -497,7 +497,7 @@ func (s *APIServer) mcpStoredScorePayload(ctx context.Context, detail StoredScor
 
 func (s *APIServer) mcpLiveScorePayload(ctx context.Context, scan ScanResult) map[string]any {
 	return map[string]any{
-		"source": "quick", "coverage": "quick", "username": scan.Metrics.Username,
+		"source": "quick", "coverage": scanCoverage(scan), "username": scan.Metrics.Username,
 		"display_name": scan.Metrics.Name, "final_score": scan.Scoring.FinalScore,
 		"tier": scan.Scoring.Tier, "tier_key": tierKey(scan.Scoring.Tier), "sub_scores": scan.Scoring.SubScores,
 		"base_score": scan.Scoring.BaseScore, "total_penalty": scan.Scoring.TotalPenalty,

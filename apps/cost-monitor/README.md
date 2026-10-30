@@ -113,7 +113,7 @@ need twelve observations and minimum activity; suspicious data does not train
 them. Relative 3x/10x anomalies also require $0.05/$0.50 per-hour estimated use,
 including SQL fingerprints. SQL diagnostics require two windows even for absolute
 critical thresholds. Worker errors need at least three errors and twenty calls;
-separate key-feature signals retain immediate failure detection at low traffic.
+separate key-feature signals retain fast failure detection at low traffic.
 DO/KV/R2/Queues ratios use account-wide Worker calls as a reference denominator,
 not the actual number of operations on the individual resource.
 
@@ -156,6 +156,22 @@ results even after HTTP 200. User-supplied model configuration errors, ordinary
 4xx responses and client disconnects are excluded. Only fixed feature names,
 times and counts are retained; Tail can retry, so counts are observations, not
 financial accounting. No traffic does not establish recovery.
+
+Card and badge failures page on a single failure per window; homepage analysis
+needs at least three failures and a 20% failure rate. Roast generation is a
+low-volume LLM stream whose isolated provider timeouts fall back to a stored
+report, so it pages only after at least two generation failures within a rolling
+30-minute lookback (the current window plus the five before it), evaluated in
+windows that have roast traffic. A full provider outage still pages as soon as
+the second failed generation lands. Slow roast calls (over 30 seconds) remain a
+separate P2 warning.
+
+Background auto re-roasts (#566) run inside the ghfind-api cron, not as
+`/api/roast` requests, so they never count as homepage roast calls or roast
+latency. Their worker outcomes (`auto_reroast` done/failed; queue states such as
+pending or superseded are ignored) feed a separate `reroast` counter that only
+warns (P2) when at least three jobs and half of finished jobs fail within the
+same 30-minute lookback, because the profile keeps the previous report.
 
 Each cycle also GET-probes the homepage and torvalds large/mini cards for HTTP
 status and Content-Type. It does not start GitHub analysis or paid LLM generation.

@@ -31,6 +31,7 @@ vi.mock("../scan-slots", () => ({
 vi.mock("../scan-core", () => ({
   buildScanResult: mocks.buildScanResult,
   logFreshScanFailure: mocks.logFreshScanFailure,
+  discardIncrementalCursor: vi.fn(),
 }));
 vi.mock("../db", () => ({
   publishCompleteQuickScan: mocks.publishCompleteQuickScan,
@@ -93,6 +94,20 @@ describe("completeBackgroundScan", () => {
     expect(mocks.publish).not.toHaveBeenCalled();
   });
 
+  it("deepens a truncated quick scan within the existing pending owner before publication", async () => {
+    const partial = { metrics: { username: "fiction-highfork" }, collection: {
+      mode: "quick", coverage: "partial_public", truncation_reasons: ["public_repos_quick_limit"],
+    } };
+    const complete = { ...partial, collection: { mode: "full", coverage: "complete_public", truncation_reasons: [] } };
+    mocks.buildScanResult.mockResolvedValueOnce(partial).mockResolvedValueOnce(complete);
+    await expect(completeBackgroundScan("fiction-highfork", "owner-a")).resolves.toMatchObject({ ok: true });
+    expect(mocks.buildScanResult).toHaveBeenNthCalledWith(2, "fiction-highfork", {
+      full: true, deadlineMs: expect.any(Number),
+    });
+    expect(mocks.publishCompleteQuickScan).toHaveBeenCalledExactlyOnceWith(complete, expect.any(Number));
+    expect(JSON.parse(mocks.publish.mock.calls[0][1]).collection.coverage).toBe("complete_public");
+  });
+
   it("skips GitHub when a payload is already published", async () => {
     mocks.payload.mockResolvedValue(JSON.stringify({ metrics: { username: "tj" } }));
     await expect(completeBackgroundScan("tj", "owner-a")).resolves.toEqual({
@@ -102,5 +117,12 @@ describe("completeBackgroundScan", () => {
     expect(mocks.buildScanResult).not.toHaveBeenCalled();
     expect(mocks.publish).not.toHaveBeenCalled();
     expect(mocks.release).toHaveBeenCalledWith("owner-a", false, "scan:active-producers:v1");
+  });
+
+  it("does not mistake the warm baseline for a completed full refresh", async () => {
+    mocks.pending.mockResolvedValue({ owner: "owner-a", username: "fiction-highfork", startedAt: 1, full: true, refresh: true });
+    mocks.payload.mockResolvedValue(JSON.stringify({ metrics: { username: "fiction-highfork" }, collection: { mode: "quick", coverage: "partial_public" } }));
+    await expect(completeBackgroundScan("fiction-highfork", "owner-a")).resolves.toMatchObject({ status: "published" });
+    expect(mocks.buildScanResult).toHaveBeenCalledExactlyOnceWith("fiction-highfork", { full: true, deadlineMs: 300_000 });
   });
 });

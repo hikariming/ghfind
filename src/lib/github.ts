@@ -1,5 +1,5 @@
-import { presentationSignals, prPresentationShare, isPresentationPath } from "./presentation-concentration";
-import { coCreatorShare, projectShare, budgetCoCreatorShares, type CoCreatorFacts } from "./co-creator";
+import { presentationSignals, prPresentationShare } from "./presentation-concentration";
+import { coCreatorShare, projectShare, budgetCoCreatorShares, summarizeContributors, weightedCoreChurn, RECENT_MAINTENANCE_DAYS, type CoCreatorFacts, type ContributorRow } from "./co-creator";
 /**
  * GitHub public-signal collection.
  *
@@ -22,6 +22,7 @@ import type {
   TopRepo,
 } from "./types";
 import type { PublicScanOwnedRepoFact, PublicScanPrFact } from "./scan-run-types";
+import { cursorBeforeWatermark, mergeInventoryRepos, type CursorRepo } from "./scan-cursor";
 
 const GITHUB_API = "https://api.github.com";
 const README_FETCH_LIMIT = 1024 * 1024;
@@ -276,6 +277,8 @@ export async function ghFetch(
 }
 
 interface RestRepo {
+  /** GitHub numeric repository id. Present on the GraphQL inventory path. */
+  id?: string;
   name: string;
   full_name?: string;
   private?: boolean;
@@ -361,6 +364,164 @@ async function restGet<T>(path: string): Promise<T | null> {
   }
 }
 
+// The existing quick bounds are shared with escalation, never tuned per user.
+export const QUICK_REPO_PAGES = 2;
+export const GITHUB_PAGE_SIZE = 100;
+export const MERGED_PR_WINDOW = 300;
+const WORKFLOW_CANDIDATE_CAP = 25;
+
+interface CollectionScope {
+  full?: boolean;
+  note: (reason: string) => void;
+}
+
+interface OriginalInventoryNode {
+  databaseId?: number | null;
+  name: string; nameWithOwner: string; isFork: boolean; diskUsage: number;
+  stargazerCount: number; forkCount: number; description: string | null; pushedAt: string | null;
+  primaryLanguage: { name: string } | null;
+  issues: { totalCount: number };
+  openPullRequests?: { totalCount: number };
+  repositoryTopics: { nodes: { topic: { name: string } }[] };
+}
+
+export interface OriginalInventoryOptions {
+  /** Full public inventory. Ignores the quick page cap and any watermark. */
+  full?: boolean;
+  /**
+   * Newest stored `pushedAt`. Pages stop once a repo is strictly older.
+   * Same-second siblings are kept. GraphQL `endCursor` is not a resume token.
+   * Empty means the existing full or quick page.
+   */
+  since?: string;
+}
+
+/** Server-side fork exclusion; owner-only REST still includes forks. */
+export async function fetchOriginalInventory(
+  username: string,
+  fullOrOptions: boolean | OriginalInventoryOptions = false,
+): Promise<{
+  repos: RestRepo[]; forks: number; incomplete: boolean;
+}> {
+  const options: OriginalInventoryOptions = typeof fullOrOptions === "boolean"
+    ? { full: fullOrOptions }
+    : fullOrOptions;
+  const full = options.full === true;
+  const since = options.since?.trim() ?? "";
+  const incremental = since.length > 0 && !full;
+  const repos: RestRepo[] = [];
+  let after: string | null = null;
+  let forks = 0;
+  for (let page = 0; full || incremental || page < QUICK_REPO_PAGES; page++) {
+    const data: { user: { forks: { totalCount: number }; repositories: {
+      nodes: OriginalInventoryNode[]; pageInfo: { hasNextPage: boolean; endCursor: string | null };
+    } } | null } = await graphql(`query OriginalInventory($login: String!, $after: String, $count: Int!) {
+      user(login: $login) {
+        forks: repositories(first: 1, privacy: PUBLIC, ownerAffiliations: [OWNER], isFork: true) { totalCount }
+        repositories(first: $count, after: $after, privacy: PUBLIC, ownerAffiliations: [OWNER], isFork: false,
+          orderBy: {field: PUSHED_AT, direction: DESC}) {
+          nodes { databaseId name nameWithOwner isFork diskUsage stargazerCount forkCount description pushedAt
+            primaryLanguage { name } issues(states: OPEN) { totalCount }
+            openPullRequests: pullRequests(states: OPEN) { totalCount }
+            repositoryTopics(first: 20) { nodes { topic { name } } } }
+          pageInfo { hasNextPage endCursor }
+        }
+      }
+    }`, { login: username, after, count: GITHUB_PAGE_SIZE });
+    if (!data.user?.repositories || !data.user.forks) throw new GitHubDataUnavailableError("GitHub original inventory unavailable.");
+    forks = data.user.forks.totalCount;
+    const connection = data.user.repositories;
+    const pageRepos: RestRepo[] = [];
+    for (const node of connection.nodes) {
+      if (node.isFork) continue;
+      pageRepos.push({
+        id: node.databaseId != null && Number.isFinite(node.databaseId) ? String(node.databaseId) : undefined,
+        name: node.name, full_name: node.nameWithOwner, fork: false, size: node.diskUsage,
+        stargazers_count: node.stargazerCount, forks_count: node.forkCount, description: node.description,
+        pushed_at: node.pushedAt, language: node.primaryLanguage?.name ?? null,
+        // Match REST open_issues_count, which includes open PRs.
+        open_issues_count: node.issues.totalCount + (node.openPullRequests?.totalCount ?? 0), topics: node.repositoryTopics.nodes.map(n => n.topic.name) });
+    }
+    if (incremental) {
+      // Equal timestamps stay. The merge dedupes by repo id, so a second
+      // item pushed in the same second is not dropped.
+      let stopped = false;
+      for (const repo of pageRepos) {
+        if (cursorBeforeWatermark(repo.pushed_at, since)) {
+          stopped = true;
+          continue;
+        }
+        repos.push(repo);
+      }
+      if (stopped || !connection.pageInfo.hasNextPage) return { repos, forks, incomplete: false };
+    } else {
+      repos.push(...pageRepos);
+      if (!connection.pageInfo.hasNextPage) return { repos, forks, incomplete: false };
+    }
+    const cursor = connection.pageInfo.endCursor;
+    if (!connection.nodes.length || !cursor || cursor === after) throw new GitHubDataUnavailableError("GitHub original inventory cursor made no progress.");
+    after = cursor;
+  }
+  return { repos, forks, incomplete: true };
+}
+
+function restRepoToCursor(repo: RestRepo): CursorRepo | null {
+  const fullName = repo.full_name?.trim() || repo.name;
+  if (!repo.id?.trim() && !fullName) return null;
+  return {
+    id: repo.id?.trim() ?? "",
+    name: repo.name,
+    fullName,
+    size: repo.size ?? 0,
+    stars: repo.stargazers_count ?? 0,
+    forks: repo.forks_count ?? 0,
+    openIssues: repo.open_issues_count ?? 0,
+    description: repo.description ?? null,
+    pushedAt: repo.pushed_at ?? null,
+    language: repo.language ?? null,
+    topics: repo.topics ?? [],
+  };
+}
+
+function cursorRepoToRest(repo: CursorRepo): RestRepo {
+  return {
+    id: repo.id || undefined,
+    name: repo.name,
+    full_name: repo.fullName,
+    fork: false,
+    size: repo.size,
+    stargazers_count: repo.stars,
+    forks_count: repo.forks,
+    open_issues_count: repo.openIssues,
+    language: repo.language,
+    description: repo.description,
+    pushed_at: repo.pushedAt,
+    topics: repo.topics,
+  };
+}
+
+/**
+ * Incremental inventory upserts the delta into the previous page and keeps
+ * the last full fork total. A full or unwatermarked pull uses the page as-is.
+ * Deletes wait for the next full reconcile.
+ */
+function mergeInventoryBaseline(
+  page: { repos: RestRepo[]; forks: number },
+  baseline: { repos: CursorRepo[]; forkCount: number } | undefined,
+  since: string,
+): { repos: RestRepo[]; forks: number } {
+  if (!since || !baseline) return page;
+  const delta = page.repos.flatMap((repo) => {
+    const cursor = restRepoToCursor(repo);
+    return cursor ? [cursor] : [];
+  });
+  const merged = mergeInventoryRepos(baseline.repos, delta);
+  return {
+    repos: merged.map(cursorRepoToRest),
+    forks: baseline.forkCount > 0 ? baseline.forkCount : page.forks,
+  };
+}
+
 export interface DurableOwnedRepositoryPage {
   facts: PublicScanOwnedRepoFact[];
   hasNextPage: boolean;
@@ -378,7 +539,7 @@ export async function fetchDurableOwnedRepositoryPage(input: {
 }): Promise<DurableOwnedRepositoryPage> {
   const page = Math.max(1, Math.floor(input.page));
   const repos = await restGet<RestRepo[]>(
-    `users/${encodeURIComponent(input.username)}/repos?per_page=100&sort=pushed&page=${page}`,
+    `users/${encodeURIComponent(input.username)}/repos?type=owner&per_page=100&sort=pushed&page=${page}`,
   );
   if (repos === null) {
     throw new GitHubDataUnavailableError("GitHub repository inventory is unavailable.");
@@ -861,7 +1022,10 @@ export function topStarredOriginalRepoQuality(
     .sort((a, b) => b.stars*projectShare(b) - a.stars*projectShare(a))[0];
   if (!topStarred) return { score: 0, repo: null };
   return {
-    score: originalRepoQualityScore(topStarred, loginLower, now) * projectShare(topStarred),
+    // Stars are already weighted by attribution share; multiplying the
+    // project-substance score by the share again would make every co-led repo
+    // look like a weak profile/config showcase.
+    score: originalRepoQualityScore(topStarred, loginLower, now),
     repo: repoDisplayName(topStarred),
   };
 }
@@ -1577,15 +1741,33 @@ function isOrgOwnedLongTermCandidate(repo: ContribRepoAgg, loginLower: string): 
   return repo.commits + repo.prs > 0;
 }
 
-async function collectCoCreatorFacts(repo: ContribRepoAgg, login: string): Promise<CoCreatorFacts> {
+export const CONTRIBUTOR_PAGE_LIMIT = 3;
+
+async function collectCoCreatorFacts(repo: ContribRepoAgg, login: string, now = new Date()): Promise<CoCreatorFacts> {
   const [owner, name] = repo.repo.split("/");
-  const contributors = await restGet<{login?: string; contributions?: number}[]>(
-    `repos/${owner}/${name}/contributors?per_page=100`,
-  ).catch(swallowUnlessAborted) ?? [];
-  const query = `query($owner: String!, $name: String!, $q: String!) {
+  // Page the contributor list until the user appears (bounded): large repos
+  // otherwise report 0 commits for anyone ranked past the first 100.
+  const rows: ContributorRow[] = [];
+  let truncated = false;
+  for (let page = 1; page <= CONTRIBUTOR_PAGE_LIMIT; page++) {
+    const batch = await restGet<ContributorRow[]>(
+      `repos/${owner}/${name}/contributors?per_page=100&page=${page}`,
+    ).catch(swallowUnlessAborted) ?? [];
+    rows.push(...batch);
+    truncated = batch.length >= 100;
+    if (!truncated || batch.some(c => c.login?.toLowerCase() === login)) break;
+  }
+  const since = new Date(now.getTime() - RECENT_MAINTENANCE_DAYS*86_400_000);
+  const sinceIso = since.toISOString();
+  const sinceDay = sinceIso.slice(0, 10);
+  const query = `query($owner: String!, $name: String!, $q: String!, $since: GitTimestamp!, $recentAll: String!, $recentMine: String!, $reviewed: String!, $login: String!) {
+    user(login: $login) { id }
     repository(owner: $owner, name: $name) {
       pullRequests(states: MERGED) { totalCount }
-      defaultBranchRef { target { ... on Commit { history(first: 1) { totalCount } } } }
+      defaultBranchRef { target { ... on Commit {
+        history(first: 1) { totalCount }
+        recent: history(since: $since) { totalCount }
+      } } }
     }
     search(query: $q, type: ISSUE, first: 10) {
       issueCount
@@ -1594,31 +1776,55 @@ async function collectCoCreatorFacts(repo: ContribRepoAgg, login: string): Promi
         files(first: 100) { nodes { path additions deletions } }
       } }
     }
+    recentAll: search(query: $recentAll, type: ISSUE) { issueCount }
+    recentMine: search(query: $recentMine, type: ISSUE) { issueCount }
+    reviewed: search(query: $reviewed, type: ISSUE) { issueCount }
   }`;
   type File = {path: string; additions: number; deletions: number};
   const data = await graphql<{
-    repository?: {pullRequests: {totalCount: number}; defaultBranchRef?: {target?: {history?: {totalCount: number}}}};
+    user?: {id: string} | null;
+    repository?: {pullRequests: {totalCount: number}; defaultBranchRef?: {target?: {history?: {totalCount: number}; recent?: {totalCount: number}}}};
     search?: {issueCount: number; nodes: {authorAssociation: string; changedFiles: number; files?: {nodes: File[]}}[]};
-  }>(query, {owner, name, q: `repo:${repo.repo} is:pr is:merged author:${login} sort:created-desc`}).catch(swallowUnlessAborted);
+    recentAll?: {issueCount: number}; recentMine?: {issueCount: number}; reviewed?: {issueCount: number};
+  }>(query, {owner, name, login, since: sinceIso,
+    q: `repo:${repo.repo} is:pr is:merged author:${login} sort:created-desc`,
+    recentAll: `repo:${repo.repo} is:pr is:merged merged:>=${sinceDay}`,
+    recentMine: `repo:${repo.repo} is:pr is:merged merged:>=${sinceDay} author:${login}`,
+    reviewed: `repo:${repo.repo} is:pr reviewed-by:${login} -author:${login}`,
+  }).catch(swallowUnlessAborted);
+  const counts = summarizeContributors(rows, login, {
+    truncated,
+    historyTotal: data?.repository?.defaultBranchRef?.target?.history?.totalCount ?? 0,
+    fallbackUserCommits: repo.commits,
+  });
   const f: CoCreatorFacts = {
-    user_commits: contributors.find(c=>c.login?.toLowerCase()===login)?.contributions ?? 0,
-    total_commits: Math.max(contributors.reduce((s,c)=>s+(c.contributions??0),0),
-      data?.repository?.defaultBranchRef?.target?.history?.totalCount ?? 0),
-    leading_commits: Math.max(0, ...contributors.map(c=>c.contributions??0)),
+    ...counts,
     user_merged_prs: data?.search?.issueCount ?? 0,
     total_merged_prs: data?.repository?.pullRequests.totalCount ?? 0,
     active_years: repo.active_years, core_churn: 0, sampled_churn: 0, substantive_samples: 0, samples: 0,
   };
-  const add = (files: File[]) => {
-    let core = 0, total = 0;
-    for (const file of files) {
-      const churn = Math.max(0,file.additions)+Math.max(0,file.deletions);
-      total += churn;
-      if (/\.(c|cc|cpp|cs|go|java|js|jsx|mjs|cjs|kt|php|py|rb|rs|scala|swift|ts|tsx|vue|svelte|css|scss)$/.test(file.path)
-        && !isPresentationPath(file.path,repo.repo)) core += churn;
+  const recentTotal = data?.repository?.defaultBranchRef?.target?.recent?.totalCount;
+  if (data?.user?.id && recentTotal !== undefined) {
+    const mine = await graphql<{repository?: {defaultBranchRef?: {target?: {history?: {totalCount: number}}}}}>(
+      `query($owner: String!, $name: String!, $since: GitTimestamp!, $id: ID!) { repository(owner: $owner, name: $name) {
+        defaultBranchRef { target { ... on Commit { history(since: $since, author: {id: $id}) { totalCount } } } } } }`,
+      {owner, name, since: sinceIso, id: data.user.id},
+    ).catch(swallowUnlessAborted);
+    const recentMine = mine?.repository?.defaultBranchRef?.target?.history?.totalCount;
+    if (recentMine !== undefined) {
+      f.recent_user_commits = recentMine;
+      f.recent_total_commits = Math.max(recentTotal, recentMine);
     }
+  }
+  if (data?.recentAll && data.recentMine) {
+    f.recent_user_merged_prs = data.recentMine.issueCount;
+    f.recent_total_merged_prs = Math.max(data.recentAll.issueCount, data.recentMine.issueCount);
+  }
+  if (data?.reviewed) f.reviewed_prs = data.reviewed.issueCount;
+  const add = (files: File[]) => {
+    const {core, total, fresh} = weightedCoreChurn(files, repo.repo);
     f.samples++; f.core_churn += core; f.sampled_churn += total;
-    if (core > 5) f.substantive_samples++;
+    if (fresh > 5) f.substantive_samples++;
   };
   for (const pr of data?.search?.nodes ?? []) {
     if (/^(OWNER|MEMBER|COLLABORATOR)$/.test(pr.authorAssociation)) f.association = pr.authorAssociation;
@@ -2160,9 +2366,26 @@ export async function verifyWorkflowLandedPublicScanFacts(
 async function fetchWorkflowLandedPrs(
   username: string,
   closedPrCount: number,
+  scope?: CollectionScope,
 ): Promise<WorkflowLandedPr[]> {
   if (closedPrCount === 0) return [];
   try {
+    if (scope?.full) {
+      const landed: WorkflowLandedPr[] = [];
+      let after: string | null = null;
+      for (;;) {
+        const page = await fetchDurablePullRequestPage({ username, state: "CLOSED", after, includeLabels: true });
+        const ids = page.facts.filter(f => f.labels.some(l => l.trim().toLowerCase() === "merged")).map(f => f.pullRequestId);
+        for (let start = 0; start < ids.length; start += WORKFLOW_CANDIDATE_CAP) {
+          const facts = await verifyWorkflowLandedPublicScanFacts(ids.slice(start, start + WORKFLOW_CANDIDATE_CAP));
+          landed.push(...facts.filter(f => f.repoKey).map(f => ({ id: f.pullRequestId, repo: f.repoKey!, stars: f.stars, owner_login: f.ownerLogin ?? f.repoKey!.split("/", 1)[0] })));
+        }
+        if (!page.hasNextPage) return landed;
+        if (!page.facts.length || !page.endCursor || page.endCursor === after) throw new GitHubDataUnavailableError("Workflow cursor made no progress.");
+        after = page.endCursor;
+      }
+    }
+    if (closedPrCount > GITHUB_PAGE_SIZE) scope?.note("workflow_page_limit");
     // Keep labels out of collect()'s already dense contribution query. A 100 ×
     // 20 nested label selection can exceed GitHub's GraphQL resource budget for
     // active accounts, making the *baseline* score unavailable. This optional
@@ -2194,7 +2417,8 @@ async function fetchWorkflowLandedPrs(
         ),
       )
       .map((node) => node.id)
-      .slice(0, 25);
+      .slice(0, WORKFLOW_CANDIDATE_CAP);
+    if (ids.length >= WORKFLOW_CANDIDATE_CAP) scope?.note("workflow_candidate_cap");
     if (ids.length === 0) return [];
 
     const data = await graphql<{
@@ -2228,6 +2452,7 @@ async function fetchWorkflowLandedPrs(
       }));
   } catch (error) {
     rethrowIfAborted(error);
+    scope?.note("workflow_unavailable");
     // This is an optional enrichment. Preserve the established native-merge
     // scan when GitHub declines timeline access or a transient error occurs.
     return [];
@@ -2656,7 +2881,10 @@ export function computeOrgRepoAttribution(input: {
     return {repo: input.repo.repo, share, score: share, facts, evidence: [
       `${facts.user_commits}/${facts.total_commits} commits; leader ${facts.leading_commits}`,
       `${facts.user_merged_prs}/${facts.total_merged_prs} merged PRs; ${facts.active_years} active years`,
-      `${facts.core_churn} core lines in ${facts.samples} complete samples`,
+      `${Math.round(facts.core_churn)} core lines in ${facts.samples} complete samples`,
+      ...(facts.recent_total_commits !== undefined ? [`${facts.recent_user_commits ?? 0}/${facts.recent_total_commits} commits in the last ${RECENT_MAINTENANCE_DAYS} days`] : []),
+      ...(facts.recent_total_merged_prs !== undefined ? [`${facts.recent_user_merged_prs ?? 0}/${facts.recent_total_merged_prs} merged PRs in the last ${RECENT_MAINTENANCE_DAYS} days`] : []),
+      ...(facts.reviewed_prs ? [`reviewed ${facts.reviewed_prs} PRs by others`] : []),
       ...(firstCommitMatch ? [`first commit author is ${scoredLogin}`] : []),
       ...(facts.release_author ? ["release/tag author"] : []),
       ...(facts.maintainer_file ? ["listed in maintainer/codeowner docs"] : []),
@@ -3313,6 +3541,7 @@ interface YearContribs {
 async function fetchYearContribsBatch(
   username: string,
   years: number[],
+  windows?: [string, string][],
 ): Promise<(YearContribs | null)[]> {
   const fragment = `fragment RepoContribs on ContributionsCollection {
     commitContributionsByRepository(maxRepositories: 100) {
@@ -3337,6 +3566,7 @@ async function fetchYearContribsBatch(
   for (let i = 0; i < years.length; i++) {
     variables[`from${i}`] = `${years[i]}-01-01T00:00:00Z`;
     variables[`to${i}`] = `${years[i]}-12-31T23:59:59Z`;
+    if (windows?.[i]) { variables[`from${i}`] = windows[i][0]; variables[`to${i}`] = windows[i][1]; }
   }
 
   const data = await graphql<{ user: Record<string, YearContribs> | null }>(
@@ -3356,9 +3586,11 @@ async function fetchYearContribsBatch(
  *
  * Hyperactive accounts can trip GitHub's per-query resource budget on the
  * batched query (same failure mode as {@link fetchContribOverview}); the
- * fallback re-runs one year per query and skips any single year that is still
- * unqueryable, so one pathological year degrades impact data instead of
- * failing the whole scan. Gateway timeouts and INTERNAL errors also split the
+ * fallback re-runs one year per query. Quick mode notes and skips any single
+ * year that is still unqueryable (escalating to fullscan). Full mode subdivides
+ * that year through fetchCompleteCommitWindow so a pathological year degrades
+ * only when the finest window still saturates, instead of silently dropping
+ * every commit in the year. Gateway timeouts and INTERNAL errors also split the
  * batch: retrying the same oversized query can hit the same resource ceiling.
  * A timeout or INTERNAL error on a single year still fails the scan rather than
  * publishing an incomplete contribution total as a successful fresh result.
@@ -3366,21 +3598,53 @@ async function fetchYearContribsBatch(
 export async function fetchCommitContribReposByYear(
   username: string,
   years: number[],
+  scope?: CollectionScope,
 ): Promise<ContribRepoAgg[] | null> {
-  const capped = [...years].sort((a, b) => b - a).slice(0, IMPACT_YEAR_CAP);
+  if (!scope?.full && years.length > IMPACT_YEAR_CAP) scope?.note("commit_year_cap");
+  const capped = [...years].sort((a, b) => b - a).slice(0, scope?.full ? undefined : IMPACT_YEAR_CAP);
   if (capped.length === 0) return null;
+
+  const completeYear = (year: number) =>
+    fetchCompleteCommitWindow(username, Date.UTC(year, 0, 1), Date.UTC(year + 1, 0, 1) - 1000);
+
+  /** Years already recovered via fetchCompleteCommitWindow; skip re-split. */
+  const completedYears = new Set<number>();
+
+  async function recoverResourceLimitedYear(year: number): Promise<YearContribs | null> {
+    // Quick mode notes and escalates. Full mode subdivides silently on success;
+    // note commit_resource_limit only when the year still cannot be recovered.
+    if (!scope?.full) {
+      scope?.note("commit_resource_limit");
+      return null;
+    }
+    try {
+      const nodes = await completeYear(year);
+      completedYears.add(year);
+      return { commitContributionsByRepository: nodes };
+    } catch (error) {
+      if (error instanceof GitHubResourceLimitError) {
+        scope.note("commit_resource_limit");
+        return null;
+      }
+      throw error;
+    }
+  }
 
   let perYear: (YearContribs | null)[];
   try {
     perYear = await fetchYearContribsBatch(username, capped);
   } catch (e) {
-    if (!canSplitContribQuery(e) || capped.length <= 1) throw e;
+    if (!canSplitContribQuery(e)) throw e;
+    if (!(e instanceof GitHubResourceLimitError) && capped.length <= 1) throw e;
     perYear = await Promise.all(
       capped.map(async (year) => {
+        if (capped.length === 1 && e instanceof GitHubResourceLimitError) {
+          return recoverResourceLimitedYear(year);
+        }
         try {
           return (await fetchYearContribsBatch(username, [year]))[0];
         } catch (e2) {
-          if (e2 instanceof GitHubResourceLimitError) return null;
+          if (e2 instanceof GitHubResourceLimitError) return recoverResourceLimitedYear(year);
           throw e2;
         }
       }),
@@ -3418,8 +3682,17 @@ export async function fetchCommitContribReposByYear(
     }
   };
   for (let i = 0; i < capped.length; i++) {
-    const yc = perYear[i];
-    if (!yc) continue;
+    let yc = perYear[i];
+    if (!yc) { scope?.note("commit_resource_limit"); continue; }
+    if (
+      !completedYears.has(capped[i]) &&
+      (yc.commitContributionsByRepository?.length ?? 0) >= GITHUB_PAGE_SIZE
+    ) {
+      if (scope?.full) {
+        yc = { commitContributionsByRepository: await completeYear(capped[i]) };
+        completedYears.add(capped[i]);
+      } else scope?.note("commit_repository_cap");
+    }
     for (const n of yc.commitContributionsByRepository ?? []) ingest(n, capped[i]);
   }
   return [...map.entries()].map(([key, value]) => ({
@@ -3427,6 +3700,21 @@ export async function fetchCommitContribReposByYear(
     active_years: yearsByRepo.get(key)?.size ?? 0,
     months: sortedMonths(monthsByRepo.get(key)),
   }));
+}
+
+async function fetchCompleteCommitWindow(username: string, from: number, to: number): Promise<ContribByRepoNode[]> {
+  if (to <= from) throw new GitHubResourceLimitError("Commit window remains saturated.");
+  const mid = from + Math.floor((to - from) / 2000) * 1000;
+  const nodes: ContribByRepoNode[] = [];
+  for (const [start, end] of [[from, mid], [mid + 1000, to]]) {
+    if (start > end) continue;
+    let batch: YearContribs | null;
+    try { batch = (await fetchYearContribsBatch(username, [new Date(start).getUTCFullYear()], [[new Date(start).toISOString(), new Date(end).toISOString()]]))[0]; }
+    catch (error) { if (!(error instanceof GitHubResourceLimitError)) throw error; batch = null; }
+    const chunk = batch?.commitContributionsByRepository;
+    nodes.push(...(!chunk || chunk.length >= GITHUB_PAGE_SIZE ? await fetchCompleteCommitWindow(username, start, end) : chunk));
+  }
+  return nodes;
 }
 
 /** "YYYY-MM" (UTC) of a GitHub timestamp, or null when unparseable. */
@@ -3477,7 +3765,7 @@ interface MergedPrReposResponse {
 /** Newest merged PRs (all repos), bounded to `maxPrs`. */
 async function fetchMergedPrNodes(
   username: string,
-  maxPrs = 300,
+  maxPrs = MERGED_PR_WINDOW,
 ): Promise<MergedPrRepoNode[]> {
   const nodes: MergedPrRepoNode[] = [];
   let after: string | null = null;
@@ -3504,14 +3792,16 @@ async function fetchMergedPrNodes(
     const pullRequests = data.user.pullRequests;
     nodes.push(...(pullRequests.nodes ?? []));
     const pageInfo: MergedPrPageInfo = pullRequests.pageInfo;
-    if (!pageInfo?.hasNextPage || !pageInfo.endCursor || !pullRequests.nodes?.length) break;
+    if (!pageInfo) throw new GitHubDataUnavailableError("GitHub merged history page info unavailable.");
+    if (!pageInfo.hasNextPage) break;
+    if (!pageInfo.endCursor || !pullRequests.nodes?.length || pageInfo.endCursor === after) throw new GitHubDataUnavailableError("GitHub merged history cursor made no progress.");
     after = pageInfo.endCursor;
   }
   return nodes;
 }
 
 /** Most external merged PRs fetched per scan (search pages of 100). */
-const EXTERNAL_MERGED_PR_CAP = 300;
+export const EXTERNAL_MERGED_PR_CAP = 300;
 
 export interface ExternalMergedPrs {
   /** All public merged PRs into repos the user does not own. */
@@ -4694,11 +4984,30 @@ export interface CollectOptions {
   /** Cache for slow-moving community facts (profiles, per-repo facts,
    * outside-PR counts). Omitted = always fetch. */
   cache?: CollectCache;
+  /** Full public inventory/history; only run inside an admitted background owner. */
+  full?: boolean;
+  /**
+   * Inventory watermark (`pushedAt`). Set only when incremental scan is on
+   * and this run is not a full reconcile. PR, commit-year, and workflow
+   * pulls ignore it and stay full.
+   */
+  inventorySince?: string;
+  /**
+   * Previous inventory page to merge a delta into. Incremental pulls upsert
+   * by repo id and do not delete. Fork total is kept from the last full read
+   * when the caller passes one.
+   */
+  inventoryBaseline?: { repos: CursorRepo[]; forkCount: number };
   /** Wall-clock budget for this collect. Homepage scoring sets this so the
    *  Worker can fail and serve a legacy fallback before Cloudflare's ~100s 524. */
   deadlineMs?: number;
   /** Extra abort signal combined with `deadlineMs` when both are set. */
   signal?: AbortSignal;
+  /**
+   * Receives the inventory page this collect scored, after an incremental
+   * merge when one was applied. The cursor writer uses it. Scoring ignores it.
+   */
+  captureInventory?: (page: { repos: CursorRepo[]; forkCount: number }) => void;
 }
 
 export async function collect(username: string, options: CollectOptions = {}): Promise<{
@@ -4712,6 +5021,7 @@ export async function collect(username: string, options: CollectOptions = {}): P
   organizations: string[];
   organization_maintained_repos?: OrganizationMaintainedRepo[];
   estimated_contribution_languages?: EstimatedContributionLanguages;
+  collection: import("./scan-coverage").CollectionCoverage;
 }> {
   if (options.deadlineMs != null || options.signal) {
     const deadlineMs = options.deadlineMs;
@@ -4724,6 +5034,7 @@ export async function collect(username: string, options: CollectOptions = {}): P
     if (deadlineMs != null) return withCollectDeadline(deadlineMs, run);
     return collectSignalContext.run(signal!, run);
   }
+  const captureInventory = options.captureInventory;
   if (!hasGithubToken()) {
     throw new GitHubAuthRequiredError("GITHUB_TOKEN is required for accurate scoring.");
   }
@@ -4731,25 +5042,33 @@ export async function collect(username: string, options: CollectOptions = {}): P
   const now = options.now ?? new Date();
 
   const user = await restGet<RestUser>(`users/${username}`);
-  if (!user || user.id === undefined) {
+  if (!user || !Number.isSafeInteger(user.id) || user.id <= 0) {
     throw new AccountNotFoundError();
   }
   const login = user.login ?? username;
   const loginLower = login.toLowerCase();
 
-  // Repositories (up to 200, newest activity first)
-  const repos: RestRepo[] = [];
-  for (const page of [1, 2]) {
-    const chunk = await restGet<RestRepo[]>(
-      `users/${username}/repos?per_page=100&sort=pushed&page=${page}`,
-    );
-    if (!chunk || chunk.length === 0) break;
-    repos.push(...chunk);
-    if (chunk.length < 100) break;
+  const reasons = new Set<string>();
+  const scope: CollectionScope = { full: options.full, note: reason => { reasons.add(reason); } };
+  const since = options.full ? "" : options.inventorySince?.trim() ?? "";
+  const inventory = await fetchOriginalInventory(login, { full: options.full, since });
+  const mergedInventory = mergeInventoryBaseline(inventory, options.inventoryBaseline, since);
+  const repos = mergedInventory.repos;
+  const inventoryForks = mergedInventory.forks;
+  if (captureInventory) {
+    captureInventory({
+      repos: repos.flatMap((repo) => {
+        const cursor = restRepoToCursor(repo);
+        return cursor ? [cursor] : [];
+      }),
+      forkCount: inventoryForks,
+    });
   }
+  if (inventory.incomplete) scope.note("original_repos_page_limit");
+  if (!options.full && user.public_repos > QUICK_REPO_PAGES * GITHUB_PAGE_SIZE) scope.note("public_repos_quick_limit");
 
   const original = repos.filter((r) => !r.fork);
-  const forks = repos.filter((r) => r.fork);
+
   const empty = repos.filter((r) => (r.size ?? 0) === 0 && !r.fork);
   const nonemptyOriginal = original.filter((r) => (r.size ?? 0) > 0);
 
@@ -4762,19 +5081,23 @@ export async function collect(username: string, options: CollectOptions = {}): P
   const closedPrNodes = overview.closedPRs?.nodes ?? [];
   const mergedPrCount = overview.mergedPRs?.totalCount ?? 0;
   let mergedPrContribRepos: ContribRepoAgg[] = [];
-  let mergedPrContributionAggregationIncomplete = mergedPrCount > 300;
-  const [commitContribRepos, workflowLandedPrs, externalMergedPrs] = await Promise.all([
-    fetchCommitContribReposByYear(login, contributionYears),
-    fetchWorkflowLandedPrs(login, overview.closedPRs?.totalCount ?? 0),
-    fetchExternalMergedPrs(login),
+  let mergedPrContributionAggregationIncomplete = !options.full && mergedPrCount > MERGED_PR_WINDOW;
+  const [commitContribRepos, workflowLandedPrs, quickExternal] = await Promise.all([
+    fetchCommitContribReposByYear(login, contributionYears, scope),
+    fetchWorkflowLandedPrs(login, overview.closedPRs?.totalCount ?? 0, scope),
+    options.full ? Promise.resolve(null) : fetchExternalMergedPrs(login),
   ]);
+  let externalMergedPrs = quickExternal;
   try {
     // The newest-300 window plus the separately queried external PRs, so own
     // PR traffic cannot crowd older external work out of the aggregate.
-    mergedPrContribRepos = aggregateMergedPrNodes([
-      ...(await fetchMergedPrNodes(login)),
-      ...(externalMergedPrs?.nodes ?? []),
-    ]);
+    const window = await fetchMergedPrNodes(login, options.full ? Infinity : MERGED_PR_WINDOW);
+    if (options.full) {
+      const nodes = window.filter(n => n.repository && !n.repository.isPrivate &&
+        (n.repository.owner?.login ?? n.repository.nameWithOwner.split("/", 1)[0]).toLowerCase() !== loginLower);
+      externalMergedPrs = { nodes, total: nodes.length };
+    }
+    mergedPrContribRepos = aggregateMergedPrNodes([...window, ...(externalMergedPrs?.nodes ?? [])]);
   } catch (error) {
     if (!(error instanceof GitHubResourceLimitError)) throw error;
     mergedPrContributionAggregationIncomplete = true;
@@ -4782,6 +5105,10 @@ export async function collect(username: string, options: CollectOptions = {}): P
   }
   const commitContributionAggregationUnavailable =
     contributionYears.length > 0 && commitContribRepos === null;
+  if (mergedPrContributionAggregationIncomplete) scope.note("merged_pr_window");
+  if (commitContributionAggregationUnavailable) scope.note("commit_aggregation_unavailable");
+  if (!externalMergedPrs) scope.note("external_merged_unavailable");
+  if (!options.full && externalMergedPrs && (externalMergedPrs.total >= EXTERNAL_MERGED_PR_CAP || externalMergedPrs.nodes.length >= EXTERNAL_MERGED_PR_CAP)) scope.note("external_merged_pr_cap");
   const workflowLandedContribRepos: ContribRepoAgg[] = workflowLandedPrs.map((pr) => ({
     repo: pr.repo,
     stars: pr.stars,
@@ -5041,6 +5368,7 @@ export async function collect(username: string, options: CollectOptions = {}): P
     ? Math.max(0, Math.min(externalMergedPrs.total, mergedPrCount) - attributedPrs) : 0;
   const metrics: RawMetrics = {
     username: login,
+    github_user_id: String(user.id),
     profile_url: user.html_url,
     avatar_url: user.avatar_url,
     name: user.name,
@@ -5052,11 +5380,11 @@ export async function collect(username: string, options: CollectOptions = {}): P
     followers,
     following,
     public_repos: user.public_repos ?? 0,
-    fetched_repo_count: repos.length,
+    fetched_repo_count: repos.length + inventoryForks,
     original_repo_count: original.length + attributedOriginalRepos.length,
     nonempty_original_repo_count:
       nonemptyOriginal.length + scoredNonemptyOriginalRepos.filter((r) => r.attributed_original).length,
-    fork_repo_count: forks.length,
+    fork_repo_count: inventoryForks,
     empty_original_repo_count: empty.length,
     total_stars: starRepos.reduce((a, r) => a + (r.stars ?? 0)*projectShare(r), 0),
     max_stars: starRepos.reduce((a, r) => Math.max(a, (r.stars ?? 0)*projectShare(r)), 0),
@@ -5112,6 +5440,7 @@ export async function collect(username: string, options: CollectOptions = {}): P
     doc_like_impact_pr_count: impact.doc_like_impact_pr_count,
     unverified_impact_pr_count: impact.unverified_impact_pr_count,
     impact_repo_count: impact.impact_repo_count,
+    impact_repos: impact.impact_repos,
     impact_commit_count: impact.impact_commit_count,
     commit_contribution_aggregation_unavailable: commitContributionAggregationUnavailable,
     merged_pr_contribution_aggregation_incomplete: mergedPrContributionAggregationIncomplete,
@@ -5139,6 +5468,7 @@ export async function collect(username: string, options: CollectOptions = {}): P
   });
 
   return {
+    collection: { mode: options.full ? "full" : "quick", coverage: reasons.size ? "partial_public" : "complete_public", truncation_reasons: [...reasons] },
     metrics,
     top_repos: topRepos,
     recent_prs: recentPrs,

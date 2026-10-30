@@ -6,7 +6,7 @@ import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ROAST_CACHE_VERSION, SCORE_CACHE_VERSION } from "../cache-version";
 import type { ScoreEntry, ScoreWriteIdentity } from "../db";
-import { LEGACY_READ_FALLBACK } from "../release-versions";
+import { LEGACY_READ_FALLBACK, PUBLIC_SCORE_READ_ORDER } from "../release-versions";
 import { PUBLIC_SCAN_COLLECTION_VERSION, type PublicScanSourceStatus } from "../scan-run-types";
 import { score } from "../score";
 import type { RawMetrics, ScanResult } from "../types";
@@ -286,6 +286,37 @@ describe("getArchivedRoast", () => {
     });
 
     await expect(db.getArchivedRoast("stale-roast", "zh")).resolves.toBeNull();
+  });
+
+  it("withholds an older roast release as current but exposes it as stale, one-liner gated too", async () => {
+    const username = "stale-roast-detail";
+    const scoreWrite = await writeScore({ ...entry, username });
+    await db.updateRoast(username, "## 上一版中文报告", "zh", scoreWrite);
+    const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    await client.execute({
+      sql: `UPDATE scores SET roast_version = ? WHERE username = ?`,
+      args: [`${ROAST_CACHE_VERSION}-old`, username],
+    });
+    const detail = await db.getAccountDetail(username);
+    expect(detail).toMatchObject({
+      roast: null,
+      roast_line: { zh: "", en: "" },
+      stale_roast: "## 上一版中文报告",
+      stale_roast_version: `${ROAST_CACHE_VERSION}-old`,
+    });
+    expect(detail?.stale_roast_en).toBeUndefined();
+
+    // Either language's report on the current release keeps the shared one-liner.
+    await client.execute({
+      sql: `UPDATE scores SET roast_en = ?, roast_en_version = ? WHERE username = ?`,
+      args: ["## Current English report", ROAST_CACHE_VERSION, username],
+    });
+    await expect(db.getAccountDetail(username)).resolves.toMatchObject({
+      roast: null,
+      roast_en: "## Current English report",
+      roast_line: entry.roast_line,
+      stale_roast: "## 上一版中文报告",
+    });
   });
 
   it("does not replay archived reports from rows without cache versions", async () => {
@@ -714,6 +745,20 @@ describe("canonical score materialization", () => {
       args: ["0".repeat(64), username],
     });
     await expect(db.getCurrentCanonicalQuickScan(username)).resolves.toBeNull();
+  });
+
+  it("persists actual partial/full coverage and exposes it from the exact score snapshot", async () => {
+    const username = "fiction-coverage";
+    const partial = { ...syntheticScan(username), collection: {
+      mode: "quick" as const, coverage: "partial_public" as const, truncation_reasons: ["external_merged_pr_cap"],
+    } };
+    expect(await db.publishCompleteQuickScan(partial, 1_910_000_005_001)).toBeTruthy();
+    await expect(db.getAccountDetail(username)).resolves.toMatchObject({ scan_coverage: "partial_public" });
+    await expect(db.getCurrentCanonicalQuickScan(username)).resolves.toBeNull();
+    const full = { ...partial, collection: { mode: "full" as const, coverage: "complete_public" as const, truncation_reasons: [] } };
+    expect(await db.publishCompleteQuickScan(full, 1_910_000_005_002)).toBeTruthy();
+    await expect(db.getAccountDetail(username)).resolves.toMatchObject({ scan_coverage: "complete_public" });
+    await expect(db.getCurrentCanonicalQuickScan(username)).resolves.toMatchObject({ scan: { collection: full.collection } });
   });
 
   it("keeps a verified public snapshot readable after the scores row moves off the read order", async () => {
@@ -2245,13 +2290,19 @@ describe("profile snapshots", () => {
     });
   });
 
-  it("reads only canonical profile snapshots and ignores legacy snapshots", async () => {
+  it("prefers canonical profile snapshots, falls back to retained public versions, ignores non-public", async () => {
     const client = createClient({ url: process.env.TURSO_DATABASE_URL! });
+    // Warm schema (ensureSchema) without depending on sibling tests in this file.
+    await db.getProfileSnapshot("schema-warmup-fixture");
     const username = "profile-version-fixture";
+    // Anonymized handles/versions only — no real GitHub logins.
+    const retainedPublic =
+      PUBLIC_SCORE_READ_ORDER.find((version) => version !== SCORE_CACHE_VERSION) ?? "v16";
     const rows = [
       ["profile-v8", username, 300, JSON.stringify({ followers: 8 }), "v8"],
       ["profile-v12", username, 350, JSON.stringify({ followers: 12 }), "v12"],
       ["profile-local", username, 400, JSON.stringify({ followers: 99 }), "local-fixture"],
+      ["profile-retained", username, 250, JSON.stringify({ followers: 16 }), retainedPublic],
       ["profile-canonical", username, 200, JSON.stringify({ followers: 9 }), SCORE_CACHE_VERSION],
     ];
     for (const row of rows) {
@@ -2269,6 +2320,15 @@ describe("profile snapshots", () => {
     await client.execute({
       sql: `DELETE FROM profile_snapshots WHERE id = ?`,
       args: ["profile-canonical"],
+    });
+    // Retained public snapshot must still surface repos/metrics for historical scores.
+    await expect(db.getProfileSnapshot(username)).resolves.toMatchObject({
+      metrics: { followers: 16 },
+      scanned_at: 250,
+    });
+    await client.execute({
+      sql: `DELETE FROM profile_snapshots WHERE id = ?`,
+      args: ["profile-retained"],
     });
     await expect(db.getProfileSnapshot(username)).resolves.toBeNull();
 

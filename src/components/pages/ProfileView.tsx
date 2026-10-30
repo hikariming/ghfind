@@ -1,11 +1,15 @@
 import ReactMarkdown from "react-markdown";
+import { RoastReport } from "../RoastReport";
 import remarkGfm from "remark-gfm";
 import { Link } from "@/i18n/navigation";
-import { aggregateLanguages, collectTopics } from "@/lib/profile-insights";
 import { LiveRoast } from "@/components/LiveRoast";
-import { RoastReveal } from "@/components/RoastReveal";
+// Profile popup disabled 2026-10-28 (owner request); keep import for possible re-enable
+// import { RoastReveal } from "@/components/RoastReveal";
 import { splitReport } from "@/lib/report";
 import { TIER_LABEL_EN } from "@/lib/badge";
+import { AdventurerLevel } from "@/components/realm/AdventurerLevel";
+import { RealmChip } from "@/components/realm/RealmGlyph";
+import { nextRealm, realmCssVars, realmForScore, formatAdventurerLevel, preciseScoreTitle } from "@/lib/realm";
 import type { RoastMeta } from "@/lib/types";
 import { JsonLd, profileJsonLd } from "@/components/JsonLd";
 import { SITE_URL, bcp47 } from "@/lib/site";
@@ -14,17 +18,23 @@ import { MaterialCardPanel } from "@/components/MaterialCardPanel";
 import { ProfileShare } from "@/components/ProfileShare";
 import { FloatingCommentBubbles } from "@/components/FloatingCommentBubbles";
 import { TierAvatarFrame } from "@/components/TierAvatarFrame";
+import { ImpactOrbit } from "@/components/ImpactOrbit";
 import { DimensionStarChart } from "@/components/DimensionStarChart";
 import { ScoreBreakdown, ScoreBreakdownSummary } from "@/components/ScoreBreakdown";
-import { nextTier, tierFor } from "@/lib/score-presentation";
+import { tierFor } from "@/lib/score-presentation";
 import { roundHalfEven } from "@/lib/score";
 import { DIMENSIONS } from "@/lib/dimensions";
 import { beatPercent } from "@/lib/percentile";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
+import type { RealmId } from "@/lib/realm";
 import { normLang } from "@/lib/lang";
+import { tagsForLocale } from "@/lib/roast-tags";
 import { scoreRedFlagLabel } from "@/lib/score-red-flags";
 import { RescanButton } from "@/components/RescanButton";
 import { StaleScanHint } from "@/components/StaleScanHint";
+import { AutoReroast } from "@/components/AutoReroast";
+import { StaleScoreRescan } from "@/components/StaleScoreRescan";
+import { needsScoreVersionUpgrade } from "@/lib/score-version";
 import { BadgeReferralBanner } from "@/components/BadgeReferralBanner";
 import { RepoCardLink } from "@/components/RepoCardLink";
 import { ProfileLandingBeacon } from "@/components/ProfileLandingBeacon";
@@ -73,6 +83,7 @@ export function ProfileView({
   t,
   tDim,
   tTier,
+  tRealm,
 }: {
   locale: string;
   presentation: ProfilePresentation;
@@ -90,12 +101,18 @@ export function ProfileView({
   t: Translator;
   /** "dimensions" namespace. */
   tDim: Translator;
-  /** "tiers" namespace. */
+  /** "tiers" namespace (legacy bridge → realm names). */
   tTier: Translator;
+  /** "realms" namespace. */
+  tRealm: Translator;
 }) {
   const d = presentation.detail;
-  const style = tierStyle(d.tier);
+  const realm = realmForScore(d.final_score);
+  const realmVars = realmCssVars(realm, "dark");
+  const style = tierStyle(d.tier); // kept for a few legacy chip paths during migration
   const tierKey = TIER_KEY[d.tier];
+  const realmName = tRealm(`${realm.id}.name`);
+  const realmBlurb = tRealm(`${realm.id}.blurb`);
   const lang = normLang(locale);
   // English visitors read the English-cached roast; fall back to the empty state
   // (not the Chinese report) so the page never mixes languages.
@@ -119,6 +136,20 @@ export function ProfileView({
     sourceSnapshotHash: d.score_source_snapshot_hash,
     roastVersion: selectedRoastVersion,
   });
+  // Stale-while-revalidate: a score from an older scoring release offers a
+  // manual 重新评测 and, for real visitors, an automatic background one.
+  const autoRescan =
+    artifactState === "stale-score" &&
+    needsScoreVersionUpgrade({
+      scoreVersion: d.score_version,
+      sourceCollectionVersion: d.score_source_collection_version,
+      sourceSnapshotHash: d.score_source_snapshot_hash,
+    });
+  // Current score, but no report on the current roast release in this
+  // language (a score change cleared it, or the roast release moved on):
+  // regenerate on view instead of showing the "not archived" empty state.
+  const reroastPending = artifactState === "report-pending" && !legacyReadFallback && !roast;
+  const staleRoast = (lang === "en" ? d.stale_roast_en : d.stale_roast) ?? null;
   const artifactCopy =
     artifactState === "stale-score"
       ? {
@@ -137,7 +168,6 @@ export function ProfileView({
   const similar = presentation?.similar ?? [];
   const snap = presentation?.snapshot ?? null;
   const rank = presentation?.rank ?? null;
-  const battles = presentation?.battles ?? [];
   const facetRank = presentation?.facetRank ?? null;
   const commonProjects = presentation?.common_projects ?? [];
   // Inline re-detect is self-service: only the signed-in owner sees it on their
@@ -161,9 +191,9 @@ export function ProfileView({
   // landing → PK/badge action → spread loop can be read end-to-end.
   const landingSource = classifyLandingSource(referer, fromBadgeRef);
   // Milestone hint: points to the next tier line, plus the "beat %" so far.
-  const promo = nextTier(d.final_score);
+  const promo = nextRealm(d.final_score);
   const promoGap = promo ? (promo.threshold - d.final_score).toFixed(2) : null;
-  const promoTierName = promo ? tTier(`${TIER_KEY[promo.tier]}.name`) : null;
+  const promoTierName = promo ? tRealm(`${promo.realm.id}.name`) : null;
   const beat = rank ? beatPercent(rank.below, rank.total) : null;
   // Popup payload for the homepage handoff — the fresh replay (RoastReveal), the
   // stale re-roast seed and the missing-language seed all reuse it. Built
@@ -236,22 +266,6 @@ export function ProfileView({
         signatureWork: snap.signature_work,
       })
     : [];
-  // Prefer the public contribution-weighted estimate. It covers personal,
-  // organization, and third-party work without changing TopRepos, scores, or
-  // directory language facets. Older/incomplete snapshots retain the legacy
-  // repository-footprint fallback.
-  const contributionLanguages = snap?.signature_work?.estimated_contribution_languages?.languages ?? [];
-  const languages = contributionLanguages.length > 0
-    ? contributionLanguages.slice(0, 6)
-    : snap
-      ? aggregateLanguages([
-          ...snap.top_repos,
-          ...(snap.signature_work?.organization_maintained_repos ?? []).map(
-            (work) => work.repository,
-          ),
-        ])
-      : [];
-  const topics = snap ? collectTopics(snap.top_repos) : [];
   const organizations = snap?.organizations ?? [];
   // Repo cards route into their internal project page (reclaiming the click that
   // otherwise leaks to github.com) — but only where a project page has content,
@@ -278,9 +292,6 @@ export function ProfileView({
   const dimensionSectionClass = isAdvxCampaign
     ? contentSectionClass
     : "rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6";
-  const impactSectionClass = isAdvxCampaign
-    ? `mt-6 bg-transparent p-0 ${advxDivider}`
-    : "mb-6 rounded-2xl border border-amber-300/25 bg-amber-500/[0.05] p-5 sm:p-6";
   const similarSection = similar.length > 0 && (
     <section className={contentSectionClass}>
       <h2 className="mb-1 text-base font-bold text-zinc-200">{t("similarHeading")}</h2>
@@ -308,7 +319,7 @@ export function ProfileView({
               )}
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium text-zinc-200">@{s.username}</div>
-                {tag && <div className="truncate text-[11px] text-orange-200/80">#{tag}</div>}
+                {tag && <div className="truncate text-[11px] profile-realm-accent-text">#{tag}</div>}
               </div>
               <span className={`shrink-0 text-end text-sm font-black tabular-nums ${st.text}`}>
                 {st.emoji} {s.final_score.toFixed(2)}
@@ -321,7 +332,12 @@ export function ProfileView({
   );
 
   return (
-    <main className="relative isolate flex w-full flex-1 justify-center px-5 py-14 sm:py-20">
+    <main
+      data-realm={realm.id}
+      data-profile-realm-theme=""
+      className="profile-realm-theme relative isolate flex w-full flex-1 justify-center px-5 py-14 sm:py-20"
+      style={realmVars}
+    >
       <FloatingCommentBubbles
         key={d.username}
         lang={lang}
@@ -354,7 +370,7 @@ export function ProfileView({
           <Link
             href="/advx?theme=dark"
             prefetch={false}
-            className="text-sm text-zinc-400 hover:text-zinc-200"
+            className="profile-realm-link text-sm text-zinc-400"
           >
             ← 返回
           </Link>
@@ -362,7 +378,7 @@ export function ProfileView({
           <Link
             href="/leaderboard"
             prefetch={false}
-            className="text-sm text-zinc-400 hover:text-zinc-200"
+            className="profile-realm-link text-sm text-zinc-400"
           >
             {t("back")}
           </Link>
@@ -376,24 +392,42 @@ export function ProfileView({
         <aside className="flex flex-col gap-4 lg:sticky lg:top-8 lg:w-80 lg:shrink-0">
       {/* Header card */}
       <div
-        className={`animate-pop flex flex-col items-center text-center ${
+        data-profile-score-card
+        data-realm={realm.id}
+        className={`animate-pop flex flex-col items-center overflow-visible text-center ${
           isAdvxCampaign
             ? "bg-transparent p-0"
-            : "rounded-2xl border border-white/10 bg-white/[0.05] p-6 ring-1"
-        } ${style.ring}`}
-        style={isAdvxCampaign ? undefined : { boxShadow: `0 0 80px -20px ${style.glow}` }}
+            : "rounded-2xl border border-white/10 bg-white/[0.05] p-6"
+        }`}
+        style={
+          isAdvxCampaign
+            ? realmVars
+            : {
+                ...realmVars,
+                boxShadow: `0 0 80px -20px ${realm.colors.glow}`,
+                borderColor: `color-mix(in srgb, ${realm.colors.ring} 12%, transparent)`,
+                borderWidth: 1,
+                borderStyle: "solid",
+              }
+        }
       >
         <h1 className="max-w-full">
           <a
             href={d.profile_url ?? `https://github.com/${d.username}`}
             target="_blank"
             rel="noopener noreferrer"
-            className={`inline-block max-w-full break-all text-xl font-black leading-tight ${style.text} ${
-              isAdvxCampaign
-                ? ""
-                : `rounded-full bg-black/35 px-4 py-1.5 ring-1 ${style.ring} hover:bg-black/45`
+            className={`inline-block max-w-full break-all text-xl font-black leading-tight ${
+              isAdvxCampaign ? "" : "rounded-full bg-black/35 px-4 py-1.5 hover:bg-black/45"
             }`}
-            style={{ boxShadow: `0 0 28px -10px ${style.glow}` }}
+            style={{
+              color: "var(--realm-fg)",
+              ...(isAdvxCampaign
+                ? {}
+                : {
+                    boxShadow: `0 0 28px -10px ${realm.colors.glow}`,
+                    outline: `1px solid color-mix(in srgb, ${realm.colors.ring} 50%, transparent)`,
+                  }),
+            }}
           >
             @{d.username}
           </a>
@@ -406,55 +440,96 @@ export function ProfileView({
         {bio && (
           <div className="mt-2 line-clamp-2 max-w-md text-sm text-zinc-400">{bio}</div>
         )}
-        <TierAvatarFrame
-          username={d.username}
-          avatarUrl={d.avatar_url}
-          tier={d.tier}
-          size="lg"
-          className="mt-5"
-        />
-        <div className={`mt-4 text-6xl font-black tabular-nums ${style.text}`}>
-          {d.final_score.toFixed(2)}
-          <span className="text-2xl text-zinc-600">/100</span>
+        {impactRepos.length > 0 ? (
+          <ImpactOrbit
+            repos={impactRepos}
+            tier={d.tier}
+            score={d.final_score}
+            locale={bcp47(locale)}
+            commitsLabel={t("commits")}
+            prsLabel={t("prs")}
+            sectionTitle={t("impactHeading")}
+            className="mt-5"
+          >
+            <TierAvatarFrame
+              username={d.username}
+              avatarUrl={d.avatar_url}
+              score={d.final_score}
+              tier={d.tier}
+              realm={realm}
+              realmName={realmName}
+              size="lg"
+            />
+          </ImpactOrbit>
+        ) : (
+          <TierAvatarFrame
+            username={d.username}
+            avatarUrl={d.avatar_url}
+            score={d.final_score}
+            tier={d.tier}
+            realm={realm}
+            realmName={realmName}
+            size="lg"
+            className="mt-5"
+          />
+        )}
+        <div data-profile-score-value className="mt-1">
+          <AdventurerLevel
+            score={d.final_score}
+            realm={realm}
+            caption={t("adventurerLevel")}
+            size="lg"
+            lang={lang === "en" ? "en" : "zh"}
+          />
         </div>
         {fromHome && <StaleScanHint username={d.username} />}
         <ScoreBreakdownSummary breakdown={scoreBreakdown} copy={scoreBreakdownCopy} />
-        <div className={`mt-1 text-2xl font-bold ${style.text}`}>
-          {style.emoji} {tTier(`${tierKey}.name`)}
+        <div className="mt-2">
+          <RealmChip realm={realm} name={realmName} />
         </div>
-        <div className="mt-1 text-sm font-medium text-zinc-300">
-          {tTier(`${tierKey}.blurb`)}
+        <div className="mt-1 text-sm font-medium text-zinc-400">
+          {realmBlurb}
         </div>
+        {shouldStreamRoast || reroastPending ? (
+          <p className="mt-2 text-sm text-zinc-400">{t("scoreReadyHint")}</p>
+        ) : null}
+        {isOwner && (
+          <RescanButton
+            username={d.username}
+            scannedAt={d.scanned_at}
+            className="mt-4 w-full max-w-xs"
+          />
+        )}
 
         {isAdvxCampaign && roastLine && (
           <p
             data-advx-mobile-roast
-            className="mt-4 w-full border-s-2 border-orange-400/50 ps-4 text-start text-[0.95rem] leading-relaxed text-zinc-100 lg:hidden"
+            className="mt-4 w-full border-s-2 ps-4 text-start text-[0.95rem] leading-relaxed text-zinc-100 lg:hidden"
+            style={{ borderColor: "color-mix(in srgb, var(--realm-fg) 55%, transparent)" }}
           >
             🔥 {roastLine}
           </p>
         )}
 
-        {d.tags.zh.length + d.tags.en.length > 0 && (
-          <div className="mt-3 flex flex-wrap justify-center gap-1.5">
-            {d.tags.zh.map((tag, i) => (
-              <span
-                key={`zh-${tag}-${i}`}
-                className="rounded-full bg-orange-500/10 px-2 py-0.5 text-xs text-orange-200/90"
-              >
-                #{tag}
-              </span>
-            ))}
-            {d.tags.en.map((tag, i) => (
-              <span
-                key={`en-${tag}-${i}`}
-                className="rounded-full bg-sky-500/10 px-2 py-0.5 text-xs text-sky-200/90"
-              >
-                #{tag}
-              </span>
-            ))}
-          </div>
-        )}
+        {(() => {
+          const shown = tagsForLocale(d.tags, locale);
+          if (shown.length === 0) return null;
+          return (
+            <div
+              className="mt-4 flex max-w-md flex-wrap justify-center gap-2"
+              aria-label="tags"
+            >
+              {shown.map((tag, i) => (
+                <span
+                  key={`${tag}-${i}`}
+                  className="profile-realm-chip rounded-full px-2 py-0.5 text-[10px] font-medium tracking-wide"
+                >
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          );
+        })()}
 
         {(organizations.length > 0 || company) && (
           <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
@@ -482,25 +557,43 @@ export function ProfileView({
         state={artifactState}
         title={artifactCopy.title}
         body={artifactCopy.body}
+        action={
+          artifactState === "stale-score" ? (
+            <StaleScoreRescan username={d.username} auto={autoRescan} />
+          ) : undefined
+        }
       />
 
       {/* My standing — concrete rank, "beat %", a milestone hint to the next
           tier, and an inline re-detect button to refresh the score. */}
       <div
+        data-realm={realm.id}
         className={
           isAdvxCampaign
             ? `mt-5 bg-transparent p-0 text-center ${advxDivider}`
-            : "mt-5 rounded-2xl border border-orange-300/30 bg-orange-500/[0.07] p-4 text-center"
+            : "mt-5 rounded-2xl border p-4 text-center"
+        }
+        style={
+          isAdvxCampaign
+            ? undefined
+            : {
+                borderColor: "color-mix(in srgb, var(--realm-ring) 35%, transparent)",
+                backgroundColor: "color-mix(in srgb, var(--realm-glow) 55%, transparent)",
+                ...realmVars,
+              }
         }
       >
         {!isAdvxCampaign && (
-          <div className="text-xs font-semibold uppercase tracking-wide text-orange-200/90">
+          <div
+            className="text-xs font-semibold uppercase tracking-wide"
+            style={{ color: "var(--realm-fg)" }}
+          >
             {t("rankTitle")}
           </div>
         )}
         {rank ? (
           <>
-            <div className={`mt-1 text-4xl font-black tabular-nums ${style.text}`}>
+            <div className="mt-1 text-4xl font-black tabular-nums" style={{ color: "var(--realm-fg)" }}>
               #{rank.rank}
               <span className="ms-1 text-sm font-medium text-zinc-400">
                 {t("rankUnit", { total: rank.total })}
@@ -556,9 +649,6 @@ export function ProfileView({
             <FollowButton username={d.username} className="mt-3" />
           </>
         )}
-        {isOwner && (
-          <RescanButton username={d.username} scannedAt={d.scanned_at} className="mt-3" />
-        )}
       </div>
 
       {isAdvxCampaign && (
@@ -579,7 +669,7 @@ export function ProfileView({
           avatarUrl={d.avatar_url}
           score={d.final_score}
           tier={d.tier}
-          tierLabel={tTier(`${tierKey}.blurb`)}
+          tierLabel={realmBlurb}
           beat={beat}
           tags={d.tags}
         />
@@ -604,68 +694,13 @@ export function ProfileView({
         </div>
       )}
 
-      {/* Notable contributions — popular repos the user has shipped to (the
-          hardest evidence behind the ecosystem-impact dimension). Surfaced first
-          as the strongest signal on the profile. */}
-      {impactRepos.length > 0 && (
-        <section className={impactSectionClass}>
-          <h2 className="mb-1 text-base font-bold text-amber-200">{t("impactHeading")}</h2>
-          <p className="mb-4 text-xs text-zinc-400">{t("impactSub")}</p>
-          <div className="flex flex-col gap-2">
-            {impactRepos.map((r) => {
-              const key = r.repo.toLowerCase();
-              const internal = existingRepoKeys.has(key);
-              const cardClass =
-                "flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.06]";
-              const inner = (
-                <>
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-200">
-                    {r.repo}
-                  </span>
-                  <span className="shrink-0 text-xs tabular-nums text-zinc-400">
-                    ⭐ {nf.format(r.stars)}
-                    {(r.commits > 0 || r.prs > 0) && (
-                      <span className="ms-2 text-zinc-500">
-                        {r.commits > 0 && `${nf.format(r.commits)} ${t("commits")}`}
-                        {r.commits > 0 && r.prs > 0 && " · "}
-                        {r.prs > 0 && `${nf.format(r.prs)} ${t("prs")}`}
-                      </span>
-                    )}
-                  </span>
-                </>
-              );
-              return internal ? (
-                <RepoCardLink
-                  key={r.repo}
-                  href={repoHref(key)}
-                  repo={r.repo}
-                  surface="impact"
-                  className={cardClass}
-                >
-                  {inner}
-                </RepoCardLink>
-              ) : (
-                <a
-                  key={r.repo}
-                  href={`https://github.com/${r.repo}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cardClass}
-                >
-                  {inner}
-                </a>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
       {/* Dimension breakdown */}
       <section className={dimensionSectionClass}>
         <h2 className="mb-4 text-base font-bold text-zinc-200">{t("dimensionsHeading")}</h2>
         <DimensionStarChart
           scores={d.sub_scores}
           labels={dimensionLabels}
+          score={d.final_score}
           tier={d.tier}
           compact={isAdvxCampaign}
         />
@@ -696,7 +731,7 @@ export function ProfileView({
                     <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-200">
                       {work.repo}
                     </span>
-                    <span className="shrink-0 text-xs tabular-nums text-zinc-400">
+                    <span className="profile-realm-accent-text shrink-0 text-xs tabular-nums">
                       ⭐ {nf.format(work.stars)}
                     </span>
                   </div>
@@ -735,105 +770,119 @@ export function ProfileView({
               );
             })}
           </div>
+          {impactRepos.length > 0 && (
+            <details className="mt-4">
+              <summary className="cursor-pointer text-xs font-medium text-zinc-400 hover:text-zinc-200">
+                {t("impactDisclosure", { count: impactRepos.length })}
+              </summary>
+              <div className="mt-2 flex flex-col gap-2">
+                {impactRepos.map((r) => {
+                  const key = r.repo.toLowerCase();
+                  const internal = existingRepoKeys.has(key);
+                  const cardClass = "flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.06]";
+                  const inner = (
+                    <>
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-200">
+                        {r.repo}
+                      </span>
+                      <span className="shrink-0 text-xs tabular-nums text-zinc-400">
+                        ⭐ {nf.format(r.stars)}
+                        {(r.commits > 0 || r.prs > 0) && (
+                          <span className="ms-2 text-zinc-500">
+                            {r.commits > 0 && `${nf.format(r.commits)} ${t("commits")}`}
+                            {r.commits > 0 && r.prs > 0 && " · "}
+                            {r.prs > 0 && `${nf.format(r.prs)} ${t("prs")}`}
+                          </span>
+                        )}
+                      </span>
+                    </>
+                  );
+                  return internal ? (
+                    <RepoCardLink
+                      key={r.repo}
+                      href={repoHref(key)}
+                      repo={r.repo}
+                      surface="impact"
+                      className={cardClass}
+                    >
+                      {inner}
+                    </RepoCardLink>
+                  ) : (
+                    <a
+                      key={r.repo}
+                      href={`https://github.com/${r.repo}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={cardClass}
+                    >
+                      {inner}
+                    </a>
+                  );
+                })}
+              </div>
+            </details>
+          )}
+        </section>
+      )}
+
+      {representativeWorks.length === 0 && impactRepos.length > 0 && (
+        <section className={contentSectionClass}>
+          <details>
+            <summary className="cursor-pointer text-xs font-medium text-zinc-400 hover:text-zinc-200">
+              {t("impactDisclosure", { count: impactRepos.length })}
+            </summary>
+            <div className="mt-2 flex flex-col gap-2">
+                {impactRepos.map((r) => {
+                  const key = r.repo.toLowerCase();
+                  const internal = existingRepoKeys.has(key);
+                  const cardClass = "flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.06]";
+                  const inner = (
+                    <>
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-200">
+                        {r.repo}
+                      </span>
+                      <span className="shrink-0 text-xs tabular-nums text-zinc-400">
+                        ⭐ {nf.format(r.stars)}
+                        {(r.commits > 0 || r.prs > 0) && (
+                          <span className="ms-2 text-zinc-500">
+                            {r.commits > 0 && `${nf.format(r.commits)} ${t("commits")}`}
+                            {r.commits > 0 && r.prs > 0 && " · "}
+                            {r.prs > 0 && `${nf.format(r.prs)} ${t("prs")}`}
+                          </span>
+                        )}
+                      </span>
+                    </>
+                  );
+                  return internal ? (
+                    <RepoCardLink
+                      key={r.repo}
+                      href={repoHref(key)}
+                      repo={r.repo}
+                      surface="impact"
+                      className={cardClass}
+                    >
+                      {inner}
+                    </RepoCardLink>
+                  ) : (
+                    <a
+                      key={r.repo}
+                      href={`https://github.com/${r.repo}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={cardClass}
+                    >
+                      {inner}
+                    </a>
+                  );
+                })}
+            </div>
+          </details>
         </section>
       )}
 
       <CommonProjects projects={commonProjects} flat={isAdvxCampaign} />
 
       {similarSection}
-
-      {/* Stack & domains — aggregated language mix + topic tags. */}
-      {(languages.length > 0 || topics.length > 0) && (
-        <section className={contentSectionClass}>
-          <h2 className="mb-4 text-base font-bold text-zinc-200">{t("stackHeading")}</h2>
-          {languages.length > 0 && (
-            <div className="mb-4">
-              <div className="mb-2 text-xs text-zinc-400">{t("stackLangLabel")}</div>
-              <div className="flex flex-col gap-2">
-                {languages.map((l) => (
-                  <div key={l.name}>
-                    <div className="mb-1 flex items-baseline justify-between text-sm">
-                      <span className="text-zinc-300">{l.name}</span>
-                      <span className="tabular-nums text-zinc-400">{l.pct}%</span>
-                    </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
-                      <div
-                        className="h-full rounded-full bg-sky-400/70"
-                        style={{ width: `${l.pct}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {topics.length > 0 && (
-            <div>
-              <div className="mb-2 text-xs text-zinc-400">{t("stackTopicsLabel")}</div>
-              <div className="flex flex-wrap gap-1.5">
-                {topics.map((topic) => (
-                  <span
-                    key={topic}
-                    className="rounded-full border border-emerald-400/30 bg-emerald-500/12 px-2.5 py-1 text-xs font-semibold text-emerald-200/90"
-                  >
-                    {topic}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* Battles — this dev's PK matchups (internal links + entertainment) */}
-      {battles.length > 0 && (
-        <section className={contentSectionClass}>
-          <h2 className="mb-1 text-base font-bold text-zinc-200">{t("battlesHeading")}</h2>
-          <p className="mb-4 text-xs text-zinc-400">{t("battlesSub")}</p>
-          <div className="flex flex-col gap-2">
-            {battles.map((m) => {
-              const meIsA = m.handleA.toLowerCase() === d.username.toLowerCase();
-              const opponent = meIsA ? m.handleB : m.handleA;
-              const myScore = meIsA ? m.scoreA : m.scoreB;
-              const oppScore = meIsA ? m.scoreB : m.scoreA;
-              const outcome =
-                m.winner === null
-                  ? "tie"
-                  : m.winner.toLowerCase() === d.username.toLowerCase()
-                    ? "win"
-                    : "loss";
-              const badge =
-                outcome === "win"
-                  ? { text: t("battleWin"), cls: "bg-emerald-500/15 text-emerald-300" }
-                  : outcome === "loss"
-                    ? { text: t("battleLoss"), cls: "bg-rose-500/15 text-rose-300" }
-                    : { text: t("battleTie"), cls: "bg-zinc-500/15 text-zinc-300" };
-              return (
-                <Link
-                  key={`${m.handleA}-${m.handleB}`}
-                  href={`/vs/${m.handleA}/${m.handleB}`}
-                  prefetch={false}
-                  className={
-                    isAdvxCampaign
-                      ? "flex items-center gap-3 border-b border-white/10 py-3 last:border-b-0 hover:bg-white/[0.03]"
-                      : "flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 hover:bg-white/[0.06]"
-                  }
-                >
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${badge.cls}`}>
-                    {badge.text}
-                  </span>
-                  <div className="min-w-0 flex-1 truncate text-sm text-zinc-300">
-                    vs <span className="font-medium text-zinc-200">@{opponent}</span>
-                  </div>
-                  <span className="shrink-0 text-xs tabular-nums text-zinc-400">
-                    {myScore.toFixed(1)} : {oppScore.toFixed(1)}
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      )}
 
       {/* Full roast report */}
       <section
@@ -843,20 +892,10 @@ export function ProfileView({
             : "mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-7"
         }
       >
-        <h2 className="mb-3 text-lg font-bold text-orange-400">{t("roastHeading")}</h2>
         {/* LLM content only exists in zh/en; a ja/ko visitor reads the English
             side, so tell them why the report language differs from the UI. */}
         {lang !== locale && (roast || roastLine) && (
           <p className="mb-3 text-xs text-zinc-500">{t("reportLangNotice")}</p>
-        )}
-        {/* Savage one-liner (current language) — shown above the full report.
-            The stale re-roast stream renders its own line, so skip it there. */}
-        {roastLine && !shouldStreamRoast && (
-          <p
-            className={`${isAdvxCampaign ? "hidden lg:block" : ""} mb-4 rounded-xl border border-orange-500/30 bg-orange-500/[0.08] p-4 text-[0.95rem] leading-relaxed text-zinc-100`}
-          >
-            🔥 {roastLine}
-          </p>
         )}
         {roast ? (
           staleReroast ? (
@@ -868,7 +907,8 @@ export function ProfileView({
               username={d.username}
               scan={liveScan}
               refresh
-              openModalOnMount
+              // Profile popup disabled 2026-10-28 (owner request); keep code for possible re-enable
+              openModalOnMount={false}
               fallbackReport={revealBody}
               fallbackMeta={revealMeta ?? undefined}
               profileName={d.display_name}
@@ -879,6 +919,7 @@ export function ProfileView({
             />
           ) : (
             <>
+              {/* Profile popup disabled 2026-10-28 (owner request); keep code for possible re-enable
               {fromHome && revealMeta && (
                 // Homepage handoff onto a fresh (<24h) roast: the SSR report
                 // stays, and the stored result pops as the share modal.
@@ -892,22 +933,32 @@ export function ProfileView({
                   materialVersion={d.scanned_at}
                 />
               )}
-              <div dir="ltr" className="report text-[0.95rem] text-zinc-200">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{roast}</ReactMarkdown>
-              </div>
+              */}
+              <RoastReport markdown={roast} tier={d.tier} score={d.final_score} realmName={realmName} />
             </>
           )
         ) : shouldStreamRoast ? (
           <LiveRoast
             username={d.username}
             scan={liveScan}
-            openModalOnMount={fromHome}
+            // Profile popup disabled 2026-10-28 (owner request); keep code for possible re-enable
+            openModalOnMount={false}
             fallbackMeta={fromHome ? (revealMeta ?? undefined) : undefined}
             profileName={d.display_name}
             profileAvatarUrl={d.avatar_url}
             orgs={organizations}
             advx={isAdvxCampaign}
             materialVersion={d.scanned_at}
+          />
+        ) : reroastPending ? (
+          <AutoReroast
+            username={d.username}
+            lang={lang}
+            staleReport={
+              staleRoast ? (
+                <RoastReport markdown={staleRoast} tier={d.tier} score={d.final_score} realmName={realmName} />
+              ) : null
+            }
           />
         ) : (
           <p className="text-sm text-zinc-400">

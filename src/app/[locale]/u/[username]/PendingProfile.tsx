@@ -4,9 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { TierAvatarFrame } from "@/components/TierAvatarFrame";
+import { AdventurerLevel } from "@/components/realm/AdventurerLevel";
+import { RealmChip } from "@/components/realm/RealmGlyph";
+import { realmForScore } from "@/lib/realm";
 import { DimensionStarChart } from "@/components/DimensionStarChart";
 import { LiveRoast } from "@/components/LiveRoast";
+import { ProfileEvaluateRunner } from "@/components/ProfileEvaluateRunner";
 import { StaleScanHint } from "@/components/StaleScanHint";
+import { StaleScoreRescan } from "@/components/StaleScoreRescan";
 import { DIMENSIONS } from "@/lib/dimensions";
 import { readSessionScan } from "@/lib/home-handoff";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
@@ -30,6 +35,7 @@ export function PendingProfile({
   initialScan,
   fromHome = false,
   advx = false,
+  evaluateDemo = null,
 }: {
   username: string;
   initialScan: ScanResult | null;
@@ -38,10 +44,14 @@ export function PendingProfile({
    * and report stream in place; the score remains deterministic. */
   fromHome?: boolean;
   advx?: boolean;
+  /** Non-production only: set from `?evaluateDemo=timeout` for evidence captures. */
+  evaluateDemo?: "timeout" | "wait" | null;
 }) {
   const t = useTranslations("detail");
   const tDim = useTranslations("dimensions");
   const tTier = useTranslations("tiers");
+  const tRealm = useTranslations("realms");
+  const tDetail = useTranslations("detail");
   const locale = useLocale();
 
   // Lazy init resolves the scan without a flash in the common cases: the server
@@ -69,14 +79,27 @@ export function PendingProfile({
     // Still checking sessionStorage → neutral spinner (avoids a not-found flash).
     if (!resolved) {
       return (
-        <main className="flex w-full flex-1 items-center justify-center px-5 py-20">
-          <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-orange-300/40 border-t-orange-200" />
+        <main className="flex w-full flex-1 items-center justify-center px-4 pt-12 pb-[max(2rem,env(safe-area-inset-bottom,0px))] sm:px-5 sm:pt-20 sm:pb-20">
+          <span className="inline-block h-6 w-6 motion-safe:animate-spin motion-reduce:animate-none rounded-full border-2 border-orange-300/40 border-t-orange-200" />
         </main>
+      );
+    }
+    // Homepage handoff arrived before the scan finished → run evaluate here.
+    if (fromHome) {
+      return (
+        <ProfileEvaluateRunner
+          username={username}
+          evaluateDemo={evaluateDemo}
+          onReady={(next) => {
+            setScan(next);
+            setResolved(true);
+          }}
+        />
       );
     }
     // No scan anywhere (direct visit to an unscanned handle) → point home.
     return (
-      <main className="flex w-full flex-1 items-center justify-center px-5 py-20">
+      <main className="flex w-full flex-1 items-center justify-center px-4 pt-12 pb-[max(2rem,env(safe-area-inset-bottom,0px))] sm:px-5 sm:pt-20 sm:pb-20">
         <p className="text-center text-sm text-zinc-400">
           {t("liveExpired")}{" "}
           <Link href="/" className="text-orange-400 hover:underline">
@@ -128,7 +151,10 @@ export function PendingProfile({
   });
 
   return (
-    <main className="relative isolate flex w-full flex-1 justify-center px-5 py-14 sm:py-20">
+    <main
+      data-profile-evaluate="ready"
+      className="profile-reveal relative isolate flex w-full flex-1 justify-center px-4 pt-8 pb-[max(2rem,env(safe-area-inset-bottom,0px))] sm:px-5 sm:pt-14 sm:pb-14 md:pt-20 md:pb-20"
+    >
       <div className="relative z-10 flex w-full max-w-4xl flex-col">
         <Link href="/leaderboard" className="text-sm text-zinc-400 hover:text-zinc-200">
           {t("back")}
@@ -138,7 +164,7 @@ export function PendingProfile({
           {/* Left: identity sidebar */}
           <aside className="flex flex-col gap-4 lg:sticky lg:top-8 lg:w-80 lg:shrink-0">
             <div
-              className={`animate-pop flex flex-col items-center rounded-2xl border border-white/10 bg-white/[0.05] p-6 text-center ring-1 ${style.ring}`}
+              className={`animate-pop flex flex-col items-center rounded-2xl border border-white/10 bg-white/[0.05] p-4 text-center ring-1 sm:p-6 ${style.ring}`}
               style={{ boxShadow: `0 0 80px -20px ${style.glow}` }}
             >
               <h1 className="max-w-full">
@@ -170,15 +196,17 @@ export function PendingProfile({
                 className="mt-5"
               />
               <div className={`mt-4 text-6xl font-black tabular-nums ${style.text}`}>
-                {scoring.final_score.toFixed(2)}
-                <span className="text-2xl text-zinc-600">/100</span>
+                <AdventurerLevel score={scoring.final_score} caption={tDetail("adventurerLevel")} size="lg" />
               </div>
               {fromHome && <StaleScanHint username={metrics.username} />}
               <div className={`mt-1 text-2xl font-bold ${style.text}`}>
-                {style.emoji} {tTier(`${tierKey}.name`)}
+                <RealmChip realm={realmForScore(scoring.final_score)} name={tRealm(`${realmForScore(scoring.final_score).id}.name`)} />
               </div>
+              {shouldStreamRoast ? (
+                <p className="mt-2 text-sm text-zinc-400">{t("scoreReadyHint")}</p>
+              ) : null}
               <div className="mt-1 text-sm font-medium text-zinc-300">
-                {tTier(`${tierKey}.blurb`)}
+                {tRealm(`${realmForScore(scoring.final_score).id}.blurb`)}
               </div>
 
               {organizations.length > 0 && (
@@ -211,6 +239,7 @@ export function PendingProfile({
                 state="stale-score"
                 title={t("scoreStateStaleTitle")}
                 body={t("scoreStateStaleBody")}
+                action={<StaleScoreRescan username={username} auto={false} />}
               />
             )}
           </aside>
@@ -299,12 +328,12 @@ export function PendingProfile({
 
             {/* Direct profile reads remain read-only; the homepage handoff streams. */}
             <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-7">
-              <h2 className="mb-3 text-lg font-bold text-orange-400">{t("roastHeading")}</h2>
               {shouldStreamRoast ? (
                 <LiveRoast
                   username={metrics.username}
                   scan={scan}
-                  openModalOnMount
+                  // Profile popup disabled 2026-10-28 (owner request); keep code for possible re-enable
+                  openModalOnMount={false}
                   fallbackMeta={scanMeta}
                   advx={advx}
                   materialVersion={scoring.final_score}

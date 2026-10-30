@@ -8,6 +8,7 @@
  * so the homepage `Roaster` and the profile-page `LiveRoast` decode it
  * identically. Framework-free (no React) — callers wire the callbacks to state.
  */
+import type { RoastGenerator } from "./roast-progress";
 import type { RoastMeta } from "./types";
 
 const FRAME = "\x1f";
@@ -47,6 +48,18 @@ export interface RoastStreamCallbacks {
     useByoKey?: boolean;
     fallback?: { report?: string; meta?: RoastMeta };
   }): void;
+  /** X-Roast-Generator, when the server names the copy chain for this response. */
+  onGenerator?(generator: RoastGenerator): void;
+  /**
+   * Epoch ms the durable job started (X-Roast-Started-At, or an S-frame).
+   * The ring resumes from this instead of the moment the page attached.
+   */
+  onStarted?(startedAtMs: number): void;
+}
+
+export function readRoastGeneratorHeader(value: string | null): RoastGenerator | null {
+  const token = value?.trim().toLowerCase();
+  return token === "v12" || token === "v13" ? token : null;
 }
 
 /**
@@ -63,6 +76,11 @@ export async function consumeRoastStream(
   res: Response,
   cb: RoastStreamCallbacks,
 ): Promise<{ report: string; errored: boolean; fresh: boolean }> {
+  const generator = readRoastGeneratorHeader(res.headers.get("X-Roast-Generator"));
+  if (generator) cb.onGenerator?.(generator);
+  const startedHeader = Number(res.headers.get("X-Roast-Started-At"));
+  if (Number.isFinite(startedHeader) && startedHeader > 0) cb.onStarted?.(startedHeader);
+
   const metaHeader = res.headers.get("X-Roast-Meta");
   if (metaHeader) {
     const meta = decodeRoastMeta(metaHeader);
@@ -109,6 +127,10 @@ export async function consumeRoastStream(
         if (type === "T") {
           fresh = true;
           cb.onThinking?.(payload);
+        } else if (type === "S") {
+          fresh = true;
+          const startedAt = Number(payload);
+          if (Number.isFinite(startedAt) && startedAt > 0) cb.onStarted?.(startedAt);
         } else if (type === "M") {
           fresh = true;
           const meta = decodeRoastMeta(payload);

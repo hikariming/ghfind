@@ -48,10 +48,16 @@
   "vars": {
     "GHFIND_DEPLOY_ENV": "development"
   },
+  "r2_buckets": [
+    { "binding": "SOCIAL_FEED_MEDIA", "bucket_name": "ghfind-social-media-dev" }
+  ],
   "env": {
     "dev": {
       "name": "ghfind-api-dev",
       "workers_dev": true,
+      "r2_buckets": [
+        { "binding": "SOCIAL_FEED_MEDIA", "bucket_name": "ghfind-social-media-dev" }
+      ],
       "d1_databases": [
         { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d" },
         { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed-dev", "database_id": "bd305af9-2cab-4fe8-8c2f-324391cf105e" }
@@ -84,12 +90,17 @@
     },
     "production": {
       "name": "ghfind-api",
+      "r2_buckets": [
+        { "binding": "SOCIAL_FEED_MEDIA", "bucket_name": "ghfind-social-media" }
+      ],
       "tail_consumers": [{ "service": "ghfind-cost-monitor" }],
       "workers_dev": true,
       // Project-analysis reconcile (apps/api/src/index.ts scheduled): advances
       // queued/running assessments in batches of 20, still bounded by
       // PROJECT_ANALYSIS_MAX_CONCURRENCY. Pause without a deploy by setting
       // PROJECT_ANALYSIS_RECONCILE_CRON=off (wrangler secret put … --env production).
+      // The same tick drains the on-view auto re-roast queue (≤3 jobs, ≤8 min;
+      // src/lib/auto-reroast-worker.ts); pause with GHFIND_AUTO_REROAST_DISABLED=1.
       "triggers": { "crons": ["*/2 * * * *"] },
       "d1_databases": [
         { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d" },
@@ -103,7 +114,8 @@
         "bindings": [
           { "name": "RATE_LIMITER", "class_name": "RateLimiter", "script_name": "ghfind-coord" },
           { "name": "COORD_KV", "class_name": "KeyValue", "script_name": "ghfind-coord" },
-          { "name": "SCAN_SLOT", "class_name": "ScanSlot", "script_name": "ghfind-coord" }
+          { "name": "SCAN_SLOT", "class_name": "ScanSlot", "script_name": "ghfind-coord" },
+          { "name": "ROAST_JOB", "class_name": "RoastJob", "script_name": "ghfind-coord" }
         ]
       },
       // Talent Match reports run on ghfind-talent (apps/talent).

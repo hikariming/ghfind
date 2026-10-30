@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -33,6 +34,11 @@ type GitHubClient struct {
 	httpClient *http.Client
 	tokens     []string
 	nextToken  atomic.Uint64
+	// rateRemaining is the lowest X-RateLimit-Remaining seen on a successful
+	// core response. Zero means the header has not been observed yet.
+	rateMu         sync.Mutex
+	rateRemaining  int
+	rateRemainingN int
 }
 
 // ParseGitHubTokens splits the comma-separated GITHUB_TOKEN pool, dropping
@@ -66,6 +72,39 @@ func (c *GitHubClient) withBaseURL(baseURL string) *GitHubClient {
 }
 
 func (c *GitHubClient) HasToken() bool { return len(c.tokens) > 0 }
+
+// noteRateRemaining keeps the tightest remaining core budget the pool has
+// reported. A missing or unparsable header is ignored so a proxy that strips
+// it cannot look like a drained token.
+func (c *GitHubClient) noteRateRemaining(header string) {
+	if c == nil || header == "" {
+		return
+	}
+	value, err := strconv.Atoi(header)
+	if err != nil || value < 0 {
+		return
+	}
+	c.rateMu.Lock()
+	defer c.rateMu.Unlock()
+	if c.rateRemainingN == 0 || value < c.rateRemaining {
+		c.rateRemaining = value
+	}
+	c.rateRemainingN++
+}
+
+// MinObservedRateRemaining reports the lowest X-RateLimit-Remaining this
+// client has seen and whether any header was observed.
+func (c *GitHubClient) MinObservedRateRemaining() (int, bool) {
+	if c == nil {
+		return 0, false
+	}
+	c.rateMu.Lock()
+	defer c.rateMu.Unlock()
+	if c.rateRemainingN == 0 {
+		return 0, false
+	}
+	return c.rateRemaining, true
+}
 
 func (c *GitHubClient) request(ctx context.Context, method, endpoint string, body []byte, extra http.Header) (*http.Response, error) {
 	if c.httpClient == nil {
@@ -101,6 +140,9 @@ func (c *GitHubClient) request(ctx context.Context, method, endpoint string, bod
 			request.Header.Set("Authorization", "Bearer "+c.tokens[(base+uint64(attempt))%uint64(len(c.tokens))])
 		}
 		response, err := c.httpClient.Do(request)
+		if response != nil {
+			c.noteRateRemaining(response.Header.Get("X-Ratelimit-Remaining"))
+		}
 		if err != nil {
 			lastErr = err
 			if attempt+1 < attempts && !waitGitHubRetry(ctx, 250*time.Millisecond, 0) {
@@ -290,7 +332,7 @@ func (c *GitHubClient) GetUser(ctx context.Context, username string) (githubUser
 
 func (c *GitHubClient) ListUserRepos(ctx context.Context, username string, page int) ([]githubRepo, error) {
 	var repos []githubRepo
-	path := "users/" + url.PathEscape(username) + "/repos?per_page=100&sort=pushed&page=" + strconv.Itoa(maxInt(page, 1))
+	path := "users/" + url.PathEscape(username) + "/repos?type=owner&per_page=100&sort=pushed&page=" + strconv.Itoa(maxInt(page, 1))
 	err := c.restGet(ctx, path, &repos)
 	return repos, err
 }

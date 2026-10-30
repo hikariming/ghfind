@@ -500,18 +500,51 @@ func generatedField(value, key string) string {
 	return strings.TrimSpace(value)
 }
 
+// Trivia-stat roast tags the owner rejected (follower ratios, time windows).
+// Keep this list in sync with src/lib/roast-tags.ts.
+var triviaRoastTagPattern = regexp.MustCompile(`(?i)关注倒挂|粉丝倒挂|粉关倒挂|关粉倒挂|follows?\s*[<>]=?\s*fans?|fans?\s*[<>]=?\s*follows?|followers?\s*[<>]=?\s*following|following\s*[<>]=?\s*followers?|follow(?:er)?\s*ratio|粉丝滤镜|关注滤镜|互关党|互关狂|fan\s*filter|follower\s*flex|近\d+\s*(天|日|周|月)|last\s*\d+\s*(day|week|month)|commit\s*window|time\s*window|^厚度$|卡在厚度|没有厚度`)
+
+func isTriviaRoastTag(value string) bool {
+	return value == "" || triviaRoastTagPattern.MatchString(value)
+}
+
 func cleanGeneratedTags(values []string, maximum int) []string {
 	seen, clean := map[string]bool{}, []string{}
 	for _, value := range values {
-		value = strings.TrimSpace(strings.NewReplacer("#", "", "@", "").Replace(value))
-		value = truncateRunes(value, maximum)
+		value = strings.TrimSpace(strings.NewReplacer("#", "", "@", "", ",", "", "，", "", "|", "").Replace(value))
+		if isTriviaRoastTag(value) {
+			continue
+		}
+		// Prefer dropping an over-long tag to mid-rune truncation when possible.
+		runes := []rune(value)
+		if len(runes) > maximum {
+			continue
+		}
 		if value == "" || seen[value] {
 			continue
 		}
 		seen[value] = true
 		clean = append(clean, value)
-		if len(clean) == 5 {
+		if len(clean) == 4 {
 			break
+		}
+	}
+	// If everything was over-long, fall back to truncated keepers (cap 4).
+	if len(clean) == 0 {
+		for _, value := range values {
+			value = strings.TrimSpace(strings.NewReplacer("#", "", "@", "").Replace(value))
+			if isTriviaRoastTag(value) {
+				continue
+			}
+			value = truncateRunes(value, maximum)
+			if value == "" || seen[value] {
+				continue
+			}
+			seen[value] = true
+			clean = append(clean, value)
+			if len(clean) == 4 {
+				break
+			}
 		}
 	}
 	return clean

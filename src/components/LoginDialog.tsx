@@ -30,9 +30,11 @@ function errorMessageKey(value: string | null): "denied" | "expired" | "failed" 
   return null;
 }
 
-export function LoginDialog({ me, onRetry, showTrigger = true }: { me: Me; onRetry: () => Promise<void>; showTrigger?: boolean }) {
+export function LoginDialog({ me, onRetry, showTrigger = true, open: controlledOpen, onOpenChange, nearComposer = false }: { me: Me; onRetry: () => Promise<void>; showTrigger?: boolean; open?: boolean; onOpenChange?: (open: boolean) => void; nearComposer?: boolean }) {
   const t = useTranslations("loginDialog");
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = (next: boolean) => { setInternalOpen(next); onOpenChange?.(next); };
   const [error, setError] = useState<ReturnType<typeof errorMessageKey>>(null);
   const [pending, setPending] = useState<LoginProvider | null>(null);
   const [retrying, setRetrying] = useState(false);
@@ -72,7 +74,7 @@ export function LoginDialog({ me, onRetry, showTrigger = true }: { me: Me; onRet
         <LogIn size={16} aria-hidden /><span className="sidebar-label">{t("entry")}</span>
       </button>
     </DialogTrigger>}
-    <DialogContent className="login-dialog">
+    <DialogContent className="login-dialog" style={nearComposer ? { top: "clamp(5rem, 18vh, 12rem)", bottom: "auto", left: "50%", translate: "none", transform: "translateX(-50%)", maxHeight: "calc(82dvh - 2rem)", overflowY: "auto" } : undefined}>
       <div className="login-dialog-heading">
         <div>
           <DialogTitle>{t("title")}</DialogTitle>

@@ -91,7 +91,7 @@ export function RepoPickCard({
                     prefetch={false}
                     className={`rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[11px] hover:bg-white/[0.07] ${style.text}`}
                   >
-                    {style.emoji} @{c.username}
+                    @{c.username}
                   </Link>
                 );
               })}
@@ -158,7 +158,7 @@ export function DeveloperPickCard({
                 <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
                   {stats.name && <span>{stats.name}</span>}
                   <span className={`font-semibold ${style.text}`}>
-                    {style.emoji} {tTiers(`${TIER_KEY[stats.tier]}.name`)}
+                    {tTiers(`${TIER_KEY[stats.tier]}.name`)}
                   </span>
                 </div>
               </div>

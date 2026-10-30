@@ -202,7 +202,8 @@ The backend also serves the project-analysis surface on staging:
 `/api/internal/project-analyses/reconcile` (manual backstop that re-enqueues
 stalled runs; parked runs re-drive themselves through the delayed retry lane).
 The worker consumes a dedicated `ghfind.project-analysis.v1` queue lane
-(`GHFIND_PROJECT_ANALYSIS_CONCURRENCY`, default 20) and drives the Mosoo
+(`GHFIND_PROJECT_ANALYSIS_CONCURRENCY`, default 3, max 20; Mosoo allows 5
+concurrent sandboxes per account) and drives the Mosoo
 agent end to end. Without Mosoo credentials submissions still queue and fail
 with the standard `mosoo_*` error codes.
 
@@ -279,7 +280,7 @@ gets one same-token retry for transient 502s.
 
 Roast generation is not queued: `POST /api/roast` streams from the LLM in the
 API handler, so文案 concurrency is bounded by Go's per-request goroutines and
-the per-principal rate limits (`rl:roast:m` 8/min), not by the worker. Verified
+the per-principal rate limits (`rl:roast:m` 12/min), not by the worker. Verified
 with 8 parallel fresh generations against StepFun (`step-3.7-flash`): all
 streamed full reports in 68s wall time; one stream dropped mid-way on an
 upstream wobble and succeeded on retry (mid-stream failures cannot fail over

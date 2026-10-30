@@ -330,6 +330,14 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.23.x"
+      - name: Use the official Ubuntu mirror with bounded downloads
+        # The runner's Azure mirror can stall Playwright system dependencies.
+        # Keep signature verification and the separate security mirror intact.
+        run: |
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            printf '%s\n' 'https://archive.ubuntu.com/ubuntu' | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+          fi
+          printf '%s\n' 'Acquire::http::Timeout "30";' 'Acquire::https::Timeout "30";' 'Acquire::Retries "3";' | sudo tee /etc/apt/apt.conf.d/99-ci-downloads >/dev/null
       - name: Install locked complete E2E dependencies
         run: |
           pnpm install --frozen-lockfile
