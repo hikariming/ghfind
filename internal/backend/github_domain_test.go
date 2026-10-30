@@ -82,3 +82,31 @@ func TestImpactQualitySignalsCountExternalPRsOnly(t *testing.T) {
 		t.Fatalf("signals = %#v, want %#v", got, want)
 	}
 }
+
+func TestComputeClosedPRBreakdownUsesPerPRCommitCloser(t *testing.T) {
+	strPtr := func(s string) *string { return &s }
+	landed := ClosedPRNode{ID: "landed", AuthorLogin: strPtr("alice"), RepositoryOwner: strPtr("vim"), ClosedBy: strPtr("maintainer"), CloserCommitAuthor: strPtr("alice")}
+	rejected := ClosedPRNode{ID: "rejected", AuthorLogin: strPtr("alice"), RepositoryOwner: strPtr("vim"), ClosedBy: strPtr("maintainer")}
+	// A maintainer replaying the patch under their own authorship must not
+	// credit the contributor.
+	rewritten := ClosedPRNode{ID: "rewritten", AuthorLogin: strPtr("alice"), RepositoryOwner: strPtr("vim"), ClosedBy: strPtr("maintainer"), CloserCommitAuthor: strPtr("maintainer")}
+	got := ComputeClosedPRBreakdown([]ClosedPRNode{landed, rejected, rewritten}, 3, "alice", map[string]bool{})
+	if got.DefaultBranchLandedPRCount != 1 {
+		t.Fatalf("default-branch landed = %v, want 1: %#v", got.DefaultBranchLandedPRCount, got)
+	}
+	if got.MaintainerClosedUnmergedPRCount != 2 {
+		t.Fatalf("maintainer closed = %v, want 2: %#v", got.MaintainerClosedUnmergedPRCount, got)
+	}
+	if got.ClosedUnmergedPRCount != 2 {
+		t.Fatalf("closed unmerged = %v, want 2: %#v", got.ClosedUnmergedPRCount, got)
+	}
+}
+
+func TestComputeClosedPRBreakdownTreatsUserCloserAsRejection(t *testing.T) {
+	strPtr := func(s string) *string { return &s }
+	node := ClosedPRNode{ID: "plain", AuthorLogin: strPtr("alice"), RepositoryOwner: strPtr("vim"), ClosedBy: strPtr("maintainer"), CloserCommitAuthor: nil}
+	got := ComputeClosedPRBreakdown([]ClosedPRNode{node}, 1, "alice", map[string]bool{})
+	if got.DefaultBranchLandedPRCount != 0 || got.MaintainerClosedUnmergedPRCount != 1 {
+		t.Fatalf("plain user closer must stay a rejection: %#v", got)
+	}
+}

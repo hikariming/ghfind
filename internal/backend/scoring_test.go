@@ -159,7 +159,7 @@ func TestScanResultJSONHonorsNodeNullSemantics(t *testing.T) {
 	for _, optional := range []string{
 		"top_repo_engagement_ratio", "impact_quality_cap",
 		"maintainer_closed_unmerged_pr_count", "self_closed_external_pr_count",
-		"self_closed_own_repo_pr_count", "recent_doc_like_pr_count",
+		"self_closed_own_repo_pr_count", "default_branch_landed_pr_count", "recent_doc_like_pr_count",
 		"recent_external_doc_like_pr_count", "workflow_landed_pr_count",
 	} {
 		if _, present := metrics[optional]; present {
