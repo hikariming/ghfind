@@ -473,6 +473,7 @@
   "scanErrors": {
     "invalid_username": "That doesn't look like a GitHub username — double-check it?",
     "account_not_found": "No such account — spelled right?",
+    "organization_not_supported": "That is a GitHub organization — scoring currently supports individual developers only.",
     "turnstile_failed": "Verification failed — refresh the page and retry.",
     "rate_limited": "Too fast — take a breath and try again in a minute.",
     "github_rate_limited": "GitHub's API is maxed out right now — give it a moment.",

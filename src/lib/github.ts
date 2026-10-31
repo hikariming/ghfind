@@ -30,6 +30,8 @@ const README_PROMPT_SUMMARY_LIMIT = 1500;
 
 /** Raised when the requested account does not exist (404). */
 export class AccountNotFoundError extends Error {}
+/** Raised when scoring was requested for a GitHub organization, not a person. */
+export class OrganizationNotSupportedError extends Error {}
 /** Raised when GitHub rate-limits us (403/429 with rate-limit headers). */
 export class GitHubRateLimitError extends Error {}
 /** Raised when the app cannot collect GraphQL-only scoring dimensions safely. */
@@ -324,6 +326,7 @@ interface RestReadme {
 interface RestUser {
   login: string;
   id: number;
+  type?: string;
   node_id?: string;
   html_url: string;
   avatar_url: string | null;
@@ -5044,6 +5047,10 @@ export async function collect(username: string, options: CollectOptions = {}): P
   const user = await restGet<RestUser>(`users/${username}`);
   if (!user || !Number.isSafeInteger(user.id) || user.id <= 0) {
     throw new AccountNotFoundError();
+  }
+  // REST /users/:login resolves both users and orgs. GraphQL user(login:) does not.
+  if (user.type === "Organization") {
+    throw new OrganizationNotSupportedError();
   }
   const login = user.login ?? username;
   const loginLower = login.toLowerCase();

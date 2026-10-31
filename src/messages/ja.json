@@ -473,6 +473,7 @@
   "scanErrors": {
     "invalid_username": "GitHubユーザー名に見えません。もう一度確認を？",
     "account_not_found": "そんなアカウントは存在しません。スペル合ってます？",
+    "organization_not_supported": "これはGitHubのOrganizationアカウントです。現在は個人開発者のみ採点できます。",
     "turnstile_failed": "認証に失敗しました。ページを再読み込みして再試行を。",
     "rate_limited": "速すぎです。深呼吸して1分後にもう一度。",
     "github_rate_limited": "GitHubのAPIが今パンク中です。少し待ってください。",

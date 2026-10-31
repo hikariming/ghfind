@@ -473,6 +473,7 @@
   "scanErrors": {
     "invalid_username": "Cái này trông không giống username GitHub — kiểm tra lại xem?",
     "account_not_found": "Không có tài khoản này — gõ đúng chưa vậy?",
+    "organization_not_supported": "Đây là tài khoản tổ chức GitHub — hiện chỉ hỗ trợ chấm điểm nhà phát triển cá nhân.",
     "turnstile_failed": "Xác minh thất bại — tải lại trang rồi thử lại nhé.",
     "rate_limited": "Nhanh quá — hít thở sâu rồi thử lại sau một phút.",
     "github_rate_limited": "API của GitHub đang quá tải — chờ chút nhé.",

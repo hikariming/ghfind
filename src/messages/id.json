@@ -473,6 +473,7 @@
   "scanErrors": {
     "invalid_username": "Itu tidak terlihat seperti username GitHub — coba cek lagi?",
     "account_not_found": "Akun tidak ada — ejaannya sudah benar?",
+    "organization_not_supported": "Ini akun organisasi GitHub — saat ini penilaian hanya mendukung pengembang perorangan.",
     "turnstile_failed": "Verifikasi gagal — refresh halaman dan coba lagi.",
     "rate_limited": "Kecepatan — tarik napas dan coba lagi semenit lagi.",
     "github_rate_limited": "API GitHub lagi penuh sesak — tunggu sebentar.",

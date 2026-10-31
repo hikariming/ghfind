@@ -13,6 +13,7 @@ export type ApiErrorCode =
   | "rate_limited"
   | "rate_limit_unavailable"
   | "account_not_found"
+  | "organization_not_supported"
   | "github_rate_limited"
   | "github_unavailable"
   | "github_collect_deadline"
@@ -34,6 +35,7 @@ const HINTS: Partial<Record<ApiErrorCode, string>> = {
   rate_limited: "Slow down and retry after the Retry-After interval.",
   rate_limit_unavailable: "Request protection is temporarily unavailable — retry after the Retry-After interval.",
   account_not_found: "That GitHub login does not exist.",
+  organization_not_supported: "This is a GitHub organization. Score an individual user account instead.",
   github_rate_limited: "GitHub's API is rate limited right now — retry shortly.",
   github_unavailable: "GitHub is temporarily unavailable — retry later.",
   github_collect_deadline: "GitHub collection timed out — retry shortly.",

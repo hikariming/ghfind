@@ -473,6 +473,7 @@
   "scanErrors": {
     "invalid_username": "Eso no parece un usuario de GitHub — ¿lo revisas de nuevo?",
     "account_not_found": "Esa cuenta no existe — ¿está bien escrita?",
+    "organization_not_supported": "Es una organización de GitHub — por ahora solo puntuamos a desarrolladores individuales.",
     "turnstile_failed": "La verificación falló — refresca la página y reintenta.",
     "rate_limited": "Muy rápido — respira y vuelve a intentarlo en un minuto.",
     "github_rate_limited": "La API de GitHub está al límite ahora mismo — dale un momento.",
