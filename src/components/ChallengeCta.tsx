@@ -112,7 +112,7 @@ export function ChallengeCta({
     return (
       <div className={className}>
         <div className={`flex items-center gap-2 ${full ? "w-full" : ""}`}>
-          <div className="group flex flex-1 items-center gap-2 rounded-full border border-white/15 bg-black/25 px-3 py-1.5 transition focus-within:border-orange-500/60">
+          <div className="challenge-field group flex flex-1 items-center gap-2 rounded-full border border-white/15 bg-black/25 px-3 py-1.5 transition focus-within:border-orange-500/60">
             <span className="select-none text-sm font-semibold text-zinc-500 group-focus-within:text-orange-400">
               @
             </span>
