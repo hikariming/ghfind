@@ -34,6 +34,8 @@ interface ScanSlotStub {
   release(owner: string, failed: boolean, capacityKey: string): Promise<void>;
   markPending(owner: string, username: string, ttlMs: number, options?: { full?: boolean; refresh?: boolean }): Promise<number>;
   pending(): Promise<ScanSlotPending | null>;
+  failure(): Promise<{ owner: string; code: string } | null>;
+  fail(owner: string, code: string): Promise<number>;
   renew(owner: string, leaseMs: number, capacityKey: string): Promise<number>;
 }
 
@@ -72,5 +74,6 @@ export function slotCoordinator(slot: ScanSlot, capacityKey: string, withRevisio
     release: (owner, failed) => slot.release(owner, failed, capacityKey),
     markPending: (owner, username, ttlMs) => slot.markPending(owner, username, ttlMs),
     pending: () => slot.pending(),
+    failure: () => slot.failure(),
   };
 }

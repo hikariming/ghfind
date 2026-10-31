@@ -58,4 +58,11 @@ describe("readScanResponse", () => {
     expect(fetch).toHaveBeenNthCalledWith(1, "/api/scan?username=tj", { cache: "no-store" });
     vi.useRealTimers();
   });
+  it("preserves a status API error for the caller instead of treating it as a network error", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: "github_collect_deadline" }, { status: 503 })));
+    await expect(readScanResponse(Response.json({ error: "scan_pending" }, {
+      status: 202, headers: { Location: "/api/scan?username=fiction-dev" },
+    }))).rejects.toMatchObject({ code: "github_collect_deadline" });
+  });
+
 });

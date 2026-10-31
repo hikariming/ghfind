@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   pending: vi.fn(),
+  fail: vi.fn(),
   payload: vi.fn(),
   publish: vi.fn(),
   release: vi.fn(),
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../scan-slots", () => ({
   scanSlots: () => ({ idFromName: (n: string) => n, get: () => ({
     pending: mocks.pending,
+    fail: mocks.fail,
     payload: mocks.payload,
     publish: mocks.publish,
     release: mocks.release,
@@ -21,6 +23,7 @@ vi.mock("../scan-slots", () => ({
   }) }),
   scanSlot: (_ns: unknown, _key: string) => ({
     pending: mocks.pending,
+    fail: mocks.fail,
     payload: mocks.payload,
     publish: mocks.publish,
     release: mocks.release,
@@ -28,7 +31,8 @@ vi.mock("../scan-slots", () => ({
   }),
   parsePayload: (value: string | null) => (value === null ? null : JSON.parse(value)),
 }));
-vi.mock("../scan-core", () => ({
+vi.mock("../scan-core", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../scan-core")>(),
   buildScanResult: mocks.buildScanResult,
   logFreshScanFailure: mocks.logFreshScanFailure,
   discardIncrementalCursor: vi.fn(),
@@ -49,6 +53,7 @@ describe("completeBackgroundScan", () => {
     mocks.pending.mockResolvedValue({ owner: "owner-a", username: "tj", startedAt: 1 });
     mocks.payload.mockResolvedValue(null);
     mocks.renew.mockResolvedValue(1);
+    mocks.fail.mockResolvedValue(1);
     mocks.publish.mockResolvedValue(1);
     mocks.release.mockResolvedValue(undefined);
     mocks.publishCompleteQuickScan.mockResolvedValue(true);
@@ -125,4 +130,20 @@ describe("completeBackgroundScan", () => {
     await expect(completeBackgroundScan("fiction-highfork", "owner-a")).resolves.toMatchObject({ status: "published" });
     expect(mocks.buildScanResult).toHaveBeenCalledExactlyOnceWith("fiction-highfork", { full: true, deadlineMs: 300_000 });
   });
+  it("records a safe failure before releasing the pending owner", async () => {
+    const { GitHubCollectDeadlineError } = await import("../github");
+    mocks.buildScanResult.mockRejectedValue(new GitHubCollectDeadlineError("private upstream detail"));
+    await expect(completeBackgroundScan("fiction-dev", "owner-a")).resolves.toMatchObject({ status: "failed" });
+    expect(mocks.fail).toHaveBeenCalledWith("owner-a", "github_collect_deadline");
+    expect(mocks.fail.mock.invocationCallOrder[0]).toBeLessThan(mocks.release.mock.invocationCallOrder[0]);
+    expect(mocks.publish).not.toHaveBeenCalled();
+  });
+
+  it("records persistence failure without publishing a result", async () => {
+    mocks.publishCompleteQuickScan.mockResolvedValue(false);
+    await completeBackgroundScan("fiction-dev", "owner-a");
+    expect(mocks.fail).toHaveBeenCalledWith("owner-a", "scan_failed");
+    expect(mocks.publish).not.toHaveBeenCalled();
+  });
+
 });
