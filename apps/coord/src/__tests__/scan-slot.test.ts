@@ -161,6 +161,22 @@ describe("ScanSlot", () => {
     expect(await slot.publish("a", "{}", 60, true)).toBe(1);
   });
 
+  it("retains only the owner's terminal failure until a new admission", async () => {
+    vi.useFakeTimers({ now: 1 });
+    const { slots } = world({ run: vi.fn(async () => ({ ok: false, status: "failed" })) });
+    const slot = slots.get("scan:fiction");
+    await slot.admit("owner", 360_000, "pool", 96);
+    await slot.markPending("owner", "fiction-dev", 360_000);
+    expect(await slot.fail("other", "scan_failed")).toBe(0);
+    expect(await slot.fail("owner", "github_collect_deadline")).toBe(1);
+    await slot.release("owner", true, "pool");
+    expect(await slot.pending()).toBeNull();
+    expect(await slot.failure()).toEqual({ owner: "owner", code: "github_collect_deadline" });
+    vi.setSystemTime(15_001);
+    expect(await slot.admit("next", 360_000, "pool", 96)).toBe(1);
+    expect(await slot.failure()).toBeNull();
+  });
+
   it("renews only the living owner and rejects a stolen publish", async () => {
     vi.useFakeTimers({ now: 0 });
     const { slots, capacity } = world();
