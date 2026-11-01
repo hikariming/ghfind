@@ -1,9 +1,9 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { ChevronDown } from "lucide-react";
+import { ArrowUpRight, ChevronDown } from "lucide-react";
 import { Link, usePathname } from "@/i18n/navigation";
-import type { NavItem } from "@/config/nav";
+import { isExternalNavItem, type NavItem } from "@/config/nav";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -34,7 +34,7 @@ export function NavLinks({
   const vertical = orientation === "vertical";
 
   const isActive = (item: NavItem) =>
-    item.href
+    item.href && !isExternalNavItem(item)
       ? item.exact
         ? pathname === item.href
         : pathname === item.href || pathname.startsWith(`${item.href}/`) || (item.activePaths ?? []).some(path => pathname === path || pathname.startsWith(`${path}/`))
@@ -42,12 +42,32 @@ export function NavLinks({
   const groupActive = (item: NavItem) =>
     isActive(item) || (item.children ?? []).some(isActive);
 
-  const badge = (item: NavItem) =>
-    item.badge ? (
-      <span className="ms-1.5 rounded bg-amber-400/20 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-200">
-        {item.badge}
-      </span>
-    ) : null;
+  const badge = (item: NavItem) => (
+    <>
+      {item.badge ? (
+        <span className="ms-1.5 rounded bg-amber-400/20 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-200">
+          {item.badge}
+        </span>
+      ) : null}
+      {item.event ? <span className="sidebar-event-badge ms-1.5">{t("event")}</span> : null}
+      {isExternalNavItem(item) ? <ArrowUpRight className="ms-1 h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden /> : null}
+    </>
+  );
+
+  // External entries leave the site: plain new-tab anchor, no locale prefix.
+  const external = (item: NavItem, className: string) => (
+    <a
+      key={item.key}
+      href={item.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={onNavigate}
+      className={className}
+    >
+      <span>{t(item.key)}</span>
+      {badge(item)}
+    </a>
+  );
 
   const linkItem = (item: NavItem) => {
     const active = isActive(item);
@@ -58,6 +78,9 @@ export function NavLinks({
       : active
         ? "font-semibold text-zinc-100"
         : "text-zinc-400 hover:text-zinc-200";
+    if (isExternalNavItem(item)) {
+      return external(item, `group relative flex items-center text-sm transition-colors ${vertical ? "" : "px-3 py-2"} ${baseClass}`);
+    }
     return (
       <Link
         key={item.key}
@@ -121,7 +144,9 @@ export function NavLinks({
           align="start"
           className="min-w-[12rem] border-white/10 bg-popover p-1.5"
         >
-          {children.map((c) => (
+          {children.map((c) => isExternalNavItem(c) ? (
+            external(c, "flex items-center rounded-lg px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-100")
+          ) : (
             <Link
               key={c.key}
               href={c.href ?? "/"}

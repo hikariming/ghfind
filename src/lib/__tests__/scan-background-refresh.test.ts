@@ -6,7 +6,11 @@ const mocks = vi.hoisted(() => ({
 vi.mock("next/server", () => ({ after: mocks.after }));
 vi.mock("../redis", () => ({ tryAcquireScanRefresh: mocks.acquire, coalesceScan: mocks.coalesce, admitVisitRefresh: vi.fn() }));
 vi.mock("../db", () => ({ publishCompleteQuickScan: mocks.persist }));
-vi.mock("../scan-core", () => ({ buildScanResult: mocks.build, logFreshScanFailure: mocks.log }));
+vi.mock("../scan-core", () => ({
+  buildScanResult: mocks.build,
+  logFreshScanFailure: mocks.log,
+  discardIncrementalCursor: vi.fn(),
+}));
 import { refreshScanInBackground, scheduleFullScanIfNeeded } from "../scan-background-refresh";
 import type { ScanResult } from "../types";
 

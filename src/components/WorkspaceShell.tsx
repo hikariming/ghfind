@@ -2,20 +2,21 @@
 
 import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowUpRight, BookOpen, Bot, BriefcaseBusiness, Building2, Cable, Code2, Compass, FileUser, Flame, HandHeart, Menu, Newspaper, PanelLeftClose, PanelLeftOpen, Sparkles, Star, Swords, Trophy, X, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, BookOpen, Bot, BriefcaseBusiness, Building2, Cable, Code2, Compass, FileUser, Flame, GraduationCap, HandHeart, Menu, Newspaper, PanelLeftClose, PanelLeftOpen, Sparkles, Star, Swords, Trophy, X, type LucideIcon } from "lucide-react";
 import { Link, usePathname } from "@/i18n/navigation";
 import { XMark } from "@/components/ui/x-mark";
 import { GitHubMark } from "@/components/ui/github-mark";
 import { BrandMark } from "./BrandMark";
 import { GlobalSearch } from "./GlobalSearch";
 import { LanguageSwitcher } from "./LanguageSwitcher";
-import { NAV_GROUPS } from "@/config/nav";
+import { NAV_GROUPS, isExternalNavItem } from "@/config/nav";
 import { ThemeToggle } from "./ThemeToggle";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger, SheetClose } from "./ui/sheet";
 
 const NAV_ICONS: Record<string, LucideIcon> = {
   flame: Flame, swords: Swords, trophy: Trophy, code: Code2, star: Star, newspaper: Newspaper,
   resume: FileUser, briefcase: BriefcaseBusiness, building: Building2, bot: Bot, cable: Cable, sparkles: Sparkles, compass: Compass,
+  graduation: GraduationCap,
 };
 
 
@@ -48,15 +49,20 @@ export function WorkspaceShell({ children, account, sponsor }: { children: React
           </p>}
           {group.items.map(item => {
             const Icon = NAV_ICONS[item.icon ?? ""] ?? Code2;
-            const current = active(item.href ?? "/") || (item.activePaths ?? []).some(active);
-            return <Link key={item.key} href={item.href ?? "/"} prefetch={false} onClick={() => setOpen(false)}
-              className="sidebar-link" data-featured={item.featured || undefined} aria-current={current ? "page" : undefined}
-              title={nav(`hint.${item.key}`)} aria-label={nav(item.key)}>
+            const external = isExternalNavItem(item);
+            const current = !external && (active(item.href ?? "/") || (item.activePaths ?? []).some(active));
+            const content = <>
               {item.icon === "x" ? <XMark className="size-[18px] shrink-0" /> : <Icon size={18} strokeWidth={1.7} aria-hidden />}<span className="sidebar-label">{nav(item.key)}</span>
               {item.new && <span className="sidebar-new-badge">new!</span>}
+              {item.event && <span className="sidebar-event-badge">{nav("event")}</span>}
               {item.beta && <span className="sidebar-soon sidebar-label">{nav("beta")}</span>}
+              {external && <ArrowUpRight size={14} className="sidebar-label ms-auto" aria-hidden />}
               {current && <span className="sidebar-active-dot" aria-hidden />}
-            </Link>;
+            </>;
+            const props = { className: "sidebar-link", "data-featured": item.featured || undefined, title: nav(`hint.${item.key}`), "aria-label": nav(item.key), onClick: () => setOpen(false) };
+            return external
+              ? <a key={item.key} href={item.href} target="_blank" rel="noopener noreferrer" {...props}>{content}</a>
+              : <Link key={item.key} href={item.href ?? "/"} prefetch={false} aria-current={current ? "page" : undefined} {...props}>{content}</Link>;
           })}
         </div>)}
       </nav>

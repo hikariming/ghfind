@@ -26,6 +26,8 @@ import {
 } from "@/lib/llm";
 import { roastGenerator } from "@/lib/cache-version";
 import { generateRoastV13, type V13StepLog } from "@/lib/roast-v13/chain";
+import { roastJob } from "@/lib/roast-job";
+import { attachDurableRoast } from "@/lib/roast-durable-attach";
 import { beatPercent } from "@/lib/percentile";
 import { buildRoastMessages } from "@/lib/prompt";
 import { reportMatchesLang } from "@/lib/report";
@@ -49,6 +51,7 @@ import { tierFor } from "@/lib/score";
 import type { RoastLine, RoastMeta, ScanResult, Tags, Tier } from "@/lib/types";
 import { USERNAME_RE } from "@/lib/username";
 import { sanitizeRoastTags } from "./roast-tags";
+import { scrubBannedRoastSnark } from "@/lib/roast-v13/voice";
 
 /**
  * POST /api/roast implementation (src/app/api/roast/route.ts re-exports it).
@@ -62,6 +65,8 @@ import { sanitizeRoastTags } from "./roast-tags";
 export const ROAST_META_HEADER = "X-Roast-Meta";
 /** Which copy chain this response will run. Clients use it to pick a progress τ. */
 export const ROAST_GENERATOR_HEADER = "X-Roast-Generator";
+/** Epoch ms when this profile's durable v13 job started. The ring resumes from it. */
+export const ROAST_STARTED_HEADER = "X-Roast-Started-At";
 
 const EMPTY_ROAST_LINE: RoastLine = { zh: "", en: "" };
 
@@ -94,9 +99,19 @@ function classifyLlmError(e: unknown): "timeout" | "quota" | "upstream" | "other
   return "other";
 }
 
-/** v13 chain budget: leaves the v12 fallback ~80s inside llmDeadlineMs. */
-const V13_CHAIN_BUDGET_MS = 140_000;
-const V13_STEP_MS = 60_000;
+/**
+ * Wall clock for the Durable Object v13 chain (RoastJob alarm / continue).
+ * Background generation may use the full budget; interactive HTTP attach must
+ * NOT wait this long or the Worker dies before v12 fallback can run.
+ */
+export const V13_CHAIN_BUDGET_MS = 7 * 60_000;
+/**
+ * Interactive attach wait before abandoning a durable v13 job and falling
+ * through to the v12 single-call stream. Kept under the ~220s request LLM
+ * ceiling with room for one GENERATION_ATTEMPT_MS (~95s) v12 attempt.
+ */
+export const V13_ATTACH_BUDGET_MS = 100_000;
+export const V13_STEP_MS = 180_000;
 
 function v13StepsOf(e: unknown): V13StepLog[] {
   return e && typeof e === "object" && Array.isArray((e as { steps?: unknown }).steps)
@@ -106,6 +121,114 @@ function v13StepsOf(e: unknown): V13StepLog[] {
 
 /** Approximate usage for cost tracking (the non-streaming helper returns text
  * only): ~1.6 chars/token for mixed CJK/JSON prompts. */
+export interface V13ChainOutcome {
+  report: string;
+  tags: Tags;
+  roastLine: RoastLine;
+  meta: RoastMeta;
+  steps: V13StepLog[];
+  draftIssues: number;
+  finalIssues: number;
+  dropped: string[];
+}
+
+/**
+ * Run the v13 chain and persist it. Throws on a chain or meta failure so the
+ * caller can fall back to v12. `onStage` is best-effort progress for an
+ * attached stream or a durable job record.
+ */
+export async function runV13Chain(input: {
+  scan: ScanResult;
+  lang: Lang;
+  username: string;
+  snapshotHash: string;
+  scoreIdentity: ScoreWriteIdentity | null;
+  llmConfigs: LlmConfig[];
+  deadlineMs: number;
+  requestId: string;
+  onStage?: (label: string) => void;
+}): Promise<V13ChainOutcome> {
+  const v13Configs = [roastV13LlmConfig(), ...input.llmConfigs].filter(
+    (c): c is LlmConfig => c !== null,
+  );
+  const stageLabel: Record<string, string> =
+    input.lang === "en"
+      ? { angles: "Picking the sharpest facts…", writer: "Writing roast…", editor: "Fact-checking every line…" }
+      : { angles: "正在挑选有趣事实…", writer: "正在撰写锐评…", editor: "正在逐句核对事实…" };
+  const attempts: ChatAttemptEvent[] = [];
+  const v13 = await generateRoastV13(
+    input.scan,
+    input.lang,
+    (step, messages, o) => {
+      input.onStage?.(stageLabel[step] ?? step);
+      return getCompletionWithFallback(v13Configs, messages, {
+        temperature: o.temperature,
+        deadlineMs: o.deadlineMs,
+        attemptBudgetMs: Math.min(V13_STEP_MS, o.deadlineMs - Date.now()),
+        onAttempt(event) {
+          attempts.push({ ...event, provider: `${event.provider}:${step}` });
+        },
+      });
+    },
+    { deadlineMs: input.deadlineMs, stepBudgetMs: V13_STEP_MS },
+  );
+  const identitySafe = sanitizeIdentityClaims(
+    input.scan,
+    v13.tags,
+    {
+      zh: clampRoastLine(v13.roastLine.zh, "zh"),
+      en: clampRoastLine(v13.roastLine.en, "en"),
+    },
+    v13.report,
+  );
+  const { tags, roastLine, report } = sanitizeStrongCoreRoast(
+    input.scan,
+    identitySafe.tags,
+    identitySafe.roastLine,
+    identitySafe.report,
+  );
+  const meta = await computeMeta(input.scan, 0, tags, roastLine, input.lang);
+  let full = sanitizeOutputText(input.scan, report);
+  full += signatureWorkAppendix(input.scan, input.lang, full);
+  if (reportMatchesLang(full, input.lang)) {
+    const persisted = input.scoreIdentity
+      ? await updateRoast(input.username, full, input.lang, input.scoreIdentity, { tags, roastLine })
+      : false;
+    if (persisted) {
+      await cacheRoastReplay(
+        input.username, input.lang, input.snapshotHash, full, tags, roastLine, meta.final_score, meta.tier,
+      );
+    }
+  }
+  logRoastSummary({
+    requestId: input.requestId,
+    lang: input.lang,
+    path: "default",
+    source: "generate",
+    ok: true,
+    generator: "v13",
+    score: meta.final_score,
+    delta: 0,
+    chars: full.length,
+    v13Steps: v13.steps,
+    ...v13Usage(v13.steps),
+    v13DraftIssues: v13.draftIssues.length,
+    v13FinalIssues: v13.finalIssues.length,
+    v13Dropped: v13.dropped.length,
+    attempts,
+  });
+  return {
+    report: full,
+    tags,
+    roastLine,
+    meta,
+    steps: v13.steps,
+    draftIssues: v13.draftIssues.length,
+    finalIssues: v13.finalIssues.length,
+    dropped: v13.dropped,
+  };
+}
+
 function v13Usage(steps: V13StepLog[]): Record<string, number> {
   const inChars = steps.reduce((n, s) => n + s.inChars, 0);
   const outChars = steps.reduce((n, s) => n + s.outChars, 0);
@@ -369,11 +492,18 @@ function sanitizeRepoShorthandText(scan: ScanResult, text: string): string {
   return out;
 }
 
+function detectOutputLang(text: string): "zh" | "en" {
+  // Prefer Chinese scrub when CJK is present; otherwise English lexicon.
+  return /[\u4e00-\u9fff]/u.test(text) ? "zh" : "en";
+}
+
 function sanitizeOutputText(scan: ScanResult, text: string): string {
-  return sanitizeStrongCoreText(
+  const cleaned = sanitizeStrongCoreText(
     scan,
     sanitizeRepoShorthandText(scan, sanitizeInternalScoringText(text)),
   );
+  // Shared v12/v13 snark + old-tier label scrub (NPC / 拉完了 / 平庸 / 存疑 / …).
+  return scrubBannedRoastSnark(cleaned, detectOutputLang(cleaned));
 }
 
 function signatureWorkAppendix(scan: ScanResult, lang: Lang, report: string): string {
@@ -507,16 +637,22 @@ function metaHeader(meta: RoastMeta): string {
   return Buffer.from(JSON.stringify(meta), "utf-8").toString("base64");
 }
 
-function roastResponse(body: ReadableStream<Uint8Array> | string, meta: RoastMeta): Response {
-  return new Response(body, {
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "no-store",
-      "X-Accel-Buffering": "no",
-      [ROAST_META_HEADER]: metaHeader(meta),
-      [ROAST_GENERATOR_HEADER]: roastGenerator(),
-    },
-  });
+function roastResponse(
+  body: ReadableStream<Uint8Array> | string,
+  meta: RoastMeta,
+  extra?: { generator?: "v12" | "v13"; startedAt?: number },
+): Response {
+  const headers: Record<string, string> = {
+    "Content-Type": "text/plain; charset=utf-8",
+    "Cache-Control": "no-store",
+    "X-Accel-Buffering": "no",
+    [ROAST_META_HEADER]: metaHeader(meta),
+    [ROAST_GENERATOR_HEADER]: extra?.generator ?? roastGenerator(),
+  };
+  if (extra?.startedAt != null && Number.isFinite(extra.startedAt)) {
+    headers[ROAST_STARTED_HEADER] = String(Math.floor(extra.startedAt));
+  }
+  return new Response(body, { headers });
 }
 
 /** Deterministic (pre-LLM) meta for the streaming response's header. The header
@@ -654,6 +790,11 @@ export interface RoastHandlerOptions {
    * for the browser session principal. Never set from a request.
    */
   autoReroastJob?: boolean;
+  /**
+   * Continuation invoked by the RoastJob alarm. The chain runs here, outside
+   * the browser request. Never set from a request.
+   */
+  foregroundJob?: boolean;
 }
 
 export async function handleRoastPost(req: NextRequest, options: RoastHandlerOptions = {}) {
@@ -687,9 +828,11 @@ export async function handleRoastPost(req: NextRequest, options: RoastHandlerOpt
   const ip = clientIp(req);
   const browserPrincipal = options.autoReroastJob
     ? "job:auto-reroast"
-    : auth === "absent"
-      ? anonymousSessionPrincipal(req)
-      : null;
+    : options.foregroundJob
+      ? "job:roast-foreground"
+      : auth === "absent"
+        ? anonymousSessionPrincipal(req)
+        : null;
   const isDefault = !(
     body.byoKey?.apiKey && body.byoKey?.baseURL && body.byoKey?.model
   );
@@ -1022,116 +1165,105 @@ export async function handleRoastPost(req: NextRequest, options: RoastHandlerOpt
         close();
       };
 
-      // Roast v13: angle picker → writer → editor chain with deterministic fact
-      // checks and a code-rendered report. Opt-in (ROAST_GENERATOR=v13) and
-      // operator-funded only. Any chain failure falls through to the v12
-      // single-call stream below (same roast release, so it persists normally).
+      // Roast v13: writer → editor chain with deterministic fact checks and a
+      // code-rendered report. Opt-in (ROAST_GENERATOR=v13). A foreground request
+      // claims one durable RoastJob per profile; the alarm runs the chain, and
+      // this stream only attaches. Any chain failure, or a wait past the
+      // interactive attach budget, falls through to the v12 stream below.
       let generator: "v12" | "v13" | "v12_fallback" = "v12";
       let v13Steps: V13StepLog[] = [];
       let v13Error: string | null = null;
-      if (isDefault && roastGenerator({ background: options.autoReroastJob }) === "v13") {
+      const wantsV13 =
+        isDefault &&
+        roastGenerator({ background: options.autoReroastJob, foreground: options.foregroundJob }) === "v13";
+      if (wantsV13) {
         generator = "v13";
-        const v13Configs = [roastV13LlmConfig(), ...llmConfigs].filter(
-          (c): c is LlmConfig => c !== null,
-        );
-        const stageLabel: Record<string, string> =
-          lang === "en"
-            ? { angles: "Picking the sharpest facts…", writer: "Writing roast…", editor: "Fact-checking every line…" }
-            : { angles: "正在挑选有趣事实…", writer: "正在撰写锐评…", editor: "正在逐句核对事实…" };
-        let stage = stageLabel.angles;
-        beat(stage, true);
-        const ticker = setInterval(() => beat(stage, true), 3000);
-        try {
-          const v13 = await generateRoastV13(
-            scan,
-            lang,
-            (step, messages, o) => {
-              stage = stageLabel[step] ?? stage;
-              beat(stage, true);
-              return getCompletionWithFallback(v13Configs, messages, {
-                temperature: o.temperature,
-                deadlineMs: o.deadlineMs,
-                attemptBudgetMs: Math.min(V13_STEP_MS, o.deadlineMs - Date.now()),
-                onAttempt(event) {
-                  attempts.push({ ...event, provider: `${event.provider}:${step}` });
-                  if (event.phase === "first_event" && firstEventMs === null) {
-                    firstEventMs = Date.now() - reqT0;
-                  }
-                },
+        const durable = options.foregroundJob ? null : roastJob(username, lang);
+        if (durable) {
+          try {
+            const attached = await attachDurableRoast({
+              job: durable,
+              enc,
+              push,
+              beat,
+              lang,
+              username,
+              snapshotHash,
+              // Cap wait so v12 fallback still fits inside llmDeadlineMs.
+              deadlineMs: Math.min(
+                reqT0 + V13_ATTACH_BUDGET_MS,
+                llmDeadlineMs - GENERATION_ATTEMPT_MS - 10_000,
+              ),
+              readCached: getCachedRoast,
+              metaFor: metaForStoredRoast,
+              matchesLang: reportMatchesLang,
+            });
+            if (attached.kind === "done") {
+              metaMs = Date.now() - reqT0;
+              firstContentMs = metaMs;
+              push(metaFrame(enc, attached.meta));
+              push(enc.encode(attached.report));
+              logRoastSummary({
+                ...summaryFields(), ok: true, generator, score: attached.meta.final_score, delta: 0,
+                chars: attached.report.length, durable: true,
               });
-            },
-            { deadlineMs: reqT0 + V13_CHAIN_BUDGET_MS, stepBudgetMs: V13_STEP_MS },
-          );
-          v13Steps = v13.steps;
-          clearInterval(ticker);
-          const identitySafe = sanitizeIdentityClaims(
-            scan,
-            v13.tags,
-            {
-              zh: clampRoastLine(v13.roastLine.zh, "zh"),
-              en: clampRoastLine(v13.roastLine.en, "en"),
-            },
-            v13.report,
-          );
-          const { tags, roastLine, report } = sanitizeStrongCoreRoast(
-            scan,
-            identitySafe.tags,
-            identitySafe.roastLine,
-            identitySafe.report,
-          );
-          let meta: RoastMeta;
-          try {
-            meta = await computeMeta(scan, 0, tags, roastLine, lang);
-            metaMs = Date.now() - reqT0;
-          } catch (e) {
-            return failAndClose(
-              { error: "roast_failed" },
-              { stage: "meta", kind: classifyLlmError(e), generator, v13Steps },
-            );
-          }
-          push(metaFrame(enc, meta));
-          firstContentMs = Date.now() - reqT0;
-          let full = sanitizeOutputText(scan, report);
-          full += signatureWorkAppendix(scan, lang, full);
-          push(enc.encode(full));
-          try {
-            if (reportMatchesLang(full, lang)) {
-              const persisted = scoreIdentity
-                ? await updateRoast(username, full, lang, scoreIdentity, { tags, roastLine })
-                : false;
-              if (persisted) {
-                await cacheRoastReplay(
-                  username, lang, snapshotHash, full, tags, roastLine, meta.final_score, meta.tier,
-                );
-              }
+              if (isLeader) await releaseRoastLock(username, lang);
+              close();
+              return;
             }
-            logRoastSummary({
-              ...summaryFields(), ok: true, generator, score: meta.final_score, delta: 0,
-              chars: full.length, v13Steps, ...v13Usage(v13Steps),
-              v13DraftIssues: v13.draftIssues.length, v13FinalIssues: v13.finalIssues.length,
-              v13Dropped: v13.dropped.length,
-            });
+            // No binding, a failed chain, or the interactive attach budget.
+            // A job was already claimed, so this request falls back to v12
+            // instead of starting a second chain inline.
+            generator = "v12_fallback";
+            v13Error = attached.reason;
           } catch (e) {
-            logRoastSummary({
-              ...summaryFields(), ok: false, stage: "persist", generator,
-              kind: classifyLlmError(e), chars: full.length, v13Steps,
+            generator = "v12_fallback";
+            v13Error = e instanceof Error ? e.message.slice(0, 160) : "error";
+          }
+        }
+        if (!durable) {
+          let stage = lang === "en" ? "Picking the sharpest facts…" : "正在挑选有趣事实…";
+          beat(stage, true);
+          const ticker = setInterval(() => beat(stage, true), 3000);
+          try {
+            const v13 = await runV13Chain({
+              scan,
+              lang,
+              username,
+              snapshotHash,
+              scoreIdentity,
+              llmConfigs,
+              deadlineMs: Math.min(
+                reqT0 + V13_CHAIN_BUDGET_MS,
+                llmDeadlineMs - GENERATION_ATTEMPT_MS - 10_000,
+              ),
+              requestId,
+              onStage: (label) => {
+                stage = label;
+                beat(label, true);
+              },
             });
-          } finally {
+            v13Steps = v13.steps;
+            clearInterval(ticker);
+            metaMs = Date.now() - reqT0;
+            firstContentMs = metaMs;
+            push(metaFrame(enc, v13.meta));
+            push(enc.encode(v13.report));
             if (isLeader) await releaseRoastLock(username, lang);
             close();
+            return;
+          } catch (e) {
+            clearInterval(ticker);
+            if (e instanceof LlmQuotaError) {
+              return failAndClose(
+                { error: "llm_quota", useByoKey: true, status: e.status },
+                { stage: "generation", kind: "quota", generator, v13Steps: v13StepsOf(e) },
+              );
+            }
+            v13Steps = v13StepsOf(e);
+            v13Error = e instanceof Error ? e.message.slice(0, 160) : "error";
+            generator = "v12_fallback";
           }
-          return;
-        } catch (e) {
-          clearInterval(ticker);
-          if (e instanceof LlmQuotaError) {
-            return failAndClose(
-              { error: "llm_quota", useByoKey: true, status: e.status },
-              { stage: "generation", kind: "quota", generator, v13Steps: v13StepsOf(e) },
-            );
-          }
-          v13Steps = v13StepsOf(e);
-          v13Error = e instanceof Error ? e.message.slice(0, 160) : "error";
-          generator = "v12_fallback";
         }
       }
 

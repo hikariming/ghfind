@@ -1,6 +1,7 @@
 import { Link } from "@/i18n/navigation";
 import { SUBSCORE_MAX } from "@/lib/score-presentation";
 import { DIMENSIONS, barColor } from "@/lib/dimensions";
+import { realmForScore } from "@/lib/realm";
 import { TIER_KEY } from "@/lib/tier";
 import { verdict } from "@/lib/verdict";
 import { VS_MIN_SCORE } from "@/lib/site";
@@ -19,6 +20,7 @@ export function VsView({
   t,
   tDim,
   tTier,
+  tRealm,
 }: {
   locale: string;
   pair: { a: string; b: string };
@@ -29,13 +31,18 @@ export function VsView({
   tDim: Translator;
   /** "tiers" namespace. */
   tTier: Translator;
+  tRealm: Translator;
 }) {
   const da = presentation?.a ?? null;
   const db = presentation?.b ?? null;
   const matchup = presentation?.matchup ?? null;
   const v = verdict(da, db);
 
-  const tierName = (d: typeof da) => (d ? tTier(`${TIER_KEY[d.tier]}.name`) : null);
+  const tierName = (d: typeof da) => {
+    if (!d) return null;
+    const realm = realmForScore(d.final_score);
+    return tRealm(`${realm.id}.name`);
+  };
   const bucketLabel = v.missing
     ? null
     : v.bucket === "crush"

@@ -2,7 +2,6 @@ import { BRAND_MARK_PATHS } from "@/components/BrandMark";
 import { estimateTextWidth } from "./badge";
 import { DIMENSIONS } from "./dimensions";
 import { SUBSCORE_MAX } from "./score";
-import { TIER_AVATAR_FRAME_VECTORS, tierAvatarFrame } from "./tier";
 import type { SubScoreKey, SubScores, Tier } from "./types";
 
 export const MATERIAL_CARD_WIDTH = 912;
@@ -28,7 +27,8 @@ export interface MaterialCardSvgOptions {
   color: string;
   theme: MaterialCardTheme;
   qr: string | null;
-  tierIcon: string;
+  /** @deprecated unused — avatar stickers removed. */
+  tierIcon?: string;
   /**
    * Sponsor logo as a data URL. The full-size mark is used for print/export.
    */
@@ -179,18 +179,6 @@ export function brandMarkSvg(
   </g>`;
 }
 
-function avatarEmojiFrame(tier: Tier, tierIcon: string): string {
-  const frame = tierAvatarFrame(tier);
-  const iconSize = frame.emojiSize === "large" ? 34 : 24;
-  return frame.placements
-    .map((placement) => {
-      const vector = TIER_AVATAR_FRAME_VECTORS[placement];
-      const x = AVATAR_CENTER.x + vector.x * AVATAR_FRAME_RADIUS;
-      const y = AVATAR_CENTER.y + vector.y * AVATAR_FRAME_RADIUS;
-      return `<image href="${tierIcon}" x="${x - iconSize / 2}" y="${y - iconSize / 2}" width="${iconSize}" height="${iconSize}"/>`;
-    })
-    .join("");
-}
 
 export function renderMaterialCardSvg(options: MaterialCardSvgOptions): string {
   const palette = PALETTES[options.theme];
@@ -232,7 +220,6 @@ export function renderMaterialCardSvg(options: MaterialCardSvgOptions): string {
   const avatar = options.avatar
     ? `<image href="${options.avatar}" x="${AVATAR_CENTER.x - AVATAR_IMAGE_RADIUS}" y="${AVATAR_CENTER.y - AVATAR_IMAGE_RADIUS}" width="${AVATAR_IMAGE_RADIUS * 2}" height="${AVATAR_IMAGE_RADIUS * 2}" preserveAspectRatio="xMidYMid slice" clip-path="url(#material-avatar-clip)"/>`
     : `<text x="${AVATAR_CENTER.x}" y="${AVATAR_CENTER.y + 23}" text-anchor="middle" fill="${palette.fg}" font-size="${MATERIAL_TEXT_SIZE.avatarFallback}" font-weight="800">${escapeXml(options.username.slice(0, 1).toUpperCase())}</text>`;
-  const avatarFrame = avatarEmojiFrame(options.tier, options.tierIcon);
   const glowOpacity = options.theme === "dark" ? 0.5 : 0.34;
   const avatarGlowOpacity = options.theme === "dark" ? 0.42 : 0.32;
   const watermarkOpacity = options.theme === "dark" ? 0.14 : 0.1;
@@ -261,7 +248,7 @@ export function renderMaterialCardSvg(options: MaterialCardSvgOptions): string {
     <style>text{font-family:Inter,"PingFang SC","Microsoft YaHei",sans-serif}</style>
   </defs>
   <rect width="912" height="600" rx="28" fill="${palette.bg}"/><rect width="912" height="600" rx="28" fill="url(#material-glow)"/><rect width="912" height="600" rx="28" fill="url(#material-glow-opposite)"/><g data-decoration="ghfind-watermark" opacity="${watermarkOpacity}">${brandMarkSvg(366, 170, 180, palette.fg)}</g><rect x="24" y="24" width="864" height="552" rx="20" fill="none" stroke="${options.color}" stroke-opacity="0.18"/>
-  <circle cx="${AVATAR_CENTER.x}" cy="${AVATAR_CENTER.y}" r="${AVATAR_FRAME_RADIUS}" fill="${palette.panel}" stroke="${options.color}" stroke-width="3" filter="url(#material-avatar-shadow)"/>${avatar}${avatarFrame}
+  <circle cx="${AVATAR_CENTER.x}" cy="${AVATAR_CENTER.y}" r="${AVATAR_FRAME_RADIUS}" fill="${palette.panel}" stroke="${options.color}" stroke-width="3" filter="url(#material-avatar-shadow)"/>${avatar}
   <text x="${PROFILE_TEXT_X}" y="${PROFILE_USERNAME_Y}" fill="${options.color}" font-size="${MATERIAL_TEXT_SIZE.username}" font-weight="800">@${username}</text>${displayName ? `<text x="${PROFILE_TEXT_X}" y="${PROFILE_DISPLAY_NAME_Y}" fill="${palette.muted}" font-size="${MATERIAL_TEXT_SIZE.displayName}">${displayName}</text>` : ""}
   <text x="${SCORE_X}" y="${SCORE_Y}" fill="${options.color}" font-size="${MATERIAL_TEXT_SIZE.score}" font-weight="800" letter-spacing="-3">${options.score.toFixed(2)}</text>
   <text x="52" y="${TIER_Y}" fill="${options.color}" font-size="${MATERIAL_TEXT_SIZE.tier}" font-weight="800">${escapeXml(options.tier)}</text><text x="52" y="${TIER_LABEL_Y}" fill="${palette.muted}" font-size="${MATERIAL_TEXT_SIZE.tierLabel}" font-weight="600">${tierLabel}</text>

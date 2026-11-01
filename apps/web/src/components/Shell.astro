@@ -5,9 +5,9 @@
  * islands: search, account, language, theme, and the sponsor slots. Collapse
  * and the mobile drawer are a few lines of vanilla script below.
  */
-import { ArrowUpRight, BookOpen, Bot, BriefcaseBusiness, Building2, Cable, Code2, Compass, FileUser, Flame, HandHeart, Menu, Newspaper, PanelLeftClose, PanelLeftOpen, Rss, Sparkles, Star, Swords, Trophy, X } from "lucide-react";
+import { ArrowUpRight, BookOpen, Bot, BriefcaseBusiness, Building2, Cable, Code2, Compass, FileUser, Flame, GraduationCap, HandHeart, Menu, Newspaper, PanelLeftClose, PanelLeftOpen, Rss, Sparkles, Star, Swords, Trophy, X } from "lucide-react";
 import { localePath, type Locale } from "@ghfind/i18n";
-import { NAV_GROUPS } from "@/config/nav";
+import { NAV_GROUPS, isExternalNavItem } from "@/config/nav";
 import { BrandMark } from "@/components/BrandMark";
 import { getMessages, getTranslator, pickMessages } from "../lib/i18n";
 import { AccountIsland } from "../islands/AccountIsland";
@@ -34,6 +34,7 @@ const [t, nav, tRepo, messages] = await Promise.all([
 const NAV_ICONS = {
   flame: Flame, swords: Swords, trophy: Trophy, code: Code2, star: Star, newspaper: Newspaper,
   resume: FileUser, briefcase: BriefcaseBusiness, building: Building2, bot: Bot, cable: Cable, sparkles: Sparkles, compass: Compass, rss: Rss,
+  graduation: GraduationCap,
 } as const;
 const iconFor = (token?: string) => NAV_ICONS[token as keyof typeof NAV_ICONS] ?? Code2;
 const href = (p: string) => localePath(locale, p);
@@ -68,13 +69,17 @@ const repo = { repoHref: "https://github.com/hikariming/ghfind", repoLabel: tRep
           )}
           {group.items.map((item) => {
             const Icon = iconFor(item.icon);
-            const current = active(item.href ?? "/");
+            const external = isExternalNavItem(item);
+            const current = !external && active(item.href ?? "/");
             return (
-              <a href={href(item.href ?? "/")} class="sidebar-link" data-featured={item.featured || undefined}
+              <a href={external ? item.href : href(item.href ?? "/")} class="sidebar-link" data-featured={item.featured || undefined}
+                target={external ? "_blank" : undefined} rel={external ? "noopener noreferrer" : undefined}
                 aria-current={current ? "page" : undefined} title={nav(`hint.${item.key}`)} aria-label={nav(item.key)}>
                 <Icon size={18} strokeWidth={1.7} aria-hidden="true" /><span class="sidebar-label">{nav(item.key)}</span>
                 {item.new && <span class="sidebar-new-badge">new!</span>}
+                {item.event && <span class="sidebar-event-badge">{nav("event")}</span>}
                 {item.beta && <span class="sidebar-soon sidebar-label">{nav("beta")}</span>}
+                {external && <ArrowUpRight size={14} className="sidebar-label ms-auto" aria-hidden="true" />}
                 {current && <span class="sidebar-active-dot" aria-hidden="true" />}
               </a>
             );

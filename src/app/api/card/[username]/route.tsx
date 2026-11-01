@@ -1,9 +1,8 @@
 import { getGoProfileCardPresentation } from "@/lib/go-profile.server";
 import { BADGE_COLOR, TIER_EN, TIER_LABEL_EN } from "@/lib/badge";
+import { adventurerLevel, realmForScore, type RealmDef } from "@/lib/realm";
 import { getCurrentTitleSponsor } from "@/lib/sponsor.server";
 import { USERNAME_RE } from "@/lib/username";
-import { tierAvatarFrame } from "@/lib/tier";
-import { tierAvatarFrameIconDataUrl } from "@/lib/tier-emoji.server";
 import type { Tier } from "@/lib/types";
 import {
   Brand,
@@ -20,12 +19,66 @@ import type { Identity } from "./cards";
 import { avatarDataUrl, fonts, png, qrDataUrl, qrModuleColor } from "../shared";
 import { decodeRouteParam } from "@/lib/route-params";
 
+
+function parseCardLang(req: Request): "zh" | "en" {
+  const lang = new URL(req.url).searchParams.get("lang");
+  return lang === "zh" ? "zh" : "en";
+}
+
+/** Inline SVG realm mark for Satori — glyph only next to the realm label. */
+function OgRealmGlyph({ realm, color, size = 34 }: { realm: RealmDef; color: string; size?: number }) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: "0 0 16 16",
+    style: { marginRight: 10, flexShrink: 0 },
+  } as const;
+  if (realm.glyph === "dot") {
+    return (
+      <svg {...common}>
+        <circle cx="8" cy="8" r="3.2" fill={color} />
+      </svg>
+    );
+  }
+  if (realm.glyph === "core") {
+    return (
+      <svg {...common}>
+        <circle cx="8" cy="8" r="5" fill="none" stroke={color} strokeWidth="1.4" />
+        <circle cx="8" cy="8" r="2.4" fill={color} />
+      </svg>
+    );
+  }
+  if (realm.glyph === "lotus") {
+    return (
+      <svg {...common}>
+        <ellipse cx="8" cy="4.2" rx="2.1" ry="3.2" fill={color} />
+        <ellipse cx="8" cy="11.8" rx="2.1" ry="3.2" fill={color} />
+        <ellipse cx="4.2" cy="8" rx="3.2" ry="2.1" fill={color} />
+        <ellipse cx="11.8" cy="8" rx="3.2" ry="2.1" fill={color} />
+        <circle cx="8" cy="8" r="1.6" fill={color} />
+      </svg>
+    );
+  }
+  const star: string[] = [];
+  for (let i = 0; i < 16; i++) {
+    const a = (Math.PI / 8) * i - Math.PI / 2;
+    const r = i % 2 === 0 ? 7 : 3.1;
+    star.push(`${(8 + Math.cos(a) * r).toFixed(2)},${(8 + Math.sin(a) * r).toFixed(2)}`);
+  }
+  return (
+    <svg {...common}>
+      <polygon points={star.join(" ")} fill={color} />
+    </svg>
+  );
+}
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request, ctx: { params: Promise<{ username: string }> }) {
   const fontList = await fonts();
   const theme = parseTheme(req);
+  const lang = parseCardLang(req);
   const palette = PALETTES[theme];
   const { username } = await ctx.params;
   const name = decodeRouteParam(username ?? "").trim();
@@ -57,18 +110,16 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
   }
 
   const tier = detail.tier as Tier;
-  const color = BADGE_COLOR[tier];
+  const realm = realmForScore(detail.final_score);
+  const color = realm.colors.fg;
   const beat = presentation?.percentile?.beat ?? null;
   // Weekly movement — the embed changes week to week, so a card pasted into a
   // README keeps pulling its owner (and their visitors) back.
   const delta = presentation?.delta ?? null;
-  const [avatar, tierIcon] = await Promise.all([
-    avatarDataUrl(detail.avatar_url),
-    tierAvatarFrameIconDataUrl(tierAvatarFrame(tier).icon),
-  ]);
+  const avatar = await avatarDataUrl(detail.avatar_url);
   const displayName =
     detail.display_name && /^[\x20-\x7e]+$/.test(detail.display_name) ? detail.display_name : null;
-  const tags = (detail.tags.en ?? []).slice(0, 4);
+  const tags = ((lang === "zh" ? detail.tags.zh : detail.tags.en) ?? detail.tags.en ?? []).slice(0, 4);
 
   const qr = parseQr(req)
     ? await qrDataUrl(`/u/${detail.username}?ref=badge`, qrModuleColor(color, theme))
@@ -78,7 +129,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
     displayName,
     avatar,
     tier,
-    tierIcon,
+    score: detail.final_score,
+    lang,
     color,
     palette,
     qr,
@@ -126,22 +178,24 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
             username={detail.username}
             avatar={avatar}
             tier={tier}
-            tierIcon={tierIcon}
             color={color}
             palette={palette}
           />
         </div>
       </div>
 
-      {/* Score */}
+      {/* Score → Adventurer Level */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
         <div style={{ display: "flex", flexDirection: "column" }}>
+          <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0.18em", color: palette.muted, textTransform: "uppercase" }}>
+            {lang === "zh" ? "冒险者等级" : "Adventurer Level"}
+          </span>
           <div style={{ display: "flex", alignItems: "flex-end" }}>
-            <span style={{ fontSize: 116, fontWeight: 800, color, lineHeight: 1 }}>
-              {detail.final_score.toFixed(2)}
+            <span style={{ fontSize: 52, fontWeight: 800, color, lineHeight: 1, marginBottom: 14, opacity: 0.9 }}>
+              Lv.
             </span>
-            <span style={{ fontSize: 40, color: palette.weak, marginLeft: 8, marginBottom: 10 }}>
-              /100
+            <span style={{ fontSize: 116, fontWeight: 800, color, lineHeight: 1 }} title={`Composite ${detail.final_score.toFixed(2)}`}>
+              {adventurerLevel(detail.final_score)}
             </span>
             {/* Brag surface: only upward movement is shown — a public README
                 embed must never broadcast its owner's decline. */}
@@ -160,21 +214,24 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
                   fontWeight: 800,
                 }}
               >
-                ↑{delta.toFixed(1)} this week
+                ↑{delta.toFixed(1)} {lang === "zh" ? "本周" : "this week"}
               </div>
             )}
           </div>
-          <div style={{ display: "flex", fontSize: 40, fontWeight: 800, color, marginTop: 8 }}>
-            {TIER_EN[tier]}
+          <div style={{ display: "flex", alignItems: "center", fontSize: 40, fontWeight: 800, color, marginTop: 8 }}>
+            <OgRealmGlyph realm={realm} color={color} />
+            {lang === "zh" ? realm.nameZh : realm.nameEn}
           </div>
           <div style={{ display: "flex", fontSize: 22, color: palette.muted, marginTop: 2 }}>
-            {TIER_LABEL_EN[tier]}
+            {lang === "zh" ? realm.blurbZh : realm.blurbEn}
           </div>
         </div>
         {beat !== null && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
             <span style={{ fontSize: 64, fontWeight: 800, color }}>{beat.toFixed(1)}%</span>
-            <span style={{ fontSize: 22, color: palette.muted }}>ahead of devs</span>
+            <span style={{ fontSize: 22, color: palette.muted }}>
+              {lang === "zh" ? "超越的开发者" : "ahead of devs"}
+            </span>
           </div>
         )}
       </div>

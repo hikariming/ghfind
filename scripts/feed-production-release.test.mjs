@@ -23,7 +23,7 @@ test('paused and all configurations share only the production D1 writer and priv
   assert.equal(c.preview_urls,false);
   // Upstash replacements: production KV + ghfind-coord Durable Objects, all switched on.
   assert.deepEqual(c.kv_namespaces,[{binding:'GHFIND_CACHE',id:'f7a7299eef224d899c21121c1979be32'}]);
-  assert.deepEqual(c.durable_objects.bindings.map(b=>[b.name,b.class_name,b.script_name]),[['RATE_LIMITER','RateLimiter','ghfind-coord'],['COORD_KV','KeyValue','ghfind-coord'],['SCAN_SLOT','ScanSlot','ghfind-coord']]);
+  assert.deepEqual(c.durable_objects.bindings.map(b=>[b.name,b.class_name,b.script_name]),[['RATE_LIMITER','RateLimiter','ghfind-coord'],['COORD_KV','KeyValue','ghfind-coord'],['SCAN_SLOT','ScanSlot','ghfind-coord'],['ROAST_JOB','RoastJob','ghfind-coord']]);
   assert.deepEqual([c.vars.GHFIND_CACHE_BACKEND,c.vars.GHFIND_RATELIMIT_BACKEND,c.vars.GHFIND_COORD_BACKEND],['kv','do','do']);
  }
  for(const mode of ['legacy','internal','1%'])assert.throws(()=>renderWeb(sha,mode,provider));
@@ -88,7 +88,7 @@ test('Web version response, source tag, binding names/types and production servi
   f=>{f.bindings.find(b=>b.name==='FEED_SOURCE_OUTBOX_ENABLED').text='false';},
   f=>{f.bindings.find(b=>b.name==='GHFIND_CACHE').namespace_id='d66443adfd3f4fccbab02fcb41e63284';},
   f=>{f.version.resources.bindings=f.bindings.filter(b=>b.name!=='GHFIND_CACHE');},
-  ...['RATE_LIMITER','COORD_KV','SCAN_SLOT'].flatMap(name=>[
+  ...['RATE_LIMITER','COORD_KV','SCAN_SLOT','ROAST_JOB'].flatMap(name=>[
     f=>{f.bindings.find(b=>b.name===name).script_name='ghfind-coord-dev';},
     f=>{f.bindings.find(b=>b.name===name).class_name='Other';},
     f=>{f.version.resources.bindings=f.bindings.filter(b=>b.name!==name);},

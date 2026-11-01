@@ -63,6 +63,17 @@ corrected on that full read. An incremental pull does not delete rows.
 The cursor table `scan_source_cursors` is created on first use
 (`CREATE TABLE IF NOT EXISTS`). It does not alter `public_scan_runs`.
 
+The live scan path is the TypeScript Worker (`src/lib/scan-core.ts`,
+`src/lib/github.ts`). It reads `GHFIND_SCAN_INCREMENTAL_ENABLED` with the
+same `1` / `true` / `on` values. Inventory resumes on `pushedAt` and dedupes
+a shared second by repository id. Pull requests, commit years, and workflow
+landings stay full pulls. The cursor is written only after
+`publishCompleteQuickScan` commits. A `partial_public` quick scan drops that
+run's book; the existing deepen records the full inventory page.
+Reconciliation uses the same 7-day status TTL and 24-hour freshness window.
+`rl:scan` and the 100/hour auto-rescan cap are unchanged. The Go ScanWorker
+is not what production runs.
+
 ## Validation
 
 Go tests use a fictional upstream only. They check that an incremental merge

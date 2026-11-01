@@ -5,7 +5,7 @@
  */
 import { publishCompleteQuickScan } from "./db";
 import { scanKey } from "./redis";
-import { buildScanResult, logFreshScanFailure, scanErrorResponse } from "./scan-core";
+import { buildScanResult, discardIncrementalCursor, logFreshScanFailure, scanErrorResponse } from "./scan-core";
 import {
   BACKGROUND_COLLECT_DEADLINE_MS,
   SCAN_BACKGROUND_LEASE_MS,
@@ -56,6 +56,7 @@ export async function completeBackgroundScan(
     if (needsFullScan(quickScan)) {
       const remaining = BACKGROUND_COLLECT_DEADLINE_MS - (Date.now() - scannedAt);
       if (remaining <= 0) throw new Error("background collection budget exhausted");
+      discardIncrementalCursor(quickScan);
       quickScan = await buildScanResult(username, { full: true, deadlineMs: remaining });
     }
     if (!(await publishCompleteQuickScan(quickScan, scannedAt))) {

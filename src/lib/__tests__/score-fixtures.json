@@ -87,7 +87,7 @@
       "total_penalty": 0,
       "final_score": 63.6,
       "tier": "NPC",
-      "tier_label": "普通账号 · 特征平庸存疑"
+      "tier_label": "稳步积累 · 继续打磨作品"
     }
   },
   "own_repo_maintainer": {
@@ -179,7 +179,7 @@
       "total_penalty": 0,
       "final_score": 34.2,
       "tier": "拉完了",
-      "tier_label": "低价值 · 疑似刷量/AI 机器人"
+      "tier_label": "起步阶段 · 多练多攒作品"
     }
   },
   "new_account_mass_repos": {
@@ -223,7 +223,7 @@
       "total_penalty": 0,
       "final_score": 30.9,
       "tier": "拉完了",
-      "tier_label": "低价值 · 疑似刷量/AI 机器人"
+      "tier_label": "起步阶段 · 多练多攒作品"
     }
   },
   "own_project_community": {
@@ -271,7 +271,7 @@
       "total_penalty": 0,
       "final_score": 36.2,
       "tier": "拉完了",
-      "tier_label": "低价值 · 疑似刷量/AI 机器人"
+      "tier_label": "起步阶段 · 多练多攒作品"
     }
   }
 }

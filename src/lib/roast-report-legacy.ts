@@ -3,12 +3,12 @@
  * stacked dimension-card layout without regenerating copy.
  *
  * Legacy shape:
- *   **一句话结论**: …
+ *   **小总评**: … (also accepts legacy 一句话结论 / TL;DR)
  *   | 维度 | 得分 | 说明 |  + rows
  *   **风险标记** / **建议** as bold labels with loose paragraphs
  *
  * Target shape (same as renderV13Report):
- *   > **一句话结论** / callout
+ *   > **小总评** / Quick Verdict callout
  *   #### Name · score/max  + note paragraph
  *   ### 风险标记 / ### 建议 with - bullets
  */
@@ -76,9 +76,12 @@ export function rewriteLegacyRoastMarkdown(md: string): string {
 function rewriteLegacyLabels(md: string): string {
   if (!md) return md;
   let text = md;
-  // **一句话结论**: body  → blockquote callout (skip if already a blockquote).
+  // Rename legacy verdict headings before structural rewrites.
+  text = text.replace(/\*\*(一句话结论|一句话总结)\*\*/g, "**小总评**");
+  text = text.replace(/\*\*TL;DR\*\*/g, "**Quick Verdict**");
+  // **小总评** / **Quick Verdict**: body  → blockquote callout.
   text = text.replace(
-    /^(?:>\s*)?\*\*(一句话结论|TL;DR)\*\*\s*[:：]\s*(.+)$/gm,
+    /^(?:>\s*)?\*\*(小总评|Quick Verdict)\*\*\s*[:：]\s*(.+)$/gm,
     (_, label: string, body: string) => `> **${label}**\n>\n> ${body.trim()}`,
   );
   // **风险标记** / **建议** as their own line → ### heading

@@ -26,13 +26,12 @@ describe("material card", () => {
       avatar: null,
       score: 96.8,
       tier: "夯",
-      tierLabel: "封神 · 殿堂级标杆",
+      tierLabel: "大道将成 · 殿堂标杆",
       tags: ["全栈造物主", "开源主程", "PR 收割机", "十年老兵"],
       scores,
       color: "#f59e0b",
       theme: "dark",
       qr: "data:image/png;base64,qr",
-      tierIcon: "data:image/svg+xml;base64,crown",
       sponsorLogo: "data:image/png;base64,sponsor",
       sponsorName: "LobeHub",
     });
@@ -54,14 +53,13 @@ describe("material card", () => {
     expect(svg).toContain(
       'fill="#000000" stroke="#f59e0b" stroke-width="1.5"',
     );
-    expect(svg).toContain(
-      '<image href="data:image/svg+xml;base64,crown" x="91" y="24" width="34" height="34"/>',
-    );
+    // Avatar stickers removed — ring/glow only; no emoji/image ornaments around the face.
+    expect(svg).not.toContain("data:image/svg+xml;base64,crown");
     expect(svg).toContain('<clipPath id="material-avatar-clip"><circle cx="108" cy="101" r="55"/></clipPath>');
     expect(svg).toContain('<circle cx="108" cy="101" r="60"');
     expect(svg).toContain('<text x="178" y="98" fill="#f59e0b" font-size="42" font-weight="800">@codex-showcase</text>');
     expect(svg).toContain('<text x="178" y="136" fill="#d4d4d8" font-size="29">Codex Showcase</text>');
-    expect(svg).toContain("封神 · 殿堂级标杆");
+    expect(svg).toContain("大道将成 · 殿堂标杆");
     expect(svg.match(/ghfind\.com/g)).toHaveLength(1);
     // Credit line and logo are laid out from the same right edge (x=864): the
     // text hangs off it, the logo sits back by the text's measured width.

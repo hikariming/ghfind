@@ -61,12 +61,12 @@ describe("mini card cache policy", () => {
     const sMaxAge = Number(/s-maxage=(\d+)/.exec(cacheControl)?.[1]);
     expect(sMaxAge).toBeGreaterThan(0);
     expect(sMaxAge).toBeLessThanOrEqual(600);
-    expect(await res.text()).toContain("76.70");
+    expect(await res.text()).toContain("Lv.76");
   });
 
   it("renders the latest scan, ignoring the version param", async () => {
     mocks.presentation.mockResolvedValue(presentation(82.9, 1_700_000_600_000));
     const res = await get("?lang=zh&v=1700000000000");
-    expect(await res.text()).toContain("82.90");
+    expect(await res.text()).toContain("Lv.82");
   });
 });

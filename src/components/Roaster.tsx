@@ -11,6 +11,8 @@ import { Link, useRouter } from "@/i18n/navigation";
 import { DIMENSIONS } from "@/lib/dimensions";
 import { splitReport } from "@/lib/report";
 import { consumeRoastStream, pendingScanKey } from "@/lib/roast-stream";
+import { writePendingEvaluate } from "@/lib/home-handoff";
+import { isRoastClientTimeout, roastClientSignal } from "@/lib/roast-client-timeout";
 import { readScanResponse } from "@/lib/scan-job-client";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 import type { RoastLine, RoastMeta, ScanResult, SubScoreKey, Tags, Tier } from "@/lib/types";
@@ -26,6 +28,9 @@ import { ShareCard } from "./ShareCard";
 import { ShareCardExportHost } from "./ShareCardExportHost";
 import { createShareCardBlob } from "./shareCardExport";
 import { TierAvatarFrame } from "./TierAvatarFrame";
+import { AdventurerLevel } from "@/components/realm/AdventurerLevel";
+import { RealmChip } from "@/components/realm/RealmGlyph";
+import { realmForScore } from "@/lib/realm";
 import { Turnstile, turnstileEnabled } from "./Turnstile";
 import { isStaleScanPayload, StaleScanHint } from "./StaleScanHint";
 import { Omnibox } from "./Omnibox";
@@ -58,6 +63,7 @@ export function Roaster({
   const t = useTranslations("roaster");
   const tScan = useTranslations("scanErrors");
   const tTier = useTranslations("tiers");
+  const tRealm = useTranslations("realms");
   const tDetail = useTranslations("detail");
   const tDim = useTranslations("dimensions");
   const locale = useLocale();
@@ -149,6 +155,7 @@ export function Roaster({
         const res = await fetch("/api/roast", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: roastClientSignal(),
           // `lang` selects the English vs Chinese prompt + per-language cache.
           body: JSON.stringify({ scan: scanResult, byoKey, lang: locale }),
         });
@@ -164,6 +171,7 @@ export function Roaster({
         // protocol (T progress / M meta / E error) followed by report markdown.
         await consumeRoastStream(res, {
           onGenerator: (generator) => progressRef.current.setGenerator(generator),
+          onStarted: (startedAt) => progressRef.current.noteStarted(startedAt),
           onThinking: (label) => progressRef.current.noteThinking(label),
           onMeta: (meta) => {
             progressRef.current.markComplete();
@@ -177,8 +185,8 @@ export function Roaster({
             if (!handleError(data)) setError(t("errRoastFailed"));
           },
         });
-      } catch {
-        setError(t("errNetworkRoast"));
+      } catch (error) {
+        setError(t(isRoastClientTimeout(error) ? "errRoastTimeout" : "errNetworkRoast"));
       } finally {
         setRoasting(false);
       }
@@ -210,10 +218,27 @@ export function Roaster({
       setDisplay(null);
       setTags(null);
       setMetaRoast(null);
-      setScanning(true);
       // Funnel top: the user committed to a roast. `source` lets us split the
       // home scanner from other entry points if they get instrumented later.
       trackEvent("scan_start", { source: analyticsSource });
+      const byoKeyEarly: ByoKeyConfig | null = loadByoKey();
+      const forceProfileHandoffEarly =
+        process.env.NODE_ENV !== "production" && searchParams.get("profile") === "1";
+      // Default path: leave the homepage immediately so the profile route owns
+      // the waiting shell (skeleton + stage spinner). BYO-key stays on-home.
+      if (!byoKeyEarly || forceProfileHandoffEarly) {
+        writePendingEvaluate(uname, {
+          turnstileToken: token || undefined,
+          campaign: campaign ?? null,
+          startedAt: Date.now(),
+        });
+        setScanning(true);
+        const profileParams = new URLSearchParams({ roasting: "1" });
+        if (campaign) profileParams.set("campaign", campaign);
+        router.push(`/u/${uname}?${profileParams.toString()}`);
+        return;
+      }
+      setScanning(true);
       const presentScan = (result: ScanResult) => {
         setScanPending(false);
         setStaleScan(isStaleScanPayload(result));
@@ -305,7 +330,7 @@ export function Roaster({
   const shareText =
     scan && display
       ? t("shareText", {
-          score: display.score.toFixed(2),
+          score: `Lv.${Math.floor(display.score)}`,
           tier: tTier(`${TIER_KEY[display.tier]}.name`),
           tierLabel: display.tierLabel,
           beat: beatText,
@@ -473,17 +498,17 @@ export function Roaster({
             <TierAvatarFrame
               username={scan.metrics.username}
               avatarUrl={scan.metrics.avatar_url}
+              score={display.score}
               tier={display.tier}
               size="lg"
               className="mt-5"
             />
             <div className={`mt-4 text-6xl font-black tabular-nums ${style.text}`}>
-              {display.score.toFixed(2)}
-              <span className="text-2xl text-zinc-600">/100</span>
+              <AdventurerLevel score={display.score} caption={tDetail("adventurerLevel")} size="lg" />
             </div>
             {staleScan && <StaleScanHint show />}
             <div className={`mt-1 text-2xl font-bold ${style.text}`}>
-              {style.emoji} {tTier(`${TIER_KEY[display.tier]}.name`)}
+              <RealmChip realm={realmForScore(display.score)} name={tRealm(`${realmForScore(display.score).id}.name`)} />
             </div>
             {roasting && !roastLine && !reportBody ? (
               <p className="mt-2 text-sm text-zinc-400">{tDetail("scoreReadyHint")}</p>
@@ -520,6 +545,7 @@ export function Roaster({
                         tDetail("roastStage5"),
                       ][progress.stageIndex] ?? tDetail("roastStage1")
                     }
+                    score={scan.scoring.final_score}
                     tier={display.tier}
                   />
                 </div>
@@ -548,6 +574,7 @@ export function Roaster({
               <DimensionStarChart
                 scores={scan.scoring.sub_scores}
                 labels={dimensionLabels}
+                score={scan.scoring.final_score}
                 tier={display.tier}
               />
             </div>

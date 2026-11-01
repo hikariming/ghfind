@@ -44,6 +44,7 @@
     "languages": "اللغات",
     "organizations": "المنظمات",
     "versus": "مواجهة المطورين",
+    "mfcp": "MFCP للمصادر المفتوحة",
     "blog": "الأبحاث",
     "openMenu": "افتح القائمة",
     "closeMenu": "أغلق القائمة",
@@ -54,9 +55,11 @@
     "groupCareer": "المسار المهني",
     "groupTools": "Integrations",
     "beta": "Beta",
+    "event": "فعالية",
     "hint": {
       "roast": "قيّم أي حساب GitHub في 30 ثانية مع تعليق لاذع",
       "versus": "واجه بين مطوّرَين وجهًا لوجه",
+      "mfcp": "برنامج MFCP لإرشاد المصادر المفتوحة، التسجيل مفتوح الآن",
       "leaderboard": "تصفّح أفضل المطورين حسب التقييم",
       "projectBoards": "اكتشف مشاريع مفتوحة المصدر بارزة حسب المجال",
       "collections": "قصص المطورين ومشاريع مفتوحة المصدر مختارة وأبحاث حول منظومة GitHub.",
@@ -191,7 +194,11 @@
     "apiCtaLink": "وثائق API ←",
     "repoAuthoredBy": "يصونه",
     "repoContributors": "مساهمًا مصنّفًا",
-    "repoAvgScore": "متوسط التقييم"
+    "repoAvgScore": "متوسط التقييم",
+    "repoGlobalRank": "#{rank} من {total} على GitHub",
+    "repoGlobalRankApprox": "~#{rank} من {total} على GitHub",
+    "repoTopAmong": "أعلى {pct}% من المستودعات ذات ≥{floor}★",
+    "repoRankNote": "حسب النجوم بين جميع المستودعات العامة غير المتفرعة · {asOf}"
   },
   "projects": {
     "metaTitle": "اكتشف مشاريع GitHub عالية الجودة · ghfind",
@@ -313,6 +320,15 @@
     "rankUnit": "/ من {total}",
     "rankUnranked": "خارج التصنيف (البيانات غير كافية)",
     "beatInline": "تفوّق على {beat}% من المطورين",
+    "githubStandingTitle": "على مستوى GitHub بالكامل",
+    "githubStandingAccountAge": "عمر الحساب",
+    "githubStandingTopRepo": "المستودع الأكثر نجومًا",
+    "githubStandingRank": "#{rank} من {total}",
+    "githubStandingRankApprox": "~#{rank} من {total}",
+    "githubStandingTopAmong": "أعلى {pct}% من المستودعات ذات ≥{floor}★",
+    "githubStandingOlder": "أقدم من {pct}%",
+    "githubStandingYears": "{years} سنة",
+    "githubStandingFootnote": "بيانات عامة من GitHub بالكامل · {asOf}",
     "milestoneNext": "{gap} نقطة تفصلك عن “{tier}”",
     "milestoneCapped": "🏆 الحد الأقصى · الفئة العليا",
     "facetRankLine": "المركز #{rank} في {facet}",
@@ -348,13 +364,10 @@
     "impactDisclosure": "مساهمات بارزة ({count})",
     "worksHeading": "🛠 أعمال مميزة",
     "worksSub": "مستودعاته الشهيرة والمثبّتة",
-    "stackHeading": "🧬 التقنيات والمجالات",
-    "stackLangLabel": "أبرز اللغات",
-    "stackTopicsLabel": "المجالات",
     "orgsLabel": "المنظمات",
     "commits": "commit",
     "prs": "PR",
-    "roastHeading": "التقييم",
+    "verdictLabel": "تقييم موجز",
     "roastEmpty": "هذا التحميص لم يُؤرشف بعد — <a>احكم عليه مجددًا من الصفحة الرئيسية</a> لتوليده.",
     "scoreStateStaleTitle": "نتيجة تاريخية",
     "scoreStateStaleBody": "حُسبت هذه النتيجة بقواعد سابقة، وستظل ظاهرة حتى يستبدلها فحص جديد موثوق.",
@@ -392,15 +405,20 @@
     "modalViewProfile": "عرض الملف الكامل",
     "modalBadgeCta": "احصل على شارة GitHub الخاصة بك",
     "modalClose": "إغلاق",
-    "battlesHeading": "⚔️ المعارك",
-    "battlesSub": "مبارزات خاضها هذا المطور",
-    "battleWin": "فوز",
-    "battleLoss": "خسارة",
-    "battleTie": "تعادل",
     "selfCta": "قيّم حساب GitHub الخاص بك ←",
     "reportLangNotice": "تقرير التحميص المولّد بالذكاء الاصطناعي متاح حاليًا بالإنجليزية والصينية فقط — أنت تقرأ النسخة الإنجليزية.",
     "coCreatorShare": "قيادة / بناء مشترك (حصة {share}%)",
-    "scoreReadyHint": "النتيجة جاهزة، والتقييم في الطريق"
+    "scoreReadyHint": "النتيجة جاهزة، والتقييم في الطريق",
+    "adventurerLevel": "مستوى المغامر",
+    "preciseScoreTitle": "النتيجة المركّبة {score}",
+    "liveTimeout": "انتهت مهلة انتظار التقييم. أعد المحاولة لاحقًا؛ تبقى الدرجة والتقييم السابق.",
+    "scoreStateRescanTimeout": "انتهت مهلة إعادة التقييم. أعد المحاولة لاحقًا",
+    "evaluateStageFetch": "جلب البيانات",
+    "evaluateStageAnalyze": "تحليل المستودعات",
+    "evaluateStageRoast": "كتابة التقييم",
+    "evaluateError": "لم تكتمل هذه المحاولة. اضغط إعادة المحاولة للتجربة مرة أخرى.",
+    "evaluateTimeout": "استغرق الإنشاء وقتًا أطول قليلًا. اضغط إعادة المحاولة للتجربة مرة أخرى.",
+    "evaluateRetry": "إعادة المحاولة"
   },
   "reactions": {
     "heading": "تفاعلات المجتمع",
@@ -421,11 +439,12 @@
     "scanning": "جارٍ الفحص…",
     "roasting": "جارٍ إنشاء التعليق…",
     "error": "فشل التقييم، حاول لاحقًا",
-    "cooldown": "التحديث متاح بعد {hours} ساعة"
+    "cooldown": "التحديث متاح بعد {hours} ساعة",
+    "timeout": "انتهت مهلة التقييم. أعد المحاولة لاحقًا"
   },
   "detailMeta": {
     "unratedTitle": "{username} · ملف المطور",
-    "title": "{username} — {score}/100 · {tier} | ghfind",
+    "title": "{username} — Lv.{level} · {realm} | ghfind",
     "descWithTags": "{tags} — شاهد تقرير تقييم {username} الكامل على ghfind.com.",
     "descPlain": "تقرير قيمة وموثوقية {username} على GitHub — ghfind.com.",
     "notFoundTitle": "الحساب غير موجود · ghfind",
@@ -545,25 +564,25 @@
     "brand": "🔥 ghfind · شاهد أين تقف"
   },
   "tiers": {
-    "god": {
-      "name": "GOD",
-      "blurb": "أسطوري · قاعة المشاهير"
-    },
-    "elite": {
-      "name": "ELITE",
-      "blurb": "نخبة · مطور من الطراز الأول"
-    },
-    "solid": {
-      "name": "SOLID",
-      "blurb": "متين · موثوق"
+    "trash": {
+      "name": "تكثيف التشّي",
+      "blurb": "خطوات أولى · بناء الأساس"
     },
     "npc": {
-      "name": "NPC",
-      "blurb": "عادي · لا شيء يلفت"
+      "name": "تكوين النواة",
+      "blurb": "نواة تشكّلت · حدة ظاهرة"
     },
-    "trash": {
-      "name": "TRASH",
-      "blurb": "قيمة متدنية · على الأرجح نشاط مزيّف"
+    "solid": {
+      "name": "تمارين الفراغ",
+      "blurb": "إتقان بلا جهد"
+    },
+    "elite": {
+      "name": "اندماج الجسد",
+      "blurb": "في انسجام · معلّم رفيع"
+    },
+    "god": {
+      "name": "الصعود الأعظم",
+      "blurb": "قرب القمة · قاعة المشاهير"
     }
   },
   "dimensions": {
@@ -662,8 +681,8 @@
         "body": "تُقيَّم اللقطة عبر نضج الحساب، وجودة المشاريع الأصلية، وجودة المساهمات، والأثر في المنظومة، والتأثير المجتمعي، وأصالة النشاط، مع عقوبات على تفريخ الـ PR وتضخيم النجوم وأنماط السبام القالبية."
       },
       {
-        "title": "3. الحصول على تقييم وفئة وتحميص",
-        "body": "تحصل على تقييم قابل لإعادة الإنتاج من 0 إلى 100 مع فئة تمتد من Trash إلى God، وتفصيل لكل بُعد يُظهر بالضبط ما الذي يشدّ تقييمك إلى الأسفل، و— فقط إن طلبته — تحميصًا لاذعًا مكتوبًا بالذكاء الاصطناعي."
+        "title": "3. احصل على مستوى المغامر والعالم والتعليق الساخر",
+        "body": "تحصل على مستوى مغامر قابل للتكرار (Lv.1–100)، وعالم تنمية من تكثيف التشّي إلى الصعود الأعظم، وتفصيلًا حسب الأبعاد يوضح ما يخفض الدرجة، و—فقط إذا طلبت—تعليقًا ساخرًا ذكيًا من الذكاء الاصطناعي."
       }
     ],
     "numbersHeading": "ghfind بالأرقام",
@@ -2092,6 +2111,40 @@
         "followers": "Followers",
         "source": "Follow counts from ghfind"
       }
+    }
+  },
+  "realms": {
+    "qi": {
+      "name": "تكثيف التشّي",
+      "blurb": "خطوات أولى · بناء الأساس"
+    },
+    "foundation": {
+      "name": "تأسيس الأساس",
+      "blurb": "الأساس جاهز · تقدّم ثابت"
+    },
+    "goldenCore": {
+      "name": "تكوين النواة",
+      "blurb": "نواة تشكّلت · حدة ظاهرة"
+    },
+    "nascentSoul": {
+      "name": "الروح الناشئة",
+      "blurb": "روح استيقظت · أسلوب خاص"
+    },
+    "deity": {
+      "name": "تحوّل الإله",
+      "blurb": "ذهن صافٍ · تأثير حقيقي"
+    },
+    "voidRefining": {
+      "name": "تمارين الفراغ",
+      "blurb": "إتقان بلا جهد"
+    },
+    "integration": {
+      "name": "اندماج الجسد",
+      "blurb": "في انسجام · معلّم رفيع"
+    },
+    "mahayana": {
+      "name": "الصعود الأعظم",
+      "blurb": "قرب القمة · قاعة المشاهير"
     }
   }
 }

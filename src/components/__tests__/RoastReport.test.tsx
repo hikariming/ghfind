@@ -1,10 +1,13 @@
 import { createElement } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { NextIntlClientProvider } from "next-intl";
+import zh from "@/messages/zh.json";
+import en from "@/messages/en.json";
 import { describe, expect, it } from "vitest";
 import { RoastReport, elementTag } from "@/components/RoastReport";
 
-const SAMPLE = `## LofiSu — 54.40/100  ·  NPC (普通账号)
+const SAMPLE = `## LofiSu — Lv.54  ·  元婴 (元婴初成 · 自成一派)
 
 **称号**: 对话前台修理师
 
@@ -44,9 +47,17 @@ const SAMPLE = `## LofiSu — 54.40/100  ·  NPC (普通账号)
 - 给浏览器 MCP 补仓库描述。
 `;
 
+function renderReport(markdown: string, tier: "NPC" = "NPC", locale: "zh" | "en" = "zh") {
+  return renderToStaticMarkup(
+    <NextIntlClientProvider locale={locale} messages={locale === "zh" ? zh : en}>
+      <RoastReport markdown={markdown} tier={tier} />
+    </NextIntlClientProvider>,
+  );
+}
+
 describe("RoastReport compact layout", () => {
   it("renders dimension cards and finding chips from 笑点三连 loose lists", () => {
-    const html = renderToStaticMarkup(<RoastReport markdown={SAMPLE} tier="NPC" />);
+    const html = renderReport(SAMPLE);
     expect(html).toContain('data-tier-tone="npc"');
     expect(html).toContain('class="roast-dims"');
     expect(html).toContain('class="roast-dim-card"');
@@ -54,6 +65,8 @@ describe("RoastReport compact layout", () => {
     expect(html).toContain('class="roast-dim-bar"');
     expect(html).toContain("账号成熟度");
     expect(html).toContain('class="roast-verdict');
+    expect(html).toContain("小总评");
+    expect(html).not.toContain("一句话结论");
     expect(html).toContain('class="roast-findings"');
     expect(html).toContain('class="roast-finding"');
     expect(html).toContain('class="roast-finding-title"');
@@ -65,7 +78,7 @@ describe("RoastReport compact layout", () => {
 
   it("still parses legacy 扎心三连 after rewrite", () => {
     const legacy = SAMPLE.replace("笑点三连", "扎心三连");
-    const html = renderToStaticMarkup(<RoastReport markdown={legacy} tier="NPC" />);
+    const html = renderReport(legacy);
     expect(html).toContain('class="roast-finding"');
     expect(html).toContain("双滚动条猎手");
   });

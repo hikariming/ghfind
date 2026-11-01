@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import {
-  TIER_AVATAR_FRAME_VECTORS,
-  tierAvatarFrame,
-  tierAvatarFrameIconPath,
-} from "@/lib/tier";
-import type { TierAvatarFrameEmojiSize } from "@/lib/tier";
+  realmCssVars,
+  realmForScore,
+  realmForTier,
+  type RealmDef,
+} from "@/lib/realm";
 import type { Tier } from "@/lib/types";
 
 type AvatarFrameSize = "feed" | "sm" | "md" | "lg";
@@ -13,7 +13,12 @@ interface TierAvatarFrameProps {
   avatarContent?: ReactNode;
   username: string;
   avatarUrl: string | null;
-  tier: Tier;
+  /** Preferred: derive realm from numeric score. */
+  score?: number | null;
+  /** Fallback when score is unavailable (stored Tier key). */
+  tier?: Tier | null;
+  realm?: RealmDef;
+  realmName?: string;
   size?: AvatarFrameSize;
   className?: string;
 }
@@ -23,87 +28,107 @@ const SIZE_CLASS: Record<
   {
     shell: string;
     avatar: string;
-    emojiIcon: Record<TierAvatarFrameEmojiSize, string>;
     initial: string;
+    glowSpread: string;
   }
 > = {
   feed: {
     shell: "h-10 w-10",
     avatar: "h-8 w-8",
-    emojiIcon: { normal: "h-3 w-3", large: "h-3.5 w-3.5" },
     initial: "text-sm",
+    glowSpread: "18px -3px",
   },
   sm: {
     shell: "h-16 w-16",
     avatar: "h-12 w-12",
-    emojiIcon: { normal: "h-[13px] w-[13px]", large: "h-[18px] w-[18px]" },
     initial: "text-xl",
+    glowSpread: "28px -5px",
   },
   md: {
     shell: "h-24 w-24",
     avatar: "h-[72px] w-[72px]",
-    emojiIcon: { normal: "h-[17px] w-[17px]", large: "h-6 w-6" },
     initial: "text-3xl",
+    glowSpread: "34px -6px",
   },
   lg: {
     shell: "h-28 w-28",
     avatar: "h-20 w-20",
-    emojiIcon: { normal: "h-5 w-5", large: "h-[30px] w-[30px]" },
     initial: "text-4xl",
+    glowSpread: "34px -6px",
   },
 };
 
+function withAlpha(hex: string, alpha: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+/**
+ * Realm-tinted avatar shell. Ring + glow from realm colors (inline — no purge).
+ * Double ring + aurora for 大乘; soft glow for 炼虚+.
+ */
 export function TierAvatarFrame({
   avatarContent,
   username,
   avatarUrl,
+  score,
   tier,
+  realm: realmProp,
+  realmName,
   size = "md",
   className = "",
 }: TierAvatarFrameProps) {
-  const frame = tierAvatarFrame(tier);
+  const realm =
+    realmProp ??
+    (typeof score === "number" ? realmForScore(score) : tier ? realmForTier(tier) : realmForScore(0));
   const classes = SIZE_CLASS[size];
-  const emojiIconClass = classes.emojiIcon[frame.emojiSize];
   const initial = username.slice(0, 1).toUpperCase();
+  const ring = realm.colors.ring;
+  const softBg = withAlpha(realm.colors.fg, 0.14);
+  const glow = realm.colors.glow;
+  const vars = realmCssVars(realm, "dark");
+  const label = realmName ?? realm.nameZh;
+
+  const shellShadow = realm.effects.doubleRing
+    ? `0 0 0 2px ${ring}, 0 0 0 4px rgba(255,227,138,0.60), 0 0 ${classes.glowSpread} ${glow}`
+    : `0 0 0 2px ${ring}, 0 0 ${classes.glowSpread} ${glow}`;
 
   return (
     <div
-      className={`relative flex shrink-0 items-center justify-center rounded-full ${classes.shell} ${frame.bg} ring-2 ${frame.ring} ${className}`}
-      style={{ boxShadow: `var(--tw-ring-shadow, 0 0 #0000), 0 0 ${size === "feed" ? "18px -3px" : "34px -6px"} ${frame.glow}` }}
-      aria-label={`${tier} avatar frame`}
+      data-realm={realm.id}
+      className={`relative flex shrink-0 items-center justify-center rounded-full ${classes.shell} ${className}`}
+      style={{
+        ...vars,
+        backgroundColor: softBg,
+        boxShadow: shellShadow,
+      }}
+      aria-label={`${label} avatar frame`}
     >
-      <div className={`absolute ${size === "feed" ? "inset-1" : "inset-2"} rounded-full border border-white/10`} />
-      {frame.placements.map((placement) => (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          key={`${frame.emoji}-${placement}`}
-          src={tierAvatarFrameIconPath(frame.icon)}
-          alt=""
-          aria-hidden="true"
-          className={`tier-avatar-emoji-shell absolute z-10 block border-0 bg-transparent shadow-none ${emojiIconClass}`}
-          style={{
-            left: `${50 + TIER_AVATAR_FRAME_VECTORS[placement].x * 50}%`,
-            top: `${50 + TIER_AVATAR_FRAME_VECTORS[placement].y * 50}%`,
-            transform: "translate(-50%, -50%)",
-            backgroundColor: "transparent",
-            border: "none",
-            boxShadow: "none",
-          }}
-        />
-      ))}
+      {realm.effects.aurora ? <div className="realm-avatar-aurora" /> : null}
+      <div
+        className={`absolute ${size === "feed" ? "inset-1" : "inset-2"} rounded-full`}
+        style={{ boxShadow: `inset 0 0 0 1px ${withAlpha(realm.colors.fg, 0.35)}` }}
+      />
 
       {avatarContent ? (
-        <div className={`relative overflow-hidden rounded-full ring-2 ring-black/80 ${classes.avatar}`}>{avatarContent}</div>
+        <div className={`relative z-[1] overflow-hidden rounded-full ring-2 ring-black/80 ${classes.avatar}`}>
+          {avatarContent}
+        </div>
       ) : avatarUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={avatarUrl}
           alt={username}
-          className={`relative rounded-full object-cover ring-2 ring-black/80 ${classes.avatar}`}
+          className={`relative z-[1] rounded-full object-cover ring-2 ring-black/80 ${classes.avatar}`}
         />
       ) : (
         <div
-          className={`relative flex items-center justify-center rounded-full bg-white/10 font-black text-zinc-100 ring-2 ring-black/80 ${classes.avatar} ${classes.initial}`}
+          className={`relative z-[1] flex items-center justify-center rounded-full bg-white/10 font-black text-zinc-100 ring-2 ring-black/80 ${classes.avatar} ${classes.initial}`}
         >
           {initial}
         </div>

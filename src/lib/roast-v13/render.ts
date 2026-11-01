@@ -6,7 +6,7 @@
  * callout verdict, numbered findings with title chips, bulleted advice —
  * no narrow 3-column table (that wrapped dimension names on mobile).
  */
-import { TIER_EN, TIER_LABEL_EN } from "../badge";
+import { formatAdventurerLevel, realmForScore } from "../realm";
 import type { Lang } from "../lang";
 import { SUBSCORE_MAX } from "../score-presentation";
 import type { ScanResult } from "../types";
@@ -73,17 +73,18 @@ export function hasRiskSignals(scan: ScanResult): boolean {
 export function renderV13Report(scan: ScanResult, lang: Lang, copy: V13Copy): string {
   const s = scan.scoring;
   const zh = lang !== "en";
-  const tier = zh ? s.tier : TIER_EN[s.tier];
-  const tierLabel = zh ? s.tier_label : TIER_LABEL_EN[s.tier];
+  const realm = realmForScore(s.final_score);
+  const realmName = zh ? realm.nameZh : realm.nameEn;
+  const realmBlurb = zh ? realm.blurbZh : realm.blurbEn;
   const lines: string[] = [];
-  lines.push(`## ${scan.metrics.username} — ${s.final_score.toFixed(2)}/100  ·  ${tier} (${tierLabel})`);
+  lines.push(`## ${scan.metrics.username} — ${formatAdventurerLevel(s.final_score)}  ·  ${realmName} (${realmBlurb})`);
   lines.push("");
   if (copy.title) {
     lines.push(`${zh ? "**称号**" : "**Title**"}: ${cell(copy.title)}`);
     lines.push("");
   }
   // Blockquote callout — RoastReport styles this as a highlighted verdict.
-  lines.push(zh ? "> **一句话结论**" : "> **TL;DR**");
+  lines.push(zh ? "> **小总评**" : "> **Quick Verdict**");
   lines.push(`>`);
   lines.push(`> ${cell(copy.verdict)}`);
   lines.push("");

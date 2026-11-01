@@ -122,7 +122,7 @@ export function FollowingBoard() {
                   {a.final_score !== null && style ? (
                     <>
                       <span className={`text-sm font-bold tabular-nums ${style.text}`}>
-                        {style.emoji} {a.final_score.toFixed(2)}
+                        {typeof a.final_score === "number" ? `Lv.${Math.floor(a.final_score)}` : "—"}
                       </span>
                       {delta !== null ? (
                         <span
