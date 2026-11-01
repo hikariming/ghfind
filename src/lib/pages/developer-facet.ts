@@ -1,6 +1,7 @@
 import type { FacetType } from "@/lib/facets";
 import { getGoDevelopersByFacet, GO_DEVELOPERS_PER_FACET_LIMIT } from "@/lib/go-developers.server";
 import { getGoProjectDetail } from "@/lib/go-projects.server";
+import { repoStarStanding } from "@/lib/github-standing";
 import {
   getProjectAssessment,
   listTreasureHistory,
@@ -81,5 +82,14 @@ export async function loadDeveloperFacet(type: FacetType, value: string) {
   // page nobody indexes. 404 instead; repo buckets with a real overview but no
   // listed devs still render (the header is substance).
   if (entries.length === 0 && !overview) return null;
-  return { entries, overview, relatedProjects, assessment, treasureHistory, perFacetLimit: GO_DEVELOPERS_PER_FACET_LIMIT };
+  return {
+    entries,
+    overview,
+    // Server-side so the star tables never ship with the page island.
+    repoStarStanding: overview ? repoStarStanding(overview.repo.stars) : null,
+    relatedProjects,
+    assessment,
+    treasureHistory,
+    perFacetLimit: GO_DEVELOPERS_PER_FACET_LIMIT,
+  };
 }

@@ -21,6 +21,8 @@ import {
   type ProjectListItem,
 } from "@/lib/db";
 import { getFacetRankCached } from "@/lib/developers";
+import { isProfileReadmeRepo } from "@/lib/github";
+import { githubStandings, type GithubStandingRepo } from "@/lib/github-standing";
 import { getPercentileCached, getRankCached } from "@/lib/rank";
 import { getProfileCommonProjectsCached } from "@/lib/project-discovery";
 import { beatPercent } from "@/lib/percentile";
@@ -287,6 +289,28 @@ function snapshotRepoKeys(snapshot: ProfileSnapshotView | null): string[] {
   return keys;
 }
 
+/**
+ * The repository the whole-GitHub standing ranks: the most-starred entry of
+ * `top_repos` by raw stars. The `<login>/<login>` profile README is a profile
+ * page, not a project; the scanner leaves it out of star totals too.
+ * Co-built repositories keep their credited share for the label: the rank
+ * itself describes the repository, like its star count does.
+ */
+function standingRepo(username: string, snapshot: ProfileSnapshotView): GithubStandingRepo | undefined {
+  const loginLower = username.toLowerCase();
+  let best: ProfileSnapshotView["top_repos"][number] | undefined;
+  for (const repo of snapshot.top_repos) {
+    if (isProfileReadmeRepo(repo, loginLower)) continue;
+    if (!best || (repo.stars ?? 0) > (best.stars ?? 0)) best = repo;
+  }
+  if (!best) return undefined;
+  return {
+    name_with_owner: best.name_with_owner ?? `${best.owner_login ?? username}/${best.name}`,
+    stars: Math.max(0, best.stars ?? 0),
+    ...(best.attribution_share !== undefined ? { attribution_share: best.attribution_share } : {}),
+  };
+}
+
 async function buildExistingRepoKeys(snapshot: ProfileSnapshotView | null): Promise<string[]> {
   const existing = await filterExistingRepoKeys(snapshotRepoKeys(snapshot));
   return existing ? [...existing].toSorted() : [];
@@ -361,6 +385,11 @@ export async function buildProfilePresentation(
   return {
     detail: toPresentationDetail(detail, scoreBreakdown),
     snapshot,
+    ...(snapshot
+      ? {
+          github_standing: githubStandings(snapshot.metrics, standingRepo(detail.username, snapshot)),
+        }
+      : {}),
     rank,
     percentile,
     delta,

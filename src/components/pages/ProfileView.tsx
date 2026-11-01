@@ -41,6 +41,7 @@ import { ProfileLandingBeacon } from "@/components/ProfileLandingBeacon";
 import { ChallengeCta } from "@/components/ChallengeCta";
 import { FollowButton } from "@/components/FollowButton";
 import { FacetRankLink } from "@/components/FacetRankLink";
+import { GithubStandingCard } from "@/components/GithubStandingCard";
 import { CommonProjects } from "@/components/CommonProjects";
 import { ExplorationBeacon } from "@/components/ExplorationBeacon";
 import { rankProfileWorks } from "@/lib/profile-work";
@@ -278,6 +279,10 @@ export function ProfileView({
     const [owner, name] = key.split("/");
     return `/developers/repo/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
   };
+  // Whole-GitHub position of the snapshot's raw facts, computed server-side.
+  // Separate from the site rank above, which ranks ghfind scores among
+  // scanned accounts.
+  const standings = presentation?.github_standing ?? [];
   const bio = snap?.bio ?? null;
   const company = snap?.company ?? null;
   const nf = new Intl.NumberFormat(bcp47(locale), {
@@ -650,6 +655,26 @@ export function ProfileView({
           </>
         )}
       </div>
+
+      <GithubStandingCard
+        standings={standings}
+        locale={bcp47(locale)}
+        className={isAdvxCampaign ? `mt-5 bg-transparent p-0 text-start ${advxDivider}` : undefined}
+        labels={{
+          title: t("githubStandingTitle"),
+          metrics: {
+            top_repo_stars: t("githubStandingTopRepo"),
+            account_age_days: t("githubStandingAccountAge"),
+          },
+          rank: (rank, total) => t("githubStandingRank", { rank, total }),
+          rankApprox: (rank, total) => t("githubStandingRankApprox", { rank, total }),
+          topAmong: (pct, floor) => t("githubStandingTopAmong", { pct, floor }),
+          older: (pct) => t("githubStandingOlder", { pct }),
+          years: (years) => t("githubStandingYears", { years }),
+          footnote: (asOf) => t("githubStandingFootnote", { asOf }),
+          coBuilt: (share) => t("coCreatorShare", { share }),
+        }}
+      />
 
       {isAdvxCampaign && (
         <div className={`lg:hidden ${advxDivider}`}>
