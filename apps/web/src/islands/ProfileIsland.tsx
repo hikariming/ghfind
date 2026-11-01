@@ -5,7 +5,7 @@ import type { ProfileReactionState } from "@/lib/reactions";
 import { IslandRoot } from "./IslandRoot";
 import type { WithIntl, WithoutT } from "./types";
 
-type Props = Omit<WithoutT<typeof ProfileView>, "tDim" | "tTier" | "reactions"> & {
+type Props = Omit<WithoutT<typeof ProfileView>, "tDim" | "tTier" | "tRealm" | "reactions"> & {
   /** Preloaded state for the reactions block (the Next page streams it instead). */
   reactions: {
     authenticated: boolean;
@@ -24,6 +24,7 @@ function ProfileBody({ reactions, ...props }: Props) {
       t={useTranslations("detail")}
       tDim={useTranslations("dimensions")}
       tTier={useTranslations("tiers")}
+      tRealm={useTranslations("realms")}
     />
   );
 }

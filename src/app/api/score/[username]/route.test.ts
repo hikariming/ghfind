@@ -38,6 +38,7 @@ vi.mock("@/lib/scan-core", () => ({
   buildScanResult: mocks.buildScanResult,
   logFreshScanFailure: mocks.logFreshScanFailure,
   scanErrorResponse: mocks.scanErrorResponse,
+  discardIncrementalCursor: vi.fn(),
 }));
 
 import { GET } from "./route";

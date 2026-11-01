@@ -212,7 +212,7 @@ func TestV10RiskBreakdownAtTwentyFivePointCap(t *testing.T) {
 }
 
 func TestScanCacheSeparatesDerivedImpactVersions(t *testing.T) {
-	if scanCacheKey(" fixture-account-045 ") != "scan:v19:v7:fixture-account-045" || scanFlightKey(" fixture-account-045 ") != "lock:scan:v19:v7:fixture-account-045" {
-		t.Fatal("derived-impact cache must isolate score v19 and collection v7")
+	if scanCacheKey(" fixture-account-045 ") != "scan:v19:v8:fixture-account-045" || scanFlightKey(" fixture-account-045 ") != "lock:scan:v19:v8:fixture-account-045" {
+		t.Fatal("derived-impact cache must isolate score v19 and collection v8")
 	}
 }

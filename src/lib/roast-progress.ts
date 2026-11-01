@@ -6,10 +6,12 @@
  * floored and never decreases. Backend T-frames may only raise a stage floor.
  *
  * τ is chosen so 80% of the capped curve (p = 0.80 × 0.92) lands on the
- * measured median wall time:
+ * expected wall time:
  *   τ = median_ms / -ln(0.2)
  * v12 median 56.0s (n=30, v12grok batch) → τ ≈ 34.8s.
- * v13 median 230.5s (n=30, recent v13m+n+o+p) → τ ≈ 143.2s.
+ * v13 foreground budget is 7 minutes (the durable chain may run that long
+ * before falling back). τ ≈ 260.9s so the ring is still moving near the end
+ * instead of sitting on the 92% cap. The older 230.5s median used τ ≈ 143.2s.
  * Until the response names a generator, use the longer v13 constant so a
  * chain run does not sit on the cap early.
  */
@@ -20,8 +22,11 @@ export const ROAST_PROGRESS_CAP = 0.92;
 export const ROAST_PROGRESS_CREEP_MAX = 0.97;
 /** v12 single-call median 56.0s. */
 export const ROAST_PROGRESS_TAU_V12_MS = 34_800;
-/** v13 chain median 230.5s. Also the default until the generator is known. */
-export const ROAST_PROGRESS_TAU_V13_MS = 143_200;
+/**
+ * v13 foreground budget is 7 minutes. τ = 420_000 / -ln(0.2) ≈ 260_857,
+ * rounded to 260_900. Also the default until the generator is known.
+ */
+export const ROAST_PROGRESS_TAU_V13_MS = 260_900;
 /** @deprecated Use {@link roastProgressTauMs}. Kept as the v13 default. */
 export const ROAST_PROGRESS_TAU_MS = ROAST_PROGRESS_TAU_V13_MS;
 
@@ -199,7 +204,8 @@ export function seedElapsedMs(startedAtMs: number | null | undefined, nowMs: num
   return elapsed;
 }
 
-const DEFAULT_START_MAX_AGE_MS = 10 * 60_000;
+/** A resumed job may already have been running for the 7-minute budget plus margin. */
+const DEFAULT_START_MAX_AGE_MS = 15 * 60_000;
 
 /**
  * Pick a wall-clock start for the progress curve. Future or stale stored

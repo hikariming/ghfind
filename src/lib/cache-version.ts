@@ -21,13 +21,15 @@ export const ROAST_CACHE_VERSION = "v12";
  *
  * `ROAST_V13_SCOPE=background` limits the chain to queued auto re-roast jobs
  * (no viewer waiting); the default `all` also uses it for interactive roasts.
+ * `foreground` is the interactive path that claims a durable RoastJob: the
+ * page may wait, and generation continues after the browser leaves.
  */
 export type RoastGenerator = "v12" | "v13";
 
 /** Server-only: the roast generator for this request. */
-export function roastGenerator(opts: { background?: boolean } = {}): RoastGenerator {
+export function roastGenerator(opts: { background?: boolean; foreground?: boolean } = {}): RoastGenerator {
   if (process.env.ROAST_GENERATOR !== "v13") return "v12";
-  if (process.env.ROAST_V13_SCOPE === "background" && !opts.background) return "v12";
+  if (process.env.ROAST_V13_SCOPE === "background" && !opts.background && !opts.foreground) return "v12";
   return "v13";
 }
 

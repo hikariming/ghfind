@@ -103,8 +103,10 @@ describe("buildRoastMessages", () => {
     // user preamble is English, payload is still the scan JSON
     expect(user.content).toMatch(/scoring data/i);
     expect(user.content).toContain("sample-user");
-    expect(user.content).toContain('"tier":"GOD"');
-    expect(user.content).toContain('"tier_label":"Legendary · Hall of Fame"');
+    expect(user.content).toContain('"tier":"Grand Ascension"');
+    expect(user.content).toContain('"realm_en":"Grand Ascension"');
+    expect(user.content).toContain('"adventurer_level":');
+    expect(user.content).toContain('"tier_label":"Near the summit · Hall of fame"');
     expect(user.content).not.toContain("封神");
   });
 
@@ -123,20 +125,20 @@ describe("buildRoastMessages", () => {
     const [zhSys, zhUser] = buildRoastMessages(scan, "zh");
     expect(zhSys.content).toContain("分数来自评分引擎，不是你的判断");
     expect(zhSys.content).toContain("学校、公司、雇主、组织 membership 只是背景");
-    expect(zhSys.content).toContain("不得重算、四舍五入到别的分、升降档");
+    expect(zhSys.content).toContain("不得重算、升降境界或写“额外修正”");
     expect(zhUser.content).not.toContain('"judge_result"');
 
     const [enSys] = buildRoastMessages(scan, "en");
     expect(enSys.content).toContain("The score comes from the scoring engine");
     expect(enSys.content).toContain("background context, not score evidence");
-    expect(enSys.content).toContain("Do not recompute, round into another score, move tiers");
+    expect(enSys.content).toContain("Do not recompute, move realms");
   });
 
   it("keeps the LLM out of scoring while preserving one-response report generation", () => {
     const [sys, user] = buildRoastMessages(scan, "zh");
     expect(sys.content).toContain("第一行必须严格写 `@@ADJUST 0@@`");
     expect(sys.content).toContain("不能改分、不能暗示模型另有裁决");
-    expect(sys.content).toContain("标题最终分直接使用 scoring.final_score");
+    expect(sys.content).toContain("标题使用 scoring.adventurer_level 写成 Lv.N");
     const payload = JSON.parse(user.content.match(/```json\n([\s\S]*)\n```/)![1]);
     expect(payload.judge_result).toBeUndefined();
     expect(payload.calibration_contract).toBeUndefined();
@@ -261,18 +263,43 @@ describe("buildRoastMessages", () => {
     expect(enSys.content).toContain("Open-issue counts are **not** a flaw");
   });
 
-  it("requires clearer name-vs-substance callouts for NPC and trash tiers without insults", () => {
+  it("requires clearer name-vs-substance callouts for low scores without insults", () => {
     const [zhSys] = buildRoastMessages(scan, "zh");
-    expect(zhSys.content).toContain("NPC / 拉完了：说清楚落差，仍留台阶");
+    expect(zhSys.content).toContain("用两个以上证据点串成一句");
+    expect(zhSys.content).toContain("准确又好玩");
     expect(zhSys.content).toContain("GitHub 更像作品展板");
     expect(zhSys.content).toContain("名气跑在仓库前面");
     expect(zhSys.content).toContain("两个以上证据点");
     expect(zhSys.content).toContain("用调笑不是羞辱");
+    expect(zhSys.content).toContain("总分 < 40");
+    expect(zhSys.content).toContain("幽默对齐 v13");
+    expect(zhSys.content).toContain("拉完了");
+    expect(zhSys.content).toContain("NPC");
+    expect(zhSys.content).toContain("平庸");
+    expect(zhSys.content).toContain("存疑");
+    // Instructional copy must not steer the model with old tier labels as headings.
+    expect(zhSys.content).not.toContain("## NPC /");
+    expect(zhSys.content).not.toMatch(/NPC=点出名实落差/);
 
     const [enSys] = buildRoastMessages(scan, "en");
-    expect(enSys.content).toContain("Scale tone by tier");
+    expect(enSys.content).toContain("Scale tone by realm");
     expect(enSys.content).toContain("name-vs-substance");
     expect(enSys.content).toContain("constructive off-ramp");
+    expect(enSys.content).toContain("final_score < 40");
+    expect(enSys.content).toContain("same humor bar as v13");
+    expect(enSys.content).not.toContain("## NPC / TRASH");
+  });
+
+  it("bakes shared snark bans into the interactive v12 system prompt", () => {
+    const [zhSys] = buildRoastMessages(scan, "zh");
+    expect(zhSys.content).toContain("硬禁词");
+    expect(zhSys.content).toContain("延续 v13 的幽默风趣文笔");
+    for (const banned of ["拉完了", "NPC", "平庸", "存疑", "嘴臭", "毒舌"] as const) {
+      expect(zhSys.content).toContain(banned);
+    }
+    const [enSys] = buildRoastMessages(scan, "en");
+    expect(enSys.content).toContain("Hard bans");
+    expect(enSys.content).toContain("Interactive v12 must keep v13");
   });
 
   it("makes the top roast the main shareable observation instead of the report summary", () => {

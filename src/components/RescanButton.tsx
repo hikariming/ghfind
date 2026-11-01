@@ -8,10 +8,11 @@ import { Button } from "@/components/ui/button";
 import { RESCAN_COOLDOWN_MS } from "@/lib/freshness";
 import { readScanResponse } from "@/lib/scan-job-client";
 import { consumeRoastStream } from "@/lib/roast-stream";
+import { isRoastClientTimeout, roastClientSignal } from "@/lib/roast-client-timeout";
 import type { ScanResult } from "@/lib/types";
 import { Turnstile, turnstileEnabled } from "./Turnstile";
 
-type Status = "idle" | "scanning" | "roasting" | "error";
+type Status = "idle" | "scanning" | "roasting" | "error" | "timeout";
 
 /**
  * Inline re-detect on a profile page: re-runs scan → roast for `username`, then
@@ -74,6 +75,7 @@ export function RescanButton({
       const roastRes = await fetch("/api/roast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: roastClientSignal(),
         // `refresh` asks the server to regenerate when past RESCAN_COOLDOWN_MS;
         // a compatible roast may still replay when the score did not change.
         // The server re-validates staleness, matching the cooldown gate above.
@@ -90,8 +92,8 @@ export function RescanButton({
       if (errored) return;
       router.refresh();
       setStatus("idle");
-    } catch {
-      setStatus("error");
+    } catch (error) {
+      setStatus(isRoastClientTimeout(error) ? "timeout" : "error");
     }
   }, [token, username, locale, router]);
 
@@ -132,8 +134,10 @@ export function RescanButton({
         <span>{label}</span>
       </Button>
       {needVerify && !token && <Turnstile onToken={setToken} />}
-      {status === "error" && (
-        <div className="mt-1.5 text-xs text-rose-300">{t("error")}</div>
+      {(status === "error" || status === "timeout") && (
+        <div className="mt-1.5 text-xs text-rose-300" role="alert">
+          {status === "timeout" ? t("timeout") : t("error")}
+        </div>
       )}
       {now != null && onCooldown && status === "idle" && (
         <div className="mt-1.5 text-center text-[11px] text-zinc-400">

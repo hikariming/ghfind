@@ -25,6 +25,11 @@ export interface RoastProgressDriver {
   noteThinking: (label: string) => void;
   /** Switch τ once /api/roast names v12 or v13. Unknown stays on the longer v13 curve. */
   setGenerator: (generator: RoastGenerator) => void;
+  /**
+   * Re-anchor the curve at a durable job's start. A later or equal start is
+   * ignored, so the ring never jumps backward when a frame repeats.
+   */
+  noteStarted: (startedAtMs: number) => void;
   markComplete: () => void;
   reset: () => void;
 }
@@ -146,6 +151,17 @@ export function useRoastProgress(
       if (generatorRef.current === generator) return;
       generatorRef.current = generator;
       publishRef.current(Date.now());
+    },
+    noteStarted(startedAtMs: number) {
+      if (!Number.isFinite(startedAtMs)) return;
+      const now = Date.now();
+      if (now < startedAtMs || now - startedAtMs > 15 * 60_000) return;
+      const current = startedAtRef.current;
+      // Only an earlier start moves the ring forward. A later one would rewind it.
+      if (current != null && startedAtMs >= current) return;
+      startedAtRef.current = startedAtMs;
+      rememberRoastStart(username, lang, startedAtMs);
+      publishRef.current(now);
     },
     markComplete,
     reset() {

@@ -25,7 +25,7 @@ const (
 	goFifthPublicScoreVersion     = "v14"
 	goRetainedPublicScoreVersion  = "v13"
 	goOldestPublicScoreVersion    = "v10"
-	goCanonicalCollectionVersion = "v7"
+	goCanonicalCollectionVersion = "v8"
 	progressMinGapMilliseconds   = int64(time.Hour / time.Millisecond)
 )
 

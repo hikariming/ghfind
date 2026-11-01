@@ -11,8 +11,10 @@
 export type NavItem = {
   /** i18n key under the `nav` namespace, e.g. "leaderboard". Also keys `nav.hint.<key>`. */
   key: string;
-  /** Internal path for the locale-aware `Link`. */
+  /** Internal path for the locale-aware `Link`, or an absolute http(s) URL for an external entry. */
   href?: string;
+  /** Open `href` off-site in a new tab: plain `<a>`, never locale-prefixed or marked active. */
+  external?: boolean;
   /** Icon token resolved inside the renderer. */
   icon?: string;
   /** Match the pathname exactly instead of treating `href` as a section prefix. */
@@ -25,6 +27,8 @@ export type NavItem = {
   beta?: boolean;
   /** Show a small "new!" callout on this item. */
   new?: boolean;
+  /** Show a lively "event" pill for a time-boxed campaign (label: `nav.event`). */
+  event?: boolean;
   /** Small label badge, e.g. "beta" (legacy `NavLinks` only). */
   badge?: string;
   /** Legacy dropdown children (still understood by `NavLinks`). */
@@ -42,7 +46,7 @@ export type NavGroup = {
 export const NAV_GROUPS: NavGroup[] = [
   { items: [
     { key: "roast", href: "/", exact: true, icon: "flame", featured: true },
-    { key: "versus", href: "/vs", exact: true, icon: "swords" },
+    { key: "mfcp", href: "https://missionhub-oss.github.io/mfcp/", external: true, icon: "graduation", event: true },
   ] },
   { label: "groupDiscover", items: [
     { key: "feed", href: "/feed", icon: "x", new: true },
@@ -62,6 +66,10 @@ export const NAV_GROUPS: NavGroup[] = [
     { key: "cliApi", href: "/integrations", icon: "cable" },
   ] },
 ];
+
+/** External entries render as a plain new-tab `<a>`: flagged explicitly or by an absolute http(s) `href`. */
+export const isExternalNavItem = (item: NavItem): boolean =>
+  Boolean(item.external || (item.href && /^https?:\/\//i.test(item.href)));
 
 /** Every navigable entry, flattened in display order. */
 export const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap(group => group.items);

@@ -78,3 +78,27 @@ it("does not retry or recursively split a single-year timeout", async () => {
   await expect(fetchCommitContribReposByYear("busy", [2026])).rejects.toBeInstanceOf(GitHubQueryTimeoutError);
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
+
+it("full mode recovers an INTERNAL year via fetchCompleteCommitWindow", async () => {
+  const notes: string[] = [];
+  const fetchMock = vi.fn(async (_url: string, init: { body: string }) => {
+    const { variables } = JSON.parse(init.body);
+    const count = Object.keys(variables).filter((key) => key.startsWith("from")).length;
+    if (count > 1) return failure("INTERNAL");
+    // Exact one-year batch bounds fail; subdivided ISO windows from completeYear succeed.
+    if (variables.from0 === "2025-01-01T00:00:00Z" && variables.to0 === "2025-12-31T23:59:59Z") {
+      return failure("INTERNAL");
+    }
+    return yearData(variables.from0.startsWith("2025") ? 7 : 10);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  const result = await fetchCommitContribReposByYear("busy", [2026, 2025], {
+    full: true,
+    note: (reason) => notes.push(reason),
+  });
+  expect(notes).toEqual([]);
+  expect(result).toEqual([expect.objectContaining({ commits: expect.any(Number), active_years: 2, repo: "org/project" })]);
+  expect(result![0].commits).toBeGreaterThan(10);
+  expect(fetchMock.mock.calls.length).toBeGreaterThan(3);
+});
+

@@ -44,6 +44,7 @@
     "languages": "언어",
     "organizations": "조직",
     "versus": "개발자 대결",
+    "mfcp": "MFCP 오픈소스 육성",
     "blog": "리서치",
     "openMenu": "메뉴 열기",
     "closeMenu": "메뉴 닫기",
@@ -54,9 +55,11 @@
     "groupCareer": "커리어",
     "groupTools": "Integrations",
     "beta": "Beta",
+    "event": "진행 중",
     "hint": {
       "roast": "30초 만에 GitHub 계정 점수와 한 줄 팩폭",
       "versus": "두 개발자를 정면으로 비교",
+      "mfcp": "MFCP 오픈소스 인재 육성 프로그램, 지금 모집 중",
       "leaderboard": "점수순으로 우수 개발자 보기",
       "projectBoards": "분야별 주목할 오픈소스 찾기",
       "collections": "개발자 이야기, 엄선한 오픈 소스 프로젝트, GitHub 생태계 연구.",
@@ -191,7 +194,11 @@
     "apiCtaLink": "API 문서 →",
     "repoAuthoredBy": "메인테이너",
     "repoContributors": "명의 랭킹 기여자",
-    "repoAvgScore": "평균 점수"
+    "repoAvgScore": "평균 점수",
+    "repoGlobalRank": "GitHub 전체 {total} 중 {rank}위",
+    "repoGlobalRankApprox": "GitHub 전체 {total} 중 약 {rank}위",
+    "repoTopAmong": "{floor}★ 이상 저장소 중 상위 {pct}%",
+    "repoRankNote": "공개 비포크 저장소 전체와 스타 수 비교 · {asOf}"
   },
   "projects": {
     "metaTitle": "고품질 GitHub 프로젝트 발견 · ghfind",
@@ -313,6 +320,15 @@
     "rankUnit": "/ 전체 {total}명",
     "rankUnranked": "순위 없음 (데이터 부족)",
     "beatInline": "개발자 {beat}%를 제쳤습니다",
+    "githubStandingTitle": "GitHub 전체에서의 위치",
+    "githubStandingAccountAge": "계정 나이",
+    "githubStandingTopRepo": "최다 스타 저장소",
+    "githubStandingRank": "{total} 중 {rank}위",
+    "githubStandingRankApprox": "{total} 중 약 {rank}위",
+    "githubStandingTopAmong": "{floor}★ 이상 저장소 중 상위 {pct}%",
+    "githubStandingOlder": "{pct}% 계정보다 오래됨",
+    "githubStandingYears": "{years}년",
+    "githubStandingFootnote": "GitHub 전체 공개 데이터와 비교 · {asOf}",
     "milestoneNext": "“{tier}”까지 {gap}점",
     "milestoneCapped": "🏆 만렙 달성 · 최상위 티어",
     "facetRankLine": "{facet} 보드 #{rank}",
@@ -348,13 +364,10 @@
     "impactDisclosure": "굵직한 기여 ({count})",
     "worksHeading": "🛠 대표작",
     "worksSub": "본인이 만든 인기 저장소와 고정 저장소",
-    "stackHeading": "🧬 기술 스택 & 분야",
-    "stackLangLabel": "주요 언어",
-    "stackTopicsLabel": "분야",
     "orgsLabel": "조직",
     "commits": "커밋",
     "prs": "PR",
-    "roastHeading": "로스트",
+    "verdictLabel": "한줄 총평",
     "roastEmpty": "이 로스트은 아직 보관되지 않았어요 — <a>홈에서 다시 심판</a>하면 생성됩니다.",
     "scoreStateStaleTitle": "이전 점수",
     "scoreStateStaleBody": "이 점수는 이전 규칙으로 계산되었습니다. 검증된 재스캔이 대체할 때까지 기록으로 표시됩니다.",
@@ -392,15 +405,20 @@
     "modalViewProfile": "전체 프로필 보기",
     "modalBadgeCta": "GitHub 배지 받기",
     "modalClose": "닫기",
-    "battlesHeading": "⚔️ 대결 기록",
-    "battlesSub": "이 개발자가 치른 PK 대결",
-    "battleWin": "승",
-    "battleLoss": "패",
-    "battleTie": "무",
     "selfCta": "내 GitHub도 평가받기 →",
     "reportLangNotice": "AI 로스트 리포트는 현재 영어와 중국어만 지원해요 — 지금 보고 계신 건 영어판입니다.",
     "coCreatorShare": "주도·공동 개발 (기여 지분 {share}%)",
-    "scoreReadyHint": "점수는 나왔습니다. 로스트는 곧 도착합니다"
+    "scoreReadyHint": "점수는 나왔습니다. 로스트는 곧 도착합니다",
+    "adventurerLevel": "모험가 레벨",
+    "preciseScoreTitle": "종합 점수 {score}",
+    "liveTimeout": "평가 대기 시간이 초과되어 중단했습니다. 나중에 다시 시도하세요. 기존 점수와 이전 평가는 유지됩니다.",
+    "scoreStateRescanTimeout": "재평가 대기 시간이 초과되었습니다. 나중에 다시 시도하세요",
+    "evaluateStageFetch": "데이터 가져오는 중",
+    "evaluateStageAnalyze": "저장소 분석 중",
+    "evaluateStageRoast": "로스트 생성 중",
+    "evaluateError": "이번엔 완료하지 못했습니다. 다시 시도해 주세요.",
+    "evaluateTimeout": "이번 생성에 시간이 좀 걸렸어요. 다시 시도해 주세요.",
+    "evaluateRetry": "다시 시도"
   },
   "reactions": {
     "heading": "커뮤니티 반응",
@@ -421,11 +439,12 @@
     "scanning": "검사 중…",
     "roasting": "코멘트 생성 중…",
     "error": "평가에 실패했습니다. 잠시 후 다시 시도하세요",
-    "cooldown": "{hours}시간 후 다시 평가 가능"
+    "cooldown": "{hours}시간 후 다시 평가 가능",
+    "timeout": "평가 대기 시간이 초과되었습니다. 나중에 다시 시도하세요"
   },
   "detailMeta": {
     "unratedTitle": "{username} · 개발자 프로필",
-    "title": "{username} — {score}/100 · {tier} | ghfind",
+    "title": "{username} — Lv.{level} · {realm} | ghfind",
     "descWithTags": "{tags} — {username}의 전체 점수 리포트를 ghfind.com에서 확인하세요.",
     "descPlain": "{username}의 GitHub 가치·신뢰 리포트 — ghfind.com.",
     "notFoundTitle": "계정을 찾을 수 없음 · ghfind",
@@ -545,25 +564,25 @@
     "brand": "🔥 ghfind · 내 성적 재보기"
   },
   "tiers": {
-    "god": {
-      "name": "갓",
-      "blurb": "레전드 · 명예의 전당급"
-    },
-    "elite": {
-      "name": "고인물",
-      "blurb": "최상위권 · 일류 개발자"
-    },
-    "solid": {
-      "name": "탄탄",
-      "blurb": "알짜 기여자 · 믿어도 되는 계정"
+    "trash": {
+      "name": "연기기",
+      "blurb": "선도의 입문 · 기초를 다지다"
     },
     "npc": {
-      "name": "NPC",
-      "blurb": "평범한 계정 · 존재감 없음"
+      "name": "결단기",
+      "blurb": "단이 이룸 · 날카로움이 보임"
     },
-    "trash": {
-      "name": "나락",
-      "blurb": "저가치 · 어뷰징 / 봇 의심"
+    "solid": {
+      "name": "연허기",
+      "blurb": "허를 단련 · 거뜬한 경지"
+    },
+    "elite": {
+      "name": "합체기",
+      "blurb": "천인합일 · 일선 종사"
+    },
+    "god": {
+      "name": "대승기",
+      "blurb": "대도에 가까움 · 전당의 기준"
     }
   },
   "dimensions": {
@@ -662,8 +681,8 @@
         "body": "스냅샷을 계정 성숙도, 오리지널 프로젝트 퀄리티, 기여 퀄리티, 생태계 영향력, 커뮤니티 영향력, 활동 진정성에 따라 채점하고, PR 어뷰징·스타 부풀리기·템플릿 도배 패턴에는 감점을 적용합니다."
       },
       {
-        "title": "3. 점수, 티어, 로스트 받기",
-        "body": "재현 가능한 0-100점과 「나락」부터 「갓」까지의 티어, 점수를 깎아 먹는 요인을 정확히 보여주는 지표별 리포트, 그리고 — 원할 때만 — 재치 있는 AI 로스트을 받게 됩니다."
+        "title": "3. 모험가 레벨·경계·로스트 받기",
+        "body": "재현 가능한 모험가 레벨(Lv.1–100), 「연기」부터 「대승」까지 여덟 경계, 약점을 가리키는 차원별 리포트, 그리고 (요청할 때만) AI가 쓴 뼈 때리는 로스트를 받습니다."
       }
     ],
     "numbersHeading": "숫자로 보는 ghfind",
@@ -2092,6 +2111,40 @@
         "followers": "Followers",
         "source": "Follow counts from ghfind"
       }
+    }
+  },
+  "realms": {
+    "qi": {
+      "name": "연기기",
+      "blurb": "선도의 입문 · 기초를 다지다"
+    },
+    "foundation": {
+      "name": "축기기",
+      "blurb": "기반이 잡힘 · 꾸준히 정진"
+    },
+    "goldenCore": {
+      "name": "결단기",
+      "blurb": "단이 이룸 · 날카로움이 보임"
+    },
+    "nascentSoul": {
+      "name": "원영기",
+      "blurb": "원영이 싹틈 · 자신만의 길"
+    },
+    "deity": {
+      "name": "화신기",
+      "blurb": "신식이 통함 · 한 지역에 영향"
+    },
+    "voidRefining": {
+      "name": "연허기",
+      "blurb": "허를 단련 · 거뜬한 경지"
+    },
+    "integration": {
+      "name": "합체기",
+      "blurb": "천인합일 · 일선 종사"
+    },
+    "mahayana": {
+      "name": "대승기",
+      "blurb": "대도에 가까움 · 전당의 기준"
     }
   }
 }

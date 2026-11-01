@@ -44,6 +44,7 @@
     "languages": "语言",
     "organizations": "组织",
     "versus": "开发者 PK",
+    "mfcp": "MFCP 开源培养",
     "blog": "研究报告",
     "openMenu": "打开菜单",
     "closeMenu": "关闭菜单",
@@ -54,10 +55,12 @@
     "groupCareer": "职业",
     "groupTools": "集成",
     "beta": "Beta",
+    "event": "活动中",
     "hint": {
       "roast": "30 秒给 GitHub 账号打分，附一句客观调笑锐评",
       "versus": "两位开发者正面 PK，看谁更强",
-      "leaderboard": "按评分浏览优质开发者",
+      "mfcp": "MFCP 开源人才培养计划，正在招募",
+      "leaderboard": "按等级浏览优质开发者",
       "projectBoards": "按领域发现值得关注的开源项目",
       "collections": "开发者故事、开源项目精选与 GitHub 生态研究。",
       "blog": "开发者生态的数据与洞察",
@@ -137,7 +140,7 @@
   },
   "leaderboard": {
     "heading": "🏆 名人堂",
-    "subtitle": "名人堂收录评分 60 分以上的账号，默认展示趋势榜。",
+    "subtitle": "名人堂收录化神境以上的账号，默认展示趋势榜。",
     "judgeCta": "← 去审判一个账号",
     "footerNote": "仅收录基于 GitHub 公开数据的高分账号。",
     "loadError": "榜单暂时加载不出来，稍后再试。",
@@ -148,18 +151,18 @@
     "pageJumpLabel": "跳转到页码",
     "collapse": "收起",
     "trendView": "🚀 趋势榜",
-    "scoreView": "💯 评分榜",
+    "scoreView": "⚔ 等级榜",
     "trendLabel": "趋势",
     "trendTitle": "趋势分：评分 80% + 近 7 天唯一访客热度 15% + 最近查询时间衰减 5%",
-    "scoreLabel": "评分",
-    "scoreTitle": "基于 GitHub 公开数据计算的 0-100 分价值与信任评分",
+    "scoreLabel": "等级",
+    "scoreTitle": "基于 GitHub 公开数据换算的冒险者等级（Lv.1–100）",
     "heatView": "🔥 热度榜",
     "heatLabel": "热度",
     "heatTitle": "被成功查询的次数",
     "vsButton": "和 TA 对线",
-    "viewDetail": "查看 @{username} 的评分详情",
+    "viewDetail": "查看 @{username} 的等级详情",
     "trendSubtitle": "趋势分综合评分、近 7 天唯一访客热度和最近查询时间。",
-    "scoreSubtitle": "按 0-100 分价值与信任评分排序。",
+    "scoreSubtitle": "按底层综合分排序，展示冒险者等级。",
     "heatSubtitle": "按被成功查询审判的累计次数排序。",
     "windowAria": "时间范围",
     "window24h": "24 小时",
@@ -191,7 +194,11 @@
     "apiCtaLink": "API 文档 →",
     "repoAuthoredBy": "作者",
     "repoContributors": "位上榜贡献者",
-    "repoAvgScore": "平均分"
+    "repoAvgScore": "平均分",
+    "repoGlobalRank": "全 GitHub 第 {rank} 名 / {total}",
+    "repoGlobalRankApprox": "全 GitHub 约第 {rank} 名 / {total}",
+    "repoTopAmong": "≥{floor}★ 的仓库中前 {pct}%",
+    "repoRankNote": "按 star 对比全部公开非 fork 仓库 · {asOf}"
   },
   "projects": {
     "metaTitle": "发现高质量 GitHub 项目 · ghfind",
@@ -257,7 +264,7 @@
     "followersLabel": "关注者",
     "totalStarsLabel": "累计 star",
     "backToCollections": "返回深度研究",
-    "dataNote": "评分与段位来自 ghfind 评分引擎，随每次新扫描持续刷新。"
+    "dataNote": "冒险者等级与境界来自 ghfind 评分引擎，随每次新扫描持续刷新。"
   },
   "discoveryNext": {
     "relatedTitle": "继续探索",
@@ -313,6 +320,15 @@
     "rankUnit": "/ 共 {total} 人",
     "rankUnranked": "暂无排名（样本不足）",
     "beatInline": "击败了 {beat}% 的开发者",
+    "githubStandingTitle": "在全 GitHub 中的位置",
+    "githubStandingAccountAge": "账号年龄",
+    "githubStandingTopRepo": "最高 Star 仓库",
+    "githubStandingRank": "第 {rank} 名 / {total}",
+    "githubStandingRankApprox": "约第 {rank} 名 / {total}",
+    "githubStandingTopAmong": "≥{floor}★ 的仓库中前 {pct}%",
+    "githubStandingOlder": "早于 {pct}% 的账号",
+    "githubStandingYears": "{years} 年",
+    "githubStandingFootnote": "对比全 GitHub 公开数据 · {asOf}",
     "milestoneNext": "距「{tier}」还差 {gap} 分",
     "milestoneCapped": "🏆 已封顶 · 殿堂级标杆",
     "facetRankLine": "{facet} 榜 #{rank}",
@@ -348,13 +364,10 @@
     "impactDisclosure": "贡献过的明星项目 ({count})",
     "worksHeading": "🛠 代表作",
     "worksSub": "按实质贡献优先、高星影响辅助排序的代表项目",
-    "stackHeading": "🧬 技术栈 & 领域",
-    "stackLangLabel": "主要语言",
-    "stackTopicsLabel": "领域标签",
     "orgsLabel": "组织",
     "commits": "提交",
     "prs": "PR",
-    "roastHeading": "🔥 锐评全文",
+    "verdictLabel": "小总评",
     "roastEmpty": "这份锐评还没存档 —— <a>去首页重新评测一次</a> 即可生成。",
     "scoreStateStaleTitle": "历史评分",
     "scoreStateStaleBody": "这份评分来自旧版规则；在可信重扫完成前继续展示，但不会冒充当前评分。",
@@ -385,11 +398,6 @@
     "modalViewProfile": "查看完整主页",
     "modalBadgeCta": "生成 GitHub 炫耀卡",
     "modalClose": "关闭",
-    "battlesHeading": "⚔️ 对战记录",
-    "battlesSub": "TA 参加过的 PK 对决",
-    "battleWin": "胜",
-    "battleLoss": "负",
-    "battleTie": "平",
     "selfCta": "测测你自己的 GitHub 含金量 →",
     "reportLangNotice": "AI 锐评目前仅提供中英文版本，当前显示英文版。",
     "coCreatorShare": "主导/共建（计分份额 {share}%）",
@@ -400,7 +408,17 @@
     "roastStage4": "核对数字和仓库名",
     "roastStage5": "排版收尾",
     "liveRetry": "再试一次",
-    "scoreReadyHint": "分数已出炉，锐评马上就到"
+    "scoreReadyHint": "等级已出炉，锐评马上就到",
+    "adventurerLevel": "冒险者等级",
+    "preciseScoreTitle": "综合分 {score}",
+    "liveTimeout": "锐评等待超时，已停止。可稍后重试，页面会保留已有评分与旧版锐评。",
+    "scoreStateRescanTimeout": "重新评测超时，已停止等待。可稍后重试",
+    "evaluateStageFetch": "抓取数据",
+    "evaluateStageAnalyze": "分析仓库",
+    "evaluateStageRoast": "生成锐评",
+    "evaluateError": "这次没跑通，点重试再试一次",
+    "evaluateTimeout": "这次生成花的时间有点长，点重试再试一次",
+    "evaluateRetry": "重试"
   },
   "reactions": {
     "heading": "社区反应",
@@ -421,11 +439,12 @@
     "scanning": "评测中…",
     "roasting": "生成点评中…",
     "error": "评测失败，请稍后重试",
-    "cooldown": "{hours} 小时后可重新评测"
+    "cooldown": "{hours} 小时后可重新评测",
+    "timeout": "锐评超时，已停止等待。可稍后重试"
   },
   "detailMeta": {
     "unratedTitle": "{username} · 开发者档案",
-    "title": "{username} — {score}/100 · {tier} | ghfind",
+    "title": "{username} — Lv.{level} · {realm} | ghfind",
     "descWithTags": "{tags} —— 在 ghfind.com 查看 {username} 的完整评分报告。",
     "descPlain": "{username} 的 GitHub 价值评分报告 —— ghfind.com。",
     "notFoundTitle": "查无此号 · ghfind",
@@ -449,7 +468,7 @@
     "pasteGithub": "📌 贴到 GitHub",
     "copied": "已复制 ✓",
     "privateNote": "注：评分仅基于公开信号，私有贡献不计入，可能低估私有组织的活跃员工。",
-    "shareText": "我的 GitHub 含金量被审判了：{score}/100 · {tier}（{tierLabel}）{beat}。来测测你的 👉 ghfind.com",
+    "shareText": "我的 GitHub 含金量被审判了：{score} · {tier}（{tierLabel}）{beat}。来测测你的 👉 ghfind.com",
     "shareBeat": "，超越了 {beat}% 的开发者",
     "errEmpty": "请先输入 GitHub 用户名或主页链接。",
     "errNeedTurnstile": "请先完成下方的人机校验。",
@@ -545,25 +564,25 @@
     "brand": "🔥 ghfind · 来测测你的含金量"
   },
   "tiers": {
-    "god": {
-      "name": "夯",
-      "blurb": "封神 · 殿堂级标杆"
-    },
-    "elite": {
-      "name": "顶级",
-      "blurb": "顶级开发者 · 一线水准"
-    },
-    "solid": {
-      "name": "人上人",
-      "blurb": "优质贡献者 · 值得信任"
+    "trash": {
+      "name": "练气",
+      "blurb": "初入仙途 · 打牢根基"
     },
     "npc": {
-      "name": "NPC",
-      "blurb": "普通账号 · 特征平庸存疑"
+      "name": "金丹",
+      "blurb": "丹成一品 · 渐露锋芒"
     },
-    "trash": {
-      "name": "拉完了",
-      "blurb": "低价值 · 疑似刷量 / AI 机器人"
+    "solid": {
+      "name": "炼虚",
+      "blurb": "返璞归真 · 举重若轻"
+    },
+    "elite": {
+      "name": "合体",
+      "blurb": "天人合一 · 一线宗师"
+    },
+    "god": {
+      "name": "大乘",
+      "blurb": "大道将成 · 殿堂标杆"
     }
   },
   "dimensions": {
@@ -669,8 +688,8 @@
         "body": "快照按账号成熟度、原创与主导项目质量、贡献质量、生态影响力、社区影响力、活跃真实性打分，并对刷 PR、刷 star、模板灌水等行为扣分。"
       },
       {
-        "title": "3. 得到分数、段位和吐槽",
-        "body": "你会得到一个可复现的 0–100 分、从「拉完了」到「夯」的段位、一份指出短板的分维度报告，以及（只在你主动要求时）一段锐评 AI 吐槽。"
+        "title": "3. 得到冒险者等级、境界和吐槽",
+        "body": "你会得到可复现的冒险者等级（Lv.1–100）、从「练气」到「大乘」的八境界、一份指出短板的分维度报告，以及（只在你主动要求时）一段锐评 AI 吐槽。"
       }
     ],
     "numbersHeading": "用数字看 ghfind",
@@ -712,7 +731,7 @@
     "endpoints": [
       {
         "sig": "GET /api/score/{username}",
-        "desc": "确定性 0–100 分、段位和六维拆解。未见过的账号也能实时评分；无需认证，不经过 LLM。"
+        "desc": "确定性冒险者等级（Lv.1–100）、境界和六维拆解。未见过的账号也能实时评分；无需认证，不经过 LLM。"
       },
       {
         "sig": "POST /api/scan",
@@ -752,7 +771,7 @@
     "tools": [
       {
         "name": "score_user",
-        "desc": "任意 GitHub 账号的 0–100 分、段位和六维拆解。"
+        "desc": "任意 GitHub 账号的冒险者等级、境界和六维拆解。"
       },
       {
         "name": "scan_user",
@@ -846,7 +865,7 @@
       },
       {
         "h": "我们存储什么",
-        "p": "对于被评分的账号，我们会缓存计算出的分数、段位和派生指标，以便分享的报告快速加载、排行榜保持流畅。只有 60 分及以上的账号会被索引并公开收录；更低分的页面可通过直链访问，但不进入搜索引擎。我们使用尊重隐私的聚合分析来了解流量，且不出售个人数据。"
+        "p": "对于被评分的账号，我们会缓存计算出的分数、冒险者等级/境界和派生指标，以便分享的报告快速加载、排行榜保持流畅。只有 60 分及以上的账号会被索引并公开收录；更低分的页面可通过直链访问，但不进入搜索引擎。我们使用尊重隐私的聚合分析来了解流量，且不出售个人数据。"
       },
       {
         "h": "Google 登录与账号 Cookie",
@@ -2099,6 +2118,40 @@
         "followers": "粉丝",
         "source": "关注数据来自 ghfind"
       }
+    }
+  },
+  "realms": {
+    "qi": {
+      "name": "练气",
+      "blurb": "初入仙途 · 打牢根基"
+    },
+    "foundation": {
+      "name": "筑基",
+      "blurb": "根基已成 · 稳步精进"
+    },
+    "goldenCore": {
+      "name": "金丹",
+      "blurb": "丹成一品 · 渐露锋芒"
+    },
+    "nascentSoul": {
+      "name": "元婴",
+      "blurb": "元婴初成 · 自成一派"
+    },
+    "deity": {
+      "name": "化神",
+      "blurb": "神识通达 · 影响一方"
+    },
+    "voidRefining": {
+      "name": "炼虚",
+      "blurb": "返璞归真 · 举重若轻"
+    },
+    "integration": {
+      "name": "合体",
+      "blurb": "天人合一 · 一线宗师"
+    },
+    "mahayana": {
+      "name": "大乘",
+      "blurb": "大道将成 · 殿堂标杆"
     }
   }
 }

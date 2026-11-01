@@ -63,13 +63,46 @@ func (c *GitHubClient) fetchCommitContribReposByYear(ctx context.Context, userna
 		return nil, nil
 	}
 	perYear, err := c.fetchCommitContribsBatch(ctx, username, capped)
-	if errors.Is(err, ErrGitHubResourceLimit) && len(capped) > 1 {
+	completedYears := map[int]bool{}
+	recoverResourceLimitedYear := func(year int) ([]graphCommitContribNode, error) {
+		// Quick mode notes and escalates. Full mode subdivides silently on success;
+		// note commit_resource_limit only when the year still cannot be recovered.
+		if !scope.Full {
+			scope.note("commit_resource_limit")
+			return nil, nil
+		}
+		from := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+		to := time.Date(year+1, 1, 1, 0, 0, 0, 0, time.UTC).Add(-time.Second)
+		nodes, e := c.fetchCompleteCommitWindow(ctx, username, from, to)
+		if errors.Is(e, ErrGitHubResourceLimit) {
+			scope.note("commit_resource_limit")
+			return nil, nil
+		}
+		if e != nil {
+			return nil, e
+		}
+		completedYears[year] = true
+		return nodes, nil
+	}
+	if errors.Is(err, ErrGitHubResourceLimit) {
+		// Quick mode notes and skips; full mode subdivides via fetchCompleteCommitWindow
+		// so a pathological year is not silently dropped (mirrors Node collector).
 		perYear = make([][]graphCommitContribNode, len(capped))
 		for index, year := range capped {
-			single, singleErr := c.fetchCommitContribsBatch(ctx, username, []int{year})
+			var singleErr error
+			var single [][]graphCommitContribNode
+			if len(capped) == 1 {
+				singleErr = err
+			} else {
+				single, singleErr = c.fetchCommitContribsBatch(ctx, username, []int{year})
+			}
 			if errors.Is(singleErr, ErrGitHubResourceLimit) {
-				scope.note("commit_resource_limit")
-				continue // Node behaviour: one pathological year does not fail the scan.
+				nodes, e := recoverResourceLimitedYear(year)
+				if e != nil {
+					return nil, e
+				}
+				perYear[index] = nodes
+				continue
 			}
 			if singleErr != nil {
 				return nil, singleErr
@@ -85,7 +118,7 @@ func (c *GitHubClient) fetchCommitContribReposByYear(ctx context.Context, userna
 	monthsByRepo := map[string]map[string]bool{}
 	order := []string{}
 	for index, nodes := range perYear {
-		if len(nodes) >= githubPageSize {
+		if !completedYears[capped[index]] && len(nodes) >= githubPageSize {
 			if scope.Full {
 				from := time.Date(capped[index], 1, 1, 0, 0, 0, 0, time.UTC)
 				to := time.Date(capped[index]+1, 1, 1, 0, 0, 0, 0, time.UTC).Add(-time.Second)
@@ -94,6 +127,7 @@ func (c *GitHubClient) fetchCommitContribReposByYear(ctx context.Context, userna
 				if e != nil {
 					return nil, e
 				}
+				completedYears[capped[index]] = true
 			} else {
 				scope.note("commit_repository_cap")
 			}

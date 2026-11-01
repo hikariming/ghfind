@@ -18,7 +18,7 @@ export function authorizeMutation(env = process.env) {
 }
 const PRODUCTION_CACHE_KV = 'f7a7299eef224d899c21121c1979be32'; // ghfind-cache
 const COORDINATION_WORKER = 'ghfind-coord';
-const COORDINATION_OBJECTS = [['RATE_LIMITER', 'RateLimiter'], ['COORD_KV', 'KeyValue'], ['SCAN_SLOT', 'ScanSlot']];
+const COORDINATION_OBJECTS = [['RATE_LIMITER', 'RateLimiter'], ['COORD_KV', 'KeyValue'], ['SCAN_SLOT', 'ScanSlot'], ['ROAST_JOB', 'RoastJob']];
 export function renderWeb(sha, mode, provider) {
   requireThat(/^[a-f0-9]{40}$/.test(sha) && ['paused', 'all'].includes(mode), 'exact source SHA and paused/all required');
   requireThat(provider.MOSOO_API_BASE === 'https://cloud.mosoo.ai/api/v1' && /^[A-Z0-9]{26}$/.test(provider.MOSOO_PROJECT_AGENT_ID ?? '') && /^[A-Za-z0-9._:-]{1,128}$/.test(provider.MOSOO_PROJECT_USER_ID ?? ''), 'explicit published Mosoo provider required');

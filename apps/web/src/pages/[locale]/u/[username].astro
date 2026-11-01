@@ -73,7 +73,7 @@ if (presentation && d) {
 }
 const path = meta ? meta.path : `/u/${decoded}`;
 const pendingTitle = tMeta("pendingTitle", { username: pendingScan?.metrics.username ?? decoded });
-const intl = { locale, pathname: path, search: Astro.url.search, messages: pickMessages(messages, ["badge", "challenge", "detail", "dimensions", "discoveryNext", "follow", "reactions", "rescan", "roaster", "share", "shareCard", "tiers"]) };
+const intl = { locale, pathname: path, search: Astro.url.search, messages: pickMessages(messages, ["badge", "challenge", "detail", "dimensions", "discoveryNext", "follow", "reactions", "rescan", "roaster", "share", "shareCard", "tiers", "realms"]) };
 ---
 {meta && page ? (
   <Base

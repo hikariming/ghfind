@@ -3,10 +3,10 @@ import { VsView } from "@/components/pages/VsView";
 import { IslandRoot } from "./IslandRoot";
 import type { WithIntl, WithoutT } from "./types";
 
-type Props = Omit<WithoutT<typeof VsView>, "tDim" | "tTier">;
+type Props = Omit<WithoutT<typeof VsView>, "tDim" | "tTier" | "tRealm">;
 
 function VsBody(props: Props) {
-  return <VsView {...props} t={useTranslations("vs")} tDim={useTranslations("dimensions")} tTier={useTranslations("tiers")} />;
+  return <VsView {...props} t={useTranslations("vs")} tDim={useTranslations("dimensions")} tTier={useTranslations("tiers")} tRealm={useTranslations("realms")} />;
 }
 
 export function VsIsland({ intl, ...props }: WithIntl<Props>) {

@@ -44,6 +44,7 @@
     "languages": "Bahasa",
     "organizations": "Organisasi",
     "versus": "Duel developer",
+    "mfcp": "MFCP Open Source",
     "blog": "Riset",
     "openMenu": "Buka menu",
     "closeMenu": "Tutup menu",
@@ -54,9 +55,11 @@
     "groupCareer": "Karier",
     "groupTools": "Integrations",
     "beta": "Beta",
+    "event": "Acara",
     "hint": {
       "roast": "Nilai akun GitHub dalam 30 detik, plus satu komentar pedas",
       "versus": "Adu dua developer secara langsung",
+      "mfcp": "Program mentoring open source MFCP, pendaftaran dibuka",
       "leaderboard": "Jelajahi developer terbaik berdasarkan skor",
       "projectBoards": "Temukan proyek open source menonjol per bidang",
       "collections": "Kisah developer, pilihan proyek sumber terbuka, dan riset ekosistem GitHub.",
@@ -191,7 +194,11 @@
     "apiCtaLink": "Dokumentasi API →",
     "repoAuthoredBy": "Dirawat oleh",
     "repoContributors": "kontributor terperingkat",
-    "repoAvgScore": "rata-rata skor"
+    "repoAvgScore": "rata-rata skor",
+    "repoGlobalRank": "#{rank} dari {total} di GitHub",
+    "repoGlobalRankApprox": "~#{rank} dari {total} di GitHub",
+    "repoTopAmong": "Top {pct}% dari repo dengan ≥{floor}★",
+    "repoRankNote": "Berdasarkan bintang di antara semua repositori publik non-fork · {asOf}"
   },
   "projects": {
     "metaTitle": "Temukan proyek GitHub berkualitas · ghfind",
@@ -313,6 +320,15 @@
     "rankUnit": "/ dari {total}",
     "rankUnranked": "Belum terperingkat (data belum cukup)",
     "beatInline": "Mengalahkan {beat}% developer",
+    "githubStandingTitle": "Di seluruh GitHub",
+    "githubStandingAccountAge": "Usia akun",
+    "githubStandingTopRepo": "Repo dengan bintang terbanyak",
+    "githubStandingRank": "#{rank} dari {total}",
+    "githubStandingRankApprox": "~#{rank} dari {total}",
+    "githubStandingTopAmong": "Top {pct}% dari repo dengan ≥{floor}★",
+    "githubStandingOlder": "Lebih tua dari {pct}%",
+    "githubStandingYears": "{years} thn",
+    "githubStandingFootnote": "Data publik seluruh GitHub · {asOf}",
     "milestoneNext": "{gap} poin lagi menuju “{tier}”",
     "milestoneCapped": "🏆 Sudah mentok · tier tertinggi",
     "facetRankLine": "#{rank} di {facet}",
@@ -348,13 +364,10 @@
     "impactDisclosure": "Kontribusi menonjol ({count})",
     "worksHeading": "🛠 Karya unggulan",
     "worksSub": "Repositori populer dan pinned milik mereka sendiri",
-    "stackHeading": "🧬 Stack & domain",
-    "stackLangLabel": "Bahasa utama",
-    "stackTopicsLabel": "Domain",
     "orgsLabel": "Organisasi",
     "commits": "commit",
     "prs": "PR",
-    "roastHeading": "Roast",
+    "verdictLabel": "Ringkasan singkat",
     "roastEmpty": "Roast ini belum diarsipkan — <a>nilai ulang dari halaman utama</a> untuk membuatnya.",
     "scoreStateStaleTitle": "Skor historis",
     "scoreStateStaleBody": "Skor ini berasal dari aturan lama. Skor tetap ditampilkan sampai pemindaian ulang terverifikasi menggantikannya.",
@@ -392,15 +405,20 @@
     "modalViewProfile": "Lihat profil lengkap",
     "modalBadgeCta": "Ambil badge GitHub-mu",
     "modalClose": "Tutup",
-    "battlesHeading": "⚔️ Pertarungan",
-    "battlesSub": "Duel PK yang pernah dijalani dev ini",
-    "battleWin": "Menang",
-    "battleLoss": "Kalah",
-    "battleTie": "Seri",
     "selfCta": "Nilai GitHub-mu sendiri →",
     "reportLangNotice": "Laporan roast AI saat ini hanya tersedia dalam bahasa Inggris dan Mandarin — kamu sedang membaca versi Inggrisnya.",
     "coCreatorShare": "Dipimpin / dibangun bersama ({share}%)",
-    "scoreReadyHint": "Skor sudah keluar. Roast-nya menyusul"
+    "scoreReadyHint": "Skor sudah keluar. Roast-nya menyusul",
+    "adventurerLevel": "Level petualang",
+    "preciseScoreTitle": "Skor gabungan {score}",
+    "liveTimeout": "Roast kehabisan waktu tunggu. Coba lagi nanti; skor dan roast sebelumnya tetap ada.",
+    "scoreStateRescanTimeout": "Evaluasi ulang kehabisan waktu. Coba lagi nanti",
+    "evaluateStageFetch": "Mengambil data",
+    "evaluateStageAnalyze": "Menganalisis repo",
+    "evaluateStageRoast": "Menulis roast",
+    "evaluateError": "Kali ini belum selesai. Ketuk coba lagi untuk mencoba sekali lagi.",
+    "evaluateTimeout": "Pembuatan ini agak lama. Ketuk coba lagi untuk mencoba sekali lagi.",
+    "evaluateRetry": "Coba lagi"
   },
   "reactions": {
     "heading": "Reaksi komunitas",
@@ -421,11 +439,12 @@
     "scanning": "Memindai…",
     "roasting": "Membuat komentar…",
     "error": "Evaluasi gagal, coba lagi nanti",
-    "cooldown": "Refresh tersedia dalam {hours} jam"
+    "cooldown": "Refresh tersedia dalam {hours} jam",
+    "timeout": "Roast kehabisan waktu. Coba lagi nanti"
   },
   "detailMeta": {
     "unratedTitle": "{username} · Profil pengembang",
-    "title": "{username} — {score}/100 · {tier} | ghfind",
+    "title": "{username} — Lv.{level} · {realm} | ghfind",
     "descWithTags": "{tags} — lihat laporan skor lengkap {username} di ghfind.com.",
     "descPlain": "Laporan nilai & kepercayaan GitHub {username} — ghfind.com.",
     "notFoundTitle": "Akun tidak ditemukan · ghfind",
@@ -545,25 +564,25 @@
     "brand": "🔥 ghfind · lihat posisimu"
   },
   "tiers": {
-    "god": {
-      "name": "GOD",
-      "blurb": "Legendaris · Hall of Fame"
-    },
-    "elite": {
-      "name": "ELITE",
-      "blurb": "Elite · Dev kelas atas"
-    },
-    "solid": {
-      "name": "SOLID",
-      "blurb": "Solid · Bisa dipercaya"
+    "trash": {
+      "name": "Kondensasi Qi",
+      "blurb": "Langkah awal · Membangun fondasi"
     },
     "npc": {
-      "name": "NPC",
-      "blurb": "Rata-rata · Biasa saja"
+      "name": "Formasi Inti",
+      "blurb": "Inti terbentuk · Mulai tajam"
     },
-    "trash": {
-      "name": "TRASH",
-      "blurb": "Bernilai rendah · Kemungkinan hasil ternakan"
+    "solid": {
+      "name": "Tempa Spasial",
+      "blurb": "Penguasaan tanpa usaha"
+    },
+    "elite": {
+      "name": "Integrasi Tubuh",
+      "blurb": "Selaras · Guru kelas atas"
+    },
+    "god": {
+      "name": "Ascensi Agung",
+      "blurb": "Hampir puncak · Balai kejayaan"
     }
   },
   "dimensions": {
@@ -662,8 +681,8 @@
         "body": "Potret itu dinilai lewat kematangan akun, kualitas proyek orisinal, kualitas kontribusi, dampak ekosistem, pengaruh komunitas, dan keaslian aktivitas, dengan penalti untuk PR farming, penggelembungan star, dan pola spam templat."
       },
       {
-        "title": "3. Dapatkan skor, tier, dan roast",
-        "body": "Kamu mendapat skor 0-100 yang bisa direproduksi dengan tier dari Trash sampai God, rincian per dimensi yang menunjukkan persis apa yang menahan skormu, dan — hanya kalau kamu minta — roast pedas tulisan AI."
+        "title": "3. Dapatkan level petualang, realm, dan roast",
+        "body": "Kamu mendapat level petualang yang bisa direproduksi (Lv.1–100), realm kultivasi dari Kondensasi Qi sampai Ascensi Agung, rincian per dimensi yang menunjukkan apa yang menahan skor, dan — hanya kalau kamu minta — roast pedas tulisan AI."
       }
     ],
     "numbersHeading": "ghfind dalam angka",
@@ -2092,6 +2111,40 @@
         "followers": "Followers",
         "source": "Follow counts from ghfind"
       }
+    }
+  },
+  "realms": {
+    "qi": {
+      "name": "Kondensasi Qi",
+      "blurb": "Langkah awal · Membangun fondasi"
+    },
+    "foundation": {
+      "name": "Fondasi",
+      "blurb": "Fondasi siap · Maju mantap"
+    },
+    "goldenCore": {
+      "name": "Formasi Inti",
+      "blurb": "Inti terbentuk · Mulai tajam"
+    },
+    "nascentSoul": {
+      "name": "Jiwa Nascent",
+      "blurb": "Jiwa terbangun · Gaya sendiri"
+    },
+    "deity": {
+      "name": "Transf. Dewata",
+      "blurb": "Pikiran jernih · Pengaruh nyata"
+    },
+    "voidRefining": {
+      "name": "Tempa Spasial",
+      "blurb": "Penguasaan tanpa usaha"
+    },
+    "integration": {
+      "name": "Integrasi Tubuh",
+      "blurb": "Selaras · Guru kelas atas"
+    },
+    "mahayana": {
+      "name": "Ascensi Agung",
+      "blurb": "Hampir puncak · Balai kejayaan"
     }
   }
 }

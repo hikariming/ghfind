@@ -66,6 +66,9 @@ vi.mock("@/lib/llm", () => ({
   LlmTimeoutError: class LlmTimeoutError extends Error {},
 }));
 vi.mock("@/lib/roast-v13/chain", () => ({ generateRoastV13: mocks.generateRoastV13 }));
+// These tests exercise the in-request chain. A deployment with a ROAST_JOB
+// binding attaches instead; that path is covered in roast-durable.test.ts.
+vi.mock("@/lib/roast-job", () => ({ roastJob: () => null }));
 
 import { POST } from "./route";
 

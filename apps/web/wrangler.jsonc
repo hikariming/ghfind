@@ -62,7 +62,8 @@
         "bindings": [
           { "name": "RATE_LIMITER", "class_name": "RateLimiter", "script_name": "ghfind-coord" },
           { "name": "COORD_KV", "class_name": "KeyValue", "script_name": "ghfind-coord" },
-          { "name": "SCAN_SLOT", "class_name": "ScanSlot", "script_name": "ghfind-coord" }
+          { "name": "SCAN_SLOT", "class_name": "ScanSlot", "script_name": "ghfind-coord" },
+          { "name": "ROAST_JOB", "class_name": "RoastJob", "script_name": "ghfind-coord" }
         ]
       },
       "vars": {

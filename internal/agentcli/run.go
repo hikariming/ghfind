@@ -157,7 +157,7 @@ func runLeaderboard(opts globalOptions, stdout io.Writer, stderr io.Writer) int 
 		result["view"], result["window"], len(entries), result["cached"])
 	for i, raw := range entries {
 		entry, _ := raw.(map[string]any)
-		fmt.Fprintf(stdout, "%d. %v %v/100 %v\n", i+1, entry["username"], entry["final_score"], entry["tier"])
+		fmt.Fprintf(stdout, "%d. %v %s\n", i+1, entry["username"], formatLevelRealm(entry["final_score"], opts.Lang))
 	}
 	return 0
 }
@@ -242,8 +242,8 @@ func runRoast(args []string, opts globalOptions, stdout io.Writer, stderr io.Wri
 		fmt.Fprintln(stdout, profileLink(opts.Host, username))
 		return 0
 	case "pretty":
-		fmt.Fprintf(stdout, "%v: %v/100 %v (%v)\n",
-			summary["username"], summary["final_score"], summary["tier"], summary["tier_label"])
+		fmt.Fprintf(stdout, "%v: %s\n",
+			summary["username"], formatLevelRealm(summary["final_score"], opts.Lang))
 		if line := roastLine(summary, opts.Lang); line != "" {
 			fmt.Fprintln(stdout, line)
 			fmt.Fprintln(stdout)
@@ -336,7 +336,7 @@ func runSearch(args []string, opts globalOptions, stdout io.Writer, stderr io.Wr
 	if users, ok := result["users"].([]any); ok {
 		for _, raw := range users {
 			if u, ok := raw.(map[string]any); ok {
-				fmt.Fprintf(stdout, "%v\t%v/100 %v\n", u["username"], u["final_score"], u["tier"])
+				fmt.Fprintf(stdout, "%v\t%s\n", u["username"], formatLevelRealm(u["final_score"], opts.Lang))
 			}
 		}
 	}
@@ -412,8 +412,8 @@ func runScore(args []string, opts globalOptions, stdout io.Writer, stderr io.Wri
 	if opts.Output != "pretty" {
 		return exitError(stderr, fmt.Errorf("invalid output format: %s", opts.Output))
 	}
-	fmt.Fprintf(stdout, "%v: %v/100 %v (%v)\n",
-		payload["username"], payload["final_score"], payload["tier"], payload["tier_key"])
+	fmt.Fprintf(stdout, "%v: %s\n",
+		payload["username"], formatLevelRealm(payload["final_score"], opts.Lang))
 	if subScores, ok := payload["sub_scores"].(map[string]any); ok {
 		for _, key := range subScoreOrder {
 			if value, ok := subScores[key]; ok {

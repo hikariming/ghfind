@@ -1,5 +1,6 @@
 "use client";
 
+import { realmForScore, realmForTier } from "@/lib/realm";
 import { TIER_KEY } from "@/lib/tier";
 import type { Tier } from "@/lib/types";
 
@@ -13,6 +14,8 @@ export interface RoastProgressCardProps {
   percent: number;
   title: string;
   stage: string;
+  /** Preferred for realm-colored progress ring. */
+  score?: number | null;
   tier?: Tier | null;
   /** Two faint lines hinting at upcoming report text. */
   shimmer?: boolean;
@@ -28,10 +31,17 @@ export function RoastProgressCard({
   percent,
   title,
   stage,
+  score,
   tier,
   shimmer = true,
   liveStage,
 }: RoastProgressCardProps) {
+  const realm =
+    typeof score === "number"
+      ? realmForScore(score)
+      : tier
+        ? realmForTier(tier)
+        : null;
   const tone = tier ? TIER_KEY[tier] : "elite";
   const clamped = Math.min(100, Math.max(0, Math.floor(percent)));
   const dash = CIRC * (1 - clamped / 100);
@@ -39,6 +49,7 @@ export function RoastProgressCard({
   return (
     <div
       data-tier-tone={tone}
+      data-realm-tone={realm?.id}
       data-roast-progress=""
       className="roast-report roast-progress-card flex min-h-[160px] max-h-[200px] w-full flex-col items-center gap-4 overflow-hidden bg-white/[0.03] px-1 py-1 sm:max-h-none sm:flex-row sm:items-center sm:gap-5"
       role="status"

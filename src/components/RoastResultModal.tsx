@@ -15,6 +15,9 @@ import { CopyBadge } from "./CopyBadge";
 import { MaterialCardPreview, MaterialCardSaveButton } from "./MaterialCardPanel";
 import { ProfileShare } from "./ProfileShare";
 import { TierAvatarFrame } from "./TierAvatarFrame";
+import { AdventurerLevel } from "@/components/realm/AdventurerLevel";
+import { RealmChip } from "@/components/realm/RealmGlyph";
+import { realmForScore } from "@/lib/realm";
 
 /**
  * The share-first result popup for a homepage arrival on a profile page. Opens
@@ -56,6 +59,8 @@ export function RoastResultModal({
 }) {
   const t = useTranslations("detail");
   const tTier = useTranslations("tiers");
+  const tRealm = useTranslations("realms");
+  const tDetail = useTranslations("detail");
   const locale = useLocale();
   const [showBadge, setShowBadge] = useState(false);
 
@@ -97,14 +102,13 @@ export function RoastResultModal({
             className="mt-4"
           />
           <div className={`mt-3 text-5xl font-black tabular-nums ${style.text}`}>
-            {meta.final_score.toFixed(2)}
-            <span className="text-xl text-zinc-600">/100</span>
+            <AdventurerLevel score={meta.final_score} caption={tDetail("adventurerLevel")} size="md" />
           </div>
           <div className={`mt-1 text-xl font-bold ${style.text}`}>
-            {style.emoji} {tTier(`${tierKey}.name`)}
+            <RealmChip realm={realmForScore(meta.final_score)} name={tRealm(`${realmForScore(meta.final_score).id}.name`)} />
           </div>
           <div className="mt-1 text-sm font-medium text-zinc-300">
-            {tTier(`${tierKey}.blurb`)}
+            {tRealm(`${realmForScore(meta.final_score).id}.blurb`)}
           </div>
           {meta.percentile &&
             (meta.percentile.beat === null ? (
@@ -174,7 +178,7 @@ export function RoastResultModal({
             avatarUrl={avatarUrl}
             score={meta.final_score}
             tier={meta.tier}
-            tierLabel={tTier(`${tierKey}.blurb`)}
+            tierLabel={tRealm(`${realmForScore(meta.final_score).id}.blurb`)}
             beat={beat}
             tags={meta.tags ?? { zh: [], en: [] }}
             saveAction={

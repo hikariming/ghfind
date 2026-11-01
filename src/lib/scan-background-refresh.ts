@@ -1,7 +1,7 @@
 import { after } from "next/server";
 import { publishCompleteQuickScan } from "@/lib/db";
 import { admitVisitRefresh, coalesceScan, tryAcquireScanRefresh } from "@/lib/redis";
-import { buildScanResult, logFreshScanFailure } from "@/lib/scan-core";
+import { buildScanResult, discardIncrementalCursor, logFreshScanFailure } from "@/lib/scan-core";
 import { needsFullScan } from "./scan-coverage";
 import { BACKGROUND_COLLECT_DEADLINE_MS, ScanPendingError } from "./scan-protection";
 import type { ScanResult } from "@/lib/types";
@@ -29,6 +29,7 @@ async function produceFreshScan(username: string, full = false): Promise<ScanRes
   if (needsFullScan(quickScan)) {
     const remaining = BACKGROUND_COLLECT_DEADLINE_MS - (Date.now() - scannedAt);
     if (remaining <= 0) throw new Error("background collection budget exhausted");
+    discardIncrementalCursor(quickScan);
     quickScan = await buildScanResult(username, { full: true, deadlineMs: remaining });
   }
   if (!(await persistQuickScan(quickScan, scannedAt))) throw new ScorePersistenceError();
@@ -98,5 +99,9 @@ export function maybeScheduleVisitRefresh(input: {
 
 /** Shares #580's refresh admission and the same per-user producer lock. */
 export function scheduleFullScanIfNeeded(scan: ScanResult): void {
-  if (needsFullScan(scan)) after(() => refreshScanInBackground(scan.metrics.username, true));
+  if (!needsFullScan(scan)) return;
+  // This run's incremental page is not a cursor. The scheduled full collect
+  // records the inventory page after it commits.
+  discardIncrementalCursor(scan);
+  after(() => refreshScanInBackground(scan.metrics.username, true));
 }

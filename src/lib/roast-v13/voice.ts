@@ -81,6 +81,10 @@ export const V13_SNARK_BANNED_ZH = [
   "垃圾场", "狗屁", "扯淡", "狗屁不通",
   "舔狗", "作秀感", "刷存在感", "贡献泡沫", "代码荒地",
   "简历滤镜", "开源人设包装", "开源橱窗",
+  // Lowest-tier display must stay friendly (canonical key 拉完了 is internal-only).
+  // Owner 2026-10-30: keep interactive v12 witty like v13; never emit these labels.
+  "拉完了", "NPC", "存疑", "低价值", "疑似刷量", "AI 机器人",
+  "普通账号", "特征平庸", "平庸存疑", "平庸",
 ] as const;
 
 export const V13_SNARK_BANNED_EN = [
@@ -89,6 +93,8 @@ export const V13_SNARK_BANNED_EN = [
   "watery contribution", "follower filter", "open-source business card",
   "mediocre signal", "hollow project", "drive-by PR",
   "shameful", "pathetic", "garbage repo", "nobody cares about you",
+  // Lowest-tier display must stay friendly (tier_key "trash" is internal-only).
+  "low-value", "likely farmed", "unremarkable", "mediocre", "npc",
 ] as const;
 
 export const SAFETY_ZH = `## 安全底线(违反任何一条整篇作废)
@@ -134,3 +140,45 @@ export const PRECISION_EN = `## Precision (the most common factual errors)
 - Shares need the denominator: "697 of 811 commits", not "wrote all of it".
 - Never use "drive-by/tourist" angles against led/co-maintained or heavy long-term contributors.
 - Do not infer what the data does not give (no users, nobody answers, meaning of the username).`;
+
+/** Longest-first substring hits for shared v12/v13 snark guards. */
+export function findBannedRoastSnark(text: string, lang: "zh" | "en" = "zh"): string[] {
+  if (!text) return [];
+  const hay = lang === "en" ? text.toLowerCase() : text;
+  const lexicon = lang === "en" ? V13_SNARK_BANNED_EN : V13_SNARK_BANNED_ZH;
+  const ordered = [...lexicon].sort((a, b) => b.length - a.length);
+  const hits: string[] = [];
+  for (const phrase of ordered) {
+    const needle = lang === "en" ? phrase.toLowerCase() : phrase;
+    if (!needle) continue;
+    if (hay.includes(needle)) hits.push(phrase);
+  }
+  return hits;
+}
+
+/**
+ * Soft scrub for interactive v12 (and any shared callers): drop banned insult /
+ * old-tier labels while keeping the surrounding witty observation when possible.
+ * Prefer longest phrases first so "平庸存疑" wins over "平庸" / "存疑".
+ */
+export function scrubBannedRoastSnark(text: string, lang: "zh" | "en" = "zh"): string {
+  if (!text) return text;
+  let out = text;
+  const lexicon = lang === "en" ? V13_SNARK_BANNED_EN : V13_SNARK_BANNED_ZH;
+  const ordered = [...lexicon].sort((a, b) => b.length - a.length);
+  for (const phrase of ordered) {
+    if (!phrase) continue;
+    if (lang === "en") {
+      const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      out = out.replace(new RegExp(escaped, "giu"), "");
+    } else {
+      out = out.split(phrase).join("");
+    }
+  }
+  return out
+    .replace(/[ 	]{2,}/g, " ")
+    .replace(/[，,]{2,}/g, "，")
+    .replace(/[。.]{2,}/g, "。")
+    .replace(/\s+([，。！？,.!?])/g, "$1")
+    .trim();
+}

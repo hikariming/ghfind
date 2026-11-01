@@ -35,6 +35,7 @@ vi.mock("../scan-core", async (importOriginal) => ({
   ...await importOriginal<typeof import("../scan-core")>(),
   buildScanResult: mocks.buildScanResult,
   logFreshScanFailure: mocks.logFreshScanFailure,
+  discardIncrementalCursor: vi.fn(),
 }));
 vi.mock("../db", () => ({
   publishCompleteQuickScan: mocks.publishCompleteQuickScan,

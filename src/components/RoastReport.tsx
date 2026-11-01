@@ -2,11 +2,13 @@
 
 import type { ReactNode } from "react";
 import { useMemo } from "react";
+import { useTranslations } from "next-intl";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { rewriteLegacyRoastMarkdown } from "@/lib/roast-report-legacy";
 import { TIER_KEY } from "@/lib/tier";
 import type { Tier } from "@/lib/types";
+import { realmForScore, realmForTier, remapRoastHeaderLine } from "@/lib/realm";
 
 /**
  * Profile / live / modal roast markdown — compact v13n card layout:
@@ -25,6 +27,14 @@ const DIM_SECTION_RE = /^###\s*(维度评分|Dimensions)\s*$/m;
 const NEXT_H3_RE = /^###\s+/m;
 /** End the dims block before an inline risk line or the next section heading. */
 const DIM_SECTION_END_RE = /^(?:###\s+|\*\*(?:风险标记|Red flags|建议|Next)(?:\*\*)?[：:\s])/m;
+
+/** Legacy + current markdown verdict headings remapped to the active UI locale. */
+const VERDICT_LABEL_RE = /\*\*(一句话结论|一句话总结|小总评|TL;DR|Quick Verdict)\*\*/g;
+
+function localizeVerdictLabel(md: string, label: string): string {
+  return md.replace(VERDICT_LABEL_RE, `**${label}**`);
+}
+
 
 type DimCard = { name: string; score: number; max: number; note: string };
 
@@ -278,22 +288,41 @@ export function RoastReport({
   markdown,
   className = "",
   tier,
+  score,
+  realmName,
 }: {
   markdown: string;
   className?: string;
-  /** Profile tier — drives score/bar/chip/verdict accents via data-tier-tone. */
+  /** Stored tier — fallback for accents when score is missing. */
   tier?: Tier | null;
+  /** Numeric score — preferred for realm accents + header Lv remap. */
+  score?: number | null;
+  /** Localized realm display name for header remap. */
+  realmName?: string | null;
 }) {
-  const tone = tier ? TIER_KEY[tier] : "elite";
+  const t = useTranslations("detail");
+  const verdictLabel = t("verdictLabel");
+  const realm =
+    typeof score === "number"
+      ? realmForScore(score)
+      : tier
+        ? realmForTier(tier)
+        : null;
+  const tone = realm?.id ?? (tier ? TIER_KEY[tier] : "elite");
   const { before, dims, after } = useMemo(() => {
-    const rewritten = collapseEmptyRisk(rewriteLegacyRoastMarkdown(markdown ?? ""));
+    let md = rewriteLegacyRoastMarkdown(markdown ?? "");
+    if (typeof score === "number" && realmName) {
+      md = remapRoastHeaderLine(md, score, realmName);
+    }
+    const rewritten = localizeVerdictLabel(collapseEmptyRisk(md), verdictLabel);
     return splitDimensionSection(rewritten);
-  }, [markdown]);
+  }, [markdown, verdictLabel, score, realmName]);
 
   return (
     <div
       dir="ltr"
-      data-tier-tone={tone}
+      data-tier-tone={tier ? TIER_KEY[tier] : "elite"}
+      data-realm-tone={realm?.id}
       className={`report roast-report ${className}`.trim()}
     >
       {before ? (

@@ -4,6 +4,7 @@ import { ROAST_FRESH_MS } from "@/lib/freshness";
 import { normLang } from "@/lib/lang";
 import { PUBLIC_INDEX_MIN_SCORE, SITE_URL } from "@/lib/site";
 import { TIER_KEY } from "@/lib/tier";
+import { adventurerLevel, realmForScore } from "@/lib/realm";
 import type { Translator } from "@/lib/translator";
 import { shouldStartProfileRoast } from "@/app/[locale]/u/[username]/ProfileArtifactStatus";
 
@@ -83,16 +84,20 @@ export async function loadProfileRoastState(
 
 /**
  * Metadata for a scored profile. Low-score profiles stay out of search results:
- * they name real people, so a "NPC"/"拉完了" page shouldn't rank on someone's
+ * they name real people, so a low-realm page shouldn't rank on someone's
  * handle (still reachable and shareable — just not indexed; mirrors the
  * sitemap floor). The flex card doubles as the social preview image.
  */
 export function profileMetadata(locale: string, d: ProfileDetail, t: Translator, tt: Translator) {
-  const tierName = tt(`${TIER_KEY[d.tier]}.name`);
+  const realm = realmForScore(d.final_score);
+  const realmName = tt(`${realm.id}.name`);
   const title = t("title", {
     username: d.username,
+    level: adventurerLevel(d.final_score),
+    realm: realmName,
+    // legacy keys kept for older message catalogs during rollout
     score: d.final_score.toFixed(2),
-    tier: tierName,
+    tier: realmName,
   });
   const tags = normLang(locale) === "en" ? d.tags.en : d.tags.zh;
   const description = tags.length

@@ -27,6 +27,43 @@ from .bot import DEFAULT_BOT_HOST, BotClient, BotUsageError, run_bot
 from .catalog import CATALOG, DEFAULT_HOST
 from .client import GhFind, GhFindError, Transport
 
+
+# Display-only; mirrors src/lib/realm.ts. Does not change scoring or stored tiers.
+_REALM_DEFS = (
+    (0, "练气", "Qi Refining"),
+    (30, "筑基", "Foundation"),
+    (40, "金丹", "Golden Core"),
+    (50, "元婴", "Nascent Soul"),
+    (60, "化神", "Deity Transformation"),
+    (70, "炼虚", "Void Refining"),
+    (80, "合体", "Body Integration"),
+    (90, "大乘", "Mahayana"),
+)
+
+
+def _adventurer_level(score: Any) -> int:
+    try:
+        lv = int(float(score))
+    except (TypeError, ValueError):
+        return 1
+    return max(1, min(100, lv))
+
+
+def _realm_name(score: Any, lang: str = "en") -> str:
+    try:
+        s = float(score)
+    except (TypeError, ValueError):
+        s = 0.0
+    current = _REALM_DEFS[0]
+    for row in _REALM_DEFS:
+        if s >= row[0]:
+            current = row
+    return current[1] if str(lang).startswith("zh") else current[2]
+
+
+def _format_level_realm(score: Any, lang: str = "en") -> str:
+    return f"Lv.{_adventurer_level(score)} {_realm_name(score, lang)}"
+
 _SUB_SCORE_ORDER = [
     "account_maturity",
     "original_project_quality",
@@ -164,7 +201,7 @@ def _cmd_score(args: argparse.Namespace) -> None:
         if mode == "json":
             _out_json({"source": "local", "username": scan["metrics"]["username"], **s})
             return
-        _out(f'{scan["metrics"]["username"]}: {s["final_score"]}/100 {s["tier"]} ({s["tier_label"]})')
+        _out(f'{scan["metrics"]["username"]}: {_format_level_realm(s["final_score"], getattr(args, "lang", "en"))}')
         _print_sub_scores(s.get("sub_scores"))
         _print_risk(s)
         for f in s.get("red_flags") or []:
@@ -176,7 +213,7 @@ def _cmd_score(args: argparse.Namespace) -> None:
     if mode == "json":
         _out_json(payload)
         return
-    _out(f'{payload["username"]}: {payload["final_score"]}/100 {payload["tier"]} ({payload.get("tier_key")})')
+    _out(f'{payload["username"]}: {_format_level_realm(payload["final_score"], getattr(args, "lang", "en"))}')
     _print_sub_scores(payload.get("sub_scores"))
     _print_risk(payload)
     for f in payload.get("red_flags") or []:
@@ -225,7 +262,7 @@ def _cmd_roast(args: argparse.Namespace) -> None:
         _out(roast.get("report", ""))
         _out(_profile_link(host, args.username))
         return
-    _out(f'{args.username}: {meta.get("final_score")}/100 {meta.get("tier")} ({meta.get("tier_label")})')
+    _out(f'{args.username}: {_format_level_realm(meta.get("final_score") or 0, getattr(args, "lang", "en"))}')
     line = (meta.get("roast_line") or {}).get(lang) or (meta.get("roast_line") or {}).get("zh")
     if line:
         _out(line)
@@ -268,7 +305,7 @@ def _cmd_search(args: argparse.Namespace) -> None:
         _out_json(result)
         return
     for u in result.get("users", []):
-        _out(f'{u["username"]}\t{u["final_score"]}/100 {u["tier"]}')
+        _out(f'{u["username"]}\t{_format_level_realm(u["final_score"], getattr(args, "lang", "en"))}')
 
 
 def _cmd_leaderboard(args: argparse.Namespace) -> None:

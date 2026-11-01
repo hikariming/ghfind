@@ -496,6 +496,11 @@ function heatIpHash(ip: string): string {
 let client: Client | null = null;
 let schemaReady: Promise<void> | null = null;
 
+/** Database used by the scan path. Null when neither D1 nor Turso is configured. */
+export function getScanDatabase(): Client | null {
+  return getClient();
+}
+
 function getClient(): Client | null {
   if (client) return client;
   const d1 = getD1Binding();
@@ -1857,6 +1862,12 @@ export async function publishCompleteQuickScan(
     });
     await advanceScoreDetailRevision(materialized.scoreEntry.username);
     await recordProfileSnapshot(materialized.scan);
+    // Cursor book is not part of the snapshot. A failed write does not roll
+    // back the public scan; the next scan reconciles a missing cursor.
+    // Dynamic import keeps this module from initializing scan-core, which
+    // reads the database through getScanDatabase.
+    const { commitScanCursorsAfterPersist } = await import("./scan-core");
+    await commitScanCursorsAfterPersist(scan);
     return scoreWrite.identity;
   } catch (error) {
     logPublicScanDbFailure("publish_quick_score", error);
