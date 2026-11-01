@@ -486,6 +486,7 @@
   "scanErrors": {
     "invalid_username": "GitHub 사용자명이 아닌 것 같은데요 — 다시 확인해 볼까요?",
     "account_not_found": "그런 계정 없음 — 철자 맞나요?",
+    "organization_not_supported": "GitHub 조직 계정이에요. 현재는 개인 개발자 계정만 채점할 수 있어요.",
     "turnstile_failed": "인증에 실패했어요 — 페이지를 새로고침하고 다시 시도하세요.",
     "rate_limited": "손이 너무 빨라요 — 숨 한번 쉬고 1분 뒤에 다시 오세요.",
     "github_rate_limited": "GitHub API가 지금 꽉 찼어요 — 잠시만 기다려 주세요.",

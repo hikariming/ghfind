@@ -486,6 +486,7 @@
   "scanErrors": {
     "invalid_username": "这不像个 GitHub 用户名，检查一下？",
     "account_not_found": "查无此号 —— 拼写没错吧？",
+    "organization_not_supported": "这是 GitHub 组织账号，目前只支持给个人开发者评分。",
     "turnstile_failed": "人机校验没过，刷新页面重试。",
     "rate_limited": "手速太快了，喘口气，一分钟后再来。",
     "github_rate_limited": "GitHub 接口暂时被打满了，缓一会儿再试。",

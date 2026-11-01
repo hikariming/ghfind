@@ -11,6 +11,7 @@ import {
 } from "./scan-cursor";
 import {
   AccountNotFoundError,
+  OrganizationNotSupportedError,
   GitHubAuthRequiredError,
   GitHubDataUnavailableError,
   GitHubRateLimitError,
@@ -453,6 +454,9 @@ export function scanErrorResponse(e: unknown): {
   if (e instanceof AccountNotFoundError) {
     return { error: "account_not_found", status: 404 };
   }
+  if (e instanceof OrganizationNotSupportedError) {
+    return { error: "organization_not_supported", status: 422 };
+  }
   if (e instanceof GitHubRateLimitError) {
     return { error: "github_rate_limited", status: 503 };
   }
@@ -484,6 +488,7 @@ export function logFreshScanFailure(error: unknown, context: {
     : error instanceof GitHubRateLimitError ? "github_rate_limited"
     : error instanceof GitHubAuthRequiredError ? "github_token_required"
     : error instanceof AccountNotFoundError ? "account_not_found"
+    : error instanceof OrganizationNotSupportedError ? "organization_not_supported"
     : error instanceof GitHubDataUnavailableError ? "github_unavailable"
     : error instanceof ScanBusyError ? "scan_busy"
     : "unexpected";
