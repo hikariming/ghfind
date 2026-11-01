@@ -3591,9 +3591,10 @@ async function fetchYearContribsBatch(
  * that year through fetchCompleteCommitWindow so a pathological year degrades
  * only when the finest window still saturates, instead of silently dropping
  * every commit in the year. Gateway timeouts and INTERNAL errors also split the
- * batch: retrying the same oversized query can hit the same resource ceiling.
- * A timeout or INTERNAL error on a single year still fails the scan rather than
- * publishing an incomplete contribution total as a successful fresh result.
+ * batch and use the same recovery path as resource-limit years (no fabricated
+ * data). If every year still fails after recovery, the original error is
+ * rethrown so the collect does not publish an empty contribution set as a
+ * successful fresh result.
  */
 export async function fetchCommitContribReposByYear(
   username: string,
@@ -3609,24 +3610,43 @@ export async function fetchCommitContribReposByYear(
 
   /** Years already recovered via fetchCompleteCommitWindow; skip re-split. */
   const completedYears = new Set<number>();
+  /** Years noted+skipped by recovery; avoid mislabeling them in the merge loop. */
+  const degradedYears = new Set<number>();
 
-  async function recoverResourceLimitedYear(year: number): Promise<YearContribs | null> {
+  function degradeNote(error: unknown): string {
+    if (error instanceof GitHubInternalQueryError) return "commit_year_internal";
+    if (error instanceof GitHubQueryTimeoutError) return "commit_year_timeout";
+    return "commit_resource_limit";
+  }
+
+  function isDegradableYearError(error: unknown): boolean {
+    return (
+      error instanceof GitHubResourceLimitError ||
+      error instanceof GitHubInternalQueryError ||
+      error instanceof GitHubQueryTimeoutError
+    );
+  }
+
+  async function recoverUnqueryableYear(year: number, error: unknown): Promise<YearContribs | null> {
+    const note = degradeNote(error);
     // Quick mode notes and escalates. Full mode subdivides silently on success;
-    // note commit_resource_limit only when the year still cannot be recovered.
+    // note only when the year still cannot be recovered.
     if (!scope?.full) {
-      scope?.note("commit_resource_limit");
+      scope?.note(note);
+      degradedYears.add(year);
       return null;
     }
     try {
       const nodes = await completeYear(year);
       completedYears.add(year);
       return { commitContributionsByRepository: nodes };
-    } catch (error) {
-      if (error instanceof GitHubResourceLimitError) {
-        scope.note("commit_resource_limit");
+    } catch (caught) {
+      if (isDegradableYearError(caught)) {
+        scope.note(note);
+        degradedYears.add(year);
         return null;
       }
-      throw error;
+      throw caught;
     }
   }
 
@@ -3635,20 +3655,30 @@ export async function fetchCommitContribReposByYear(
     perYear = await fetchYearContribsBatch(username, capped);
   } catch (e) {
     if (!canSplitContribQuery(e)) throw e;
+    // Single-year resource-limit recovers via subdivision; single-year
+    // INTERNAL/timeout still fail closed (avoid recursive same-query retry).
     if (!(e instanceof GitHubResourceLimitError) && capped.length <= 1) throw e;
     perYear = await Promise.all(
       capped.map(async (year) => {
         if (capped.length === 1 && e instanceof GitHubResourceLimitError) {
-          return recoverResourceLimitedYear(year);
+          return recoverUnqueryableYear(year, e);
         }
         try {
           return (await fetchYearContribsBatch(username, [year]))[0];
         } catch (e2) {
-          if (e2 instanceof GitHubResourceLimitError) return recoverResourceLimitedYear(year);
+          if (isDegradableYearError(e2)) return recoverUnqueryableYear(year, e2);
           throw e2;
         }
       }),
     );
+    // Resource-limit quick degrade is note+empty (escalate via note). INTERNAL /
+    // timeout with every year skipped must not look like a successful empty collect.
+    if (
+      perYear.every((year) => year === null) &&
+      !(e instanceof GitHubResourceLimitError)
+    ) {
+      throw e;
+    }
   }
 
   // Merge per-year per-repo aggregates: sum commits/prs, take max stars.
@@ -3683,7 +3713,10 @@ export async function fetchCommitContribReposByYear(
   };
   for (let i = 0; i < capped.length; i++) {
     let yc = perYear[i];
-    if (!yc) { scope?.note("commit_resource_limit"); continue; }
+    if (!yc) {
+      if (!degradedYears.has(capped[i])) scope?.note("commit_resource_limit");
+      continue;
+    }
     if (
       !completedYears.has(capped[i]) &&
       (yc.commitContributionsByRepository?.length ?? 0) >= GITHUB_PAGE_SIZE
@@ -3710,7 +3743,14 @@ async function fetchCompleteCommitWindow(username: string, from: number, to: num
     if (start > end) continue;
     let batch: YearContribs | null;
     try { batch = (await fetchYearContribsBatch(username, [new Date(start).getUTCFullYear()], [[new Date(start).toISOString(), new Date(end).toISOString()]]))[0]; }
-    catch (error) { if (!(error instanceof GitHubResourceLimitError)) throw error; batch = null; }
+    catch (error) {
+      if (
+        !(error instanceof GitHubResourceLimitError) &&
+        !(error instanceof GitHubInternalQueryError) &&
+        !(error instanceof GitHubQueryTimeoutError)
+      ) throw error;
+      batch = null;
+    }
     const chunk = batch?.commitContributionsByRepository;
     nodes.push(...(!chunk || chunk.length >= GITHUB_PAGE_SIZE ? await fetchCompleteCommitWindow(username, start, end) : chunk));
   }

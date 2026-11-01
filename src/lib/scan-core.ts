@@ -1,6 +1,6 @@
 import { projectShare } from "./co-creator";
 import { getScanDatabase } from "./db";
-import { ScanBusyError } from "./scan-protection";
+import { DeferredScanError, ScanBusyError } from "./scan-protection";
 import {
   commitPendingCursors,
   loadScanCursors,
@@ -434,6 +434,16 @@ export function scanErrorResponse(e: unknown): {
   status: number;
   retry_after?: number;
 } {
+  if (e instanceof DeferredScanError) {
+    const codes: Record<string, { status: number; retry_after?: number }> = {
+      account_not_found: { status: 404 }, github_token_required: { status: 500 },
+      github_rate_limited: { status: 503 }, github_collect_deadline: { status: 503, retry_after: 15 },
+      github_unavailable: { status: 503, retry_after: 60 }, scan_busy: { status: 503, retry_after: 15 },
+      scan_failed: { status: 500 },
+    };
+    const value = codes[e.code];
+    return value ? { error: e.code, ...value } : { error: "scan_failed", status: 500 };
+  }
   if (e instanceof ScanBusyError) {
     return { error: "scan_busy", status: 503, retry_after: 15 };
   }
@@ -466,6 +476,7 @@ export function logFreshScanFailure(error: unknown, context: {
   persistenceFailure: boolean;
 }): void {
   const category = context.persistenceFailure ? "score_persistence"
+    : error instanceof DeferredScanError ? error.code
     : error instanceof GitHubInternalQueryError ? "github_internal"
     : error instanceof GitHubResourceLimitError ? "github_resource_limit"
     : error instanceof GitHubQueryTimeoutError ? "github_query_timeout"

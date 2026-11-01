@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   checkScanNetworkRateLimit: vi.fn(),
   coalesceScan: vi.fn(),
   getCachedScan: vi.fn(),
+  getScanFailure: vi.fn(),
   getStaleCachedScan: vi.fn(),
   isScanPending: vi.fn(),
   tryAcquireScanRefresh: vi.fn(),
@@ -46,6 +47,7 @@ vi.mock("@/lib/redis", () => ({
   checkScanNetworkRateLimit: mocks.checkScanNetworkRateLimit,
   coalesceScan: mocks.coalesceScan,
   getCachedScan: mocks.getCachedScan,
+  getScanFailure: mocks.getScanFailure,
   getStaleCachedScan: mocks.getStaleCachedScan,
   isScanPending: mocks.isScanPending,
   tryAcquireScanRefresh: mocks.tryAcquireScanRefresh,
@@ -105,6 +107,7 @@ describe("POST /api/scan immediate quick contract", () => {
     mocks.getCachedScan.mockResolvedValue(null);
     mocks.getStaleCachedScan.mockResolvedValue(null);
     mocks.isScanPending.mockResolvedValue(false);
+    mocks.getScanFailure.mockResolvedValue(null);
     mocks.tryAcquireScanRefresh.mockResolvedValue(true);
     mocks.getCurrentCanonicalQuickScan.mockResolvedValue(null);
     mocks.getLatestVerifiedCanonicalScan.mockResolvedValue(null);
@@ -366,6 +369,28 @@ describe("POST /api/scan immediate quick contract", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     await expect(response.json()).resolves.toMatchObject({ cached: true, coverage: "quick" });
+  });
+
+  it("GET sees publication that races with the pending check", async () => {
+    mocks.getCachedScan.mockResolvedValueOnce(null).mockResolvedValueOnce(quickScan);
+    const response = await GET(new NextRequest("https://example.test/api/scan?username=fiction-dev"));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ metrics: { username: "DemoDev" } });
+  });
+
+  it("GET returns the deferred failure instead of not_scored", async () => {
+    mocks.getScanFailure.mockResolvedValue("github_collect_deadline");
+    const response = await GET(new NextRequest("https://example.test/api/scan?username=fiction-dev"));
+    expect(response.status).toBe(503);
+    expect(response.headers.get("retry-after")).toBe("15");
+    await expect(response.json()).resolves.toMatchObject({ error: "github_collect_deadline" });
+  });
+
+  it("GET reports coordination outages as unavailable, not not_scored", async () => {
+    mocks.isScanPending.mockRejectedValue(new Error("unavailable"));
+    const response = await GET(new NextRequest("https://example.test/api/scan?username=fiction-dev"));
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({ error: "scan_busy" });
   });
 
   it("GET returns 404 when nothing is cached or in flight", async () => {

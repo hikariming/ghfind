@@ -2,6 +2,8 @@ import { Link } from "@/i18n/navigation";
 import { tierStyle } from "@/lib/tier";
 import type { Tier } from "@/lib/types";
 import type { GoProjectOverview } from "@/lib/go-projects.server";
+import type { GithubStanding } from "@/lib/github-standing";
+import { formatApproxCount, formatTopPercent } from "@/lib/github-population";
 
 export interface RepoOverviewLabels {
   /** "Maintained by" / "作者" prefix for the author row. */
@@ -12,9 +14,15 @@ export interface RepoOverviewLabels {
   avgScore: string;
   /** Localized tier display names, keyed by canonical tier. */
   tierLabels: Record<Tier, string>;
+  /** "#{rank} of {total} on GitHub" — counted rank by stars. */
+  globalRank: (rank: string, total: string) => string;
+  /** "~#{rank} of {total} on GitHub" — rank interpolated from the population table. */
+  globalRankApprox: (rank: string, total: string) => string;
+  /** "Top {pct}% of repos with ≥{floor}★". */
+  topAmong: (pct: string, floor: string) => string;
+  /** What the rank compares against and when. */
+  rankNote: (asOf: string) => string;
 }
-
-const nf = new Intl.NumberFormat("en-US");
 
 /**
  * The project page header: repo identity + description + stats, the owner as a
@@ -26,11 +34,18 @@ const nf = new Intl.NumberFormat("en-US");
 export function RepoOverviewCard({
   overview,
   labels,
+  starStanding = null,
+  locale = "en-US",
 }: {
   overview: GoProjectOverview;
   labels: RepoOverviewLabels;
+  /** Whole-GitHub position by stars, computed server-side; null hides it. */
+  starStanding?: GithubStanding | null;
+  /** BCP 47 locale for the star count and rank ("3.63亿", "363M", "5.713"). */
+  locale?: string;
 }) {
   const { repo, owner, summary } = overview;
+  const localNf = new Intl.NumberFormat(locale);
 
   return (
     <section className="content-card mb-8 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
@@ -43,11 +58,29 @@ export function RepoOverviewCard({
         >
           {repo.name_with_owner}
         </a>
-        <span className="shrink-0 text-sm tabular-nums text-zinc-400">
-          ⭐ {nf.format(repo.stars)}
-          {repo.language && <span className="ms-3 text-zinc-500">{repo.language}</span>}
+        {/* Wraps on narrow screens: the rank text is longer than stars + language. */}
+        <span className="flex flex-wrap items-baseline gap-x-2.5 text-sm tabular-nums text-zinc-400">
+          <span className="whitespace-nowrap">⭐ {localNf.format(repo.stars)}</span>
+          {starStanding?.rank != null && (
+            <span className="whitespace-nowrap font-semibold text-zinc-200">
+              ·{" "}
+              {starStanding.rank_exact
+                ? labels.globalRank(localNf.format(starStanding.rank), formatApproxCount(starStanding.population_size, locale))
+                : labels.globalRankApprox(formatApproxCount(starStanding.rank, locale), formatApproxCount(starStanding.population_size, locale))}
+            </span>
+          )}
+          {repo.language && <span className="text-zinc-500">{repo.language}</span>}
         </span>
       </div>
+      {/* Visible rather than a tooltip: touch screens never show `title`. */}
+      {starStanding?.rank != null && (
+        <p className="mt-1 text-xs tabular-nums text-zinc-500 sm:text-end">
+          {starStanding.exact ? "" : "≈ "}
+          {labels.topAmong(formatTopPercent(starStanding.top_share, locale), String(starStanding.comparison_floor))}
+          {" · "}
+          {labels.rankNote(starStanding.as_of.replaceAll("-", "\u2011"))}
+        </p>
+      )}
 
       {repo.description && (
         <p className="mt-2 line-clamp-2 text-sm text-zinc-400">{repo.description}</p>

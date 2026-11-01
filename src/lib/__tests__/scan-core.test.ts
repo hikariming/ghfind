@@ -183,6 +183,13 @@ describe("safe scan failure diagnostics", () => {
       expect(log).toHaveBeenLastCalledWith("fresh_scan_failed", {
         route: "score", username: "invalid", category: "score_persistence",
       });
+      const { DeferredScanError } = await import("../scan-protection");
+      logFreshScanFailure(new DeferredScanError("github_internal"), {
+        route: "scan", username: "fixture-user", persistenceFailure: false,
+      });
+      expect(log).toHaveBeenLastCalledWith("fresh_scan_failed", {
+        route: "scan", username: "fixture-user", category: "github_internal",
+      });
       scanErrorResponse(new Error("secret upstream body"));
       expect(scanErrorResponse(new GitHubCollectDeadlineError("secret"))).toMatchObject({
         error: "github_collect_deadline",

@@ -194,7 +194,11 @@
     "apiCtaLink": "Tài liệu API →",
     "repoAuthoredBy": "Bảo trì bởi",
     "repoContributors": "người đóng góp được xếp hạng",
-    "repoAvgScore": "điểm trung bình"
+    "repoAvgScore": "điểm trung bình",
+    "repoGlobalRank": "#{rank} / {total} trên GitHub",
+    "repoGlobalRankApprox": "~#{rank} / {total} trên GitHub",
+    "repoTopAmong": "Top {pct}% trong các repo ≥{floor}★",
+    "repoRankNote": "Theo số sao trong tất cả repo công khai không phải fork · {asOf}"
   },
   "projects": {
     "metaTitle": "Khám phá dự án GitHub chất lượng cao · ghfind",
@@ -316,6 +320,15 @@
     "rankUnit": "/ trên {total}",
     "rankUnranked": "Chưa xếp hạng (thiếu dữ liệu)",
     "beatInline": "Vượt {beat}% dev",
+    "githubStandingTitle": "Trên toàn GitHub",
+    "githubStandingAccountAge": "Tuổi tài khoản",
+    "githubStandingTopRepo": "Repo nhiều sao nhất",
+    "githubStandingRank": "#{rank} / {total}",
+    "githubStandingRankApprox": "~#{rank} / {total}",
+    "githubStandingTopAmong": "Top {pct}% trong các repo ≥{floor}★",
+    "githubStandingOlder": "Lâu hơn {pct}% tài khoản",
+    "githubStandingYears": "{years} năm",
+    "githubStandingFootnote": "Dữ liệu công khai trên toàn GitHub · {asOf}",
     "milestoneNext": "Còn {gap} điểm nữa tới “{tier}”",
     "milestoneCapped": "🏆 Kịch trần · hạng cao nhất",
     "facetRankLine": "Hạng #{rank} trên {facet}",

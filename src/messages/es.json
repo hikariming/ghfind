@@ -194,7 +194,11 @@
     "apiCtaLink": "Docs de la API →",
     "repoAuthoredBy": "Mantenido por",
     "repoContributors": "contributors rankeados",
-    "repoAvgScore": "score promedio"
+    "repoAvgScore": "score promedio",
+    "repoGlobalRank": "#{rank} de {total} en GitHub",
+    "repoGlobalRankApprox": "~#{rank} de {total} en GitHub",
+    "repoTopAmong": "Top {pct}% de los repos con ≥{floor}★",
+    "repoRankNote": "Por estrellas entre todos los repositorios públicos que no son fork · {asOf}"
   },
   "projects": {
     "metaTitle": "Descubre proyectos de GitHub de calidad · ghfind",
@@ -316,6 +320,15 @@
     "rankUnit": "/ de {total}",
     "rankUnranked": "Sin ranking (datos insuficientes)",
     "beatInline": "Superas al {beat}% de los developers",
+    "githubStandingTitle": "En todo GitHub",
+    "githubStandingAccountAge": "Antigüedad de la cuenta",
+    "githubStandingTopRepo": "Repo con más estrellas",
+    "githubStandingRank": "#{rank} de {total}",
+    "githubStandingRankApprox": "~#{rank} de {total}",
+    "githubStandingTopAmong": "Top {pct}% de los repos con ≥{floor}★",
+    "githubStandingOlder": "Más antigua que el {pct}%",
+    "githubStandingYears": "{years} años",
+    "githubStandingFootnote": "Datos públicos de todo GitHub · {asOf}",
     "milestoneNext": "{gap} pts para “{tier}”",
     "milestoneCapped": "🏆 Al tope · nivel máximo",
     "facetRankLine": "#{rank} en {facet}",

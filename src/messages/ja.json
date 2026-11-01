@@ -194,7 +194,11 @@
     "apiCtaLink": "APIドキュメント →",
     "repoAuthoredBy": "メンテナー",
     "repoContributors": "ランクイン済みコントリビューター",
-    "repoAvgScore": "平均スコア"
+    "repoAvgScore": "平均スコア",
+    "repoGlobalRank": "GitHub 全体 {total} 中 {rank} 位",
+    "repoGlobalRankApprox": "GitHub 全体 {total} 中 約 {rank} 位",
+    "repoTopAmong": "{floor}★ 以上のリポジトリで上位 {pct}%",
+    "repoRankNote": "公開されている非フォークの全リポジトリとのスター数比較 · {asOf}"
   },
   "projects": {
     "metaTitle": "良質なGitHubプロジェクトを発見 · ghfind",
@@ -316,6 +320,15 @@
     "rankUnit": "/ 全 {total} 人",
     "rankUnranked": "ランク外（データ不足）",
     "beatInline": "開発者の {beat}% に勝利",
+    "githubStandingTitle": "GitHub 全体での位置",
+    "githubStandingAccountAge": "アカウント年齢",
+    "githubStandingTopRepo": "最多スターのリポジトリ",
+    "githubStandingRank": "{total} 中 {rank} 位",
+    "githubStandingRankApprox": "{total} 中 約 {rank} 位",
+    "githubStandingTopAmong": "{floor}★ 以上のリポジトリで上位 {pct}%",
+    "githubStandingOlder": "{pct}% のアカウントより古い",
+    "githubStandingYears": "{years} 年",
+    "githubStandingFootnote": "GitHub 全体の公開データと比較 · {asOf}",
     "milestoneNext": "「{tier}」まであと {gap} 点",
     "milestoneCapped": "🏆 カンスト · 最上位ティア",
     "facetRankLine": "{facet} で #{rank} 位",

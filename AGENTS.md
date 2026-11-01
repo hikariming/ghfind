@@ -73,7 +73,8 @@ ghfind 的主张是「发现最佳开发者，也成为其中之一」。产品�
 
 ### 发现、排名与公开范围
 
-- **名次与百分位有不同口径**：两者都基于本站已评分的有效样本，不代表整个 GitHub。名次排除隐藏账号；百分位统计包含隐藏账号。展示精度为 0.1 分时，同一分桶视为并列；无可用统计时保留未知状态，不编造排名。
+- **名次与百分位有不同口径**：站内名次和百分位都基于本站已评分的有效样本，不代表整个 GitHub。名次排除隐藏账号；百分位统计包含隐藏账号。展示精度为 0.1 分时，同一分桶视为并列；无可用统计时保留未知状态，不编造排名。
+- **全 GitHub 位置是另一种口径**：个人页「在全 GitHub 中的位置」和项目页的全 GitHub 名次，只比较公开原始数据（仓库 star 数、账号注册时间），不比较 ghfind 分数。数据来自离线采集的 GitHub Search 计数快照，由 `scripts/github-population.mts` 生成；线上只查表，不调用 GitHub API。插值得到的结果标注「约」或「≈」，并显示快照日期。不能把它和站内名次混用，也不能写成 ghfind 分数在全 GitHub 的排名。
 - **公开访问与搜索收录分开**：公开账号主榜默认门槛为 60 分；低于 60 分的个人页仍可访问和分享，但不进入 sitemap，并设置 `noindex`。保留隐藏账号过滤，不能把主榜门槛当作评分查询权限。
 - **PK 有独立门槛**：双方都达到 55 分才满足 PK 的 AI 判词与搜索收录门槛；不要套用个人页的 60 分门槛。阈值统一读取 `src/lib/site.ts`。
 - **不同目录保持来源区别**：人才目录可以包含人工整理资料，专题可以有编辑编排，不能把它们的推荐顺序包装成算法评分排名。人才资料中的 GitHub handle 也不等于账号归属已验证。
@@ -106,6 +107,7 @@ ghfind 的主张是「发现最佳开发者，也成为其中之一」。产品�
 | 账号评分与公开数据 | `src/lib/score.ts`、`src/lib/score-presentation.ts`、`src/app/api/scan/route.ts`、`src/app/api/score/[username]/route.ts`、`internal/backend/scoring.go`、`internal/backend/score_api.go` |
 | AI 报告 | `src/app/api/roast/route.ts`、`internal/backend/roast.go`、`internal/backend/roast_prompt.go` |
 | 发现与排名 | `src/lib/db.ts`、`src/lib/rank.ts`、`src/lib/site.ts`、`src/lib/pages/profile.ts` |
+| 全 GitHub 位置 | `src/lib/github-standing.ts`、`src/lib/github-population.ts`、`scripts/github-population.mts` |
 | 项目评估与榜单 | `src/lib/project-analysis-contract.ts`、`src/lib/project-analysis-service.ts`、`src/lib/project-analysis-db.ts`、`src/lib/project-ranking.ts` |
 | 简历与人才资料 | `src/components/resume/ResumeBuilder.tsx`、`src/app/api/resumes/route.ts`、`src/components/talent/intake.ts`、`src/lib/talent-intake.ts`、`src/lib/talent-db.ts` |
 | GitHub App | `platform/github-app/README.zh.md`、`platform/github-app/src/` |
