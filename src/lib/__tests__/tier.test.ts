@@ -13,8 +13,8 @@ describe("tier avatar frames", () => {
       夯: "👑",
       顶级: "🥇",
       人上人: "👍",
-      NPC: "🙂",
-      拉完了: "💩",
+      NPC: "📜",
+      拉完了: "🌱",
     };
 
     expect(Object.keys(TIER_AVATAR_FRAMES)).toHaveLength(5);
@@ -39,6 +39,11 @@ describe("tier avatar frames", () => {
       "bottom-left",
     ]);
     expect(tierAvatarFrame("NPC").placements).toEqual(["bottom"]);
+    expect(tierAvatarFrame("拉完了")).toMatchObject({
+      placements: ["bottom"],
+      icon: "smile",
+      emoji: "🌱",
+    });
   });
 
   it("keeps solid green and NPC blue across shared tier styles", () => {
@@ -50,6 +55,15 @@ describe("tier avatar frames", () => {
       text: "text-sky-300",
       ring: "ring-sky-400/50",
     });
+  });
+
+  it("uses muted zinc for the newbie (拉完了) display theme, distinct from NPC sky", () => {
+    expect(TIER_STYLES["拉完了"]).toMatchObject({
+      text: "text-zinc-400",
+      ring: "ring-zinc-500/50",
+      hex: "#a1a1aa",
+    });
+    expect(TIER_STYLES.NPC.hex).toBe("#7dd3fc");
   });
 
   it("places opposite decorations symmetrically on a unit circle", () => {

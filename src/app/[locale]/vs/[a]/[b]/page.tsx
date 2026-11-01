@@ -58,10 +58,11 @@ export default async function VsPage({
   }
 
   setRequestLocale(locale);
-  const [t, tDim, tTier, presentation] = await Promise.all([
+  const [t, tDim, tTier, tRealm, presentation] = await Promise.all([
     getTranslations("vs"),
     getTranslations("dimensions"),
     getTranslations("tiers"),
+    getTranslations("realms"),
     getVs(pair.a, pair.b),
   ]);
   return (
@@ -72,6 +73,7 @@ export default async function VsPage({
       t={asTranslator(t)}
       tDim={asTranslator(tDim)}
       tTier={asTranslator(tTier)}
+      tRealm={asTranslator(tRealm)}
     />
   );
 }

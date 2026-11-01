@@ -30,7 +30,8 @@ describe("ImpactOrbit", () => {
     expect(html).toContain('data-testid="impact-orbit-stage"');
     expect(html).toContain('data-testid="impact-orbit-rings"');
     expect(html).toContain('data-testid="impact-orbit-planet"');
-    expect(html).toContain('data-testid="impact-orbit-compact"');
+    expect(html).not.toContain('data-testid="impact-orbit-compact"');
+    expect(html).not.toContain('data-testid="impact-orbit-narrow"');
     expect(html).toContain('class="sr-only"');
     expect(html).toContain("Notable contributions");
     expect(html).toContain('href="https://github.com/org-alpha/flagship"');
@@ -66,7 +67,7 @@ describe("ImpactOrbit", () => {
     expect(html).not.toContain('data-testid="impact-orbit-rings"');
   });
 
-  it("keeps a compact row ready for two impact repos", () => {
+  it("renders the multi-orbit stage for two impact repos (no narrow compact fallback)", () => {
     const html = renderToStaticMarkup(
       <ImpactOrbit
         repos={[
@@ -85,6 +86,9 @@ describe("ImpactOrbit", () => {
 
     expect(html).toContain("org-alpha/lib, ★ 800, 2 提交 · 1 PR");
     expect(html).toContain("org-beta/app, ★ 200, 1 PR");
-    expect(html).toContain('data-testid="impact-orbit-compact"');
+    expect(html).toContain('data-testid="impact-orbit-stage"');
+    expect(html).toContain('data-testid="impact-orbit-planet"');
+    expect(html).not.toContain('data-testid="impact-orbit-compact"');
+    expect(html).not.toContain('data-testid="impact-orbit-narrow"');
   });
 });

@@ -73,7 +73,7 @@ function ShareSide({ side, data, win }: { side: VsSide; data: string | null; win
         {side.score.toFixed(1)}
       </div>
       <div className={`mt-1 whitespace-nowrap text-base font-bold ${style.text}`}>
-        {style.emoji} {tTier(`${TIER_KEY[side.tier]}.name`)}
+        {tTier(`${TIER_KEY[side.tier]}.name`)}
       </div>
       {win && (
         <div className="mt-2 rounded-full bg-orange-500/20 px-2.5 py-0.5 text-xs font-bold text-orange-200">

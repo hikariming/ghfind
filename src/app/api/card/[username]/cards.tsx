@@ -1,3 +1,4 @@
+import { adventurerLevel, realmForScore, realmForTier } from "@/lib/realm";
 /**
  * Presentational layer for the profile cards (`/api/card/{username}`).
  *
@@ -8,8 +9,6 @@
 import type { ProfileSnapshotView } from "@/lib/profile-presentation";
 import { TIER_EN } from "@/lib/badge";
 import { rankProfileWorks } from "@/lib/profile-work";
-import { TIER_AVATAR_FRAME_VECTORS, tierAvatarFrame } from "@/lib/tier";
-import type { TierAvatarFramePlacement } from "@/lib/tier";
 import type { Tier } from "@/lib/types";
 import { BrandMark } from "@/components/BrandMark";
 
@@ -236,38 +235,23 @@ export function Brand({
   );
 }
 
-function avatarFrameIconPosition(
-  placement: TierAvatarFramePlacement,
-  frameSize: number,
-  iconBoxSize: number,
-): React.CSSProperties {
-  const vector = TIER_AVATAR_FRAME_VECTORS[placement];
-  const radius = frameSize / 2;
-  return {
-    left: radius + vector.x * radius - iconBoxSize / 2,
-    top: radius + vector.y * radius - iconBoxSize / 2,
-  };
-}
 
+/** Avatar with realm-colored ring/glow only — no emoji stickers around it. */
 export function OgAvatarFrame({
   username,
   avatar,
-  tier,
-  tierIcon,
   color,
   palette,
 }: {
   username: string;
   avatar: string | null;
-  tier: Tier;
-  tierIcon: string;
+  /** @deprecated retained for call-site compat; ignored (no stickers). */
+  tier?: Tier;
+  /** @deprecated retained for call-site compat; ignored (no stickers). */
+  tierIcon?: string;
   color: string;
   palette: CardPalette;
 }) {
-  const frame = tierAvatarFrame(tier);
-  const emojiBox = frame.emojiSize === "large" ? 48 : 34;
-  const emojiFont = frame.emojiSize === "large" ? 32 : 22;
-
   return (
     <div
       style={{
@@ -283,26 +267,6 @@ export function OgAvatarFrame({
         border: `3px solid ${color}B3`,
       }}
     >
-      {frame.placements.map((placement) => (
-        <div
-          key={`${frame.emoji}-${placement}`}
-          style={{
-            position: "absolute",
-            display: "flex",
-            width: emojiBox,
-            height: emojiBox,
-            borderRadius: 9999,
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: emojiFont,
-            lineHeight: 1,
-            ...avatarFrameIconPosition(placement, 152, emojiBox),
-          }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={tierIcon} width={emojiFont} height={emojiFont} alt="" />
-        </div>
-      ))}
       {avatar ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -341,8 +305,12 @@ export interface Identity {
   displayName: string | null;
   avatar: string | null;
   tier: Tier;
-  /** Data-URL SVG without font side bearings. */
-  tierIcon: string;
+  /** Optional numeric score for precise realm labeling. */
+  score?: number;
+  /** Card copy language for realm name. */
+  lang?: "zh" | "en";
+  /** @deprecated unused — avatar stickers removed. */
+  tierIcon?: string;
   color: string;
   palette: CardPalette;
   /** Data-URL QR of the profile page, or null when the QR toggle is off. */
@@ -363,12 +331,10 @@ function rowSkin(palette: CardPalette) {
     : { bg: "rgba(255,255,255,0.045)", border: "rgba(255,255,255,0.09)" };
 }
 
-/** Compact avatar (circle + colored ring + one tier emoji badge) for the
- * specialty cards, which need a smaller header than the centered score hero. */
+/** Compact avatar (circle + colored ring) for specialty cards. */
+/** Compact avatar: realm-colored ring only — no emoji sticker. */
 function HeaderAvatar({ id, size = 96 }: { id: Identity; size?: number }) {
-  const { username, avatar, tierIcon, color, palette } = id;
-  const badge = Math.round(size * 0.36);
-  const badgeVector = TIER_AVATAR_FRAME_VECTORS["bottom-right"];
+  const { username, avatar, color, palette } = id;
   return (
     <div style={{ position: "relative", display: "flex", width: size, height: size }}>
       {avatar ? (
@@ -399,24 +365,6 @@ function HeaderAvatar({ id, size = 96 }: { id: Identity; size?: number }) {
           {username.slice(0, 1).toUpperCase()}
         </div>
       )}
-      <div
-        style={{
-          position: "absolute",
-          left: size / 2 + badgeVector.x * (size / 2) - badge / 2,
-          top: size / 2 + badgeVector.y * (size / 2) - badge / 2,
-          display: "flex",
-          width: badge,
-          height: badge,
-          borderRadius: 9999,
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: badge * 0.62,
-          lineHeight: 1,
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={tierIcon} width={badge * 0.62} height={badge * 0.62} alt="" />
-      </div>
     </div>
   );
 }
@@ -452,7 +400,10 @@ function VariantHeader({ id }: { id: Identity }) {
           padding: "6px 24px",
         }}
       >
-        {TIER_EN[tier]}
+        {(() => {
+          const r = typeof id.score === "number" ? realmForScore(id.score) : realmForTier(tier);
+          return id.lang === "zh" ? r.nameZh : r.nameEn;
+        })()}
       </div>
     </div>
   );

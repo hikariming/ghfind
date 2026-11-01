@@ -13,13 +13,15 @@
       { "name": "RATE_LIMITER", "class_name": "RateLimiter" },
       { "name": "COORD_KV", "class_name": "KeyValue" },
       { "name": "SCAN_SLOT", "class_name": "ScanSlot" },
-      { "name": "SCAN_CAPACITY", "class_name": "ScanCapacity" }
+      { "name": "SCAN_CAPACITY", "class_name": "ScanCapacity" },
+      { "name": "ROAST_JOB", "class_name": "RoastJob" }
     ]
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["RateLimiter"] },
     { "tag": "v2", "new_sqlite_classes": ["KeyValue"] },
-    { "tag": "v3", "new_sqlite_classes": ["ScanSlot", "ScanCapacity"] }
+    { "tag": "v3", "new_sqlite_classes": ["ScanSlot", "ScanCapacity"] },
+    { "tag": "v4", "new_sqlite_classes": ["RoastJob"] }
   ],
   // Scheduled GC of the legacy Next Worker's OpenNext R2 cache
   // (src/next-cache-gc.ts): old build directories are never deleted by
@@ -33,14 +35,16 @@
       { "name": "RATE_LIMITER", "class_name": "RateLimiter" },
       { "name": "COORD_KV", "class_name": "KeyValue" },
       { "name": "SCAN_SLOT", "class_name": "ScanSlot" },
-      { "name": "SCAN_CAPACITY", "class_name": "ScanCapacity" }
+      { "name": "SCAN_CAPACITY", "class_name": "ScanCapacity" },
+      { "name": "ROAST_JOB", "class_name": "RoastJob" }
     ]
       },
       // dev also holds every PR preview's builds, so it churns faster.
       "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache-dev" }],
       "triggers": { "crons": ["23 */6 * * *"] },
       "services": [
-        { "binding": "GHFIND_API", "service": "ghfind-api-dev", "entrypoint": "ScanContinueEntrypoint" }
+        { "binding": "GHFIND_API", "service": "ghfind-api-dev", "entrypoint": "ScanContinueEntrypoint" },
+        { "binding": "ROAST_API", "service": "ghfind-api-dev", "entrypoint": "RoastContinueEntrypoint" }
       ],
       "vars": {
         "NEXT_CACHE_GC_KEEP_NEWEST": "2",
@@ -56,14 +60,16 @@
       { "name": "RATE_LIMITER", "class_name": "RateLimiter" },
       { "name": "COORD_KV", "class_name": "KeyValue" },
       { "name": "SCAN_SLOT", "class_name": "ScanSlot" },
-      { "name": "SCAN_CAPACITY", "class_name": "ScanCapacity" }
+      { "name": "SCAN_CAPACITY", "class_name": "ScanCapacity" },
+      { "name": "ROAST_JOB", "class_name": "RoastJob" }
     ]
       },
       // Keep 3 builds and a week of idleness so rollbacks keep their cache.
       "r2_buckets": [{ "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "ghfind-next-cache" }],
       "triggers": { "crons": ["41 3 * * *"] },
       "services": [
-        { "binding": "GHFIND_API", "service": "ghfind-api", "entrypoint": "ScanContinueEntrypoint" }
+        { "binding": "GHFIND_API", "service": "ghfind-api", "entrypoint": "ScanContinueEntrypoint" },
+        { "binding": "ROAST_API", "service": "ghfind-api", "entrypoint": "RoastContinueEntrypoint" }
       ],
       "vars": {
         "NEXT_CACHE_GC_KEEP_NEWEST": "3",

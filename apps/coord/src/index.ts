@@ -7,6 +7,7 @@ import { gcNextCache, type GcBucket, type GcReport } from "./next-cache-gc";
 
 export { KeyValue } from "./key-value";
 export { RateLimiter } from "./rate-limiter";
+export { RoastJob } from "./roast-job";
 export { ScanCapacity } from "./scan-capacity";
 export { ScanSlot } from "./scan-slot";
 

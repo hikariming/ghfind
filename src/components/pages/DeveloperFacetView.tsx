@@ -20,7 +20,7 @@ import {
 import type { FacetType } from "@/lib/facets";
 import { TIER_KEY } from "@/lib/tier";
 import type { Tier } from "@/lib/types";
-import { localePath } from "@/lib/site";
+import { bcp47, localePath } from "@/lib/site";
 import { JsonLd, breadcrumbJsonLd } from "@/components/JsonLd";
 import { bucketHeadingKey, facetEncodedPath, type loadDeveloperFacet } from "@/lib/pages/developer-facet";
 import type { Translator } from "@/lib/translator";
@@ -38,6 +38,7 @@ export function DeveloperFacetView({
   tProjects,
   entries,
   overview,
+  repoStarStanding,
   relatedProjects,
   assessment,
   treasureHistory,
@@ -152,10 +153,16 @@ export function DeveloperFacetView({
           />
           <RepoOverviewCard
             overview={overview}
+            starStanding={repoStarStanding}
+            locale={bcp47(locale)}
             labels={{
               authoredBy: t("repoAuthoredBy"),
               contributors: t("repoContributors"),
               avgScore: t("repoAvgScore"),
+              globalRank: (rank, total) => t("repoGlobalRank", { rank, total }),
+              globalRankApprox: (rank, total) => t("repoGlobalRankApprox", { rank, total }),
+              topAmong: (pct, floor) => t("repoTopAmong", { pct, floor }),
+              rankNote: (asOf) => t("repoRankNote", { asOf }),
               tierLabels: Object.fromEntries(
                 (Object.keys(TIER_KEY) as Tier[]).map((tier) => [
                   tier,

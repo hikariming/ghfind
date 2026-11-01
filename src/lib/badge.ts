@@ -1,3 +1,4 @@
+import { adventurerLevel, realmForScore } from "./realm";
 /**
  * shields.io-style profile badge as a self-contained SVG string.
  *
@@ -13,31 +14,40 @@ import type { Tier } from "./types";
 
 export type BadgeLang = "en" | "zh";
 
-/** English tier words (the stored tier is already the Chinese form). */
+/** English tier words. Canonical stored tier stays Chinese (incl. 拉完了). */
 export const TIER_EN: Record<Tier, string> = {
-  夯: "GOD",
-  顶级: "ELITE",
-  人上人: "SOLID",
-  NPC: "NPC",
-  拉完了: "TRASH",
+  夯: "Grand Asc.",
+  顶级: "Body Integ.",
+  人上人: "Spatial Temp.",
+  NPC: "Core Form.",
+  拉完了: "Qi Cond.",
+};
+
+/** Chinese display words (bridged to cultivation realms; stored keys unchanged). */
+export const TIER_ZH: Record<Tier, string> = {
+  夯: "大乘",
+  顶级: "合体",
+  人上人: "炼虚",
+  NPC: "金丹",
+  拉完了: "练气",
 };
 
 /** English tier blurbs (for the all-English shareable card). */
 export const TIER_LABEL_EN: Record<Tier, string> = {
-  夯: "Legendary · Hall of Fame",
-  顶级: "Elite · Top-tier dev",
-  人上人: "Solid · Trustworthy",
-  NPC: "Average · Unremarkable",
-  拉完了: "Low-value · Likely farmed",
+  夯: "Near the summit · Hall of fame",
+  顶级: "In harmony · Top-tier master",
+  人上人: "Effortless mastery",
+  NPC: "Core formed · Showing an edge",
+  拉完了: "First steps · Building the base",
 };
 
 /** Right-segment background per tier (vivid -500 shades, white text on top). */
 export const BADGE_COLOR: Record<Tier, string> = {
-  夯: "#F59E0B",
-  顶级: "#8B5CF6",
-  人上人: "#10B981",
-  NPC: "#38BDF8",
-  拉完了: "#F43F5E",
+  夯: "#F6C744",
+  顶级: "#A97CF5",
+  人上人: "#4A9BE0",
+  NPC: "#C08457",
+  拉完了: "#8B9099",
 };
 
 /**
@@ -46,11 +56,11 @@ export const BADGE_COLOR: Record<Tier, string> = {
  * white (the light-theme mini card) amber/sky fall below readable contrast.
  */
 export const BADGE_COLOR_LIGHT: Record<Tier, string> = {
-  夯: "#D97706",
-  顶级: "#7C3AED",
-  人上人: "#059669",
-  NPC: "#0284C7",
-  拉完了: "#E11D48",
+  夯: "#A87700",
+  顶级: "#6F3FC4",
+  人上人: "#1C64A3",
+  NPC: "#8F5A30",
+  拉完了: "#5A5F68",
 };
 
 const LABEL = "GitHub Roast";
@@ -134,14 +144,15 @@ export function buildBadge(opts: {
       color: NEUTRAL,
     });
   }
-  const word = lang === "zh" ? opts.tier : TIER_EN[opts.tier];
+  const realm = realmForScore(opts.score);
+  const word = lang === "zh" ? realm.nameZh : realm.nameEnShort;
   const delta =
     typeof opts.delta === "number" && opts.delta >= 0.05
       ? ` ↑${opts.delta.toFixed(1)}`
       : "";
   return renderBadge({
     label: LABEL,
-    value: `${opts.score.toFixed(2)} ${word}${delta}`,
-    color: BADGE_COLOR[opts.tier],
+    value: `Lv.${adventurerLevel(opts.score)} ${word}${delta}`,
+    color: realm.colors.fg,
   });
 }

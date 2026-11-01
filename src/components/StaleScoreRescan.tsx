@@ -8,10 +8,11 @@ import { Button } from "@/components/ui/button";
 import { AUTO_RESCAN_TRIGGER } from "@/lib/auto-rescan";
 import { autoReroastArmedKey } from "@/lib/auto-reroast";
 import { consumeRoastStream } from "@/lib/roast-stream";
+import { isRoastClientTimeout, roastClientSignal } from "@/lib/roast-client-timeout";
 import { completedScanPayload, readScanResponse } from "@/lib/scan-job-client";
 import { Turnstile, turnstileEnabled } from "./Turnstile";
 
-type Status = "idle" | "auto" | "scanning" | "roasting" | "error";
+type Status = "idle" | "auto" | "scanning" | "roasting" | "error" | "timeout";
 type Mode = "auto" | "manual";
 
 /** Interaction events that mark a real visitor (crawlers render, they don't scroll or point). */
@@ -93,6 +94,7 @@ export function StaleScoreRescan({
           const roastRes = await fetch("/api/roast", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            signal: roastClientSignal(),
             body: JSON.stringify({ scan, byoKey: null, lang: locale, refresh: true }),
           });
           // The new score is already published; a failed optional report must
@@ -109,8 +111,12 @@ export function StaleScoreRescan({
           }
         }
         router.refresh();
-      } catch {
-        setStatus(mode === "auto" ? "idle" : "error");
+      } catch (error) {
+        if (mode === "auto") {
+          setStatus("idle");
+        } else {
+          setStatus(isRoastClientTimeout(error) ? "timeout" : "error");
+        }
       }
     },
     [token, username, locale, router],
@@ -174,9 +180,9 @@ export function StaleScoreRescan({
             {progress}
           </span>
         )}
-        {status === "error" && (
+        {(status === "error" || status === "timeout") && (
           <span role="alert" className="text-[11px] text-rose-300">
-            {t("scoreStateRescanError")}
+            {status === "timeout" ? t("scoreStateRescanTimeout") : t("scoreStateRescanError")}
           </span>
         )}
       </div>

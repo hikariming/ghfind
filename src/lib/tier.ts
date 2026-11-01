@@ -16,12 +16,17 @@ export const TIER_KEY: Record<Tier, TierKey> = {
 export interface TierStyle {
   tier: Tier;
   emoji: string;
-  /** Tailwind text color class. */
+  /** Tailwind text color class (safelisted in globals.css @source inline). */
   text: string;
   /** Tailwind ring/border color class. */
   ring: string;
   /** Radial glow color (CSS). */
   glow: string;
+  /**
+   * Opaque accent for rings/borders via inline style (avoids Tailwind purge on
+   * dynamic class names). Matches the score-number hue.
+   */
+  hex: string;
   blurb: string;
 }
 
@@ -88,9 +93,9 @@ export const TIER_AVATAR_FRAMES: Record<Tier, TierAvatarFrame> = {
     icon: "medal",
     placements: ["bottom"],
     emojiSize: "large",
-    ring: "ring-yellow-500",
-    bg: "bg-yellow-400/20",
-    glow: "rgba(250,204,21,0.55)",
+    ring: "ring-violet-500",
+    bg: "bg-violet-400/20",
+    glow: "rgba(167,139,250,0.55)",
   },
   人上人: {
     emoji: "👍",
@@ -102,7 +107,7 @@ export const TIER_AVATAR_FRAMES: Record<Tier, TierAvatarFrame> = {
     glow: "rgba(52,211,153,0.5)",
   },
   NPC: {
-    emoji: "🙂",
+    emoji: "📜",
     icon: "smile",
     placements: ["bottom"],
     emojiSize: "normal",
@@ -111,22 +116,13 @@ export const TIER_AVATAR_FRAMES: Record<Tier, TierAvatarFrame> = {
     glow: "rgba(56,189,248,0.45)",
   },
   拉完了: {
-    emoji: "💩",
-    icon: "poop",
-    placements: [
-      "top",
-      "top-right",
-      "right",
-      "bottom-right",
-      "bottom",
-      "bottom-left",
-      "left",
-      "top-left",
-    ],
+    emoji: "🌱",
+    icon: "smile",
+    placements: ["bottom"],
     emojiSize: "normal",
-    ring: "ring-rose-500",
-    bg: "bg-rose-400/20",
-    glow: "rgba(251,113,133,0.55)",
+    ring: "ring-zinc-500",
+    bg: "bg-zinc-400/15",
+    glow: "rgba(161,161,170,0.45)",
   },
 };
 
@@ -137,6 +133,7 @@ export const TIER_STYLES: Record<Tier, TierStyle> = {
     text: "text-amber-300",
     ring: "ring-amber-400/50",
     glow: "rgba(251,191,36,0.35)",
+    hex: "#fcd34d", // amber-300
     blurb: "封神 · 殿堂级标杆",
   },
   顶级: {
@@ -145,6 +142,7 @@ export const TIER_STYLES: Record<Tier, TierStyle> = {
     text: "text-violet-300",
     ring: "ring-violet-400/50",
     glow: "rgba(167,139,250,0.30)",
+    hex: "#c4b5fd", // violet-300
     blurb: "顶级开发者 · 一线水准",
   },
   人上人: {
@@ -153,23 +151,27 @@ export const TIER_STYLES: Record<Tier, TierStyle> = {
     text: "text-emerald-300",
     ring: "ring-emerald-400/50",
     glow: "rgba(52,211,153,0.30)",
+    hex: "#6ee7b7", // emerald-300
     blurb: "优质贡献者 · 值得信任",
   },
   NPC: {
     tier: "NPC",
-    emoji: "🫥",
+    emoji: "📜",
     text: "text-sky-300",
     ring: "ring-sky-400/50",
     glow: "rgba(56,189,248,0.28)",
-    blurb: "普通账号 · 特征平庸存疑",
+    hex: "#7dd3fc", // sky-300 — distinct from newbie grey
+    blurb: "稳步积累 · 继续打磨作品",
   },
   拉完了: {
     tier: "拉完了",
-    emoji: "💩",
-    text: "text-rose-400",
-    ring: "ring-rose-500/50",
-    glow: "rgba(244,63,94,0.30)",
-    blurb: "低价值 · 疑似刷量 / AI 机器人",
+    emoji: "🌱",
+    // Muted zinc — flattest tier; NPC stays sky so the two stay distinct.
+    text: "text-zinc-400",
+    ring: "ring-zinc-500/50",
+    glow: "rgba(161,161,170,0.28)",
+    hex: "#a1a1aa", // zinc-400
+    blurb: "起步阶段 · 多练多攒作品",
   },
 };
 

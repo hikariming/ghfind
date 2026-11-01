@@ -1,8 +1,6 @@
 import { getTranslations } from "next-intl/server";
-import { BADGE_COLOR, TIER_EN } from "@/lib/badge";
+import { adventurerLevel, realmForScore } from "@/lib/realm";
 import { normalizeUsername } from "@/lib/username";
-import { tierAvatarFrame } from "@/lib/tier";
-import { tierAvatarFrameIconDataUrl } from "@/lib/tier-emoji.server";
 import { getCurrentTitleSponsor } from "@/lib/sponsor.server";
 import { verdict } from "@/lib/verdict";
 import type { AccountDetail } from "@/lib/profile-presentation";
@@ -27,18 +25,16 @@ function Player({
   handle,
   detail,
   avatar,
-  tierIcon,
   palette,
   notRated,
 }: {
   handle: string;
   detail: AccountDetail | null;
   avatar: string | null;
-  tierIcon: string;
   palette: CardPalette;
   notRated: string;
 }) {
-  const color = detail ? BADGE_COLOR[detail.tier] : palette.muted;
+  const color = detail ? realmForScore(detail.final_score).colors.fg : palette.muted;
   return (
     <div
       style={{
@@ -70,7 +66,6 @@ function Player({
           username={handle}
           avatar={avatar}
           tier={detail?.tier ?? "NPC"}
-          tierIcon={tierIcon}
           color={color}
           palette={palette}
         />
@@ -78,10 +73,10 @@ function Player({
       {detail ? (
         <>
           <div style={{ display: "flex", marginTop: 14, fontSize: 76, fontWeight: 800, color, lineHeight: 1 }}>
-            {detail.final_score.toFixed(1)}
+            {`Lv.${adventurerLevel(detail.final_score)}`}
           </div>
           <div style={{ display: "flex", marginTop: 6, fontSize: 30, fontWeight: 800, color }}>
-            {TIER_EN[detail.tier]}
+            {realmForScore(detail.final_score).nameEn}
           </div>
         </>
       ) : (
@@ -116,11 +111,9 @@ export async function GET(
   const v = verdict(da, db);
   const t = await getTranslations({ locale, namespace: "vs" });
 
-  const [avA, avB, tierIconA, tierIconB, titleSponsor] = await Promise.all([
+  const [avA, avB, titleSponsor] = await Promise.all([
     avatarDataUrl(da?.avatar_url ?? null),
     avatarDataUrl(db?.avatar_url ?? null),
-    tierAvatarFrameIconDataUrl(tierAvatarFrame(da?.tier ?? "NPC").icon),
-    tierAvatarFrameIconDataUrl(tierAvatarFrame(db?.tier ?? "NPC").icon),
     getCurrentTitleSponsor(),
   ]);
 
@@ -155,7 +148,6 @@ export async function GET(
           handle={a}
           detail={da}
           avatar={avA}
-          tierIcon={tierIconA}
           palette={palette}
           notRated={t("notRated")}
         />
@@ -174,7 +166,6 @@ export async function GET(
           handle={b}
           detail={db}
           avatar={avB}
-          tierIcon={tierIconB}
           palette={palette}
           notRated={t("notRated")}
         />

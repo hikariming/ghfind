@@ -50,6 +50,11 @@ export interface RoastStreamCallbacks {
   }): void;
   /** X-Roast-Generator, when the server names the copy chain for this response. */
   onGenerator?(generator: RoastGenerator): void;
+  /**
+   * Epoch ms the durable job started (X-Roast-Started-At, or an S-frame).
+   * The ring resumes from this instead of the moment the page attached.
+   */
+  onStarted?(startedAtMs: number): void;
 }
 
 export function readRoastGeneratorHeader(value: string | null): RoastGenerator | null {
@@ -73,6 +78,8 @@ export async function consumeRoastStream(
 ): Promise<{ report: string; errored: boolean; fresh: boolean }> {
   const generator = readRoastGeneratorHeader(res.headers.get("X-Roast-Generator"));
   if (generator) cb.onGenerator?.(generator);
+  const startedHeader = Number(res.headers.get("X-Roast-Started-At"));
+  if (Number.isFinite(startedHeader) && startedHeader > 0) cb.onStarted?.(startedHeader);
 
   const metaHeader = res.headers.get("X-Roast-Meta");
   if (metaHeader) {
@@ -120,6 +127,10 @@ export async function consumeRoastStream(
         if (type === "T") {
           fresh = true;
           cb.onThinking?.(payload);
+        } else if (type === "S") {
+          fresh = true;
+          const startedAt = Number(payload);
+          if (Number.isFinite(startedAt) && startedAt > 0) cb.onStarted?.(startedAt);
         } else if (type === "M") {
           fresh = true;
           const meta = decodeRoastMeta(payload);

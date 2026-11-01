@@ -125,3 +125,115 @@ it("replaces a saturated commit window with disjoint children without double cou
     ["fiction-org/shared", 5, 1], ["fiction-org/tail", 7, 1],
   ]);
 });
+
+it("subdivides a single-year RESOURCE_LIMITS response in full mode instead of dropping commits", async () => {
+  vi.stubEnv("GITHUB_TOKEN", "fiction-token");
+  const node = (repo: string, commits: number, stars = 1000) => ({
+    repository: {
+      nameWithOwner: `fiction-org/${repo}`,
+      stargazerCount: stars,
+      isPrivate: false,
+      isFork: false,
+      owner: { login: "fiction-org" },
+    },
+    contributions: { totalCount: commits, nodes: [] },
+  });
+  vi.stubGlobal("fetch", async (_raw: string, init?: RequestInit) => {
+    const { variables } = JSON.parse(String(init?.body));
+    const fullYear =
+      variables.from0.startsWith("2026-01-01") && variables.to0.startsWith("2026-12-31");
+    if (fullYear) {
+      return Response.json({
+        data: { user: null },
+        errors: [{ type: "RESOURCE_LIMITS_EXCEEDED", message: "Resource limits for this query exceeded." }],
+      });
+    }
+    // Half-year children succeed with a few fiction repos, including a mega-star row.
+    // Key off window start: fetchCompleteCommitWindow midpoints land near day-of-year / 2.
+    const early = Date.parse(variables.from0) < Date.UTC(2026, 6, 1);
+    const nodes = early
+      ? [node("shared", 3), node("mega", 4, 230_000)]
+      : [node("shared", 2), node("tail", 7)];
+    return Response.json({ data: { user: { y0: { commitContributionsByRepository: nodes } } } });
+  });
+  const quickReasons: string[] = [];
+  const quick = await fetchCommitContribReposByYear("fiction-hyperactive", [2026], {
+    note: (r) => quickReasons.push(r),
+  });
+  expect(quickReasons).toContain("commit_resource_limit");
+  expect(quick ?? []).toEqual([]);
+
+  const fullReasons: string[] = [];
+  const full = await fetchCommitContribReposByYear("fiction-hyperactive", [2026], {
+    full: true,
+    note: (r) => fullReasons.push(r),
+  });
+  expect(fullReasons).not.toContain("commit_resource_limit");
+  expect(full?.map((r) => [r.repo, r.commits, r.stars]).sort()).toEqual([
+    ["fiction-org/mega", 4, 230000],
+    ["fiction-org/shared", 5, 1000],
+    ["fiction-org/tail", 7, 1000],
+  ]);
+});
+
+it("recovers only the resource-limited year when a multi-year batch hits RESOURCE_LIMITS", async () => {
+  vi.stubEnv("GITHUB_TOKEN", "fiction-token");
+  const node = (org: string, repo: string, commits: number) => ({
+    repository: {
+      nameWithOwner: `${org}/${repo}`,
+      stargazerCount: 500,
+      isPrivate: false,
+      isFork: false,
+      owner: { login: org },
+    },
+    contributions: { totalCount: commits, nodes: [] },
+  });
+  vi.stubGlobal("fetch", async (_raw: string, init?: RequestInit) => {
+    const { variables } = JSON.parse(String(init?.body));
+    const years = Object.keys(variables)
+      .filter((k) => k.startsWith("from"))
+      .map((k) => variables[k].slice(0, 4));
+    if (years.length > 1) {
+      return Response.json({
+        data: { user: null },
+        errors: [{ type: "RESOURCE_LIMITS_EXCEEDED", message: "Resource limits for this query exceeded." }],
+      });
+    }
+    const from = variables.from0 as string;
+    if (from.startsWith("2026-01-01") && variables.to0.startsWith("2026-12-31")) {
+      return Response.json({
+        data: { user: null },
+        errors: [{ type: "RESOURCE_LIMITS_EXCEEDED", message: "Resource limits for this query exceeded." }],
+      });
+    }
+    if (from.startsWith("2026-")) {
+      const early = Date.parse(from) < Date.UTC(2026, 6, 1);
+      return Response.json({
+        data: {
+          user: {
+            y0: {
+              commitContributionsByRepository: early
+                ? [node("fiction-org", "hot", 3)]
+                : [node("fiction-org", "hot", 2)],
+            },
+          },
+        },
+      });
+    }
+    return Response.json({
+      data: {
+        user: { y0: { commitContributionsByRepository: [node("fiction-org", "calm", 9)] } },
+      },
+    });
+  });
+  const reasons: string[] = [];
+  const full = await fetchCommitContribReposByYear("fiction-mixed", [2026, 2025], {
+    full: true,
+    note: (r) => reasons.push(r),
+  });
+  expect(reasons).not.toContain("commit_resource_limit");
+  expect(full?.map((r) => [r.repo, r.commits]).sort()).toEqual([
+    ["fiction-org/calm", 9],
+    ["fiction-org/hot", 5],
+  ]);
+});

@@ -182,7 +182,7 @@ func TestScanMVPWorkerDeepensBeforePersisting(t *testing.T) {
 	if err := store.db.QueryRow(`SELECT coverage, collection_version FROM public_scan_runs WHERE id = ?`, job.ID).Scan(&coverage, &collection); err != nil {
 		t.Fatal(err)
 	}
-	if coverage != "complete_public" || collection != "v7" {
+	if coverage != "complete_public" || collection != "v8" {
 		t.Fatalf("stored coverage=%s collection=%s", coverage, collection)
 	}
 }
@@ -240,5 +240,59 @@ func TestScanMVPCommitWindowDiscardsTruncatedParent(t *testing.T) {
 	repos, err := client.fetchCommitContribReposByYear(context.Background(), "fiction-lowfork", []int{2025}, fullScope)
 	if err != nil || len(repos) != 2 || repos[0].Repo != "fiction-org/shared" || repos[0].Commits != 5 || repos[0].ActiveYears != 1 || repos[1].Repo != "fiction-org/tail" || repos[1].Commits != 7 || len(fullScope.Reasons) != 0 {
 		t.Fatalf("repos=%+v scope=%+v err=%v", repos, fullScope, err)
+	}
+}
+
+func TestScanMVPCommitResourceLimitSubdividesInFullMode(t *testing.T) {
+	node := func(repo string, commits int, stars int) any {
+		return map[string]any{"repository": map[string]any{"nameWithOwner": "fiction-org/" + repo, "stargazerCount": stars, "owner": map[string]string{"login": "fiction-org"}}, "contributions": map[string]any{"totalCount": commits, "nodes": []any{}}}
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Variables map[string]string `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		fullYear := strings.HasPrefix(body.Variables["from0"], "2026-01-01") && strings.HasPrefix(body.Variables["to0"], "2026-12-31")
+		if fullYear {
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"user": nil}, "errors": []any{map[string]any{"type": "RESOURCE_LIMITS_EXCEEDED", "message": "Resource limits for this query exceeded."}}})
+			return
+		}
+		fromTime, _ := time.Parse(time.RFC3339, body.Variables["from0"])
+		early := fromTime.Before(time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC))
+		var nodes []any
+		if early {
+			nodes = []any{node("shared", 3, 1000), node("mega", 4, 230000)}
+		} else {
+			nodes = []any{node("shared", 2, 1000), node("tail", 7, 1000)}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"user": map[string]any{"y0": map[string]any{"commitContributionsByRepository": nodes}}}})
+	}))
+	defer server.Close()
+	client := NewGitHubClient("fiction-token").withBaseURL(server.URL).withHTTPClient(server.Client())
+	quickScope := &collectionScope{}
+	quick, err := client.fetchCommitContribReposByYear(context.Background(), "fiction-hyperactive", []int{2026}, quickScope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(quick) != 0 || !strings.Contains(strings.Join(quickScope.Reasons, ","), "commit_resource_limit") {
+		t.Fatalf("quick should note and drop year: repos=%+v reasons=%v", quick, quickScope.Reasons)
+	}
+	fullScope := &collectionScope{Full: true}
+	repos, err := client.fetchCommitContribReposByYear(context.Background(), "fiction-hyperactive", []int{2026}, fullScope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(strings.Join(fullScope.Reasons, ","), "commit_resource_limit") {
+		t.Fatalf("full should not note resource limit after successful subdivision: %v", fullScope.Reasons)
+	}
+	if len(repos) != 3 {
+		t.Fatalf("expected 3 repos, got %+v", repos)
+	}
+	byRepo := map[string]float64{}
+	for _, r := range repos {
+		byRepo[r.Repo] = r.Commits
+	}
+	if byRepo["fiction-org/mega"] != 4 || byRepo["fiction-org/shared"] != 5 || byRepo["fiction-org/tail"] != 7 {
+		t.Fatalf("unexpected commits %+v", byRepo)
 	}
 }

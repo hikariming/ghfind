@@ -929,10 +929,9 @@ export async function setCachedRoastJudge(
 // its result via the cache. Without this, a viral account re-generates N times
 // per cold window instead of once.
 // Crash safety net only — the success/error paths release the lock explicitly.
-// Must exceed the route's 220s LLM deadline: at the old 60s the lock could expire
-// mid-generation, so under concurrency followers
-// saw "lock gone, no cache", stopped coalescing and burned a duplicate LLM call.
-const ROAST_LOCK_TTL_SECONDS = 270;
+// Must exceed the 7-minute v13 chain: a shorter TTL let the lock expire
+// mid-generation, so a second request stopped coalescing and burned another call.
+const ROAST_LOCK_TTL_SECONDS = 8 * 60;
 const roastLockKey = (username: string, lang: Lang) =>
   `lock:roast:${ROAST_CACHE_VERSION}:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${lang}:${username.toLowerCase()}`;
 

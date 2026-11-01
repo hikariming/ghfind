@@ -29,7 +29,7 @@ describe("roast progress curve", () => {
 
   it("puts about 80% of the capped curve on each measured median", () => {
     const v12 = roastApproachRatio(56_000, ROAST_PROGRESS_TAU_V12_MS);
-    const v13 = roastApproachRatio(230_500, ROAST_PROGRESS_TAU_V13_MS);
+    const v13 = roastApproachRatio(7 * 60_000, ROAST_PROGRESS_TAU_V13_MS);
     expect(v12 / ROAST_PROGRESS_CAP).toBeCloseTo(0.8, 2);
     expect(v13 / ROAST_PROGRESS_CAP).toBeCloseTo(0.8, 2);
     expect(roastProgressTauMs("v12")).toBe(ROAST_PROGRESS_TAU_V12_MS);
@@ -42,7 +42,7 @@ describe("roast progress curve", () => {
 
   it("is monotonic, floors the percent, and never walks backward", () => {
     let prev = -1;
-    for (let t = 0; t <= 200_000; t += 1_000) {
+    for (let t = 0; t <= 500_000; t += 1_000) {
       const snap = roastProgress({ elapsedMs: t });
       expect(snap.percent).toBeGreaterThanOrEqual(prev);
       expect(snap.percent).toBe(Math.floor(snap.ratio * 100 + 1e-9));
@@ -54,7 +54,7 @@ describe("roast progress curve", () => {
   it("creeps from the cap toward 97% and then stays", () => {
     const early = roastRunningRatio(20_000);
     expect(early).toBeLessThan(ROAST_PROGRESS_CAP);
-    const creeping = roastRunningRatio(780_000);
+    const creeping = roastRunningRatio(1_400_000);
     expect(creeping).toBeGreaterThan(ROAST_PROGRESS_CAP);
     expect(creeping).toBeLessThanOrEqual(ROAST_PROGRESS_CREEP_MAX);
     const late = roastRunningRatio(30 * 60_000);
@@ -81,9 +81,9 @@ describe("roast progress curve", () => {
   });
 
   it("steps the reduced-motion percent by 5 and still reaches 100 when complete", () => {
-    const stepped = roastProgress({ elapsedMs: 12_000, reducedMotion: true });
+    const stepped = roastProgress({ elapsedMs: 40_000, reducedMotion: true });
     expect(stepped.percent % 5).toBe(0);
-    const raw = roastProgress({ elapsedMs: 12_000 });
+    const raw = roastProgress({ elapsedMs: 40_000 });
     expect(stepped.percent).toBeLessThanOrEqual(raw.percent);
     expect(stepped.percent).toBeGreaterThan(0);
     const done = roastProgress({
@@ -170,6 +170,7 @@ describe("roast progress curve", () => {
     const now = 1_000_000;
     expect(resolveStartedAtMs(now + 5_000, now)).toBe(now);
     expect(resolveStartedAtMs(now - 20 * 60_000, now)).toBe(now);
+    expect(resolveStartedAtMs(now - 12 * 60_000, now)).toBe(now - 12 * 60_000);
     expect(resolveStartedAtMs(now - 3_000, now)).toBe(now - 3_000);
     expect(resolveStartedAtMs(null, now, { resume: true })).toBeLessThan(now);
   });

@@ -16,6 +16,7 @@ import { loadProfileRoastState, profileMetadata } from "@/lib/pages/profile";
 import { maybeScheduleVisitRefresh } from "@/lib/scan-background-refresh";
 import { decodeRouteParam } from "@/lib/route-params";
 import { asTranslator } from "@/lib/translator";
+import { isProductionDeployment } from "@/lib/deploy-env";
 
 // Profile comments must be fresh; score/roast data is still fetched from the DB
 // and remains cached at the persistence layer where applicable.
@@ -54,7 +55,7 @@ export async function generateMetadata({
     return { title: t("notFoundTitle") };
   }
 
-  const tt = await getTranslations({ locale, namespace: "tiers" });
+  const tt = await getTranslations({ locale, namespace: "realms" });
   const { title, description, image, imageAlt, path, indexable } = profileMetadata(
     locale,
     d,
@@ -116,6 +117,12 @@ export default async function AccountPage({
         initialScan={scan ?? null}
         fromHome={roasting}
         advx={isAdvxCampaign}
+        evaluateDemo={
+          !isProductionDeployment() &&
+          (query.evaluateDemo === "timeout" || query.evaluateDemo === "wait")
+            ? (query.evaluateDemo as "timeout" | "wait")
+            : null
+        }
       />
     );
   }
@@ -125,10 +132,11 @@ export default async function AccountPage({
   // when it's still fresh, or via a forced regeneration when it has gone stale.
   // Direct visits / shared links (no param) keep the popup-free SSR page.
   const fromHome = query.roasting === "1";
-  const [t, tDim, tTier, roastState, comments, session, requestHeaders] = await Promise.all([
+  const [t, tDim, tTier, tRealm, roastState, comments, session, requestHeaders] = await Promise.all([
     getTranslations("detail"),
     getTranslations("dimensions"),
     getTranslations("tiers"),
+    getTranslations("realms"),
     loadProfileRoastState(d, locale, fromHome, getLiveScan),
     getProfileComments(d.username),
     oauthConfigured() ? auth() : Promise.resolve(null),
@@ -171,6 +179,7 @@ export default async function AccountPage({
       t={asTranslator(t)}
       tDim={asTranslator(tDim)}
       tTier={asTranslator(tTier)}
+      tRealm={asTranslator(tRealm)}
     />
   );
 }

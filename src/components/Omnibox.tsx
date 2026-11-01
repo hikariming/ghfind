@@ -491,7 +491,7 @@ export function Omnibox({
                         <span
                           className={`shrink-0 text-xs font-bold tabular-nums ${style.text}`}
                         >
-                          {style.emoji} {row.user.final_score.toFixed(1)}
+                          {`Lv.${Math.floor(row.user.final_score)}`}
                         </span>
                       )}
                     </>

@@ -12,6 +12,7 @@ import { splitReport } from "@/lib/report";
 import { normLang } from "@/lib/lang";
 import { tagsForLocale } from "@/lib/roast-tags";
 import { consumeRoastStream } from "@/lib/roast-stream";
+import { isRoastClientTimeout, roastClientSignal } from "@/lib/roast-client-timeout";
 import { readRoastStart } from "@/lib/roast-progress";
 import type { RoastLine, RoastMeta, ScanResult, Tags } from "@/lib/types";
 import { RoastResultModal } from "./RoastResultModal";
@@ -153,6 +154,7 @@ export function LiveRoast({
         const res = await fetch("/api/roast", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: roastClientSignal(),
           // Send the handed-off scan when present (works without a server cache);
           // the route falls back to its own cached scan otherwise. byoKey is
           // always null here (BYO roasts stay on the home page, since they
@@ -175,6 +177,7 @@ export function LiveRoast({
         let latestMeta: RoastMeta | null = null;
         const { errored, fresh } = await consumeRoastStream(res, {
           onGenerator: (generator) => progressRef.current.setGenerator(generator),
+          onStarted: (startedAt) => progressRef.current.noteStarted(startedAt),
           onThinking: (label) => progressRef.current.noteThinking(label),
           onMeta: (m) => {
             latestMeta = m;
@@ -211,8 +214,8 @@ export function LiveRoast({
           // Cached replay for a non-handoff visitor → no popup, refresh now.
           refreshOnce();
         }
-      } catch {
-        fail("liveError");
+      } catch (error) {
+        fail(isRoastClientTimeout(error) ? "liveTimeout" : "liveError");
       }
     })();
   }, [username, scan, sessionScan, locale, refresh, openModalOnMount, fallbackReport, fallbackMeta, refreshOnce, attempt]);
@@ -290,16 +293,11 @@ export function LiveRoast({
             title={t("roastProgressTitle")}
             stage={stage}
             liveStage={stage}
+            score={scan?.scoring?.final_score ?? fallbackMeta?.final_score}
             tier={scan?.scoring?.tier ?? fallbackMeta?.tier}
           />
         </div>
       ) : null}
-      {line ? (
-        <p className="mb-4 rounded-xl border border-orange-500/30 bg-orange-500/[0.08] p-4 text-[0.95rem] leading-relaxed text-zinc-100">
-          🔥 {line}
-        </p>
-      ) : null}
-
       {tagsForLocale(tags, locale).length > 0 && (
         <div className="mb-4 flex flex-wrap gap-2">
           {tagsForLocale(tags, locale).map((tag, i) => (
@@ -315,7 +313,7 @@ export function LiveRoast({
 
       {reportBody && !waiting ? (
         <div className="roast-progress-reveal">
-          <RoastReport markdown={reportBody} className={report ? "caret" : ""} tier={scan?.scoring?.tier ?? fallbackMeta?.tier} />
+          <RoastReport markdown={reportBody} className={report ? "caret" : ""} tier={scan?.scoring?.tier ?? fallbackMeta?.tier} score={scan?.scoring?.final_score ?? fallbackMeta?.final_score} />
         </div>
       ) : null}
     </>
@@ -326,6 +324,8 @@ export function LiveRoast({
 function mapError(code: string | undefined): string {
   if (code === "rate_limited") return "liveRateLimited";
   if (code === "missing_scan") return "liveExpired";
+  if (code === "llm_quota") return "liveQuota";
+  if (code === "roast_timeout") return "liveTimeout";
   return "liveError";
 }
 
