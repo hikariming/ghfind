@@ -6,6 +6,7 @@ import {
   formatBeatPercent,
   formatTopPercent,
   populationStanding,
+  rankAmongDescending,
   type PopulationTable,
 } from "../github-population";
 
@@ -145,5 +146,27 @@ describe("assertPopulationTable", () => {
     expect(() => assertPopulationTable({ thresholds: [1, 1], at_least: [10, 5], total: 10 })).toThrow();
     expect(() => assertPopulationTable({ thresholds: [0], at_least: [10], total: 10 })).toThrow();
     expect(() => assertPopulationTable(followers)).not.toThrow();
+  });
+});
+
+describe("rankAmongDescending", () => {
+  const stars = [500_000, 120_000, 120_000, 40_000, 10_000];
+
+  it("is one more than the entries strictly above", () => {
+    expect(rankAmongDescending(stars, 600_000)).toBe(1);
+    expect(rankAmongDescending(stars, 500_000)).toBe(1);
+    expect(rankAmongDescending(stars, 499_999)).toBe(2);
+    expect(rankAmongDescending(stars, 40_001)).toBe(4);
+    expect(rankAmongDescending(stars, 10_000)).toBe(5);
+  });
+
+  it("gives ties the best rank", () => {
+    expect(rankAmongDescending(stars, 120_000)).toBe(2);
+    expect(rankAmongDescending(stars, 119_999)).toBe(4);
+  });
+
+  it("ranks below the list after every entry", () => {
+    expect(rankAmongDescending(stars, 9_999)).toBe(6);
+    expect(rankAmongDescending([], 1)).toBe(1);
   });
 });

@@ -7,7 +7,9 @@ import { assertPopulationTable, estimateAtLeast, type PopulationTable } from "..
  * accounts/repos have at least t") for the whole of GitHub, used by
  * src/lib/github-standing.ts to show "top X% of GitHub" without crawling users.
  *
- *   pnpm tsx scripts/github-population.mts
+ *   pnpm tsx scripts/github-population.mts                       # everything
+ *   pnpm tsx scripts/github-population.mts --only population     # survival tables
+ *   pnpm tsx scripts/github-population.mts --only top-repos      # exact repo ranks
  *
  * Every count is a GitHub Search `total_count` (per_page=1, no paging, so the
  * 1,000-result cap does not apply). On 2026-11-01 a run took 78 requests:
@@ -20,12 +22,22 @@ import { assertPopulationTable, estimateAtLeast, type PopulationTable } from "..
  * reads are built: repo stars and account age (the age table reuses the user
  * windows).
  *
+ * top-repos lists the name and star count of every repository with >= 10k
+ * stars into src/generated/github-top-repo-stars.json (~70 requests), so those
+ * repos get an exact global rank (`stars:>N` count + 1) without a request at
+ * render time.
+ *
  * Nothing is written when a request fails, counts are not monotone, or a
  * count drifts more than 25% from the previous build (`--force` accepts the
  * drift).
  */
 
 const OUT = "src/generated/github-population.json";
+const TOP_OUT = "src/generated/github-top-repo-stars.json";
+const ONLY = (() => {
+  const i = process.argv.indexOf("--only");
+  return i === -1 ? null : process.argv[i + 1];
+})();
 
 export interface MetricTable extends PopulationTable {
   population: string;
@@ -49,8 +61,19 @@ const today = new Date().toISOString().slice(0, 10);
 const token = process.env.GITHUB_TOKEN;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+interface SearchBody {
+  total_count: number;
+  incomplete_results: boolean;
+  items: { id: number; full_name?: string; stargazers_count?: number }[];
+}
+
 async function searchCount(kind: "users" | "repositories", q: string): Promise<{ count: number; complete: boolean }> {
-  const url = `https://api.github.com/search/${kind}?per_page=1&q=${encodeURIComponent(q)}`;
+  const body = await searchRequest(kind, q, "per_page=1");
+  return { count: body.total_count, complete: !body.incomplete_results };
+}
+
+async function searchRequest(kind: "users" | "repositories", q: string, params: string): Promise<SearchBody> {
+  const url = `https://api.github.com/search/${kind}?${params}&q=${encodeURIComponent(q)}`;
   for (let attempt = 0; attempt < 8; attempt++) {
     const res = await fetch(url, {
       headers: {
@@ -60,9 +83,9 @@ async function searchCount(kind: "users" | "repositories", q: string): Promise<{
       },
     });
     if (res.ok) {
-      const body = (await res.json()) as { total_count: number; incomplete_results: boolean };
+      const body = (await res.json()) as SearchBody;
       if (res.headers.get("x-ratelimit-remaining") === "0") await waitForReset(res);
-      return { count: body.total_count, complete: !body.incomplete_results };
+      return body;
     }
     if (res.status === 403 || res.status === 429) {
       await waitForReset(res);
@@ -215,6 +238,87 @@ async function buildSearch(file: PopulationFile): Promise<void> {
   };
 }
 
+/** Repositories with at least this many stars get an exact global rank. */
+const RANKED_MIN_STARS = 10_000;
+
+export interface TopRepoStarsFile {
+  as_of: string;
+  min_stars: number;
+  /** Star counts of every public non-fork repository with >= min_stars, descending. */
+  stars: number[];
+  /** Lowercased `owner/name` of each entry in `stars`, so a repository can skip its own entry. */
+  repos: string[];
+}
+
+/**
+ * Star counts of every repository with at least `min` stars. Search returns
+ * at most 1,000 items per query, so star ranges are halved until each range
+ * fits, then paged 100 at a time. Repos are keyed by id: a star landing
+ * mid-run can move one across a range boundary and list it twice.
+ */
+async function enumerateRepoStars(min: number): Promise<{ name: string; stars: number }[]> {
+  const byId = new Map<number, { name: string; stars: number }>();
+  const pending: [number, number | null][] = [[min, null]];
+  while (pending.length) {
+    const [lo, hi] = pending.shift()!;
+    const range = hi === null ? `stars:>=${lo}` : `stars:${lo}..${hi}`;
+    const page = (n: number) => searchRequest("repositories", range, `per_page=100&sort=stars&order=desc&page=${n}`);
+    let first = await page(1);
+    // A range that fits but timed out is retried; only an oversized one is split.
+    for (let retry = 0; first.incomplete_results && first.total_count <= 1_000 && retry < 3; retry++) {
+      await sleep(5_000 * (retry + 1));
+      first = await page(1);
+    }
+    if (first.total_count > 1_000 || first.incomplete_results) {
+      if (hi === lo) {
+        throw new Error(first.total_count > 1_000
+          ? `${range}: ${first.total_count} repositories share one star count`
+          : `${range}: search kept returning incomplete results`);
+      }
+      if (hi === null) pending.unshift([lo, lo * 2 - 1], [lo * 2, null]);
+      else {
+        const mid = Math.floor((lo + hi) / 2);
+        pending.unshift([lo, mid], [mid + 1, hi]);
+      }
+      continue;
+    }
+    const items = [...first.items];
+    for (let n = 2; n <= Math.ceil(first.total_count / 100); n++) items.push(...(await page(n)).items);
+    for (const repo of items) {
+      if (!repo.full_name) throw new Error(`${range}: repository ${repo.id} has no full_name`);
+      byId.set(repo.id, { name: repo.full_name.toLowerCase(), stars: repo.stargazers_count ?? 0 });
+    }
+    console.error(`  ${range} → ${items.length}`);
+  }
+  return [...byId.values()].filter((repo) => repo.stars >= min).sort((a, b) => b.stars - a.stars || a.name.localeCompare(b.name));
+}
+
+async function buildTopRepos(): Promise<TopRepoStarsFile> {
+  console.error(`top-repos: every repository with >= ${RANKED_MIN_STARS} stars…`);
+  const expected = await searchCount("repositories", `stars:>=${RANKED_MIN_STARS}`);
+  const repos = await enumerateRepoStars(RANKED_MIN_STARS);
+  // Paging is not a snapshot: allow repos that crossed the floor mid-run, but
+  // a larger gap means ranges were skipped.
+  if (!expected.complete || Math.abs(repos.length - expected.count) > Math.max(10, expected.count * 0.005)) {
+    throw new Error(`top-repos: listed ${repos.length}, search counts ${expected.count}`);
+  }
+  let previous: TopRepoStarsFile | null = null;
+  try {
+    previous = JSON.parse(readFileSync(TOP_OUT, "utf8")) as TopRepoStarsFile;
+  } catch {
+    previous = null;
+  }
+  if (previous && !process.argv.includes("--force") && Math.abs(repos.length / previous.stars.length - 1) > MAX_DRIFT) {
+    throw new Error(`top-repos: ${previous.stars.length} → ${repos.length} repositories (--force to accept)`);
+  }
+  return {
+    as_of: today,
+    min_stars: RANKED_MIN_STARS,
+    stars: repos.map((repo) => repo.stars),
+    repos: repos.map((repo) => repo.name),
+  };
+}
+
 /**
  * Population sizes move a few percent a month. A larger jump between builds
  * almost always means a broken count (index outage, partial windows), so the
@@ -256,15 +360,28 @@ function load(): PopulationFile {
 }
 
 async function main() {
-  const previous = load();
-  // Built from scratch: a table the script no longer builds is dropped, not carried over.
-  const file: PopulationFile = { version: 1, generated_at: "", populations: {}, metrics: {} };
-  await buildSearch(file);
-  for (const [key, table] of Object.entries(file.metrics)) assertPopulationTable(table, key);
-  if (!process.argv.includes("--force")) checkDrift(previous, file);
-  file.generated_at = new Date().toISOString();
-  writeFileSync(OUT, `${JSON.stringify(file, null, 2)}\n`);
-  console.error(`wrote ${OUT}`);
+  // Build and check everything first, then write: a failure in either stage
+  // leaves both files as they were, never a new table next to an old list.
+  let population: PopulationFile | null = null;
+  if (ONLY !== "top-repos") {
+    const previous = load();
+    // Built from scratch: a table the script no longer builds is dropped, not carried over.
+    population = { version: 1, generated_at: "", populations: {}, metrics: {} };
+    await buildSearch(population);
+    for (const [key, table] of Object.entries(population.metrics)) assertPopulationTable(table, key);
+    if (!process.argv.includes("--force")) checkDrift(previous, population);
+    population.generated_at = new Date().toISOString();
+  }
+  const top = ONLY !== "population" ? await buildTopRepos() : null;
+  if (population) {
+    writeFileSync(OUT, `${JSON.stringify(population, null, 2)}\n`);
+    console.error(`wrote ${OUT}`);
+  }
+  if (top) {
+    // One line: thousands of entries, reviewed by count rather than by line.
+    writeFileSync(TOP_OUT, `${JSON.stringify(top)}\n`);
+    console.error(`wrote ${TOP_OUT} (${top.stars.length} repositories)`);
+  }
 }
 
 main().catch((error) => {

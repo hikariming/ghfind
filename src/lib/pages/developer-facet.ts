@@ -86,7 +86,7 @@ export async function loadDeveloperFacet(type: FacetType, value: string) {
     entries,
     overview,
     // Server-side so the star tables never ship with the page island.
-    repoStarStanding: overview ? repoStarStanding(overview.repo.stars) : null,
+    repoStarStanding: overview ? repoStarStanding(overview.repo.stars, overview.repo.name_with_owner) : null,
     relatedProjects,
     assessment,
     treasureHistory,

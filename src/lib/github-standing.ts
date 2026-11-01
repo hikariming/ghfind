@@ -14,7 +14,8 @@
  * itself is not placed on this scale.
  */
 import snapshot from "@/generated/github-population.json";
-import { estimateAtLeast, populationStanding, type PopulationTable } from "./github-population";
+import topRepoStars from "@/generated/github-top-repo-stars.json";
+import { estimateAtLeast, populationStanding, rankAmongDescending, type PopulationTable } from "./github-population";
 
 type GithubStandingMetric = "top_repo_stars" | "account_age_days";
 
@@ -30,6 +31,23 @@ interface SnapshotFile {
 }
 
 const FILE = snapshot as unknown as SnapshotFile;
+
+/** Every repository with >= `min_stars`, star counts descending (counted ranks). */
+const TOP_REPOS = topRepoStars as {
+  as_of: string;
+  min_stars: number;
+  stars: number[];
+  /** Lowercased `owner/name`, aligned with `stars`. */
+  repos: string[];
+};
+
+let listedByName: Map<string, number> | null = null;
+
+/** Star count on the list's date for each listed repository, by lowercased name. */
+function listedStars(name: string): number | undefined {
+  listedByName ??= new Map(TOP_REPOS.repos.map((repo, i) => [repo, TOP_REPOS.stars[i]]));
+  return listedByName.get(name.toLowerCase());
+}
 
 /**
  * Which snapshot table each standing reads, and the floor of its percent
@@ -93,12 +111,25 @@ export interface GithubStandingInput {
   created_at: string | null;
 }
 
-/** Repositories with more stars, plus one, interpolated from the table. */
-function repoRank(table: PopulationTable, stars: number): { rank: number; rank_exact: boolean } {
+/**
+ * Repositories with more stars, plus one: counted from the full list from
+ * `TOP_REPOS.min_stars` up, interpolated from the table below it.
+ *
+ * The list holds each repository's own star count on its `as_of` date. When
+ * the caller's count is older and lower (a scan or graph row from before the
+ * list), the repository's own entry sits above it; it is not a rival, so it
+ * is not counted.
+ */
+function repoRank(table: PopulationTable, stars: number, nameWithOwner?: string): { rank: number; rank_exact: boolean } {
+  if (stars >= TOP_REPOS.min_stars) {
+    const own = nameWithOwner ? listedStars(nameWithOwner) : undefined;
+    const rank = rankAmongDescending(TOP_REPOS.stars, stars) - (own !== undefined && own > stars ? 1 : 0);
+    return { rank, rank_exact: true };
+  }
   return { rank: Math.round(estimateAtLeast(table, stars + 1).count) + 1, rank_exact: false };
 }
 
-function standing(metric: GithubStandingMetric, value: number): GithubStanding | null {
+function standing(metric: GithubStandingMetric, value: number, nameWithOwner?: string): GithubStanding | null {
   const { table: key, floor } = METRICS[metric];
   const table = FILE.metrics[key];
   if (!table || !Number.isFinite(value) || value < floor) return null;
@@ -115,7 +146,7 @@ function standing(metric: GithubStandingMetric, value: number): GithubStanding |
     exact: s.exact,
     source: table.source,
     as_of: table.as_of,
-    ...(metric === "top_repo_stars" ? repoRank(table, value) : {}),
+    ...(metric === "top_repo_stars" ? repoRank(table, value, nameWithOwner) : {}),
   };
 }
 
@@ -150,7 +181,7 @@ function accountAge(createdAt: string | null, asOf: string | undefined, now: num
 export function githubStandings(m: GithubStandingInput, topRepo?: GithubStandingRepo, now = Date.now()): GithubStanding[] {
   const out: GithubStanding[] = [];
   if (topRepo) {
-    const s = repoStarStanding(topRepo.stars);
+    const s = repoStarStanding(topRepo.stars, topRepo.name_with_owner);
     if (s) {
       const { name_with_owner, attribution_share } = topRepo;
       out.push({ ...s, repo: { name_with_owner, ...(attribution_share !== undefined ? { attribution_share } : {}) } });
@@ -164,8 +195,11 @@ export function githubStandings(m: GithubStandingInput, topRepo?: GithubStanding
   return out;
 }
 
-/** Where one repository sits among public non-fork repositories by stars. */
-export function repoStarStanding(stars: number): GithubStanding | null {
+/**
+ * Where one repository sits among public non-fork repositories by stars.
+ * `nameWithOwner` lets a counted rank skip the repository's own list entry.
+ */
+export function repoStarStanding(stars: number, nameWithOwner?: string): GithubStanding | null {
   if (!(stars >= 1)) return null;
-  return standing("top_repo_stars", Math.floor(stars));
+  return standing("top_repo_stars", Math.floor(stars), nameWithOwner);
 }

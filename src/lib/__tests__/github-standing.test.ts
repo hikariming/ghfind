@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import population from "@/generated/github-population.json";
+import topRepos from "@/generated/github-top-repo-stars.json";
 import { githubStandings, repoStarStanding } from "../github-standing";
 
 // Runs against the shipped snapshot: assertions are about shape and ordering,
@@ -93,5 +94,53 @@ describe("repoStarStanding", () => {
   it("matches the profile's best-repo row", () => {
     const [row] = githubStandings({ created_at: null }, repo(279));
     expect(row.rank).toBe(repoStarStanding(279)?.rank);
+  });
+});
+
+describe("counted repository ranks", () => {
+  it("counts ranks from the list floor up, #1 for the most-starred repository", () => {
+    expect(repoStarStanding(topRepos.stars[0])?.rank).toBe(1);
+    expect(repoStarStanding(topRepos.min_stars)?.rank_exact).toBe(true);
+    // At the floor: at most every listed repository is ahead.
+    expect(repoStarStanding(topRepos.min_stars)?.rank).toBeLessThanOrEqual(topRepos.stars.length + 1);
+    expect(repoStarStanding(topRepos.min_stars - 1)?.rank_exact).toBe(false);
+  });
+
+  it("agrees with the interpolated rank at the list floor", () => {
+    // The table and the list come from separate requests, so they can
+    // differ by a repository or two; a large gap means one of them is wrong.
+    const below = repoStarStanding(topRepos.min_stars - 1)!.rank!;
+    const at = repoStarStanding(topRepos.min_stars)!.rank!;
+    expect(Math.abs(at - below)).toBeLessThanOrEqual(below * 0.01);
+  });
+
+  it("does not count a repository's own list entry when its star count is older", () => {
+    // The most-starred repository, read from a scan that predates the list.
+    const [top, second] = [topRepos.repos[0], topRepos.stars[1]];
+    const stale = topRepos.stars[0] - 1;
+    expect(stale).toBeGreaterThan(second);
+    expect(repoStarStanding(stale, top)?.rank).toBe(1);
+    expect(repoStarStanding(stale, top.toUpperCase())?.rank).toBe(1);
+    // Without the name, the stale count ranks below its own entry.
+    expect(repoStarStanding(stale)?.rank).toBe(2);
+    // A newer, higher count needs no correction.
+    expect(repoStarStanding(topRepos.stars[0] + 100, top)?.rank).toBe(1);
+  });
+
+  it("counts other repositories normally for a named repository", () => {
+    const i = 100;
+    const name = topRepos.repos[i];
+    expect(repoStarStanding(topRepos.stars[i], name)?.rank).toBe(repoStarStanding(topRepos.stars[i])?.rank);
+    expect(githubStandings({ created_at: null }, { name_with_owner: name, stars: topRepos.stars[i] - 1 })[0].rank)
+      .toBe(repoStarStanding(topRepos.stars[i] - 1)!.rank! - 1);
+  });
+
+  it("ships a descending list that starts at the floor, one name per entry", () => {
+    const stars = topRepos.stars;
+    for (let i = 1; i < stars.length; i++) expect(stars[i]).toBeLessThanOrEqual(stars[i - 1]);
+    expect(stars[stars.length - 1]).toBeGreaterThanOrEqual(topRepos.min_stars);
+    expect(topRepos.repos).toHaveLength(stars.length);
+    expect(new Set(topRepos.repos).size).toBe(stars.length);
+    for (const name of topRepos.repos) expect(name).toBe(name.toLowerCase());
   });
 });

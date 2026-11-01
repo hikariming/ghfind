@@ -194,3 +194,18 @@ export function formatBeatPercent(share: number, locale = "en-US"): string {
   const floored = Math.min(Math.floor(pct * scale + 1e-9), 100 * scale - 1) / scale;
   return formatPercentNumber(floored, locale, { maximumFractionDigits: digits });
 }
+
+/**
+ * Exact 1-based rank of `value` in a descending list: one more than the
+ * number of entries strictly greater, so ties share the best rank.
+ */
+export function rankAmongDescending(sortedDesc: readonly number[], value: number): number {
+  let lo = 0;
+  let hi = sortedDesc.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (sortedDesc[mid] > value) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo + 1;
+}
