@@ -1743,6 +1743,25 @@ function isOrgOwnedLongTermCandidate(repo: ContribRepoAgg, loginLower: string): 
 
 export const CONTRIBUTOR_PAGE_LIMIT = 3;
 
+interface CoCreatorCommit {
+  sha: string;
+  parents?: unknown[];
+  author?: { login?: string | null } | null;
+}
+
+/** Recover rename-related author-index misses without trusting commit names or emails. */
+export async function fetchCoCreatorCommits(owner: string, name: string, login: string): Promise<CoCreatorCommit[]> {
+  const path = `repos/${owner}/${name}/commits`;
+  const commits = await restGet<CoCreatorCommit[]>(
+    `${path}?author=${encodeURIComponent(login)}&per_page=3`,
+  ).catch(swallowUnlessAborted);
+  // Only an actual empty response triggers recovery; failures remain failures.
+  if (!commits || commits.length > 0) return commits ?? [];
+  const recent = await restGet<CoCreatorCommit[]>(`${path}?per_page=30`)
+    .catch(swallowUnlessAborted) ?? [];
+  return recent.filter(commit => commit.author?.login?.toLowerCase() === login.toLowerCase()).slice(0, 3);
+}
+
 async function collectCoCreatorFacts(repo: ContribRepoAgg, login: string, now = new Date()): Promise<CoCreatorFacts> {
   const [owner, name] = repo.repo.split("/");
   // Page the contributor list until the user appears (bounded): large repos
@@ -1833,9 +1852,7 @@ async function collectCoCreatorFacts(repo: ContribRepoAgg, login: string, now = 
   // Direct-push maintainers may have no PR sample. Three full commit diffs are
   // bounded evidence; merge-only and truncated diffs never establish substance.
   if (f.samples < 3) {
-    const commits = await restGet<{sha: string; parents?: unknown[]}[]>(
-      `repos/${owner}/${name}/commits?author=${encodeURIComponent(login)}&per_page=3`,
-    ).catch(swallowUnlessAborted) ?? [];
+    const commits = await fetchCoCreatorCommits(owner, name, login);
     for (const commit of commits) {
       if ((commit.parents?.length ?? 0)>1) continue;
       const detail = await restGet<{files?: {filename: string; additions: number; deletions: number}[]; stats?: {total: number}}>(

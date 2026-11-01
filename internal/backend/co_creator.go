@@ -328,11 +328,7 @@ func (c *GitHubClient) collectCoCreatorFactsAt(ctx context.Context, repo Contrib
 		}
 	}
 	if f.Samples < 3 {
-		var commits []struct {
-			SHA     string `json:"sha"`
-			Parents []any  `json:"parents"`
-		}
-		_ = c.restGet(ctx, "repos/"+owner+"/"+name+"/commits?author="+url.QueryEscape(login)+"&per_page=3", &commits)
+		commits := c.fetchCoCreatorCommits(ctx, owner, name, login)
 		for _, commit := range commits {
 			if len(commit.Parents) > 1 {
 				continue
@@ -362,4 +358,35 @@ func (c *GitHubClient) collectCoCreatorFactsAt(ctx context.Context, repo Contrib
 		}
 	}
 	return f
+}
+
+// Recover author-index misses after a rename using GitHub-linked authors only.
+// The fallback inspects at most 30 default-branch commits and samples at most 3.
+type coCreatorCommit struct {
+	SHA     string `json:"sha"`
+	Parents []any  `json:"parents"`
+	Author  *struct {
+		Login string `json:"login"`
+	} `json:"author"`
+}
+
+func (c *GitHubClient) fetchCoCreatorCommits(ctx context.Context, owner, name, login string) []coCreatorCommit {
+	path := "repos/" + owner + "/" + name + "/commits"
+	var commits []coCreatorCommit
+	if err := c.restGet(ctx, path+"?author="+url.QueryEscape(login)+"&per_page=3", &commits); err != nil || len(commits) > 0 {
+		return commits
+	}
+	var recent []coCreatorCommit
+	if err := c.restGet(ctx, path+"?per_page=30", &recent); err != nil {
+		return nil
+	}
+	for _, commit := range recent {
+		if commit.Author != nil && strings.EqualFold(commit.Author.Login, login) {
+			commits = append(commits, commit)
+			if len(commits) == 3 {
+				break
+			}
+		}
+	}
+	return commits
 }
