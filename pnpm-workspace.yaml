@@ -22,3 +22,7 @@ minimumReleaseAgeExclude:
   - motion-utils@14.6.0
   - motion@14.6.0
   - zustand@5.0.16
+overrides:
+  # CVE-2026-96889 / GHSA-2464-fhr4-w9xw: libvips SVG RCE on glibc. Keep every
+  # sharp copy (next, astro, miniflare) on the patched line.
+  sharp: ^0.35.5

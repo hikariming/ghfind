@@ -194,7 +194,11 @@
     "apiCtaLink": "وثائق API ←",
     "repoAuthoredBy": "يصونه",
     "repoContributors": "مساهمًا مصنّفًا",
-    "repoAvgScore": "متوسط التقييم"
+    "repoAvgScore": "متوسط التقييم",
+    "repoGlobalRank": "#{rank} من {total} على GitHub",
+    "repoGlobalRankApprox": "~#{rank} من {total} على GitHub",
+    "repoTopAmong": "أعلى {pct}% من المستودعات ذات ≥{floor}★",
+    "repoRankNote": "حسب النجوم بين جميع المستودعات العامة غير المتفرعة · {asOf}"
   },
   "projects": {
     "metaTitle": "اكتشف مشاريع GitHub عالية الجودة · ghfind",
@@ -316,6 +320,15 @@
     "rankUnit": "/ من {total}",
     "rankUnranked": "خارج التصنيف (البيانات غير كافية)",
     "beatInline": "تفوّق على {beat}% من المطورين",
+    "githubStandingTitle": "على مستوى GitHub بالكامل",
+    "githubStandingAccountAge": "عمر الحساب",
+    "githubStandingTopRepo": "المستودع الأكثر نجومًا",
+    "githubStandingRank": "#{rank} من {total}",
+    "githubStandingRankApprox": "~#{rank} من {total}",
+    "githubStandingTopAmong": "أعلى {pct}% من المستودعات ذات ≥{floor}★",
+    "githubStandingOlder": "أقدم من {pct}%",
+    "githubStandingYears": "{years} سنة",
+    "githubStandingFootnote": "بيانات عامة من GitHub بالكامل · {asOf}",
     "milestoneNext": "{gap} نقطة تفصلك عن “{tier}”",
     "milestoneCapped": "🏆 الحد الأقصى · الفئة العليا",
     "facetRankLine": "المركز #{rank} في {facet}",

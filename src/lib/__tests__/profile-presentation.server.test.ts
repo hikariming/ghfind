@@ -218,6 +218,66 @@ describe("getGoProfilePresentation", () => {
     });
   });
 
+  it("adds whole-GitHub standings for the snapshot's raw facts", async () => {
+    mocks.getProfileSnapshot.mockResolvedValue({
+      ...snapshot,
+      top_repos: [{ ...snapshot.top_repos[0], stars: 279 }, ...snapshot.top_repos.slice(1)],
+      metrics: { followers: 183, created_at: "2016-03-10T08:00:00Z" },
+    });
+
+    const presentation = await getGoProfilePresentation("fixture-account-049");
+
+    expect(presentation?.github_standing?.map((s) => [s.metric, s.value])).toEqual([
+      ["top_repo_stars", 279],
+      ["account_age_days", expect.any(Number)],
+    ]);
+    expect(presentation?.github_standing?.[0].rank).toBeGreaterThan(1);
+    expect(presentation?.github_standing?.[0].repo).toEqual({ name_with_owner: "fixture-account-049/hello" });
+  });
+
+  it("does not rank the profile README repo as the best repository", async () => {
+    mocks.getProfileSnapshot.mockResolvedValue({
+      ...snapshot,
+      top_repos: [
+        { name: "Fixture-Account-049", owner_login: "fixture-account-049", stars: 3_000, forks: 0, open_issues: 0, size: 1 },
+        { name: "world", name_with_owner: "fixture-account-049/world", stars: 40, forks: 0, open_issues: 0, size: 1 },
+      ],
+      metrics: { created_at: null },
+    });
+
+    const presentation = await getGoProfilePresentation("fixture-account-049");
+
+    expect(presentation?.github_standing?.map((s) => [s.repo?.name_with_owner, s.value])).toEqual([
+      ["fixture-account-049/world", 40],
+    ]);
+  });
+
+  it("ranks a co-built repository by its own stars and keeps its credited share", async () => {
+    mocks.getProfileSnapshot.mockResolvedValue({
+      ...snapshot,
+      top_repos: [
+        { name: "engine", owner_login: "big-org", stars: 120_000, forks: 0, open_issues: 0, size: 1, attributed_original: true, attribution_share: 0.1 },
+        { name: "world", name_with_owner: "fixture-account-049/world", stars: 40, forks: 0, open_issues: 0, size: 1 },
+      ],
+      metrics: { created_at: null },
+    });
+
+    const presentation = await getGoProfilePresentation("fixture-account-049");
+
+    expect(presentation?.github_standing?.[0]).toMatchObject({
+      value: 120_000,
+      repo: { name_with_owner: "big-org/engine", attribution_share: 0.1 },
+    });
+  });
+
+  it("omits whole-GitHub standings without a snapshot", async () => {
+    mocks.getProfileSnapshot.mockResolvedValue(null);
+
+    const presentation = await getGoProfilePresentation("fixture-account-049");
+
+    expect(presentation).not.toHaveProperty("github_standing");
+  });
+
   it("passes the canonical scan's score breakdown through the local presentation", async () => {
     mocks.getCurrentCanonicalQuickScan.mockResolvedValue(canonicalScan());
 

@@ -194,7 +194,11 @@
     "apiCtaLink": "Dokumentasi API →",
     "repoAuthoredBy": "Dirawat oleh",
     "repoContributors": "kontributor terperingkat",
-    "repoAvgScore": "rata-rata skor"
+    "repoAvgScore": "rata-rata skor",
+    "repoGlobalRank": "#{rank} dari {total} di GitHub",
+    "repoGlobalRankApprox": "~#{rank} dari {total} di GitHub",
+    "repoTopAmong": "Top {pct}% dari repo dengan ≥{floor}★",
+    "repoRankNote": "Berdasarkan bintang di antara semua repositori publik non-fork · {asOf}"
   },
   "projects": {
     "metaTitle": "Temukan proyek GitHub berkualitas · ghfind",
@@ -316,6 +320,15 @@
     "rankUnit": "/ dari {total}",
     "rankUnranked": "Belum terperingkat (data belum cukup)",
     "beatInline": "Mengalahkan {beat}% developer",
+    "githubStandingTitle": "Di seluruh GitHub",
+    "githubStandingAccountAge": "Usia akun",
+    "githubStandingTopRepo": "Repo dengan bintang terbanyak",
+    "githubStandingRank": "#{rank} dari {total}",
+    "githubStandingRankApprox": "~#{rank} dari {total}",
+    "githubStandingTopAmong": "Top {pct}% dari repo dengan ≥{floor}★",
+    "githubStandingOlder": "Lebih tua dari {pct}%",
+    "githubStandingYears": "{years} thn",
+    "githubStandingFootnote": "Data publik seluruh GitHub · {asOf}",
     "milestoneNext": "{gap} poin lagi menuju “{tier}”",
     "milestoneCapped": "🏆 Sudah mentok · tier tertinggi",
     "facetRankLine": "#{rank} di {facet}",

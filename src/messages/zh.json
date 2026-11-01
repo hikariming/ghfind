@@ -194,7 +194,11 @@
     "apiCtaLink": "API 文档 →",
     "repoAuthoredBy": "作者",
     "repoContributors": "位上榜贡献者",
-    "repoAvgScore": "平均分"
+    "repoAvgScore": "平均分",
+    "repoGlobalRank": "全 GitHub 第 {rank} 名 / {total}",
+    "repoGlobalRankApprox": "全 GitHub 约第 {rank} 名 / {total}",
+    "repoTopAmong": "≥{floor}★ 的仓库中前 {pct}%",
+    "repoRankNote": "按 star 对比全部公开非 fork 仓库 · {asOf}"
   },
   "projects": {
     "metaTitle": "发现高质量 GitHub 项目 · ghfind",
@@ -316,6 +320,15 @@
     "rankUnit": "/ 共 {total} 人",
     "rankUnranked": "暂无排名（样本不足）",
     "beatInline": "击败了 {beat}% 的开发者",
+    "githubStandingTitle": "在全 GitHub 中的位置",
+    "githubStandingAccountAge": "账号年龄",
+    "githubStandingTopRepo": "最高 Star 仓库",
+    "githubStandingRank": "第 {rank} 名 / {total}",
+    "githubStandingRankApprox": "约第 {rank} 名 / {total}",
+    "githubStandingTopAmong": "≥{floor}★ 的仓库中前 {pct}%",
+    "githubStandingOlder": "早于 {pct}% 的账号",
+    "githubStandingYears": "{years} 年",
+    "githubStandingFootnote": "对比全 GitHub 公开数据 · {asOf}",
     "milestoneNext": "距「{tier}」还差 {gap} 分",
     "milestoneCapped": "🏆 已封顶 · 殿堂级标杆",
     "facetRankLine": "{facet} 榜 #{rank}",

@@ -480,6 +480,7 @@ export function logFreshScanFailure(error: unknown, context: {
   persistenceFailure: boolean;
 }): void {
   const category = context.persistenceFailure ? "score_persistence"
+    : error instanceof DeferredScanError ? error.code
     : error instanceof GitHubInternalQueryError ? "github_internal"
     : error instanceof GitHubResourceLimitError ? "github_resource_limit"
     : error instanceof GitHubQueryTimeoutError ? "github_query_timeout"
