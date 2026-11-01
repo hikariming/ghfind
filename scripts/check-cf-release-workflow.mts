@@ -18,6 +18,25 @@ function jobBody(source: string, job: string): string {
 }
 const authorization = jobBody(workflow, "authorize");
 const deployJob = jobBody(workflow, "deploy");
+const botJob = jobBody(workflow, "deploy-bot");
+for (const fragment of ['needs: [deploy]', 'environment: Production',
+  'group: ghfind-bot-production', 'cancel-in-progress: false',
+  "github.repository == 'hikariming/ghfind'", "github.event.workflow_run.conclusion == 'success'",
+  "github.event.workflow_run.event == 'push'", "github.event.workflow_run.head_branch == 'main'",
+  "github.event.workflow_run.repository.full_name == 'hikariming/ghfind'",
+  'ref: ${{ github.event.workflow_run.head_sha }}', 'persist-credentials: false',
+  'RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}',
+  'test "$(git rev-parse HEAD)" = "$RELEASE_SHA"',
+  'git ls-remote origin refs/heads/main', 'if [ "$current_main" != "$RELEASE_SHA" ]; then',
+  'pnpm exec wrangler d1 migrations apply ghfind-bot --remote --env production',
+  'pnpm exec wrangler deploy --env production --tag "production-$RELEASE_SHA"']) {
+  if (!botJob.includes(fragment)) throw new Error(`Bot production gate missing ${fragment}`);
+}
+if (/always\(\)|continue-on-error:\s*true/.test(botJob))
+  throw new Error('Bot must wait for a successful legacy SCORE deployment');
+const botOrder = ['Require exact current main', 'wrangler d1 migrations apply ghfind-bot', 'wrangler deploy --env production'];
+for (let i = 1; i < botOrder.length; i++)
+  if (botJob.indexOf(botOrder[i]) <= botJob.indexOf(botOrder[i - 1])) throw new Error('Unsafe bot deployment ordering');
 for (const fragment of ['workflow_run:', 'workflows: ["CI"]', 'types: [completed]', 'branches: [main]', 'cancel-in-progress: false']) {
   if (!workflow.includes(fragment)) throw new Error(`Production trigger missing ${fragment}`);
 }
@@ -27,15 +46,26 @@ for (const fragment of ["github.repository == 'hikariming/ghfind'", "github.even
 for (const job of [authorization,deployJob]) for (const fragment of ['ref: ${{ github.event.workflow_run.head_sha }}','persist-credentials: false']) {
   if (!job.includes(fragment)) throw new Error(`Exact checkout missing ${fragment}`);
 }
-for (const fragment of ['needs: [authorize]', 'environment: Production', 'EXPECTED_ACCOUNT_ID: 8f19bebe359e4ec1a24c68c5f49c1584', 'secrets.CF_API_TOKEN', 'gh api repos/hikariming/ghfind/git/ref/heads/main', 'node scripts/feed-production-release.mjs schema', 'wrangler d1 migrations apply ghfind --remote --config', 'wrangler d1 migrations apply ghfind-feed --remote --config', 'node scripts/feed-platform-production.mjs verify', 'runtime-off.json', 'runtime-baseline.json', 'node scripts/feed-production-release.mjs web-verify', 'web-paused.json', 'web-all.json', 'steps.paused.outputs.version', 'pnpm smoke:deployment']) {
+for (const fragment of ['needs: [authorize]', 'environment: Production', 'EXPECTED_ACCOUNT_ID: 8f19bebe359e4ec1a24c68c5f49c1584', 'secrets.CF_API_TOKEN', 'gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main"', 'node scripts/feed-production-release.mjs schema', 'wrangler d1 migrations apply ghfind --remote --config', 'wrangler d1 migrations apply ghfind-feed --remote --config', 'node scripts/feed-platform-production.mjs verify', 'runtime-off.json', 'runtime-baseline.json', 'node scripts/feed-production-release.mjs web-verify', 'web-paused.json', 'web-all.json', 'steps.paused.outputs.version', 'pnpm smoke:deployment']) {
   if (!deployJob.includes(fragment)) throw new Error(`Production job missing ${fragment}`);
 }
-const order = ['Build and push the portable image','Apply and verify explicitly approved','Pause an already active Go gateway','Detach only the owned consumers','Deploy private adapter and off-mode','Install a compatible paused gateway','Activate executor and verify actual baseline','Start or resume the single real production assessment','Require real assessment finalization and durable queue projection','Verify bounded authenticated Go service contracts','Cut all Feed requests'];
+const order = ['Build and push the portable image','Apply and verify explicitly approved','Pause an already active Go gateway','Detach only the owned consumers','Deploy private adapter and off-mode','Install a compatible paused gateway','Activate executor and verify actual baseline','Verify completed assessment and current durable projection','Verify bounded authenticated Go service contracts','Cut all Feed requests'];
 for (let i=1;i<order.length;i++) if(deployJob.indexOf(order[i])<=deployJob.indexOf(order[i-1])) throw new Error('Unsafe deployment ordering');
 // Traffic is already legacy or Go-paused. Replace the private fleet in one
 // platform rollout step, but retain all actual readiness/instance gates.
 const runtimeDeploys = deployJob.split('\n').filter(line => line.includes('wrangler deploy --config platform/runtime/wrangler.production.generated.json'));
 if (runtimeDeploys.length !== 2 || runtimeDeploys.some(line => !line.includes('--containers-rollout=immediate'))) throw new Error('Paused production runtime requires explicit immediate Container rollout');
+const offStep = /      - name: Deploy private adapter and off-mode[^\n]*\n([\s\S]*?)(?=      - name:)/.exec(deployJob)?.[1] ?? '';
+const offTransition = offStep.indexOf('240s node scripts/feed-production-off-transition.mjs');
+const offRollout = offStep.indexOf('310s node scripts/feed-production-rollout.mjs');
+if (offRollout < offStep.indexOf('wrangler deploy --config platform/runtime/wrangler.production.generated.json') ||
+    offRollout < 0 || offRollout >= offTransition || !offStep.includes('applications-before-off.json\" \"$RUNNER_TEMP/feed-production-evidence/off-rollout.json\"'))
+  throw new Error('Off restart requires completed image rollout evidence before lifecycle mutation');
+if (offTransition < offStep.indexOf('wrangler deploy --config platform/runtime/wrangler.production.generated.json') ||
+    offTransition < 0 || offTransition >= offStep.indexOf('node scripts/feed-platform-production.mjs verify') ||
+    !offStep.includes('consumer-pause.json" "$RUNNER_TEMP/feed-production-evidence/off-transition.json"') ||
+    /continue-on-error|if:|\|\|/.test(offStep.replace("        if: steps.current.outputs.current == 'true'\n", "")))
+  throw new Error('Off process replacement must follow deployment and consumer detachment, and precede full readiness without bypass');
 const imageStep = /      - name: Build and push the portable image[^\n]*\n([\s\S]*?)(?=      - name:)/.exec(deployJob)?.[1] ?? '';
 for (const fragment of ['openssl rand -hex 32', '--build-arg IMAGE_BUILD_ID="$FEED_IMAGE_BUILD_ID"',
   '--entrypoint /usr/local/bin/feed-api', '--entrypoint /usr/local/bin/feed-worker', '--build-info',
@@ -45,8 +75,8 @@ for (const fragment of ['openssl rand -hex 32', '--build-arg IMAGE_BUILD_ID="$FE
 const containment = /      - name: Contain failed cutover[^\n]*\n([\s\S]*?)(?=      - name:)/.exec(deployJob)?.[1] ?? '';
 if (!containment.includes("always() && steps.paused.outputs.version != '' && steps.admission.outputs.started == 'true' && steps.smoke.outcome != 'success'"))
   throw new Error('Incomplete or cancelled admission must retain Go-only containment');
-for (const fragment of ['timeout-minutes: 3', 'timeout --signal=TERM --kill-after=5s 120s',
-  'timeout --signal=TERM --kill-after=5s 30s', 'containment-attempt.json', 'attempted_unverified'])
+for (const fragment of ['timeout-minutes: 6', 'timeout --signal=TERM --kill-after=5s 120s',
+  'timeout --signal=TERM --kill-after=5s 90s', 'containment-attempt.json', 'attempted_unverified'])
   if (!containment.includes(fragment)) throw new Error(`Containment deadline/evidence missing ${fragment}`);
 const admissionAt = deployJob.indexOf('      - name: Record gateway admission intent');
 if (admissionAt < 0 || admissionAt >= deployJob.indexOf('      - name: Cut all Feed requests') ||
@@ -60,7 +90,7 @@ for (const [mode, title] of [['off', 'Deploy private adapter and off-mode candid
   if (!step.includes(capture) || !step.includes(verify) || step.indexOf(capture) >= deployAt || step.indexOf(verify) <= deployAt) throw new Error(`Production ${mode} requires its own predeployment application snapshot`);
 }
 const baselineStep = /      - name: Activate executor and verify actual baseline[^\n]*\n([\s\S]*?)(?=      - name:)/.exec(deployJob)?.[1] ?? '';
-const transitionAt = baselineStep.indexOf('240s node scripts/feed-production-transition.mjs');
+const transitionAt = baselineStep.indexOf('420s node scripts/feed-production-transition.mjs');
 if (transitionAt < baselineStep.indexOf('wrangler deploy --config platform/runtime/wrangler.production.generated.json') ||
     transitionAt >= baselineStep.indexOf('node scripts/feed-platform-production.mjs verify') ||
     !baselineStep.includes('mode-transition.json') || baselineStep.includes('sleep 130'))
@@ -127,25 +157,30 @@ if (/^\s+(push|schedule|workflow_run):/m.test(reconcileWorkflow)) {
 
 console.log(`Feed reconciliation workflow contract passed (${reconcileWorkflowPath})`);
 
-const assessmentStep = /      - name: Start or resume the single real production assessment[^\n]*\n([\s\S]*?)(?=      - name:)/.exec(deployJob)?.[1] ?? '';
-const restoreStep = /      - name: Restore the assessment journal without provider mutations[^\n]*\n([\s\S]*?)(?=      - name:)/.exec(deployJob)?.[1] ?? '';
-if (!restoreStep.includes('node scripts/feed-production-assessment-recovery.mjs') ||
-    /assessment-operator\.mjs|assessment\.mjs (start|operator-window)|continue-on-error|if:/.test(restoreStep) ||
-    deployJob.indexOf('Restore the assessment journal without provider mutations') >= deployJob.indexOf('Start or resume the single real production assessment') ||
-    /if:|continue-on-error|assessment-recovery\.mjs/.test(assessmentStep))
-  throw new Error('Read-only journal restoration must succeed in its own preceding step');
-const assessmentOrder = [ 'node scripts/feed-production-assessment-operator.mjs', 'node scripts/feed-production-assessment.mjs operator-window', 'node scripts/feed-production-assessment.mjs start'];
-let priorAssessment = -1;
-for (const command of assessmentOrder) {
-  const position = assessmentStep.indexOf(command);
-  if (position <= priorAssessment) throw new Error('Assessment recovery, audited retry and observation window must precede any start');
-  priorAssessment = position;
-}
-if (!deployJob.includes('PROJECT_ANALYSIS_RECONCILE_SECRET: ${{ secrets.PROJECT_ANALYSIS_RECONCILE_SECRET }}'))
-  throw new Error('Production recovery requires its own reconciliation credential');
+const sourceCheckpoint = /      - name: Verify completed assessment source before deployment[^\n]*\n([\s\S]*?)(?=      - name:)/.exec(deployJob)?.[1] ?? '';
+const projectionCheckpoint = /      - name: Verify completed assessment and current durable projection[^\n]*\n([\s\S]*?)(?=      - name:)/.exec(deployJob)?.[1] ?? '';
+const checkpointCommand = 'node scripts/feed-production-assessment-checkpoint.mjs "$RELEASE_SHA" ops/feed-production-assessment-checkpoint.json ops/feed-production-assessment-carryover.json';
+if (!sourceCheckpoint.includes(checkpointCommand) || !sourceCheckpoint.includes('assessment-source.json" --source-only') ||
+    !projectionCheckpoint.includes(checkpointCommand) || !projectionCheckpoint.includes('assessment-result.json"') || projectionCheckpoint.includes('--source-only') ||
+    /if:|continue-on-error|\|\|/.test((sourceCheckpoint + projectionCheckpoint).replaceAll("        if: steps.current.outputs.current == 'true'\n", "")) ||
+    deployJob.indexOf('Verify completed assessment source before deployment') >= deployJob.indexOf('Build the real Web') ||
+    /assessment-operator\.mjs|assessment\.mjs (start|operator-window|wait)|assessment-recovery\.mjs/.test(deployJob))
+  throw new Error('Completed assessment requires unskippable source preflight and live projection verification without provider mutation or expiring history');
 
 const cachePreflight = deployJob.indexOf('name: Populate new build cache before replacing the public Web');
 const firstWebDeploy = deployJob.indexOf('wrangler deploy --config platform/runtime/wrangler.web.production.generated.json');
 if (cachePreflight < 0 || cachePreflight >= firstWebDeploy ||
     !deployJob.slice(cachePreflight, firstWebDeploy).includes('populateCache remote --config platform/runtime/wrangler.web.production.generated.json'))
   throw new Error('New build cache must be populated before replacing the public Web');
+
+// Every post-guard step must honor a successful superseded skip.
+for(const name of ['deploy-cf-production.yml','cost-monitor.yml','deploy-apps-production.yml']) {
+ const source=readFileSync(resolve('.github/workflows',name),'utf8');
+ for(const body of source.split(/^  [a-z][a-z0-9-]*:\n/m).slice(1)) {
+  const steps=body.split(/^      - /m);let guarded=false;
+  for(const step of steps){
+   if(step.includes('id: current')){guarded=true;continue;}
+   if(guarded&&!step.includes("if: steps.current.outputs.current == 'true'"))throw new Error(`${name}: unguarded post-authorization step`);
+  }
+ }
+}

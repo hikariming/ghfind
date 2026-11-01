@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { consumeRoastingHandoff } from "../home-handoff";
+import {
+  consumeRoastingHandoff,
+  pendingEvaluateKey,
+  takePendingEvaluate,
+  writePendingEvaluate,
+} from "../home-handoff";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -42,5 +47,34 @@ describe("consumeRoastingHandoff", () => {
     installHistory("https://ghfind.com/u/octo?campaign=advx");
 
     expect(consumeRoastingHandoff()).toBe(false);
+  });
+});
+
+describe("pending evaluate handoff", () => {
+  it("round-trips and clears the homepage evaluate intent", () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("window", {});
+    vi.stubGlobal("sessionStorage", {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        store.set(k, v);
+      },
+      removeItem: (k: string) => {
+        store.delete(k);
+      },
+    });
+
+    writePendingEvaluate("OctoDev", {
+      turnstileToken: "tok",
+      campaign: "advx",
+      startedAt: 42,
+    });
+    expect(store.has(pendingEvaluateKey("octodev"))).toBe(true);
+    expect(takePendingEvaluate("OctoDev")).toEqual({
+      turnstileToken: "tok",
+      campaign: "advx",
+      startedAt: 42,
+    });
+    expect(takePendingEvaluate("OctoDev")).toBeNull();
   });
 });

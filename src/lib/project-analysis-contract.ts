@@ -1,11 +1,53 @@
 import { z } from "zod";
+import { lintDiscoverHookV6 } from "../../platform/shared/discover-score";
 
 export const LEGACY_PROJECT_ANALYSIS_SCHEMA_VERSION = "ghfind.project-analysis.v1";
 export const PREVIOUS_PROJECT_ANALYSIS_SCHEMA_VERSION = "ghfind.project-analysis.v2";
+/** Still the wire schema for Phase A; v4 (required discover_hook) lands with gated dual-write. */
 export const PROJECT_ANALYSIS_SCHEMA_VERSION = "ghfind.project-analysis.v3";
 export const PROJECT_RUBRIC_VERSION = "project-value-v1";
 export const PROJECT_AGENT_VERSION = "project-evaluator-v3";
-export const PROJECT_SKILL_VERSION = "ghfind-project-evaluator-v4";
+/**
+ * Skill v6: Discover copy contract v6 (card hook lint), required
+ * `project.discover_partition` + matching canonical tag, and required
+ * `project.time_to_first_value`. New runs record this version.
+ */
+export const PROJECT_SKILL_VERSION = "ghfind-project-evaluator-v6";
+/** v5 introduced discover_hook; its copy rules still apply to v5 artifacts. */
+export const PREVIOUS_PROJECT_SKILL_VERSION = "ghfind-project-evaluator-v5";
+/**
+ * Skill versions a completed artifact may carry. Production executes the
+ * Mosoo-registered skill snapshot, which is re-registered out of band; until
+ * the snapshot is on v6 its artifacts keep their own (older) version. Each
+ * artifact is validated against the rules of the version it declares and is
+ * stored with that version, so nothing is relabeled.
+ */
+export const ACCEPTED_ARTIFACT_SKILL_VERSIONS: ReadonlySet<string> = new Set([
+  "ghfind-project-evaluator-v4",
+  PREVIOUS_PROJECT_SKILL_VERSION,
+  PROJECT_SKILL_VERSION,
+]);
+/** True when an artifact's skill version may complete a run recorded with `runSkillVersion`. */
+export function isAcceptedArtifactSkillVersion(artifactSkillVersion: string, runSkillVersion: string): boolean {
+  if (artifactSkillVersion === runSkillVersion) return true;
+  return ACCEPTED_ARTIFACT_SKILL_VERSIONS.has(artifactSkillVersion) && ACCEPTED_ARTIFACT_SKILL_VERSIONS.has(runSkillVersion);
+}
+export const DISCOVER_PARTITIONS = ["agent", "skill", "microservice", "sandbox", "none"] as const;
+export const TIME_TO_FIRST_VALUE_VALUES = ["minutes", "hour", "day", "weeks"] as const;
+/** Partition -> canonical tag id, mirrored by the skill v6 validator. */
+export const DISCOVER_PARTITION_CANONICAL_TAG: Readonly<Record<Exclude<(typeof DISCOVER_PARTITIONS)[number], "none">, string>> = {
+  agent: "use_case:ai-agent",
+  skill: "use_case:agent-skill",
+  microservice: "artifact:microservice",
+  sandbox: "artifact:sandbox",
+};
+/** Canonical Discover partition tags (taxonomy v2). */
+export const DISCOVER_PARTITION_TAG_IDS = [
+  "use_case:ai-agent",
+  "use_case:agent-skill",
+  "artifact:microservice",
+  "artifact:sandbox",
+] as const;
 
 export const projectAnalysisStatusSchema = z.enum([
   "queued",
@@ -142,6 +184,12 @@ const legacyCompatibleProjectSchema = z.object({
   summary: z.string().trim().min(1).max(2_000),
   target_users: z.array(z.string().trim().min(1).max(200)).min(1).max(20),
   pain_statement: z.string().trim().min(1).max(2_000),
+  /** Card-ready hook; optional on legacy rows, required by skill v5 validator. */
+  discover_hook: z.string().trim().min(1).max(200).optional(),
+  /** Skill v6 (required by assertDiscoverV6 when skill_version is v6). */
+  discover_partition: z.enum(DISCOVER_PARTITIONS).optional(),
+  /** Skill v6: a stranger's time to first useful result. */
+  time_to_first_value: z.enum(TIME_TO_FIRST_VALUE_VALUES).optional(),
   project_type: projectTypeArtifactSchema,
   lifecycle: projectLifecycleSchema,
   product_tags: z.array(legacyProductTagSchema).max(5).default([]),
@@ -361,6 +409,25 @@ export function normalizeGitHubRepository(raw: string): NormalizedGitHubReposito
   };
 }
 
+/**
+ * Canonical owner/name key for identity comparison. GitHub owner and
+ * repository names are case-insensitive, and evaluators sometimes echo the
+ * repository as a URL or a github.com/ path; all of these identify the same
+ * repository. Unparseable values fall back to trimmed lowercase.
+ */
+export function normalizeArtifactRepoKey(raw: string): string {
+  const input = raw.trim();
+  const candidates = [input, input.replace(/^(?:www\.)?github\.com\//i, "")];
+  for (const candidate of candidates) {
+    try {
+      return normalizeGitHubRepository(candidate).repoKey;
+    } catch {
+      // try the next form
+    }
+  }
+  return input.toLowerCase();
+}
+
 function parseJson(raw: string, label: string): unknown {
   try {
     return JSON.parse(raw);
@@ -425,6 +492,80 @@ const GENERIC_PRODUCT_TAG_LABELS = new Set([
   "high quality",
 ]);
 
+const TEMPLATE_PROSE =
+  /^(?:[\w.@+/-]+(?:\/[\w.@+/-]+)?\s*)?(?:这是一个|这是一款|这是一种|这是|是一个|是一款|是一种|是面向|是|is an |is a |is the |is )/i;
+
+const GENERIC_HOOK_ONLY =
+  /^(?:工具|项目|插件|扩展|库|框架|应用|平台|系统|沙盒|微服务|agent|skill|tool|project|plugin|extension|library|framework|app|platform|system|sandbox|microservice)s?[。.!！？]?$/i;
+
+export function isDiscoverTemplateProse(text: string, name?: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return true;
+  if (TEMPLATE_PROSE.test(trimmed) || GENERIC_HOOK_ONLY.test(trimmed)) return true;
+  if (name) {
+    const lower = trimmed.toLowerCase();
+    const nameLower = name.toLowerCase();
+    if (lower.startsWith(`${nameLower} 是`) || lower.startsWith(`${nameLower} is`)) return true;
+  }
+  return false;
+}
+
+function assertDiscoverCopy(analysis: ProjectAnalysisArtifact): void {
+  if (
+    analysis.skill_version !== PROJECT_SKILL_VERSION &&
+    analysis.skill_version !== PREVIOUS_PROJECT_SKILL_VERSION
+  ) {
+    return;
+  }
+  const { name, summary, pain_statement, discover_hook } = analysis.project;
+  const fields: Array<[string, string | undefined]> = [
+    ["summary", summary],
+    ["pain_statement", pain_statement],
+    ["discover_hook", discover_hook],
+  ];
+  for (const [label, value] of fields) {
+    if (!value) {
+      if (label === "discover_hook") {
+        throw new Error("skill v5+ requires project.discover_hook for Discover cards");
+      }
+      continue;
+    }
+    if (isDiscoverTemplateProse(value, name)) {
+      throw new Error(`Discover-banned template prose in project.${label}`);
+    }
+  }
+}
+
+/** Skill v6 card copy + partition + time-to-first-value rules. */
+function assertDiscoverV6(analysis: ProjectAnalysisArtifact): void {
+  if (analysis.skill_version !== PROJECT_SKILL_VERSION) return;
+  const project = analysis.project;
+  const issues = lintDiscoverHookV6(project.discover_hook ?? "", project.name);
+  if (issues.length > 0) {
+    throw new Error(`skill v6 project.discover_hook rejected: ${issues.join(", ")}`);
+  }
+  if (!project.time_to_first_value) {
+    throw new Error("skill v6 requires project.time_to_first_value");
+  }
+  const partition = project.discover_partition;
+  if (!partition) throw new Error("skill v6 requires project.discover_partition");
+  const tagIds = new Set(
+    project.product_tags.map((tag) => `${"namespace" in tag ? tag.namespace : ""}:${tag.slug}`),
+  );
+  const canonical = DISCOVER_PARTITION_TAG_IDS.filter((id) => tagIds.has(id));
+  if (partition === "none") {
+    if (canonical.length > 0) {
+      throw new Error("discover_partition none conflicts with a canonical partition tag");
+    }
+    return;
+  }
+  if (!tagIds.has(DISCOVER_PARTITION_CANONICAL_TAG[partition]) || canonical.length !== 1) {
+    throw new Error(
+      `discover_partition ${partition} requires exactly one canonical tag ${DISCOVER_PARTITION_CANONICAL_TAG[partition]}`,
+    );
+  }
+}
+
 function assertProductTags(analysis: ProjectAnalysisArtifact): void {
   if (analysis.schema_version === PROJECT_ANALYSIS_SCHEMA_VERSION) {
     if (analysis.project.product_tags.length < 3) {
@@ -475,7 +616,7 @@ export function parseProjectAnalysisArtifacts(
   const evidence = runtimeEvidenceArtifactSchema.parse(
     parseJson(input.evidenceRaw, "evidence artifact"),
   );
-  const expectedRepoKey = input.expectedRepoKey.toLowerCase();
+  const expectedRepoKey = normalizeArtifactRepoKey(input.expectedRepoKey);
   if (
     analysis.analysis_id !== input.expectedAnalysisId ||
     evidence.analysis_id !== input.expectedAnalysisId
@@ -483,8 +624,8 @@ export function parseProjectAnalysisArtifacts(
     throw new Error("analysis identity mismatch");
   }
   if (
-    analysis.repository.repo_key.toLowerCase() !== expectedRepoKey ||
-    evidence.repo_key.toLowerCase() !== expectedRepoKey
+    normalizeArtifactRepoKey(analysis.repository.repo_key) !== expectedRepoKey ||
+    normalizeArtifactRepoKey(evidence.repo_key) !== expectedRepoKey
   ) {
     throw new Error("repository identity mismatch");
   }
@@ -504,6 +645,8 @@ export function parseProjectAnalysisArtifacts(
     throw new Error("Product score must equal the dimension sum");
   }
   assertProductTags(analysis);
+  assertDiscoverCopy(analysis);
+  assertDiscoverV6(analysis);
   assertEvidenceReferences(analysis, evidence);
 
   return { analysis, evidence, reportMarkdown: input.reportMarkdown };

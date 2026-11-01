@@ -56,6 +56,22 @@ export function isResumeEmpty(resume: Resume): boolean {
   return Object.values(resume.basics).every(value => !value.trim())
     && resume.sections.every(section => section.entries.every(entry => [entry.title, entry.subtitle, entry.period, entry.details].every(value => !value.trim())));
 }
+/** Swap the item at index with its neighbour at index + delta; no-op when out of range. */
+export function moveItem<T>(items: T[], index: number, delta: number): T[] {
+  const target = index + delta;
+  if (index < 0 || index >= items.length || target < 0 || target >= items.length) return items;
+  const next = [...items];
+  [next[index], next[target]] = [next[target], next[index]];
+  return next;
+}
+export type BasicsField = keyof Resume["basics"];
+export type EntryField = "title" | "subtitle" | "period" | "details";
+/** Keys linking preview text (data-edit) to its editor field (data-edit-target). */
+export const editKey = {
+  basics: (field: BasicsField) => `basics:${field}`,
+  section: (sectionId: string) => `section:${sectionId}`,
+  entry: (entryId: string, field: EntryField) => `entry:${entryId}:${field}`,
+};
 export function emptyEntry() { return { id: crypto.randomUUID(), title: "", subtitle: "", period: "", details: "" }; }
 export function newSection(type: SectionType, zh: boolean): ResumeSection {
   return { id: crypto.randomUUID(), type, title: sectionNames[zh ? "zh" : "en"][type], entries: [emptyEntry()] };

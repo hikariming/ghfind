@@ -253,8 +253,20 @@ func (p *fakePublisher) PublishScan(_ context.Context, job ScanJob) error {
 }
 func (p *fakePublisher) PublishScanRetry(context.Context, ScanJob, time.Duration) error { return nil }
 func (p *fakePublisher) PublishScanDead(context.Context, ScanJob, string) error         { return nil }
-func (p *fakePublisher) Ping(context.Context) error                                     { return nil }
-func (p *fakePublisher) Close() error                                                   { return nil }
+func (p *fakePublisher) PublishScanPart(context.Context, ScanPartJob) error             { return nil }
+func (p *fakePublisher) PublishScanPartRetry(context.Context, ScanPartJob, time.Duration) error {
+	return nil
+}
+func (p *fakePublisher) PublishScanPartDead(context.Context, ScanPartJob, string) error { return nil }
+func (p *fakePublisher) PublishScanAssemble(context.Context, ScanAssembleJob) error     { return nil }
+func (p *fakePublisher) PublishScanAssembleRetry(context.Context, ScanAssembleJob, time.Duration) error {
+	return nil
+}
+func (p *fakePublisher) PublishScanAssembleDead(context.Context, ScanAssembleJob, string) error {
+	return nil
+}
+func (p *fakePublisher) Ping(context.Context) error { return nil }
+func (p *fakePublisher) Close() error               { return nil }
 
 func TestStatsPreservesPublicResponseAndCacheHeader(t *testing.T) {
 	total := 42

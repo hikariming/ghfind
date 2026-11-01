@@ -20,6 +20,19 @@ declare global {
   }
 }
 
+/**
+ * Next inlines `process.env.NEXT_PUBLIC_*` at build time; other bundlers (the
+ * Astro islands) leave `process` undefined in the browser, where reading it
+ * throws. There the widget simply counts as not configured.
+ */
+function turnstileSiteKey(): string | undefined {
+  try {
+    return process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  } catch {
+    return undefined;
+  }
+}
+
 const SCRIPT_SRC =
   "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 
@@ -29,7 +42,7 @@ const SCRIPT_SRC =
  */
 export function Turnstile({ onToken }: { onToken: (token: string) => void }) {
   const ref = useRef<HTMLDivElement>(null);
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const siteKey = turnstileSiteKey();
 
   useEffect(() => {
     if (!siteKey || !ref.current) return;
@@ -64,5 +77,4 @@ export function Turnstile({ onToken }: { onToken: (token: string) => void }) {
   return <div ref={ref} className="my-2" />;
 }
 
-export const turnstileEnabled = (): boolean =>
-  Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
+export const turnstileEnabled = (): boolean => Boolean(turnstileSiteKey());

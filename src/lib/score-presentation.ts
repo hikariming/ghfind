@@ -15,8 +15,8 @@ export function tierFor(final: number): { tier: Tier; tier_label: string } {
   if (final >= 90) return { tier: "夯", tier_label: "封神 · 殿堂级标杆" };
   if (final >= 80) return { tier: "顶级", tier_label: "顶级开发者 · 一线水准" };
   if (final >= 70) return { tier: "人上人", tier_label: "优质贡献者 · 值得信任" };
-  if (final >= 40) return { tier: "NPC", tier_label: "普通账号 · 特征平庸存疑" };
-  return { tier: "拉完了", tier_label: "低价值 · 疑似刷量/AI 机器人" };
+  if (final >= 40) return { tier: "NPC", tier_label: "稳步积累 · 继续打磨作品" };
+  return { tier: "拉完了", tier_label: "起步阶段 · 多练多攒作品" };
 }
 
 /** Ascending tier promotion thresholds, kept in sync with `tierFor`. */

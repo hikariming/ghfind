@@ -1,0 +1,21 @@
+---
+import Base from "../../../layouts/Base.astro";
+import { ProjectsIsland } from "../../../islands/ProjectsIsland";
+import { getMessages, getTranslator, pickMessages, routeLocale } from "../../../lib/i18n";
+import { loadProjectsPage } from "@/lib/pages/projects";
+
+const locale = routeLocale(Astro.params.locale);
+if (!locale) return new Response(null, { status: 404 });
+const sp = Astro.url.searchParams;
+const [t, messages, { redirectTo, ...data }] = await Promise.all([
+  getTranslator(locale, "projectBoards"),
+  getMessages(locale),
+  loadProjectsPage({ board: sp.get("board") ?? undefined, page: sp.get("page") ?? undefined }),
+]);
+// Past the last page, like Next's redirect(): 307 to the unprefixed URL.
+if (redirectTo) return new Response(null, { status: 307, headers: { Location: redirectTo } });
+Astro.response.headers.set("Cache-Control", "private, no-cache, no-store, max-age=0, must-revalidate");
+---
+<Base locale={locale} path="/projects" title={t("metaTitle")} description={t("metaDescription")}>
+  <ProjectsIsland client:load locale={locale} {...data} intl={{ locale, pathname: "/projects", search: Astro.url.search, messages: pickMessages(messages, ["projectBoards", "projects"]) }} />
+</Base>

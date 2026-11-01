@@ -1,0 +1,15 @@
+---
+import Base from "../../layouts/Base.astro";
+import { SponsorPageIsland } from "../../islands/SponsorPageIsland";
+import { getMessages, getTranslator, pickMessages, routeLocale } from "../../lib/i18n";
+import { STATIC_PAGE_CACHE } from "../../lib/not-found";
+
+const locale = routeLocale(Astro.params.locale);
+if (!locale) return new Response(null, { status: 404 });
+
+const [t, messages] = await Promise.all([getTranslator(locale, "sponsor"), getMessages(locale)]);
+Astro.response.headers.set("Cache-Control", STATIC_PAGE_CACHE);
+---
+<Base locale={locale} path="/sponsor" title={t("metaTitle")} description={t("metaDescription")}>
+  <SponsorPageIsland client:visible intl={{ locale, pathname: "/sponsor", messages: pickMessages(messages, ["sponsor"]) }} />
+</Base>

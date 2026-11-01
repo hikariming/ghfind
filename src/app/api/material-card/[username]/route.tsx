@@ -1,12 +1,10 @@
 import { BADGE_COLOR } from "@/lib/badge";
-import { getGoProfilePresentation } from "@/lib/go-profile.server";
+import { getGoProfileCardPresentation } from "@/lib/go-profile.server";
 import { renderMaterialCardSvg } from "@/lib/material-card";
 import { tierFor } from "@/lib/score-presentation";
-import { sponsorLogoDataUrl } from "@/lib/sponsor.server";
-import { tierAvatarFrame } from "@/lib/tier";
-import { tierAvatarFrameIconDataUrl } from "@/lib/tier-emoji.server";
+import { getCurrentTitleSponsor } from "@/lib/sponsor.server";
 import { publicDisplayName, USERNAME_RE } from "@/lib/username";
-import { avatarDataUrl, CDN_CACHE, qrDataUrl, qrModuleColor } from "../../card/shared";
+import { avatarDataUrl, SCORE_CARD_CACHE, qrDataUrl, qrModuleColor } from "../../card/assets";
 import { parseTheme } from "../../card/[username]/cards";
 import { decodeRouteParam } from "@/lib/route-params";
 
@@ -17,7 +15,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
   const { username } = await ctx.params;
   const name = decodeRouteParam(username ?? "").trim();
   const detail = USERNAME_RE.test(name)
-    ? (await getGoProfilePresentation(name))?.detail ?? null
+    ? (await getGoProfileCardPresentation(name))?.detail ?? null
     : null;
 
   if (!detail) {
@@ -31,11 +29,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
   const tags = detail.tags.zh;
   const scores = detail.sub_scores;
   const color = BADGE_COLOR[tier];
-  const [avatar, qr, tierIcon, sponsorLogo] = await Promise.all([
+  const [avatar, qr, titleSponsor] = await Promise.all([
     avatarDataUrl(detail.avatar_url),
     qrDataUrl(`/u/${detail.username}?ref=material`, qrModuleColor(color, theme)),
-    tierAvatarFrameIconDataUrl(tierAvatarFrame(tier).icon),
-    sponsorLogoDataUrl(),
+    getCurrentTitleSponsor(),
   ]);
   const svg = renderMaterialCardSvg({
     username: detail.username,
@@ -49,13 +46,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
     color,
     theme,
     qr,
-    tierIcon,
-    sponsorLogo,
+    sponsorLogo: titleSponsor?.logo ?? null,
+    sponsorName: titleSponsor?.name ?? null,
   });
 
   return new Response(svg, {
     headers: {
-      "Cache-Control": isPreview ? "no-store" : CDN_CACHE,
+      "Cache-Control": isPreview ? "no-store" : SCORE_CARD_CACHE,
       "Content-Type": "image/svg+xml; charset=utf-8",
     },
   });

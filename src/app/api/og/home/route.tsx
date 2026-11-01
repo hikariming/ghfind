@@ -42,7 +42,7 @@ export async function GET() {
             Score any GitHub account 0–100
           </div>
           <div style={{ marginTop: 20, fontSize: 32, color: "#a1a1aa", lineHeight: 1.3 }}>
-            Real contribution value & trust, deterministically. Plus a savage roast.
+            Real contribution value & trust, deterministically. Plus a witty roast.
           </div>
         </div>
         <div

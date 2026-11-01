@@ -16,15 +16,27 @@ export function authorizeMutation(env = process.env) {
   requireThat(env.GITHUB_ACTIONS === 'true' && env.GITHUB_REPOSITORY === 'hikariming/ghfind' &&
     env.GITHUB_REF === 'refs/heads/main' && /^hikariming\/ghfind\/.github\/workflows\/deploy-cf-production.yml@refs\/heads\/main$/.test(env.GITHUB_WORKFLOW_REF ?? ''), 'only the production Actions workflow on main may mutate');
 }
+const PRODUCTION_CACHE_KV = 'f7a7299eef224d899c21121c1979be32'; // ghfind-cache
+const COORDINATION_WORKER = 'ghfind-coord';
+const COORDINATION_OBJECTS = [['RATE_LIMITER', 'RateLimiter'], ['COORD_KV', 'KeyValue'], ['SCAN_SLOT', 'ScanSlot'], ['ROAST_JOB', 'RoastJob']];
 export function renderWeb(sha, mode, provider) {
   requireThat(/^[a-f0-9]{40}$/.test(sha) && ['paused', 'all'].includes(mode), 'exact source SHA and paused/all required');
   requireThat(provider.MOSOO_API_BASE === 'https://cloud.mosoo.ai/api/v1' && /^[A-Z0-9]{26}$/.test(provider.MOSOO_PROJECT_AGENT_ID ?? '') && /^[A-Za-z0-9._:-]{1,128}$/.test(provider.MOSOO_PROJECT_USER_ID ?? ''), 'explicit published Mosoo provider required');
   return {
     name: 'ghfind', account_id: ACCOUNT, main: '../../.open-next/worker.js', compatibility_date: '2026-08-06', compatibility_flags: ['nodejs_compat'],
-    workers_dev: true, preview_urls: false, routes: [{ pattern: 'ghfind.com', custom_domain: true }],
+    // No routes: ghfind-router owns the ghfind.com custom domain and forwards
+    // to this Worker over a service binding. wrangler only touches custom
+    // domains a config declares, so omitting it leaves the router's binding
+    // alone; declaring it would move the domain back to this Worker.
+    workers_dev: true, preview_urls: false,
     assets: { directory: '../../.open-next/assets', binding: 'ASSETS' }, observability: { enabled: true },
     d1_databases: [['GHFIND_D1',production.coreDatabase,'../../migrations'],['GHFIND_FEED_D1',production.feedDatabase,'../../migrations-feed']].map(([binding,d,migrations_dir])=>({binding,database_name:d.name,database_id:d.id,migrations_dir})),
     r2_buckets: [{ binding: 'NEXT_INC_CACHE_R2_BUCKET', bucket_name: 'ghfind-next-cache' }],
+    // Cloudflare-native replacements for Upstash Redis (src/lib/cache-store.ts,
+    // rate-limit-backend.ts, atomic-store.ts, scan-slots.ts); the Durable
+    // Objects live in the ghfind-coord Worker, which must be deployed first.
+    kv_namespaces: [{ binding: 'GHFIND_CACHE', id: PRODUCTION_CACHE_KV }],
+    durable_objects: { bindings: COORDINATION_OBJECTS.map(([name, class_name]) => ({ name, class_name, script_name: COORDINATION_WORKER })) },
     services: [{ binding: 'FEED_RUNTIME', service: production.runtimeWorker }],
     secrets: { required: ['FEED_GATEWAY_SECRET', 'MOSOO_API_TOKEN', 'PROJECT_ANALYSIS_RECONCILE_SECRET'] },
     vars: { GHFIND_DEPLOY_ENV: 'production', PUBLIC_SITE_URL: 'https://ghfind.com', NEXT_PUBLIC_SITE_URL: 'https://ghfind.com',
@@ -32,7 +44,8 @@ export function renderWeb(sha, mode, provider) {
       FEED_SOURCE_OUTBOX_ENABLED: 'true', FEED_ROLLOUT_MODE: mode, FEED_ROLLOUT_GITHUB_IDS: '109743670',
       FEED_ROLLOUT_SEED: 'ghfind-go-production-v1-20260909', FEED_ROLLOUT_BASIS_POINTS: mode === 'all' ? '10000' : '0',
       MOSOO_API_BASE: provider.MOSOO_API_BASE, MOSOO_PROJECT_AGENT_ID: provider.MOSOO_PROJECT_AGENT_ID, MOSOO_PROJECT_USER_ID: provider.MOSOO_PROJECT_USER_ID,
-      MOSOO_PROJECT_REQUEST_TIMEOUT_MS: '15000' },
+      MOSOO_PROJECT_REQUEST_TIMEOUT_MS: '15000',
+      GHFIND_CACHE_BACKEND: 'kv', GHFIND_RATELIMIT_BACKEND: 'do', GHFIND_COORD_BACKEND: 'do' },
   };
 }
 export function prepareSecrets(env) {
@@ -50,8 +63,56 @@ export async function cf(path, body, method) {
   requireThat((process.env.CLOUDFLARE_API_TOKEN??'').length>=32,'production CF credential missing');
   const response=await fetch(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}${path}`, {method:method??(body?'POST':'GET'),headers:{authorization:`Bearer ${process.env.CLOUDFLARE_API_TOKEN}`,'content-type':'application/json'},...(body?{body:JSON.stringify(body)}:{}),redirect:'error',signal:AbortSignal.timeout(30000)});
   const data=await response.json();
-  if(!response.ok || data.success!==true) throw Object.assign(new Error(`Cloudflare request failed (${response.status}; ${(data.errors??[]).map(e=>e.code).join(',')})`),{status:response.status});
+  const codes=(data.errors??[]).map(e=>e.code).filter(n=>Number.isInteger(n));
+  if(!response.ok || data.success!==true) throw Object.assign(new Error(`Cloudflare request failed (${response.status}; ${codes.join(',')})`),{status:response.status,codes});
   return data.result;
+}
+export const webVerifyLimits = Object.freeze({ attempts: 6, intervalMs: 10000, durationMs: 55000 });
+const WEB_VERSION_UUID = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
+export function isVersionMissing(error) {
+  return error?.status === 404 && Array.isArray(error.codes) && error.codes.includes(100146);
+}
+export function wranglerOutputRetryable(text) {
+  return /\[code:\s*100146\]/.test(String(text ?? ''));
+}
+export function parseWranglerVersionId(text) {
+  const cleaned = String(text ?? '').replace(/\u001B\[[0-9;]*m/g, '');
+  const ids = [...cleaned.matchAll(/^Current Version ID: ([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/gm)].map((match) => match[1]);
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return undefined;
+  requireThat(unique.length === 1, 'ambiguous wrangler version ID');
+  return unique[0];
+}
+function versionNotVisible(error) {
+  return Object.assign(new Error('Web version not yet visible'), { status: error?.status, codes: error?.codes });
+}
+async function readWebVersion(api, versionId) {
+  try {
+    return await api(`/workers/scripts/ghfind/versions/${versionId}`);
+  } catch (error) {
+    if (isVersionMissing(error)) throw versionNotVisible(error);
+    throw error;
+  }
+}
+async function observeWebIdentity(api, sha, expectedVersionId) {
+  if (expectedVersionId) {
+    const v = await readWebVersion(api, expectedVersionId);
+    requireThat(v?.id === expectedVersionId, 'immutable Web version response mismatch');
+    requireThat(v.annotations?.['workers/tag'] === `production-${sha}`, 'actual Web source tag mismatch');
+    const active = activeWebDeployment(await api('/workers/scripts/ghfind/deployments'));
+    if (active.versionId !== expectedVersionId) throw new Error('active Web version is not the expected immutable version');
+    return { active, v };
+  }
+  const active = activeWebDeployment(await api('/workers/scripts/ghfind/deployments'));
+  const v = await readWebVersion(api, active.versionId);
+  requireThat(v?.id === active.versionId, 'immutable Web version response mismatch');
+  requireThat(v.annotations?.['workers/tag'] === `production-${sha}`, 'actual Web source tag mismatch');
+  return { active, v };
+}
+function isPollableWebIdentityError(error, expectedVersionId) {
+  return error?.message === 'Web version not yet visible'
+    || (error?.message === 'actual Web source tag mismatch' && !expectedVersionId)
+    || error?.message === 'active Web version is not the expected immutable version';
 }
 function queueIdentity(q, name, id) {
   requireThat(q && q.queue_name===name && typeof q.queue_id==='string' && /^[a-f0-9]{32}$/.test(q.queue_id) && (id===undefined || q.queue_id===id),'queue identity mismatch');
@@ -132,12 +193,27 @@ function activeWebDeployment(data) {
     uuid.test(versions[0]?.version_id ?? ''), 'single 100% immutable Web deployment required');
   return { deploymentId: deployment.id, versionId: versions[0].version_id };
 }
-export async function verifyWeb(sha, mode, provider, api=cf) {
+export async function verifyWeb(sha, mode, provider, api=cf, options={}) {
   const expected=renderWeb(sha,mode,provider);
-  const active=activeWebDeployment(await api('/workers/scripts/ghfind/deployments'));
-  const v=await api(`/workers/scripts/ghfind/versions/${active.versionId}`);
-  requireThat(v?.id === active.versionId, 'immutable Web version response mismatch');
-  requireThat(v.annotations?.['workers/tag']===`production-${sha}`,'actual Web source tag mismatch');
+  const expectedVersionId = options.expectedVersionId ? String(options.expectedVersionId) : '';
+  if (expectedVersionId) requireThat(WEB_VERSION_UUID.test(expectedVersionId), 'expected Web version ID must be a UUID');
+  const limits = { ...webVerifyLimits, ...(options.limits ?? {}) };
+  const sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const now = options.now ?? Date.now;
+  const started = now();
+  let identity, lastError;
+  for (let attempt = 1; attempt <= limits.attempts; attempt++) {
+    try {
+      identity = await observeWebIdentity(api, sha, expectedVersionId);
+      break;
+    } catch (error) {
+      lastError = error;
+      if (!isPollableWebIdentityError(error, expectedVersionId) || attempt >= limits.attempts || now() - started >= limits.durationMs) throw error;
+      await sleep(limits.intervalMs);
+    }
+  }
+  if (!identity) throw lastError;
+  const { active, v } = identity;
   const bindings=v.resources?.bindings;
   requireThat(Array.isArray(bindings) && bindings.every(b => b && typeof b.name === 'string' &&
     b.name.length > 0 && typeof b.type === 'string') && new Set(bindings.map(b=>b.name)).size === bindings.length,
@@ -158,6 +234,17 @@ export async function verifyWeb(sha, mode, provider, api=cf) {
     const binding=byName.get(bucket.binding);
     requireThat(binding?.type==='r2_bucket' && binding.bucket_name===bucket.bucket_name,'Web cache bucket mismatch');
     verified.push({name:bucket.binding,type:'r2_bucket',bucket_name:bucket.bucket_name});
+  }
+  for(const kv of expected.kv_namespaces) {
+    const binding=byName.get(kv.binding);
+    requireThat(binding?.type==='kv_namespace' && binding.namespace_id===kv.id,'Web cache namespace mismatch');
+    verified.push({name:kv.binding,type:'kv_namespace',namespace_id:kv.id});
+  }
+  for(const object of expected.durable_objects.bindings) {
+    const binding=byName.get(object.name);
+    requireThat(binding?.type==='durable_object_namespace' && binding.class_name===object.class_name &&
+      binding.script_name===object.script_name,`Web coordination binding mismatch: ${object.name}`);
+    verified.push({name:object.name,type:'durable_object_namespace',class_name:object.class_name,script_name:object.script_name});
   }
   const assets=byName.get(expected.assets.binding);
   requireThat(assets?.type==='assets','Web assets binding mismatch');
@@ -190,8 +277,9 @@ async function main() {
   else if(cmd==='schema' && args.length===1)console.log(await renderSchemas(resolve(args[0])));
   else if(cmd==='prepare' && args.length===1) {const out=resolve(args[0]);requireThat(!out.startsWith(repository+'/'),'secrets must stay outside checkout');for(const [role,values]of Object.entries(prepareSecrets(process.env)))writeFileSync(resolve(out,`feed-${role}-secrets.json`),JSON.stringify(values),{mode:0o600,flag:'wx'});}
   else if(cmd==='web' && args.length===2)writeFileSync(webConfig,JSON.stringify(renderWeb(args[0],args[1],process.env),null,2));
-  else if(cmd==='web-verify' && args.length===3)writeFileSync(args[2],JSON.stringify(await verifyWeb(args[0],args[1],process.env),null,2),{flag:'wx'});
+  else if(cmd==='web-verify' && (args.length===3 || args.length===4))writeFileSync(args[2],JSON.stringify(await verifyWeb(args[0],args[1],process.env,cf,{expectedVersionId:args[3]}),null,2),{flag:'wx'});
+  else if(cmd==='web-version-id' && args.length===1) {const id=parseWranglerVersionId(readFileSync(args[0],'utf8')); if(id) console.log(id);}
   else if(cmd==='build' && args.length===0) {assertNoLocalEnvironmentFiles(repository);requireThat(!existsSync(resolve(repository,'.open-next')) && !existsSync(resolve(repository,'.next')),'fresh build outputs required');const r=spawnSync(process.execPath,[resolve(repository,'node_modules/@opennextjs/cloudflare/dist/cli/index.js'),'build','--config',webConfig],{cwd:repository,env:safeBuildEnv(),stdio:'inherit',timeout:780000});requireThat(r.status===0,'secret-free Web build failed');}
-  else throw new Error('usage: feed-production-release.mjs resources MANIFEST RECEIPT | schema NEW_DIR | prepare PRIVATE_DIR | web SHA paused|all | web-verify SHA MODE RECEIPT | build');
+  else throw new Error('usage: feed-production-release.mjs resources MANIFEST RECEIPT | schema NEW_DIR | prepare PRIVATE_DIR | web SHA paused|all | web-verify SHA MODE RECEIPT [VERSION_ID] | web-version-id LOG | build');
 }
 if(process.argv[1] && import.meta.url===pathToFileURL(resolve(process.argv[1])).href) main().catch(e=>{console.error(e.message);process.exitCode=1;});

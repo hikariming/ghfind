@@ -36,7 +36,7 @@ afterAll(() => {
 async function seed(expired = true) {
   const analysisId = `operator-analysis-${++sequence}`, repoKey = `owner/recovery-${sequence}`;
   await db.createProjectAnalysisRun({ id: analysisId, repoKey, canonicalUrl: `https://github.com/${repoKey}`, requestedRef: sha,
-    schemaVersion: "ghfind.project-analysis.v3", rubricVersion: "project-value-v1", agentVersion: "project-evaluator-v3", skillVersion: "ghfind-project-evaluator-v4" });
+    schemaVersion: "ghfind.project-analysis.v3", rubricVersion: "project-value-v1", agentVersion: "project-evaluator-v3", skillVersion: "ghfind-project-evaluator-v5" });
   await db.reserveProjectAnalysisExecutionSlot(analysisId, 100);
   await db.attachMosooThread({ analysisId, agentId: "project-agent", threadId: `${analysisId}-old-thread`, runId: `${analysisId}-old-run` });
   const original = (await db.getProjectAnalysisRun(analysisId))!;
@@ -48,6 +48,7 @@ async function seed(expired = true) {
 }
 function provider(f: Awaited<ReturnType<typeof seed>>, options: { status?: string; code?: string; wrongAgent?: boolean; failFirstPost?: boolean; invalidArtifact?: boolean; finalThread?: boolean } = {}) {
   const posts: string[] = [];
+  const archived: string[] = [];
   const nextThread = `${f.input.analysisId}-new-thread${options.finalThread ? "-2" : ""}`;
   const nextRun = `${f.input.analysisId}-new-run${options.finalThread ? "-2" : ""}`;
   const response = (newThread = false) => ({ thread: { id: newThread ? nextThread : f.input.expectedThreadId,
@@ -61,6 +62,11 @@ function provider(f: Awaited<ReturnType<typeof seed>>, options: { status?: strin
   const evidence = { ...validRuntimeEvidence, analysis_id: f.input.analysisId, repo_key: f.repoKey };
   vi.stubGlobal("fetch", vi.fn(async (urlValue: RequestInfo | URL, init?: RequestInit) => {
     const url = String(urlValue);
+    const archive = /\/threads\/([^/]+)\/archive$/.exec(url);
+    if (init?.method === "POST" && archive) {
+      archived.push(decodeURIComponent(archive[1]!));
+      return Response.json({ thread: { id: archive[1], status: "IDLE" } });
+    }
     if (init?.method === "POST") {
       expect(url).toBe("https://mosoo.test/api/v1/agents/project-agent/threads");
       posts.push(new Headers(init.headers).get("Idempotency-Key")!);
@@ -79,7 +85,7 @@ function provider(f: Awaited<ReturnType<typeof seed>>, options: { status?: strin
     if (url.endsWith(nextThread) && nextThread !== f.input.expectedThreadId) return Response.json(response(true));
     return Response.json(response());
   }));
-  return { posts };
+  return { posts, archived };
 }
 
 describe("audited operator recovery", () => {
@@ -100,8 +106,11 @@ describe("audited operator recovery", () => {
     expect((await db.getProjectAnalysisRun(f.input.analysisId))?.status).toBe("running");
     expect(remote.posts).toHaveLength(1);
     expect(await db.getProjectAnalysisRecovery(f.input.analysisId)).toEqual(audit);
+    expect(remote.archived).toEqual([]);
     now = audit.executionDeadlineAt! + 1;
     expect((await service.reconcileProjectAnalysis(f.input.analysisId)).status).toBe("expired");
+    // The abandoned retry Thread is archived so it stops holding a Mosoo session.
+    expect(remote.archived).toEqual([`${f.input.analysisId}-new-thread`]);
     await expect(service.recoverProjectAnalysis(f.input)).rejects.toThrow("another retry is prohibited");
     expect(remote.posts).toHaveLength(1);
   });
@@ -136,7 +145,7 @@ describe("audited operator recovery", () => {
   it("a newer repository assessment prevents an expired result from being resurrected", async () => {
     const f = await seed(), remote = provider(f);
     await db.createProjectAnalysisRun({ id: `${f.input.analysisId}-newer`, repoKey: f.repoKey, canonicalUrl: `https://github.com/${f.repoKey}`,
-      requestedRef: sha, schemaVersion: "ghfind.project-analysis.v3", rubricVersion: "project-value-v1", agentVersion: "project-evaluator-v3", skillVersion: "ghfind-project-evaluator-v4" });
+      requestedRef: sha, schemaVersion: "ghfind.project-analysis.v3", rubricVersion: "project-value-v1", agentVersion: "project-evaluator-v3", skillVersion: "ghfind-project-evaluator-v5" });
     await expect(service.recoverProjectAnalysis(f.input)).rejects.toThrow("superseded");
     expect(remote.posts).toHaveLength(0);
     expect(await db.getProjectAnalysisRecovery(f.input.analysisId)).toBeNull();
@@ -146,6 +155,8 @@ describe("audited operator recovery", () => {
     expect((await service.reconcileProjectAnalysis(f.input.analysisId)).status).toBe("completed");
     expect((await db.getProjectAssessment(f.repoKey))?.latestAnalysisId).toBe(f.input.analysisId);
     expect(remote.posts).toHaveLength(0);
+    // Finalized results release their Mosoo session immediately.
+    expect(remote.archived).toEqual([f.input.expectedThreadId]);
   });
   it("completed timeout recovery validates artifacts before claiming and is idempotent", async () => {
     const f = await seed(), remote = provider(f, { status: "completed" });
@@ -164,7 +175,7 @@ describe("audited operator recovery", () => {
     await service.recoverProjectAnalysis(f.input);
     now += 1;
     await db.createProjectAnalysisRun({ id: `${f.input.analysisId}-later`, repoKey: f.repoKey, canonicalUrl: `https://github.com/${f.repoKey}`,
-      requestedRef: "b".repeat(40), schemaVersion: "ghfind.project-analysis.v3", rubricVersion: "project-value-v1", agentVersion: "project-evaluator-v3", skillVersion: "ghfind-project-evaluator-v4" });
+      requestedRef: "b".repeat(40), schemaVersion: "ghfind.project-analysis.v3", rubricVersion: "project-value-v1", agentVersion: "project-evaluator-v3", skillVersion: "ghfind-project-evaluator-v5" });
     const analysis: ProjectAnalysisArtifact = structuredClone(validProjectAnalysis);
     analysis.analysis_id = f.input.analysisId;
     analysis.repository = { ...analysis.repository, repo_key: f.repoKey, canonical_url: `https://github.com/${f.repoKey}`, requested_ref: sha };
@@ -259,7 +270,7 @@ describe("audited operator recovery", () => {
     now += 1;
     await db.createProjectAnalysisRun({ id: `${latest.input.analysisId}-newer-final`, repoKey: latest.repoKey,
       canonicalUrl: `https://github.com/${latest.repoKey}`, requestedRef: "b".repeat(40),
-      schemaVersion: "ghfind.project-analysis.v3", rubricVersion: "project-value-v1", agentVersion: "project-evaluator-v3", skillVersion: "ghfind-project-evaluator-v4" });
+      schemaVersion: "ghfind.project-analysis.v3", rubricVersion: "project-value-v1", agentVersion: "project-evaluator-v3", skillVersion: "ghfind-project-evaluator-v5" });
     await expect(service.recoverProjectAnalysis(latest.input)).rejects.toThrow("superseded");
     expect(remote.posts).toHaveLength(0);
     expect((await raw.execute({ sql: "SELECT COUNT(*) AS n FROM project_analysis_final_recoveries WHERE analysis_id=?", args: [latest.input.analysisId] })).rows[0].n).toBe(0);

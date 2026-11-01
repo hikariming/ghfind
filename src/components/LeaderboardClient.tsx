@@ -4,7 +4,9 @@ import { useLocale, useTranslations } from "next-intl";
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useRouter } from "@/i18n/navigation";
 import type { LeaderboardWindow } from "@/lib/leaderboardWindow";
-import { TIER_KEY, tierStyle } from "@/lib/tier";
+import { TIER_KEY } from "@/lib/tier";
+import { AdventurerLevelInline } from "@/components/realm/AdventurerLevel";
+import { formatAdventurerLevel, realmCssVars, realmForScore } from "@/lib/realm";
 import type { Tier } from "@/lib/types";
 import { trackEvent } from "@/lib/track";
 import { normLang } from "@/lib/lang";
@@ -169,6 +171,7 @@ export function LeaderboardClient({
 }) {
   const locale = useLocale();
   const tTier = useTranslations("tiers");
+  const tRealm = useTranslations("realms");
   const router = useRouter();
   const listAnchorRef = useRef<HTMLDivElement>(null);
   const pendingScrollRef = useRef(false);
@@ -254,8 +257,9 @@ export function LeaderboardClient({
       <ol className="flex flex-col gap-2">
         {visible.map((e, i) => {
           const rank = offset + i;
-          const style = tierStyle(e.tier);
-          const tierName = tTier(`${TIER_KEY[e.tier]}.name`);
+          const realm = realmForScore(e.final_score);
+          const tierName = tRealm(`${realm.id}.name`);
+          const styleVars = realmCssVars(realm);
           const detailLabel = labels.viewDetail.replace("{username}", e.username);
           const trendingScore = e.trending_score ?? 0;
           const recentLookupCount = e.recent_lookup_count ?? 0;
@@ -264,11 +268,10 @@ export function LeaderboardClient({
           const heat = timeWindow === "all" ? e.lookup_count : recentLookupCount;
           const heatValue = initialView === "trending" ? recentLookupCount : heat;
           const scoreLabel = (
-            <span className={style.text}>
-              {style.emoji} {tierName}
+            <span style={{ color: "var(--realm-fg)", ...styleVars }} data-realm={realm.id}>{tierName}
             </span>
           );
-          const scoreValue = <span className={style.text}>{e.final_score.toFixed(2)}</span>;
+          const scoreValue = <AdventurerLevelInline score={e.final_score} realm={realm} className="text-base" />;
           const trendLabel = <span className="text-orange-300">🚀{labels.trendLabel}</span>;
           const trendValue = <span className="text-orange-300">{trendingScore.toFixed(1)}</span>;
           const heatLabel = <span className="text-amber-300">🔥 {labels.heatLabel}</span>;
@@ -281,7 +284,7 @@ export function LeaderboardClient({
                     label: scoreLabel,
                     value: scoreValue,
                     title: labels.scoreTitle,
-                    ariaLabel: `${labels.scoreLabel} ${e.final_score.toFixed(2)}`,
+                    ariaLabel: `${labels.scoreLabel} ${formatAdventurerLevel(e.final_score)} · ${tierName}`,
                     valueClass: "text-lg",
                   },
                   {

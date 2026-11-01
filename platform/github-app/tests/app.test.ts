@@ -22,10 +22,17 @@ import {
   scoreToLabel,
   scoreComment,
   syncComment,
+  commentTemplate,
   COMMENT_MARKER,
 } from "../src/review";
 import { ui } from "../src/ui";
 import { ApiError, jsonRequest, appJWT, github } from "../src/github";
+import {
+  DEFAULT_SETTINGS,
+  putBackfillLimit,
+  putSettings,
+  RepoSettings,
+} from "../src/settings";
 
 declare const TEST_SQL: string[];
 const testEnv = env as Env;
@@ -150,6 +157,11 @@ async function job(id = "job-1") {
     .bind(id)
     .first<Job>();
 }
+async function configure(value: Partial<RepoSettings>) {
+  const settings = { ...DEFAULT_SETTINGS, ...value };
+  await putSettings(testEnv, 10, 100, repo, settings, "admin");
+  await putBackfillLimit(testEnv, 10, 100, repo, settings.backfillLimit, "admin");
+}
 async function add(id = "job-1", kind: "label" | "initialize" = "label") {
   await putJob(testEnv, {
     id,
@@ -165,7 +177,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await testEnv.DB.exec(
-    "DELETE FROM jobs; DELETE FROM sessions; DELETE FROM author_comment_once; DELETE FROM noscore_comment_budget;",
+    "DELETE FROM jobs; DELETE FROM sessions; DELETE FROM author_comment_once; DELETE FROM noscore_comment_budget; DELETE FROM repo_settings;",
   );
   fetchMock.activate();
   fetchMock.disableNetConnect();
@@ -240,61 +252,125 @@ describe("GitHub App delivery", () => {
     expect((await job("discover-1:repo:100"))?.kind).toBe("initialize");
     expect(await job("discover-1:repo:101")).toBeNull();
   });
-  it("queues only open issues when a repository is installed", async () => {
-    await add("job-1", "initialize");
+  it("only sets up labels for install initialization and queues no items", async () => {
+    await configure({ backfillLimit: 50 });
+    await add("discover-1:repo:100", "initialize");
     scope();
     intercept(`/repos/${repo}/labels?per_page=100&page=1`, labelList());
-    intercept(`/repos/${repo}/issues?state=open&per_page=100&page=1`, [
+    await runJob(testEnv, "discover-1:repo:100");
+    expect((await job("discover-1:repo:100"))?.state).toBe("done");
+    expect((await job("discover-1:repo:100"))?.result).toBe("Labels initialized");
+    expect(
+      await testEnv.DB.prepare("SELECT count(*) n FROM jobs").first("n"),
+    ).toBe(1);
+  });
+  it("backfills one page of the newest open issues and pull requests", async () => {
+    await add("backfill-10-100-1", "initialize");
+    scope();
+    intercept(`/repos/${repo}/labels?per_page=100&page=1`, labelList());
+    intercept(`/repos/${repo}/issues?state=open&sort=created&direction=desc&per_page=25`, [
       { number: 8, state: "open" },
       { number: 9, state: "open", pull_request: {} },
       { number: 10, state: "closed" },
     ]);
-    await runJob(testEnv, "job-1");
-    expect((await job())?.state).toBe("pending");
-    expect((await job())?.page).toBe(3);
-    expect((await job("open-10-100-8"))?.kind).toBe("label");
-    expect((await job("open-10-100-8"))?.pr).toBe(8);
-    expect(await job("open-10-100-9")).toBeNull();
-    expect(await job("open-10-100-10")).toBeNull();
-    scope();
-    intercept(`/repos/${repo}/pulls?state=open&per_page=100&page=1`, [
-      { number: 9, state: "open" },
-    ]);
-    await runJob(testEnv, "job-1");
-    expect((await job())?.result).toBe("Open pull requests queued");
-    expect((await job("open-pr-10-100-9"))?.pr).toBe(9);
-  });
-  it("continues an open backfill one page at a time", async () => {
-    await add("job-1", "initialize");
+    await runJob(testEnv, "backfill-10-100-1");
+    expect((await job("backfill-10-100-1"))?.state).toBe("done");
+    expect((await job("backfill-10-100-1"))?.result).toBe(
+      "Queued 2 open issues and pull requests",
+    );
+    expect((await job("open-10-100-8-r1"))?.kind).toBe("label");
+    expect((await job("open-10-100-8-r1"))?.pr).toBe(8);
+    expect(await job("open-10-100-9-r1")).toBeNull();
+    expect((await job("open-pr-10-100-9-r1"))?.pr).toBe(9);
+    expect(await job("open-10-100-10-r1")).toBeNull();
+    // A later run processes its items again, including ones handled before.
+    await add("backfill-10-100-2", "initialize");
     scope();
     intercept(`/repos/${repo}/labels?per_page=100&page=1`, labelList());
-    intercept(
-      `/repos/${repo}/issues?state=open&per_page=100&page=1`,
-      Array.from({ length: 100 }, (_, index) => ({
-        number: index + 1,
-        state: "open",
-      })),
+    intercept(`/repos/${repo}/issues?state=open&sort=created&direction=desc&per_page=25`, [
+      { number: 11, state: "open" },
+      { number: 8, state: "open" },
+    ]);
+    await runJob(testEnv, "backfill-10-100-2");
+    expect((await job("backfill-10-100-2"))?.result).toBe(
+      "Queued 2 open issues and pull requests",
     );
-    await runJob(testEnv, "job-1");
-    expect((await job())?.state).toBe("pending");
-    expect((await job())?.page).toBe(2);
-    expect((await job("open-10-100-1"))?.pr).toBe(1);
-    expect((await job("open-10-100-100"))?.pr).toBe(100);
+    expect((await job("open-10-100-8-r2"))?.pr).toBe(8);
+  });
+  it("backfills the newest N with a custom limit and skips a disabled kind", async () => {
+    await configure({ backfillLimit: 5, prsEnabled: false });
+    await add("backfill-10-100-1", "initialize");
     scope();
-    intercept(`/repos/${repo}/issues?state=open&per_page=100&page=2`, [
-      { number: 101, state: "open" },
+    intercept(`/repos/${repo}/labels?per_page=100&page=1`, labelList());
+    intercept(`/repos/${repo}/issues?state=open&sort=created&direction=desc&per_page=5`, [
+      { number: 8, state: "open" },
+      { number: 9, state: "open", pull_request: {} },
     ]);
-    await runJob(testEnv, "job-1");
-    expect((await job())?.state).toBe("pending");
-    expect((await job())?.page).toBe(3);
-    expect((await job("open-10-100-101"))?.pr).toBe(101);
+    await runJob(testEnv, "backfill-10-100-1");
+    expect((await job("open-10-100-8-r1"))?.pr).toBe(8);
+    expect(await job("open-pr-10-100-9-r1")).toBeNull();
+    await configure({ issuesEnabled: false });
+    await add("backfill-10-100-2", "initialize");
     scope();
-    intercept(`/repos/${repo}/pulls?state=open&per_page=100&page=1`, [
-      { number: 201, state: "open" },
+    intercept(`/repos/${repo}/labels?per_page=100&page=1`, labelList());
+    intercept(`/repos/${repo}/issues?state=open&sort=created&direction=desc&per_page=25`, [
+      { number: 11, state: "open" },
+      { number: 12, state: "open", pull_request: {} },
     ]);
+    await runJob(testEnv, "backfill-10-100-2");
+    expect(await job("open-10-100-11-r2")).toBeNull();
+    expect((await job("open-pr-10-100-12-r2"))?.pr).toBe(12);
+  });
+  it("retires legacy backfill pages without GitHub calls", async () => {
+    for (const [id, page] of [
+      ["job-2", 2],
+      ["job-3", 3],
+      ["pr-backfill-10-100", 3],
+    ] as const)
+      await putJob(testEnv, {
+        id,
+        installation: 10,
+        kind: "initialize",
+        repository: 100,
+        full_name: repo,
+        page,
+      });
+    for (const id of ["job-2", "job-3", "pr-backfill-10-100"]) {
+      await runJob(testEnv, id);
+      expect((await job(id))?.state).toBe("done");
+      expect((await job(id))?.result).toBe("Legacy backfill step retired");
+    }
+    // Purged done rows are not recreated by dispatch.
+    await testEnv.DB.prepare("DELETE FROM jobs WHERE id=?")
+      .bind("pr-backfill-10-100")
+      .run();
+    await dispatch(testEnv);
+    expect(await job("pr-backfill-10-100")).toBeNull();
+  });
+  it("cancels label jobs for a disabled kind at execution", async () => {
+    await configure({ issuesEnabled: false });
+    await add();
+    scope();
+    intercept(`/repos/${repo}/issues/1`, {
+      state: "open",
+      user: { login: "AsperforMias" },
+    });
     await runJob(testEnv, "job-1");
-    expect((await job())?.result).toBe("Open pull requests queued");
-    expect((await job("open-pr-10-100-201"))?.pr).toBe(201);
+    expect((await job())?.state).toBe("cancelled");
+    expect((await job())?.result).toBe("Issues disabled for this repository");
+    await configure({ prsEnabled: false });
+    await add("open-pr-10-100-1");
+    scope();
+    intercept(`/repos/${repo}/issues/1`, {
+      state: "open",
+      pull_request: {},
+      user: { login: "AsperforMias" },
+    });
+    await runJob(testEnv, "open-pr-10-100-1");
+    expect((await job("open-pr-10-100-1"))?.state).toBe("cancelled");
+    expect((await job("open-pr-10-100-1"))?.result).toBe(
+      "Pull requests disabled for this repository",
+    );
   });
   it("starts execution budget when a queued job is claimed, not when the event arrived", async () => {
     await add("job-1", "initialize");
@@ -303,9 +379,8 @@ describe("GitHub App delivery", () => {
       .run();
     scope();
     intercept(`/repos/${repo}/labels?per_page=100&page=1`, labelList());
-    intercept(`/repos/${repo}/issues?state=open&per_page=100&page=1`, []);
     await runJob(testEnv, "job-1");
-    expect((await job())?.page).toBe(3);
+    expect((await job())?.state).toBe("done");
     expect(Number((await job())?.started)).toBeGreaterThan(0);
   });
   it("requires the session user to be repository admin for retries", async () => {
@@ -456,9 +531,16 @@ describe("GitHub App delivery", () => {
           n: number;
         }>()
       )?.n,
-    ).toBe(2);
+    ).toBe(1);
     expect((await job("delivery-1"))?.kind).toBe("label");
-    expect((await job("pr-backfill-10-100"))?.page).toBe(3);
+    expect(await job("pr-backfill-10-100")).toBeNull();
+    await configure({ prsEnabled: false });
+    expect(
+      await (
+        await webhook(await event("pull_request", prEvent, "off"), testEnv)
+      ).text(),
+    ).toBe("Disabled for this repository");
+    expect(await job("off")).toBeNull();
   });
   it("ignores accounts outside rollout and non-opened events", async () => {
     await webhook(
@@ -500,10 +582,6 @@ describe("GitHub App delivery", () => {
         }),
       })
       .reply(201, "{}");
-    intercept(`/repos/${repo}/issues?state=open&per_page=100&page=1`, []);
-    await runJob(testEnv, "job-1");
-    scope();
-    intercept(`/repos/${repo}/pulls?state=open&per_page=100&page=1`, []);
     await runJob(testEnv, "job-1");
     expect((await job())?.state).toBe("done");
   });
@@ -535,10 +613,6 @@ describe("GitHub App delivery", () => {
           body: JSON.stringify({ color }),
         })
         .reply(200, "{}");
-    intercept(`/repos/${repo}/issues?state=open&per_page=100&page=1`, []);
-    await runJob(testEnv, "job-1");
-    scope();
-    intercept(`/repos/${repo}/pulls?state=open&per_page=100&page=1`, []);
     await runJob(testEnv, "job-1");
     expect((await job())?.state).toBe("done");
   });
@@ -589,6 +663,37 @@ describe("GitHub App delivery", () => {
       "open-pr-10-100-1",
     );
     expect((await job("open-pr-10-100-1"))?.result).toBe(LABELS[2]);
+    expect(
+      await testEnv.DB.prepare("SELECT count(*) n FROM author_emails").first(
+        "n",
+      ),
+    ).toBe(0);
+  });
+  it("labels a backfilled issue without sending score email", async () => {
+    // A subscribed author, so a non-suppressed job would enqueue mail.
+    await testEnv.DB.prepare(
+      "INSERT INTO author_subscriptions(user_id,login,email,locale,unsubscribe,updated) VALUES(5,'AsperforMias','sealed','en',?,?)",
+    )
+      .bind(crypto.randomUUID(), Date.now())
+      .run();
+    await putJob(testEnv, {
+      id: "open-10-100-1",
+      installation: 10,
+      kind: "label",
+      repository: 100,
+      full_name: repo,
+      pr: 1,
+    });
+    scope();
+    intercept(`/repos/${repo}/labels?per_page=100&page=1`, labelList());
+    intercept(`/repos/${repo}/issues/1`, {
+      state: "open",
+      user: { login: "AsperforMias", id: 5 },
+    });
+    intercept(`/repos/${repo}/issues/1/labels?per_page=100&page=1`, []);
+    intercept(`/repos/${repo}/issues/1/labels`, {}, 200, "POST");
+    await runJob({ ...testEnv, EMAIL_ENABLED: "true" }, "open-10-100-1");
+    expect((await job("open-10-100-1"))?.result).toBe(LABELS[2]);
     expect(
       await testEnv.DB.prepare("SELECT count(*) n FROM author_emails").first(
         "n",
@@ -708,10 +813,6 @@ describe("GitHub App delivery", () => {
       .run();
     scope();
     intercept(`/repos/${repo}/labels?per_page=100&page=1`, labelList());
-    intercept(`/repos/${repo}/issues?state=open&per_page=100&page=1`, []);
-    await runJob(testEnv, "job-1");
-    scope();
-    intercept(`/repos/${repo}/pulls?state=open&per_page=100&page=1`, []);
     await runJob(testEnv, "job-1");
     expect((await job())?.state).toBe("done");
   });
@@ -1050,6 +1151,15 @@ describe("Issue support and score comments", () => {
     expect(body).not.toMatch(/@(?!ghfind-review\b)[A-Za-z0-9-]/);
     expect(scoreComment("AsperforMias", 82.7)).not.toContain("重新评分");
   });
+  it("omits the mention hint on pull requests, where mentions are ignored", () => {
+    const body = scoreComment("AsperforMias", null, "ghfind-review", true);
+    expect(body).toContain("No score does not mean zero.");
+    expect(body).not.toContain("@ghfind-review");
+    expect(body).not.toContain("重新评分");
+    expect(
+      commentTemplate("AsperforMias", null, "ghfind-review-test", true, true),
+    ).not.toContain("@ghfind-review-test");
+  });
   it("recovers an ambiguous comment creation without posting a duplicate", async () => {
     const body = scoreComment("AsperforMias", 82.7);
     intercept(`/repos/${repo}/issues/1/comments?per_page=100&page=1`, []);
@@ -1059,9 +1169,9 @@ describe("Issue support and score comments", () => {
         github("test"),
         repo,
         1,
-        "AsperforMias",
-        82.7,
         "ghfind-review-test",
+        commentTemplate("AsperforMias", 82.7, "ghfind-review-test"),
+        async () => "",
       ),
     ).rejects.toBeInstanceOf(ApiError);
     intercept(`/repos/${repo}/issues/1/comments?per_page=100&page=1`, [
@@ -1075,9 +1185,9 @@ describe("Issue support and score comments", () => {
       github("test"),
       repo,
       1,
-      "AsperforMias",
-      82.7,
       "ghfind-review-test",
+      commentTemplate("AsperforMias", 82.7, "ghfind-review-test"),
+      async () => "",
     );
   });
   it("paginates, ignores spoofed user markers and updates only its own comment", async () => {
@@ -1102,9 +1212,9 @@ describe("Issue support and score comments", () => {
       github("test"),
       repo,
       1,
-      "AsperforMias",
-      82.7,
       "ghfind-review-test",
+      commentTemplate("AsperforMias", 82.7, "ghfind-review-test"),
+      async () => "",
     );
   });
   it("parks the installation until the GitHub App quota resets", async () => {

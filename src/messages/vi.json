@@ -1,4 +1,29 @@
 {
+  "loginDialog": {
+    "entry": "Đăng nhập",
+    "title": "Đăng nhập ghfind",
+    "description": "Chọn tài khoản để tiếp tục.",
+    "close": "Đóng",
+    "google": "Tiếp tục với Google",
+    "github": "Tiếp tục với GitHub",
+    "apple": "Tiếp tục với Apple",
+    "redirecting": "Đang mở {provider}…",
+    "loading": "Đang kiểm tra cách đăng nhập…",
+    "retry": "Thử lại",
+    "loadFailed": "Không tải được các cách đăng nhập. Hãy kiểm tra kết nối và thử lại.",
+    "unavailable": "Tạm thời không thể đăng nhập. Bạn có thể tiếp tục duyệt và thử lại sau.",
+    "githubFeatures": "Tính năng theo dõi, hồ sơ đám mây và mã thông báo API hiện yêu cầu tài khoản GitHub.",
+    "providerAccount": "Tài khoản {provider}",
+    "switchToGitHub": "Chuyển sang đăng nhập GitHub",
+    "errors": {
+      "denied": "Đã hủy đăng nhập. Hãy chọn tài khoản để thử lại.",
+      "expired": "Yêu cầu đăng nhập đã hết hạn. Vui lòng bắt đầu lại.",
+      "failed": "Không thể hoàn tất đăng nhập. Vui lòng thử lại.",
+      "unavailable": "Cách đăng nhập này không khả dụng. Hãy chọn cách khác hoặc thử lại sau."
+    },
+    "signingOut": "Đang đăng xuất…",
+    "signOutFailed": "Không thể đăng xuất. Hãy kiểm tra kết nối và thử lại."
+  },
   "meta": {
     "title": "ghfind | Chấm điểm GitHub cực gắt, tự soi bản thân & khám phá dev xịn",
     "description": "ghfind: điểm giá trị & độ tin cậy GitHub 0-100 kèm màn cà khịa cực gắt trong 30 giây. Thấy rõ lỗ hổng của mình, tự kiểm tra để tiến bộ, rồi khám phá các dev hàng đầu và được người khác tìm thấy.",
@@ -15,10 +40,11 @@
     "developers": "Lập trình viên",
     "projectBoards": "Bảng dự án",
     "projects": "Dự án",
-    "collections": "Biên tập chọn",
+    "collections": "Nghiên cứu chuyên sâu",
     "languages": "Ngôn ngữ",
     "organizations": "Tổ chức",
     "versus": "Solo lập trình viên",
+    "mfcp": "MFCP Mã nguồn mở",
     "blog": "Nghiên cứu",
     "openMenu": "Mở menu",
     "closeMenu": "Đóng menu",
@@ -27,19 +53,30 @@
     "githubBot": "GitHub Bot",
     "groupDiscover": "Khám phá",
     "groupCareer": "Sự nghiệp",
-    "groupTools": "Công cụ",
+    "groupTools": "Integrations",
     "beta": "Beta",
+    "event": "Sự kiện",
     "hint": {
       "roast": "Chấm điểm tài khoản GitHub trong 30 giây, kèm một câu cà khịa",
       "versus": "Cho hai lập trình viên đối đầu",
+      "mfcp": "Chương trình đào tạo mã nguồn mở MFCP, đang tuyển sinh",
       "leaderboard": "Xem lập trình viên nổi bật theo điểm",
       "projectBoards": "Khám phá dự án mã nguồn mở nổi bật theo lĩnh vực",
-      "collections": "Dự án và lập trình viên do biên tập viên chọn",
+      "collections": "Câu chuyện lập trình viên, dự án mã nguồn mở chọn lọc và nghiên cứu hệ sinh thái GitHub.",
       "blog": "Dữ liệu và phân tích về hệ sinh thái lập trình viên",
       "resume": "Tạo CV lập trình viên từ dữ liệu GitHub",
       "talent": "Tìm lập trình viên đáng để làm quen",
-      "githubBot": "Tự gắn nhãn issue và PR theo điểm của tác giả"
-    }
+      "githubBot": "Tự gắn nhãn issue và PR theo điểm của tác giả",
+      "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens",
+      "jobs": "Vị trí đang tuyển tại công ty AI và mã nguồn mở",
+      "talentMatch": "Báo cáo nhân tài AI, ghép vị trí và lời khuyên",
+      "discover": "Khám phá repo giá trị cao bằng lưới hoặc vuốt",
+      "feed": "Đọc bài viết của nhà phát triển và bài đăng từ X"
+    },
+    "cliApi": "CLI & API",
+    "jobs": "Việc làm",
+    "talentMatch": "Ghép nối nhân tài",
+    "feed": "Dành cho bạn"
   },
   "globalSearch": {
     "open": "Mở tìm kiếm toàn trang",
@@ -92,7 +129,7 @@
     "title": "Mã nguồn & thuật toán chấm điểm đều mã nguồn mở · Xem trên GitHub"
   },
   "home": {
-    "brand": "Cực gắt",
+    "brand": "Nhận xét",
     "headline": "Khám phá những dev giỏi nhất — và trở thành một trong số họ.",
     "subtitle": "Bắt đầu bằng một điểm số 0–100 thật đến phũ phàng. Biết mình đang ở đâu, và nên đi về đâu.",
     "boardHeading": "🏆 Những dev xịn nhất",
@@ -157,7 +194,11 @@
     "apiCtaLink": "Tài liệu API →",
     "repoAuthoredBy": "Bảo trì bởi",
     "repoContributors": "người đóng góp được xếp hạng",
-    "repoAvgScore": "điểm trung bình"
+    "repoAvgScore": "điểm trung bình",
+    "repoGlobalRank": "#{rank} / {total} trên GitHub",
+    "repoGlobalRankApprox": "~#{rank} / {total} trên GitHub",
+    "repoTopAmong": "Top {pct}% trong các repo ≥{floor}★",
+    "repoRankNote": "Theo số sao trong tất cả repo công khai không phải fork · {asOf}"
   },
   "projects": {
     "metaTitle": "Khám phá dự án GitHub chất lượng cao · ghfind",
@@ -200,11 +241,11 @@
     }
   },
   "collections": {
-    "metaTitle": "Nhà sáng lập đề xuất: dự án & lập trình viên · ghfind",
-    "metaDescription": "Bộ sưu tập tuyển chọn các dự án và lập trình viên GitHub nổi bật, dựa trên động cơ đánh giá chất lượng người đóng góp của ghfind.",
+    "metaTitle": "Nghiên cứu chuyên sâu · ghfind",
+    "metaDescription": "Câu chuyện lập trình viên, dự án mã nguồn mở chọn lọc và nghiên cứu hệ sinh thái GitHub.",
     "eyebrow": "Nhà sáng lập đề xuất",
-    "heading": "Dự án & lập trình viên tuyển chọn",
-    "subtitle": "Không phải thêm một bảng xếp hạng sao — mỗi đề xuất đều kèm dữ liệu động cơ về ai đang xây dựng và trình độ ra sao.",
+    "heading": "Nghiên cứu chuyên sâu",
+    "subtitle": "Câu chuyện lập trình viên, dự án mã nguồn mở chọn lọc và nghiên cứu hệ sinh thái GitHub.",
     "empty": "Chưa có bộ sưu tập nào — hãy quay lại sau.",
     "itemCount": "{count} đề xuất",
     "publishedOn": "Đăng ngày {date}",
@@ -222,7 +263,7 @@
     "avgScoreLabel": "điểm trung bình người đóng góp",
     "followersLabel": "người theo dõi",
     "totalStarsLabel": "tổng sao",
-    "backToCollections": "Tất cả bộ sưu tập",
+    "backToCollections": "Quay lại Nghiên cứu chuyên sâu",
     "dataNote": "Điểm và hạng đến từ động cơ chấm điểm ghfind và được làm mới sau mỗi lần quét."
   },
   "discoveryNext": {
@@ -270,12 +311,24 @@
     "signIn": "Đăng nhập bằng GitHub"
   },
   "detail": {
+    "unratedMessage": "Hồ sơ đã được lưu nhưng hiện chưa có điểm công khai để hiển thị. Bạn có thể xem GitHub hoặc yêu cầu kết quả mới trong biểu mẫu phân tích.",
+    "unratedAction": "Mở biểu mẫu phân tích",
+    "unratedGithub": "Xem trên GitHub",
     "back": "← Về Đại sảnh Danh vọng",
     "backfilling": "🔍 Đang lục lại dấu chân mã nguồn mở của họ (repo / ngôn ngữ / đóng góp)…",
     "rankTitle": "Vị trí của bạn",
     "rankUnit": "/ trên {total}",
     "rankUnranked": "Chưa xếp hạng (thiếu dữ liệu)",
     "beatInline": "Vượt {beat}% dev",
+    "githubStandingTitle": "Trên toàn GitHub",
+    "githubStandingAccountAge": "Tuổi tài khoản",
+    "githubStandingTopRepo": "Repo nhiều sao nhất",
+    "githubStandingRank": "#{rank} / {total}",
+    "githubStandingRankApprox": "~#{rank} / {total}",
+    "githubStandingTopAmong": "Top {pct}% trong các repo ≥{floor}★",
+    "githubStandingOlder": "Lâu hơn {pct}% tài khoản",
+    "githubStandingYears": "{years} năm",
+    "githubStandingFootnote": "Dữ liệu công khai trên toàn GitHub · {asOf}",
     "milestoneNext": "Còn {gap} điểm nữa tới “{tier}”",
     "milestoneCapped": "🏆 Kịch trần · hạng cao nhất",
     "facetRankLine": "Hạng #{rank} trên {facet}",
@@ -308,18 +361,26 @@
     "similarSub": "Hồ sơ gần nhất, điểm số sát nhau",
     "impactHeading": "🏆 Đóng góp đáng chú ý",
     "impactSub": "Các repo mã nguồn mở nổi tiếng họ từng đóng góp (commit + PR)",
+    "impactDisclosure": "Đóng góp đáng chú ý ({count})",
     "worksHeading": "🛠 Tác phẩm tiêu biểu",
     "worksSub": "Những repo nổi bật và được ghim của chính họ",
-    "stackHeading": "🧬 Stack & lĩnh vực",
-    "stackLangLabel": "Ngôn ngữ chính",
-    "stackTopicsLabel": "Lĩnh vực",
     "orgsLabel": "Tổ chức",
     "commits": "commit",
     "prs": "PR",
-    "roastHeading": "🔥 Toàn văn cà khịa",
+    "verdictLabel": "Nhận xét ngắn",
     "roastEmpty": "Bài cà khịa này chưa được lưu trữ — <a>phán xét lại từ trang chủ</a> để tạo nó.",
     "scoreStateStaleTitle": "Điểm lịch sử",
     "scoreStateStaleBody": "Điểm này dùng bộ quy tắc cũ. Nó vẫn được hiển thị cho đến khi một lần quét lại đã xác minh thay thế.",
+    "scoreStateRescanAction": "Đánh giá lại",
+    "scoreStateRescanRunning": "Đang đánh giá lại theo quy tắc mới…",
+    "scoreStateRescanReport": "Đang tạo lời cà khịa mới…",
+    "scoreStateRescanError": "Đánh giá lại thất bại, thử lại sau nhé",
+    "roastStaleLabel": "Bản roast phiên bản cũ",
+    "roastStaleHint": "Bản roast này được viết theo quy tắc cũ, chỉ để tham khảo.",
+    "roastRegenerating": "Đang viết roast theo quy tắc mới…",
+    "roastRegeneratePending": "Chưa có bản roast phiên bản mới",
+    "roastRegenerateFailed": "Không thể viết roast mới, hãy đánh giá lại thủ công",
+    "roastRegenerateSlow": "Roast mới vẫn đang được viết, hãy tải lại sau",
     "scoreStatePendingTitle": "Điểm hiện tại · báo cáo đang chờ",
     "scoreStatePendingBody": "Điểm xác định đã được cập nhật. Báo cáo AI tùy chọn chưa được tạo.",
     "scoreStateReadyTitle": "Điểm và báo cáo hiện tại",
@@ -330,6 +391,13 @@
     "liveRateLimited": "Nhiều người đang cà khịa quá — thử lại sau một phút nhé.",
     "liveExpired": "Phiên quét đã hết hạn trước khi màn cà khịa hoàn tất.",
     "liveGoHome": "Cà khịa lại từ trang chủ →",
+    "liveRetry": "Thử lại",
+    "roastProgressTitle": "Đang viết bài cà khịa…",
+    "roastStage1": "Đang đọc kết quả quét",
+    "roastStage2": "Đang chọn điều đáng viết",
+    "roastStage3": "Đang nháp câu cà khịa",
+    "roastStage4": "Đang đối chiếu số và tên kho",
+    "roastStage5": "Đang chỉnh trang kết thúc",
     "modalTitle": "🔥 Kết quả cà khịa đã về",
     "modalRoastHeading": "Toàn văn cà khịa",
     "modalFirstJudged": "🥇 Bạn là người đầu tiên bị phán xét — đúng chất tiên phong",
@@ -337,13 +405,20 @@
     "modalViewProfile": "Xem hồ sơ đầy đủ",
     "modalBadgeCta": "Lấy huy hiệu GitHub của bạn",
     "modalClose": "Đóng",
-    "battlesHeading": "⚔️ Trận đấu",
-    "battlesSub": "Những trận PK dev này từng tham chiến",
-    "battleWin": "Thắng",
-    "battleLoss": "Thua",
-    "battleTie": "Hòa",
     "selfCta": "Chấm điểm GitHub của chính bạn →",
-    "reportLangNotice": "Báo cáo cà khịa của AI hiện chỉ được viết bằng tiếng Anh và tiếng Trung — bạn đang đọc bản tiếng Anh."
+    "reportLangNotice": "Báo cáo cà khịa của AI hiện chỉ được viết bằng tiếng Anh và tiếng Trung — bạn đang đọc bản tiếng Anh.",
+    "coCreatorShare": "Dẫn dắt / đồng xây dựng ({share}%)",
+    "scoreReadyHint": "Điểm đã ra. Nhận xét tới ngay",
+    "adventurerLevel": "Cấp độ mạo hiểm giả",
+    "preciseScoreTitle": "Điểm tổng {score}",
+    "liveTimeout": "Roast hết thời gian chờ. Thử lại sau; điểm và roast cũ vẫn được giữ.",
+    "scoreStateRescanTimeout": "Đánh giá lại hết thời gian chờ. Thử lại sau",
+    "evaluateStageFetch": "Đang lấy dữ liệu",
+    "evaluateStageAnalyze": "Đang phân tích repo",
+    "evaluateStageRoast": "Đang viết roast",
+    "evaluateError": "Lần này chưa xong. Bấm thử lại để chạy tiếp.",
+    "evaluateTimeout": "Lần tạo này hơi lâu. Bấm thử lại để chạy tiếp.",
+    "evaluateRetry": "Thử lại"
   },
   "reactions": {
     "heading": "Phản ứng cộng đồng",
@@ -360,26 +435,29 @@
     "clown": "Chịu luôn"
   },
   "rescan": {
-    "button": "🔄 Quét lại",
+    "button": "Đánh giá lại",
     "scanning": "Đang quét…",
-    "roasting": "Đang cà khịa…",
-    "error": "Quét thất bại, thử lại sau nhé",
-    "cooldown": "Có thể làm mới sau {hours}h"
+    "roasting": "Đang tạo nhận xét…",
+    "error": "Đánh giá thất bại, thử lại sau",
+    "cooldown": "Có thể làm mới sau {hours}h",
+    "timeout": "Roast hết thời gian chờ. Thử lại sau"
   },
   "detailMeta": {
-    "title": "{username} — {score}/100 · {tier} | ghfind",
+    "unratedTitle": "{username} · Hồ sơ nhà phát triển",
+    "title": "{username} — Lv.{level} · {realm} | ghfind",
     "descWithTags": "{tags} — xem báo cáo điểm đầy đủ của {username} trên ghfind.com.",
     "descPlain": "Báo cáo giá trị & độ tin cậy GitHub của {username} — ghfind.com.",
     "notFoundTitle": "Không tìm thấy tài khoản · ghfind",
     "pendingTitle": "Đang cà khịa @{username}… · ghfind"
   },
   "roaster": {
+    "modelSponsor": "Nhà tài trợ mô hình",
     "inputPlaceholder": "Nhập username GitHub hoặc URL hồ sơ",
     "judge": "Phán xét",
     "judging": "Đang phán xét…",
     "byoLink": "Dùng model / API key của riêng bạn",
     "scanning": "Đang đào bới lịch sử của {username}… đọc commit, soi PR, đếm star, đánh hơi hoạt động cày ảo",
-    "roastLabel": "🔥 Cà khịa",
+    "roastLabel": "Nhận xét",
     "roastThinking": "AI đang nấu một màn cà khịa cực gắt — sắp ra lò rồi…",
     "roastPending": "Đang chuẩn bị màn cà khịa",
     "firstJudged": "🥇 Bạn là người đầu tiên bị phán xét — đúng chất tiên phong",
@@ -397,8 +475,10 @@
     "errRoastFailed": "Tạo bài cà khịa thất bại — thử lại sau hoặc dùng key của riêng bạn.",
     "errNetworkRoast": "Rớt mạng — màn cà khịa bị cắt ngang.",
     "errScanFailed": "Quét thất bại, thử lại sau nhé.",
+    "largeAccountCollecting": "Đang thu thập dữ liệu tài khoản lớn…",
     "errScanPending": "Đang thu thập toàn bộ lịch sử PR và commit công khai. Sẽ tự động tiếp tục khi hoàn tất.",
     "errNetworkScan": "Lỗi mạng — còn chẳng chạm được tới GitHub.",
+    "dataUpdating": "Đang cập nhật dữ liệu…",
     "byoReasonQuota": "Hạn mức miễn phí đã cạn 😵 Thêm API key của riêng bạn để cà khịa tiếp (OpenAI / StepFun / Groq đều dùng được).",
     "byoReasonRate": "Hôm nay bạn cà khịa hơi nhiều rồi đó 🥵 Nghỉ chút đi, hoặc thêm API key riêng để cà khịa không giới hạn.",
     "byoReasonDefault": "Server chưa cấu hình model mặc định — thêm API key của riêng bạn để bắt đầu cà khịa."
@@ -410,6 +490,9 @@
     "rate_limited": "Nhanh quá — hít thở sâu rồi thử lại sau một phút.",
     "github_rate_limited": "API của GitHub đang quá tải — chờ chút nhé.",
     "github_unavailable": "Dữ liệu GitHub tạm thời không khả dụng — thử lại sau.",
+    "github_collect_deadline": "Thu thập GitHub đã hết thời gian — thử lại sau một chút nhé.",
+    "scan_pending": "Đang thu thập dữ liệu tài khoản lớn…",
+    "scan_busy": "Hệ thống đang chấm điểm — thử lại sau một chút nhé.",
     "scan_failed": "Quét bị sập — thử lại sau nhé."
   },
   "share": {
@@ -476,36 +559,35 @@
     "cancel": "Hủy",
     "saveContinue": "Lưu & tiếp tục"
   },
-  "developerCount": "<n>{count, number}</n> dev đã bước vào đấu trường ⚔️",
   "shareCard": {
     "beatLabel": "dev bị vượt mặt",
     "brand": "🔥 ghfind · xem bạn ở đâu trên bản đồ"
   },
   "tiers": {
-    "god": {
-      "name": "GOD",
-      "blurb": "Huyền thoại · Đại sảnh Danh vọng"
-    },
-    "elite": {
-      "name": "ELITE",
-      "blurb": "Tinh hoa · Dev hạng đỉnh"
-    },
-    "solid": {
-      "name": "SOLID",
-      "blurb": "Chắc tay · Đáng tin cậy"
+    "trash": {
+      "name": "Luyện Khí",
+      "blurb": "Bước đầu tiên · Xây nền tảng"
     },
     "npc": {
-      "name": "NPC",
-      "blurb": "Trung bình · Không có gì nổi bật"
+      "name": "Kết Đan",
+      "blurb": "Đan thành · Lộ sắc bén"
     },
-    "trash": {
-      "name": "TRASH",
-      "blurb": "Giá trị thấp · Nhiều khả năng cày ảo"
+    "solid": {
+      "name": "Luyện Hư",
+      "blurb": "Trở về chất phác · Nhẹ như không"
+    },
+    "elite": {
+      "name": "Hợp Thể",
+      "blurb": "Thiên nhân hợp nhất · Tông sư hàng đầu"
+    },
+    "god": {
+      "name": "Đại Thừa",
+      "blurb": "Gần đại đạo · Chuẩn mực điện đường"
     }
   },
   "dimensions": {
     "account_maturity": "Độ trưởng thành tài khoản",
-    "original_project_quality": "Chất lượng dự án gốc",
+    "original_project_quality": "Dự án gốc và dẫn dắt",
     "contribution_quality": "Chất lượng đóng góp",
     "ecosystem_impact": "Tác động hệ sinh thái / bảo trì",
     "community_influence": "Ảnh hưởng cộng đồng",
@@ -531,14 +613,16 @@
     "suggestLanguage": "Bảng xếp hạng dev {value}",
     "suggestOrg": "{value} · thành viên tổ chức",
     "pkHalfHint": "Gõ tên đối thủ, rồi nhấn Enter để chiến",
-    "lockedRemove": "Gỡ bỏ"
+    "lockedRemove": "Gỡ bỏ",
+    "ctaMatch": "Ghép nối",
+    "ctaMatchHint": "Báo cáo nhân tài và vị trí phù hợp"
   },
   "blog": {
     "heading": "Nghiên cứu",
     "subtitle": "Ghi chú dữ liệu từ việc chấm điểm đóng góp GitHub thật ở quy mô lớn.",
     "readingTime": "{minutes} phút đọc",
     "notTranslated": "Bài viết này chưa được dịch — đang hiển thị bản gốc tiếng Anh.",
-    "backToList": "Tất cả nghiên cứu",
+    "backToList": "Quay lại Nghiên cứu chuyên sâu",
     "empty": "Chưa có bài viết nào."
   },
   "footer": {
@@ -597,8 +681,8 @@
         "body": "Ảnh chụp được chấm theo độ trưởng thành tài khoản, chất lượng dự án gốc, chất lượng đóng góp, tác động hệ sinh thái, ảnh hưởng cộng đồng và độ thật của hoạt động, kèm điểm phạt cho cày PR, bơm star và spam theo template."
       },
       {
-        "title": "3. Nhận điểm, hạng và màn cà khịa",
-        "body": "Bạn nhận được điểm 0-100 tái lập được kèm hạng từ Trash đến God, bảng phân tích từng chiều chỉ ra chính xác thứ đang kéo điểm của bạn xuống, và — chỉ khi bạn yêu cầu — một màn cà khịa cực gắt do AI viết."
+        "title": "3. Nhận cấp độ mạo hiểm gia, cảnh giới và roast",
+        "body": "Bạn nhận được cấp độ mạo hiểm gia có thể tái tạo (Lv.1–100), cảnh giới từ Luyện Khí đến Đại Thừa, phân tích từng chiều cho thấy điều gì kéo điểm xuống, và — chỉ khi bạn yêu cầu — một roast dí dỏm do AI viết."
       }
     ],
     "numbersHeading": "ghfind qua những con số",
@@ -636,7 +720,7 @@
     "heading": "Tài liệu API ghfind",
     "lead": "ghfind chấm bất kỳ tài khoản GitHub nào từ 0-100 về giá trị đóng góp thực và độ tin cậy bằng một engine tất định, mã nguồn mở. Mọi thứ trên trang web cũng có thể truy cập theo cách lập trình: REST API công khai, MCP server cho AI agent, và các SDK chính thức. Trang này ghi lại tất cả.",
     "restHeading": "REST API của ghfind",
-    "restIntro": "Base URL: https://ghfind.com. Các thao tác đọc điểm không cần xác thực. Lỗi trả về JSON có cấu trúc ({error, message, hint}), phản hồi mang header RateLimit-*, và các endpoint danh sách hỗ trợ phân trang limit/offset.",
+    "restIntro": "Base URL: https://ghfind.com. Các thao tác đọc điểm không cần xác thực. Lỗi trả về JSON có cấu trúc (error / message / hint), phản hồi mang header RateLimit-*, và các endpoint danh sách hỗ trợ phân trang limit/offset.",
     "endpoints": [
       {
         "sig": "GET /api/score/{username}",
@@ -777,8 +861,16 @@
         "p": "Với các tài khoản đã được chấm, chúng tôi cache điểm số, hạng và các số liệu dẫn xuất để báo cáo chia sẻ tải nhanh và bảng xếp hạng luôn mượt. Chỉ tài khoản đạt 60 điểm trở lên mới được lập chỉ mục và liệt kê công khai; trang của tài khoản điểm thấp hơn vẫn truy cập được qua liên kết trực tiếp nhưng bị chặn khỏi công cụ tìm kiếm. Chúng tôi dùng phân tích tổng hợp tôn trọng quyền riêng tư để hiểu lưu lượng và không bán dữ liệu cá nhân."
       },
       {
+        "h": "Đăng nhập Google và cookie tài khoản",
+        "p": "Nếu chọn đăng nhập Google, chúng tôi nhận mã định danh tài khoản Google (subject), tên và ảnh hồ sơ để tạo phiên ghfind. Google cũng có thể trả về địa chỉ email trong quá trình đăng nhập; chúng tôi không lưu trữ lâu dài địa chỉ này. Cookie phiên được ký và có thuộc tính HttpOnly lưu thông tin định danh cơ bản tối đa 30 ngày. Chúng tôi không giữ mã truy cập API Google hoặc mã làm mới. Đăng xuất sẽ xóa cookie phiên. Đăng nhập Google không cấp quyền GitHub và chúng tôi không tự động liên kết tài khoản theo địa chỉ email."
+      },
+      {
         "h": "Cà khịa bằng key riêng",
         "p": "Tính năng cà khịa tùy chọn có thể dùng key nhà cung cấp model của riêng bạn. Khi bạn cung cấp một key, nó nằm trong trình duyệt của bạn và được chuyển tiếp một lần qua server của chúng tôi để gọi model — không bao giờ lưu trữ, không bao giờ ghi log, và bị hủy sau khi yêu cầu hoàn tất."
+      },
+      {
+        "h": "Quảng cáo và cookie",
+        "p": "Khi chúng tôi hiển thị quảng cáo, các nhà cung cấp bên thứ ba, bao gồm Google, sử dụng cookie, web beacon và các công nghệ tương tự để phân phối quảng cáo dựa trên các lượt truy cập trước đây của bạn vào trang web này hoặc các trang web khác. Việc Google sử dụng cookie quảng cáo cho phép Google và các đối tác của họ phân phối quảng cáo cho bạn dựa trên lượt truy cập của bạn vào trang web này và/hoặc các trang web khác trên Internet. Bạn có thể tắt quảng cáo được cá nhân hóa bằng cách truy cập Cài đặt quảng cáo của Google (https://adssettings.google.com). Để tắt việc một số nhà cung cấp bên thứ ba sử dụng cookie cho quảng cáo được cá nhân hóa, hãy truy cập www.aboutads.info/choices."
       }
     ]
   },
@@ -791,7 +883,7 @@
     "dimensionsIntro": "Mỗi chiều đóng góp vào điểm cơ sở 100. Kết hợp lại, chúng thưởng cho công việc mã nguồn mở bền bỉ, nguyên bản, được sử dụng rộng rãi thay vì các con số hoạt động thô.",
     "dimensionDetails": {
       "account_maturity": "Tài khoản đã ổn định và nhất quán theo thời gian ra sao — tuổi đời, hoạt động bền bỉ, và một đường cong uy tín chống lại việc bơm thổi qua đêm.",
-      "original_project_quality": "Chất lượng và mức đón nhận của những repository mà tài khoản thực sự sở hữu và tự viết, không tính fork hay dự án vặt vãnh.",
+      "original_project_quality": "Chất lượng và mức đón nhận của dự án tự tạo hoặc có đóng góp dẫn dắt, đồng xây dựng đáng kể, tính theo tỷ lệ quy thuộc; không tính fork.",
       "contribution_quality": "Chất lượng thực chất của đóng góp cho các dự án khác — những pull request được merge, có ý nghĩa, đối lập với spam theo template.",
       "ecosystem_impact": "Công việc của tài khoản được phụ thuộc và bảo trì đến mức nào trong hệ sinh thái rộng hơn.",
       "community_influence": "Tầm với và vị thế thật trong cộng đồng, được chuẩn hóa để số follower hay star thô không thể lấn át.",
@@ -1294,8 +1386,10 @@
     }
   },
   "sponsor": {
+    "stripLabel": "Nhà tài trợ",
+    "learnMore": "Tìm hiểu thêm",
     "metaTitle": "Tài trợ ghfind · Gói và quyền lợi",
-    "metaDescription": "Tài trợ ghfind: các gói Chính, Mô hình, Nổi bật và Bạn bè, tính theo tháng. Tài trợ không bao giờ ảnh hưởng đến xếp hạng hay điểm số.",
+    "metaDescription": "Bốn cấp tài trợ hàng tháng cho ghfind: 夯, 顶级, 人上人 và 友情. Tài trợ không ảnh hưởng đến xếp hạng hay điểm số.",
     "topline": {
       "section": "Trợ giúp & Tài liệu",
       "current": "Tài trợ"
@@ -1312,11 +1406,14 @@
     "available": "Còn chỗ",
     "soon": "Đang phát triển",
     "currentHolder": "Nhà tài trợ hiện tại",
+    "anonymous": "Nhà tài trợ ẩn danh",
+    "emailTemplateSubject": "Hỏi về tài trợ ghfind · {tier}",
+    "emailTemplateBody": "Xin chào, tôi muốn hỏi về gói tài trợ {tier} của ghfind.\n\nNgày bắt đầu tài trợ:\nThời hạn tài trợ: 1 tháng\n\nHiển thị ẩn danh (có/không):\nSản phẩm/dự án muốn quảng bá (có thể để trống nếu chọn ẩn danh):\nLiên kết dự án (không bắt buộc):\nBiểu tượng hoặc logo (không bắt buộc; đính kèm tệp hoặc cung cấp liên kết):\nGiới thiệu ngắn về sản phẩm/dự án (không bắt buộc):",
     "cta": "Liên hệ tài trợ",
     "ctaSoldOut": "Đã hết · Hãy chờ đợt sau",
     "tiers": {
       "title": {
-        "name": "Nhà tài trợ chính",
+        "name": "夯",
         "summary": "Vị trí nổi bật nhất trên trang — thương hiệu của bạn đi cùng mọi thẻ khoe được chia sẻ.",
         "perks": [
           {
@@ -1328,19 +1425,22 @@
         ]
       },
       "model": {
-        "name": "Nhà tài trợ mô hình",
-        "summary": "Cung cấp mô hình cho các nhận xét và xuất hiện mỗi lần nhận xét được tạo.",
+        "name": "顶级",
+        "summary": "Cung cấp mô hình cho các nhận xét, xuất hiện mỗi lần nhận xét được tạo và tin tuyển dụng được ưu tiên hiển thị.",
         "perks": [
           {
             "text": "Hiển thị nhà tài trợ mô hình khi tạo nhận xét"
           },
           {
             "text": "Thông tin và logo nhà tài trợ trên trang chủ"
+          },
+          {
+            "text": "Tin tuyển dụng của bạn được ưu tiên hiển thị ở mục tuyển dụng trên trang chủ và trang /jobs"
           }
         ]
       },
       "featured": {
-        "name": "Nhà tài trợ nổi bật",
+        "name": "人上人",
         "summary": "Hiển thị ổn định trên trang chủ và trang chi tiết nhà phát triển.",
         "perks": [
           {
@@ -1353,7 +1453,7 @@
         ]
       },
       "friend": {
-        "name": "Nhà tài trợ bạn bè",
+        "name": "友情",
         "summary": "Ủng hộ ghfind như một người bạn — chúng tôi sẽ ghi nhận bạn tại đây.",
         "perks": [
           {
@@ -1381,98 +1481,670 @@
     "slotOpen": "Còn trống"
   },
   "githubBot": {
-    "metaTitle": "ghfind Review — GitHub App gắn nhãn issue và PR theo điểm của tác giả",
-    "metaDescription": "Cài GitHub App ghfind Review để gắn nhãn màu cho mọi issue và pull request mới, dựa trên điểm ghfind công khai của tác giả.",
+    "metaTitle": "ghfind Review | Bot GitHub để phân loại Issue và PR",
+    "metaDescription": "ghfind Review quản lý nhãn điểm tác giả, phân loại nội dung, xem trước, dọn dẹp và kết nối dịch vụ AI của bạn (BYOK) theo từng kho mã.",
     "topline": {
       "section": "Tích hợp",
       "current": "GitHub Bot"
     },
     "hero": {
-      "eyebrow": "GitHub App · Miễn phí",
-      "title": "Phân loại issue và PR theo người tạo",
-      "subtitle": "ghfind Review gắn nhãn review: có màu cho mọi issue và pull request mới, dựa trên điểm ghfind công khai của tác giả. Không cần workflow, token hay secret.",
-      "install": "Cài trên GitHub",
-      "status": "Mở trang trạng thái",
-      "note": "Chạy dưới tên ghfind-review[bot]. Chỉ gắn nhãn — không bình luận, đóng hay chặn bất kỳ đóng góp nào."
+      "eyebrow": "ghfind Review · GitHub App",
+      "title": "Phân loại Issue và PR,\ndo bạn kiểm soát.",
+      "subtitle": "Gắn nhãn theo điểm tác giả hoặc nội dung. Quản lý tự động hóa qua bảng điều khiển Bot.",
+      "admin": "Mở bảng điều khiển Bot",
+      "install": "Cài đặt trên GitHub",
+      "status": "Trang chủ Bot"
     },
-    "preview": {
-      "label": "Ví dụ danh sách issue có nhãn review",
-      "heading": "Issues",
+    "console": {
+      "heading": "Không gian làm việc Bot của bạn",
+      "note": "Đăng nhập bằng GitHub. Bảng điều khiển hiển thị các bản cài đặt và kho mã mà bạn có quyền truy cập.",
       "items": {
-        "top": "Lỗi khi phân tích cấu hình lồng nhau",
-        "medium": "Thêm chế độ tối cho phần cài đặt",
-        "noScore": "Lỗi chính tả trong README"
+        "overview": {
+          "title": "Tổng quan",
+          "body": "Xem tổng quan các bản cài đặt GitHub của bạn."
+        },
+        "repositories": {
+          "title": "Kho mã",
+          "body": "Cấu hình nhãn, tạm dừng hoặc tiếp tục xử lý."
+        },
+        "tasks": {
+          "title": "Tác vụ",
+          "body": "Theo dõi tiến độ xử lý các mục có sẵn và thử lại tác vụ thất bại."
+        },
+        "activity": {
+          "title": "Hoạt động",
+          "body": "Xem các thay đổi cấu hình và lịch sử dọn dẹp."
+        }
+      },
+      "preview": "Bảng điều khiển Bot · Dữ liệu demo cục bộ",
+      "screenshotAlt": "Dashboard Bot hiển thị tổng quan cài đặt, trạng thái kho mã, tác vụ và hoạt động gần đây."
+    },
+    "classification": {
+      "heading": "Hai loại nhãn. Hai tín hiệu khác nhau.",
+      "lead": "Phân biệt thông tin hồ sơ tác giả với chủ đề của nội dung đóng góp.",
+      "score": {
+        "mode": "Thông tin hồ sơ tác giả",
+        "title": "Nhãn điểm tác giả",
+        "body": "Với Issue và PR mới, Bot tra cứu điểm ghfind công khai của tác giả rồi gắn nhãn review:. Điểm này mô tả hồ sơ công khai, không phản ánh chất lượng của đóng góp.",
+        "example": "Năm mức điểm, bao gồm nhãn no-score rõ ràng khi không có điểm."
+      },
+      "intent": {
+        "mode": "Tùy chọn · Mặc định tắt",
+        "title": "Phân loại nội dung",
+        "body": "So sánh tiêu đề và nội dung Issue hoặc PR với mô tả của các nhãn có sẵn mà bạn chọn. Khi được bật, bộ phân loại có thể thêm tối đa ba nhãn phù hợp mà không tạo mới hoặc đổi tên nhãn.",
+        "example": "Cần có dịch vụ phân loại đã được cấu hình. Thử gợi ý trong bảng điều khiển trước khi bật. Phân loại bằng AI độc lập với điểm tác giả và có thể cần chỉnh sửa. Kết nối dịch vụ AI của bạn trong cài đặt kho mã."
       }
     },
-    "labels": {
-      "heading": "Năm nhãn, nhìn là biết",
-      "lead": "Nhãn còn thiếu sẽ được tạo khi cài. Màu hoặc mô tả bạn đã tùy chỉnh được giữ nguyên.",
+    "byok": {
+      "heading": "Kết nối dịch vụ AI của bạn",
+      "lead": "Dùng địa chỉ API, khóa và mô hình của bạn. Cấu hình riêng từng kho mã, rồi chọn dịch vụ của bạn hoặc của nền tảng.",
+      "cta": "Cấu hình dịch vụ AI",
+      "setup": "Mở kho mã, rồi chọn Dịch vụ AI. Cần quyền quản trị kho mã để lưu cấu hình.",
       "items": {
-        "low": {
-          "range": "0 – 39",
-          "desc": "Ít tín hiệu công khai. Nên xác minh nguồn trước."
+        "provider": {
+          "title": "Chọn dịch vụ cho từng kho mã",
+          "body": "Chuyển giữa dịch vụ nền tảng và URL cơ sở API HTTPS công khai của bạn. Mỗi kho mã lưu cấu hình riêng."
         },
-        "medium": {
-          "range": "40 – 69",
-          "desc": "Hồ sơ người đóng góp thông thường."
+        "protocol": {
+          "title": "Chọn giao thức và mô hình",
+          "body": "Chat Completions tương thích OpenAI hỗ trợ phân loại nội dung và tạo lời chào. Jev Decisions chỉ phân loại nội dung."
         },
-        "high": {
-          "range": "70 – 89",
-          "desc": "Tín hiệu hồ sơ công khai mạnh."
+        "key": {
+          "title": "Bảo vệ khóa của bạn",
+          "body": "Khóa API được lưu dưới dạng mã hóa và không bao giờ hiển thị lại. Bạn có thể thay thế hoặc xóa khóa đã lưu trong bảng điều khiển."
         },
-        "top": {
-          "range": "90 – 100",
-          "desc": "Nhóm dẫn đầu chỉ số ghfind."
+        "test": {
+          "title": "Kiểm tra trước khi bật",
+          "body": "Chủ động kiểm tra kết nối đã lưu. Kiểm tra không thay đổi GitHub và không lưu văn bản mẫu. Phân loại nội dung vẫn mặc định tắt."
+        }
+      },
+      "billing": "Nhà cung cấp tính phí các yêu cầu bằng khóa của bạn. Nếu dịch vụ của bạn gặp lỗi, Bot không âm thầm chuyển sang dịch vụ nền tảng."
+    },
+    "operations": {
+      "heading": "Xem trước. Sau đó quyết định.",
+      "lead": "Kiểm soát từng kho mã riêng biệt, với các thay đổi được ghi vào nhật ký hoạt động.",
+      "items": {
+        "preview": {
+          "title": "Thử gợi ý nhãn",
+          "body": "Thử mẫu Issue hoặc PR với các định nghĩa nhãn đã lưu. Bản xem trước không thay đổi GitHub và không lưu văn bản mẫu. Cần có dịch vụ phân loại đã được cấu hình."
         },
-        "noScore": {
-          "range": "Không có điểm",
-          "desc": "Chưa lấy được điểm, không phải 0 điểm. Tự thử lại sau 20 và 60 phút."
+        "backfill": {
+          "title": "Xử lý các mục có sẵn",
+          "body": "Tự bắt đầu xử lý 1–100 Issue và PR đang mở gần đây nhất. Quá trình cài đặt chỉ khởi tạo nhãn điểm, không tự động xử lý các mục trong quá khứ."
+        },
+        "cleanup": {
+          "title": "Xem và hoàn tác thay đổi của Bot",
+          "body": "Xem trước những mục có thể xóa rồi xác nhận. Dọn dẹp chỉ xóa các thay đổi có thể xác định là do Bot này thực hiện; giữ lại nhãn được thêm lại thủ công và thay đổi không rõ nguồn gốc."
         }
       }
     },
-    "steps": {
-      "heading": "Cách hoạt động",
+    "cli": {
+      "heading": "Cùng các thao tác đó, từ terminal của bạn.",
+      "body": "CLI Go, JavaScript và Python hỗ trợ xem trạng thái, tạm dừng, tiếp tục, xử lý các mục có sẵn, thử lại và dọn dẹp. Dùng token được cấp quyền Bot rõ ràng; bạn vẫn cần quyền truy cập kho mã.",
+      "link": "Hướng dẫn CLI và API",
+      "example": "Lệnh ví dụ · thay owner/repo",
+      "note": "Lệnh cleanup xem trước những mục sẽ bị xóa. Cần xác nhận riêng để thực hiện."
+    },
+    "reference": {
+      "heading": "Nhãn điểm tác giả và bộ lọc tìm kiếm GitHub"
+    },
+    "labels": {
+      "heading": "Năm mức điểm tác giả",
+      "lead": "Các nhãn điểm còn thiếu được tạo khi cài đặt. Màu sắc và mô tả tùy chỉnh có sẵn được giữ nguyên.",
       "items": {
-        "install": {
-          "title": "Cài vào các repo đã chọn",
-          "body": "Cấp quyền đọc & ghi cho Issues và Pull requests. Chọn Only select repositories để thử quy mô nhỏ; repo tổ chức có thể cần owner phê duyệt."
+        "low": {
+          "range": "0 – 39",
+          "desc": "Ít tín hiệu từ hồ sơ công khai hơn."
         },
-        "open": {
-          "title": "Có người mở issue hoặc PR",
-          "body": "Bot tra cứu điểm ghfind công khai của tác giả ở chế độ nền. Nội dung issue không bao giờ được đọc hay chấm điểm."
+        "medium": {
+          "range": "40 – 69",
+          "desc": "Tín hiệu hồ sơ công khai ở mức trung bình."
         },
-        "label": {
-          "title": "Nhãn review: xuất hiện",
-          "body": "Khi cài, các trang đầu của issue và PR đang mở cũng được gắn nhãn. Sửa hoặc mở lại sẽ không chấm lại."
+        "high": {
+          "range": "70 – 89",
+          "desc": "Tín hiệu hồ sơ công khai mạnh hơn."
+        },
+        "top": {
+          "range": "90 – 100",
+          "desc": "Mức cao nhất của chỉ số ghfind."
+        },
+        "noScore": {
+          "range": "Không có điểm",
+          "desc": "Chưa có điểm không có nghĩa là điểm bằng không. Lỗi tạm thời được thử lại sau 20 và 60 phút."
         }
       }
     },
     "queues": {
-      "heading": "Biến khoảng điểm thành hàng đợi review",
-      "lead": "Dán bộ lọc vào ô tìm kiếm issue của repo và bắt đầu với hàng đợi phù hợp với thời gian của bạn.",
+      "heading": "Lọc trên GitHub",
+      "lead": "Dán bộ lọc vào ô tìm kiếm Issues của kho mã. Thay is:issue bằng is:pr để tìm pull request.",
       "items": {
-        "high": "Issue điểm cao",
-        "top": "Issue điểm cao nhất",
-        "low": "Issue điểm thấp cần xác minh",
-        "noScore": "Không có điểm — cần thêm bối cảnh"
+        "high": "Mức điểm cao",
+        "top": "Mức điểm cao nhất",
+        "low": "Mức điểm thấp",
+        "noScore": "Điểm không khả dụng"
       }
     },
     "notes": {
-      "rescore": {
-        "heading": "Yêu cầu chấm lại",
-        "body": "Sau các lần thử lại tự động, tác giả hoặc quản trị viên repo có thể bình luận @ghfind-review trong issue để chấm lại."
+      "heading": "Cài đặt, dữ liệu và quyền kiểm soát",
+      "install": {
+        "heading": "Bắt đầu với các kho mã đã chọn",
+        "body": "Cài GitHub App với quyền đọc và ghi Issues và Pull requests. Không cần thêm workflow, PAT hay secret vào kho mã. Kho mã của tổ chức có thể cần chủ sở hữu phê duyệt."
       },
       "privacy": {
-        "heading": "Dữ liệu được dùng",
-        "body": "Không đọc mã nguồn hay nội dung issue. Chỉ lưu bản cài đặt, repo, số issue, điểm và trạng thái tác vụ; tác vụ đã xong bị xóa sau 30 ngày. Tác giả có email công khai nhận tối đa một email điểm mỗi 72 giờ, hủy đăng ký chỉ với một cú nhấp.",
-        "link": "Thông báo quyền riêng tư"
+        "heading": "Tìm hiểu dữ liệu được xử lý",
+        "body": "Việc tính điểm sử dụng hồ sơ công khai của tác giả. Phân loại tùy chọn gửi tiêu đề, nội dung và mô tả của các nhãn đã chọn đến dịch vụ AI được cấu hình. Bình luận mặc định tắt; nếu bật, bình luận gồm phần giới thiệu và tóm tắt điểm tác giả, không phải đánh giá mã nguồn.",
+        "link": "Đọc thông báo quyền riêng tư"
       },
       "stop": {
-        "heading": "Dừng bất cứ lúc nào",
-        "body": "Gỡ repo, tạm dừng hoặc gỡ cài đặt app trong phần cài đặt GitHub. Các nhãn hiện có vẫn được giữ."
+        "heading": "Tạm dừng hoặc gỡ Bot",
+        "body": "Tạm dừng xử lý từng kho mã từ bảng điều khiển hoặc gỡ App trong cài đặt GitHub. Các nhãn hiện có vẫn được giữ lại; dùng chức năng dọn dẹp để xem riêng những thay đổi của Bot có thể hoàn tác."
       }
     },
-    "disclaimer": "Điểm phản ánh hồ sơ GitHub công khai của tác giả, không phải chất lượng của đóng góp này. Người mới có thể chỉ đơn giản là có ít dấu vết công khai.",
-    "source": "Mã nguồn và hướng dẫn tự triển khai"
+    "disclaimer": "Điểm phản ánh hồ sơ GitHub công khai của tác giả, không phải chất lượng của đóng góp này. Người đóng góp mới có thể chỉ có lịch sử công khai ngắn.",
+    "source": "Mã nguồn và hướng dẫn tự lưu trữ"
+  },
+  "integrations": {
+    "eyebrow": "For developers and agents",
+    "title": "CLI & API",
+    "subtitle": "Connect ghfind to your terminal, scripts, and agents. Install the CLI and Skill, create a personal API token, and explore the API docs.",
+    "install": {
+      "heading": "Install the CLI and Skill with one command",
+      "description": "Copy this into a terminal or coding agent. Node.js 18 or newer is required; no sudo needed.",
+      "copy": "Copy install command",
+      "copied": "Copied",
+      "requirement": "The script installs the official npm CLI and saves the ghfind-cli Skill to ~/.agents/skills/ghfind-cli.",
+      "cliDocs": "CLI docs",
+      "skill": "View Skill"
+    },
+    "how": {
+      "heading": "Get connected",
+      "install": "Run the command to install the ghfind CLI.",
+      "skill": "The installer also adds the ghfind-cli Skill so your agent can read the commands and guidance.",
+      "auth": "For full scans or roasts, create an API token above and set GHFIND_API_KEY."
+    },
+    "tokens": {
+      "heading": "Create API token",
+      "signedOut": "Sign in with GitHub to create separate tokens for your CLI or automation. A token is shown only once when created.",
+      "signIn": "Sign in to create token",
+      "description": "Revoke tokens individually. The full token is never shown again.",
+      "scanScope": "Quét",
+      "botScope": "Quản lý bot",
+      "scanIncluded": "Mọi token đều có quyền quét qua CLI, API và MCP.",
+      "botPermission": "Quản lý ghfind Review bot",
+      "botPermissionHint": "Cho phép token này thay đổi cài đặt bot và chạy tác vụ dọn dẹp trên các kho lưu trữ mà bạn là quản trị viên.",
+      "scopesUnavailableError": "Quyền quản lý bot chưa khả dụng. Vui lòng thử lại sau.",
+      "limit": "{count}/10 active tokens",
+      "namePlaceholder": "Name, e.g. Local CLI",
+      "defaultName": "CLI / Agent",
+      "create": "Create token",
+      "working": "Working…",
+      "copyOnce": "Copy and save it now. You cannot view the full token again after leaving this page.",
+      "copy": "Copy token",
+      "copied": "Copied",
+      "loading": "Loading tokens…",
+      "empty": "No API tokens yet.",
+      "created": "Created {date}",
+      "revoke": "Revoke {name}",
+      "revokeShort": "Revoke",
+      "loadError": "Could not load tokens. Refresh and try again.",
+      "createError": "Could not create the token. Try again.",
+      "limitError": "You have reached the active token limit. Revoke a token you no longer use.",
+      "revokeError": "Could not revoke the token. Try again."
+    },
+    "auth": {
+      "heading": "Authentication",
+      "description": "Sign in to the website with GitHub OAuth. CLI and API requests use a personal Bearer token created from your account; these credentials are separate.",
+      "publicTitle": "Public endpoints",
+      "public": "Scoring, comparisons, search, leaderboards, and developer directories work without a token.",
+      "protectedTitle": "Token required",
+      "protected": "Full scans and roasts that run a scan require GHFIND_API_KEY.",
+      "credentialNote": "Keep tokens in environment variables or a secrets manager. Do not commit them or give them to an untrusted agent.",
+      "apiDocs": "API docs"
+    }
+  },
+  "jobs": {
+    "metaTitle": "Việc làm cho lập trình viên: vị trí đang tuyển tại công ty AI · ghfind",
+    "metaDescription": "Các vị trí kỹ thuật, nghiên cứu và sản phẩm tại những công ty AI như DeepSeek và ModaLeap, kèm liên kết ứng tuyển trên trang tuyển dụng của từng công ty.",
+    "heading": "Tuyển dụng lập trình viên",
+    "subtitle": "Biến đóng góp mã nguồn mở thành bước đầu cho công việc tiếp theo.",
+    "postJob": "Đăng tin tuyển dụng",
+    "viewAll": "Xem tất cả",
+    "sponsored": "Nhà tài trợ · Ghim",
+    "sponsorNote": "Tin của nhà tài trợ được ưu tiên hiển thị",
+    "becomeSponsor": "Trở thành nhà tài trợ",
+    "filterLabel": "Lọc theo công ty",
+    "allCompanies": "Tất cả công ty",
+    "openJobs": "{count} vị trí đang tuyển",
+    "sponsorTag": "Nhà tài trợ",
+    "careersSite": "Trang tuyển dụng",
+    "empty": "Hiện chưa có vị trí nào đang tuyển. Hãy quay lại sau.",
+    "disclaimer": "Tin tuyển dụng được tổng hợp từ trang tuyển dụng công khai của từng công ty. Hãy ứng tuyển trên trang của công ty; ghfind không tham gia quyết định tuyển dụng.",
+    "type": {
+      "full_time": "Toàn thời gian",
+      "intern": "Thực tập",
+      "part_time": "Bán thời gian"
+    },
+    "backToJobs": "Tất cả việc làm",
+    "apply": "Ứng tuyển",
+    "applyByEmail": "Ứng tuyển qua email",
+    "emailNote": "Gửi CV đến {email}",
+    "detailNote": "ghfind chỉ đăng tin tuyển dụng này; mọi quyết định tuyển dụng do công ty đưa ra."
+  },
+  "talentMatch": {
+    "source": {
+      "legend": "Bạn muốn dùng CV nào?",
+      "existingTitle": "Dùng CV trên ghfind",
+      "existingHint": "Chọn một CV đã lưu trong CV của tôi",
+      "uploadTitle": "Tải CV của bạn lên",
+      "uploadHint": "PDF, tối đa {max} MB",
+      "loading": "Đang tải CV của bạn…",
+      "loadFailed": "Không tải được CV đã lưu. Hãy thử lại sau hoặc tải lên một tệp PDF.",
+      "listLabel": "CV của bạn",
+      "profileOption": "Hồ sơ (thông tin dùng lại)",
+      "profileHint": "Thông tin bạn lưu để dùng lại cho nhiều CV",
+      "updated": "Cập nhật {date}",
+      "manage": "Quản lý CV",
+      "emptyTitle": "Bạn chưa có CV nào trên ghfind",
+      "emptyBody": "Tạo một CV trong vài phút với trình tạo CV, lưu lên đám mây rồi quay lại đây để phân tích.",
+      "emptyCta": "Tạo CV",
+      "emptyUpload": "Tải PDF lên thay thế"
+    },
+    "drop": {
+      "label": "Tải lên CV dạng PDF",
+      "title": "Kéo và thả tệp PDF vào đây",
+      "or": "hoặc",
+      "browse": "Chọn tệp",
+      "rules": "Chỉ PDF · tối đa {max} MB",
+      "dragging": "Thả ra để đọc CV",
+      "reading": "Đang đọc {name}…",
+      "readingHint": "Việc này diễn ra trong trình duyệt và chỉ mất vài giây.",
+      "readyTitle": "CV đã sẵn sàng",
+      "readyMeta": "{pages, plural, other {# trang}} · {chars} ký tự",
+      "replace": "Thay tệp",
+      "remove": "Gỡ bỏ",
+      "errorTitle": "Không dùng được tệp này",
+      "retry": "Chọn tệp khác",
+      "privacy": "Tệp PDF được đọc trong trình duyệt và không bao giờ được tải lên. Chỉ phần chữ được gửi đi (đã bỏ email và số điện thoại), và bản chữ đó cũng không được lưu lại.",
+      "errors": {
+        "type": "Đây không phải tệp PDF. Hãy chọn tệp .pdf.",
+        "size": "Tệp có dung lượng {size} MB. Giới hạn là {max} MB.",
+        "empty": "Tệp này trống.",
+        "multiple": "Mỗi lần chỉ thả một tệp.",
+        "unreadable": "Không đọc được chữ trong tệp PDF này (có thể là bản quét hoặc hình ảnh). Hãy dùng PDF có chữ có thể chọn được.",
+        "parse": "Không mở được tệp PDF này; tệp có thể bị hỏng hoặc được bảo vệ bằng mật khẩu."
+      }
+    },
+    "history": {
+      "title": "Phân tích trước đây",
+      "empty": "Các phân tích của bạn sẽ xuất hiện ở đây sau khi bạn tạo.",
+      "untitled": "Báo cáo nhân tài",
+      "viewing": "Đang xem",
+      "opening": "Đang mở…",
+      "running": "Đang tạo",
+      "failed": "Thất bại",
+      "matches": "{count, plural, other {# vị trí phù hợp}}",
+      "topFit": "Phù hợp nhất {fit}",
+      "openFailed": "Không mở được phân tích này. Vui lòng thử lại."
+    },
+    "company": {
+      "badge": "Sắp ra mắt",
+      "title": "Công cụ tuyển dụng sắp ra mắt",
+      "body": "Sắp tới bạn có thể dán mô tả công việc và xem các lập trình viên đang tìm cơ hội, xếp hạng theo kỹ năng đã được xác minh trên GitHub.",
+      "cta": "Đăng tin tuyển dụng"
+    },
+    "optIn": {
+      "title": "Sẵn sàng đón cơ hội",
+      "label": "Cho phép doanh nghiệp tìm thấy tôi trong kho nhân tài",
+      "detail": "Doanh nghiệp sẽ thấy tên, tài khoản GitHub, dòng giới thiệu, kỹ năng và mức độ phù hợp từ hồ sơ hiện tại của bạn, không bao giờ thấy nội dung CV. Có thể tắt bất cứ lúc nào; xóa hồ sơ cũng sẽ đưa bạn ra khỏi kho.",
+      "on": "Bạn đang ở trong kho nhân tài.",
+      "off": "Bạn chưa ở trong kho nhân tài.",
+      "notLive": "Tính năng tìm kiếm cho doanh nghiệp chưa ra mắt nên hiện chưa ai xem được hồ sơ của bạn; bật ngay để có mặt trong kho khi tính năng mở.",
+      "saveFailed": "Không lưu được lựa chọn. Vui lòng thử lại."
+    }
+  },
+  "discover": {
+    "metaTitle": "Khám phá dự án · ghfind",
+    "metaDescription": "Luồng gọn các dự án mã nguồn mở có giá trị cao.",
+    "title": "Khám phá",
+    "heading": "Luồng dự án",
+    "beta": "Beta",
+    "modeGrid": "Lưới",
+    "modeSwipe": "Vuốt",
+    "filters": "Bộ lọc",
+    "filtersBody": "Lưu sẽ đánh dấu dự án. Bỏ qua chỉ ở máy này và không đánh dấu không quan tâm.",
+    "signedOutBanner": "Đăng nhập GitHub để cá nhân hóa. Hiện đang hiện các mục công khai.",
+    "feedUnavailable": "Luồng cá nhân chưa dùng được. Đang hiện các mục công khai.",
+    "empty": "Hiện chưa có thêm dự án.",
+    "like": "Lưu",
+    "skip": "Bỏ qua",
+    "superLike": "Nhấn mạnh",
+    "undo": "Hoàn tác",
+    "viewCard": "Xem báo cáo",
+    "quickPreview": "Xem nhanh",
+    "productScore": "Giá trị sản phẩm",
+    "confidence": "Độ tin cậy",
+    "communityStrength": "Cộng đồng",
+    "language": "Ngôn ngữ",
+    "openFull": "Mở báo cáo đầy đủ",
+    "keyboard": "← bỏ qua · → lưu · ↑ nhấn mạnh · Backspace hoàn tác",
+    "hint": "Lưu là đánh dấu. Bỏ qua là tín hiệu yếu, không phải chặn.",
+    "audience": "Cho",
+    "partitions": "Interest topics",
+    "partitionAll": "All",
+    "partitionAgent": "Agent",
+    "partitionSkill": "Skill",
+    "partitionMicroservice": "Microservices",
+    "partitionSandbox": "Sandbox"
+  },
+  "stream": {
+    "postTitle": "Bài đăng",
+    "replyPlaceholder": "Viết phản hồi của bạn",
+    "replySend": "Trả lời",
+    "metaTitle": "Dành cho bạn · ghfind",
+    "metaDescription": "Tổng hợp bài đăng X của các lập trình viên.",
+    "prototype": "Bản thử nghiệm",
+    "demoData": "Dữ liệu mẫu: không kết nối được nguồn dữ liệu thật ở đây.",
+    "heading": "Dành cho bạn",
+    "tabForYou": "Dành cho bạn",
+    "tabFollowing": "Đang theo dõi",
+    "channels": "Kênh",
+    "kind": {
+      "project": "Dự án",
+      "developer": "Lập trình viên",
+      "talent": "Nhân tài",
+      "article": "Bài viết",
+      "collection": "Tuyển tập",
+      "job": "Việc làm",
+      "post": "Trên X"
+    },
+    "kindOne": {
+      "project": "Dự án",
+      "developer": "Lập trình viên",
+      "talent": "Nhân tài",
+      "article": "Bài viết",
+      "collection": "Tuyển tập",
+      "job": "Việc làm",
+      "post": "Bài đăng X"
+    },
+    "layoutList": "Danh sách",
+    "layoutMasonry": "Lưới",
+    "sponsored": "Tài trợ",
+    "available": "Đang tìm việc",
+    "score": "Điểm",
+    "productScore": "Điểm sản phẩm",
+    "minutesRead": "{minutes} phút đọc",
+    "like": "Thích",
+    "unlike": "Bỏ thích",
+    "save": "Lưu",
+    "unsave": "Bỏ lưu",
+    "share": "Chia sẻ",
+    "comments": "Bình luận",
+    "more": "Thêm",
+    "notInterested": "Không quan tâm",
+    "copyLink": "Sao chép liên kết",
+    "openOriginal": "Mở trang đầy đủ",
+    "linkCopied": "Đã sao chép liên kết",
+    "hidden": "Đã hiểu. Bạn sẽ thấy ít nội dung như thế này hơn.",
+    "undo": "Hoàn tác",
+    "follow": "Theo dõi",
+    "following": "Đang theo dõi",
+    "followedToast": "Đã theo dõi {name}",
+    "related": "Nội dung tương tự",
+    "discussion": "Tham gia thảo luận ở trang đầy đủ",
+    "close": "Đóng",
+    "stats": {
+      "confidence": "Độ tin cậy",
+      "community": "Cộng đồng",
+      "language": "Ngôn ngữ",
+      "lookups": "Lượt xem",
+      "delta": "Tuần này",
+      "location": "Địa điểm",
+      "project": "Dự án",
+      "stars": "Sao",
+      "salary": "Lương",
+      "note": "Lý do theo dõi"
+    },
+    "loadingMore": "Đang tải thêm…",
+    "endTitle": "Bạn đã xem hết",
+    "endBody": "Làm mới để sắp xếp lại theo những gì bạn vừa thích.",
+    "refresh": "Làm mới",
+    "retuned": "Đã điều chỉnh theo sở thích · làm mới",
+    "followingEmptyTitle": "Theo dõi mọi người để lấp đầy tab này",
+    "followingEmptyBody": "Theo dõi tác giả để đọc bài đăng X của họ tại đây.",
+    "feedEmpty": "Chưa có bài đăng X để hiển thị.",
+    "savedEmpty": "Chưa lưu gì. Nhấn biểu tượng dấu trang trên bài bất kỳ.",
+    "railDailyProjects": "Dự án mã nguồn mở hôm nay",
+    "railDailyProjectsEmpty": "Hôm nay chưa có dự án được đề xuất.",
+    "railDailyProjectsMore": "Xem bảng xếp hạng dự án",
+    "railInterests": "Sở thích của bạn",
+    "railInterestsEmpty": "Thích hoặc lưu vài bài, bảng tin sẽ học được bạn quan tâm gì.",
+    "railReset": "Đặt lại",
+    "railTopDevelopers": "Lập trình viên đang lên",
+    "railCtaTitle": "Bạn xếp hạng mấy?",
+    "railCtaBody": "Khám phá đóng góp GitHub công khai của bạn trong 30 giây.",
+    "railCtaButton": "Chấm điểm GitHub của tôi",
+    "navHome": "Trang chủ",
+    "navDiscover": "Khám phá",
+    "navScore": "Chấm điểm",
+    "navSaved": "Đã lưu",
+    "navLeaderboard": "Xếp hạng",
+    "doubleTapHint": "Nhấn đúp để thích",
+    "backToTop": "Lên đầu trang",
+    "counter": {
+      "lookups": "{count} lượt xem",
+      "stars": "{count} sao",
+      "items": "{count} lựa chọn"
+    },
+    "badge": {
+      "hot": "Nổi bật",
+      "new": "Mới",
+      "editor": "Biên tập chọn"
+    },
+    "pulseTotal": "Đã chấm điểm {count} lập trình viên",
+    "pulseTrending": "Xu hướng 24 giờ",
+    "pulseLookups": "{count} lượt xem",
+    "aiRoast": "Nhận xét của AI",
+    "aiNote": "Tạo bởi mô hình chấm điểm của ghfind",
+    "dimsTitle": "Sáu tiêu chí",
+    "beat": "Vượt {percent}% lập trình viên",
+    "rankOf": "Hạng {rank} / {total}",
+    "weekDelta": "{delta} tuần này",
+    "facts": {
+      "followers": "Người theo dõi",
+      "totalStars": "Tổng số sao",
+      "mergedPrs": "PR đã merge",
+      "contributions": "Đóng góp (1 năm)",
+      "years": "Số năm trên GitHub"
+    },
+    "topRepos": "Kho mã tiêu biểu",
+    "battles": "Thành tích VS",
+    "battleWon": "T",
+    "battleLost": "B",
+    "battleDraw": "H",
+    "battleViews": "{count} người xem",
+    "similar": "Lập trình viên tương tự",
+    "reactionsTitle": "Phản ứng của cộng đồng",
+    "reactionsCta": "Bình chọn trên trang hồ sơ",
+    "projectDims": {
+      "pain": "Nhu cầu",
+      "effectiveness": "Hiệu quả",
+      "experience": "Trải nghiệm",
+      "valueDensity": "Mật độ giá trị"
+    },
+    "projectScoreTitle": "Chi tiết điểm sản phẩm",
+    "audience": "Dành cho ai",
+    "risks": "Cần lưu ý",
+    "talentProjects": "Dự án",
+    "ownProject": "Dẫn dắt",
+    "prProject": "Đóng góp",
+    "sources": "Nguồn công khai",
+    "picksTitle": "Lựa chọn trong tuyển tập",
+    "toc": "Mục lục",
+    "excerpt": "Trích đoạn",
+    "readFull": "Đọc toàn bộ",
+    "jobDescription": "Mô tả công việc",
+    "companySite": "Trang web công ty",
+    "moreFrom": "Thêm từ {name}",
+    "editorPicks": "Biên tập chọn",
+    "commentsTitle": "Bình luận",
+    "commentsEmpty": "Chưa có bình luận. Hãy là người đầu tiên.",
+    "commentPlaceholder": "Viết gì đó…",
+    "commentAnonymousHint": "Không cần đăng nhập, đăng ẩn danh",
+    "commentSend": "Gửi",
+    "anonymous": "Ẩn danh",
+    "commentFailed": "Không gửi được. Vui lòng thử lại sau.",
+    "commentRateLimited": "Chậm lại một chút nhé",
+    "commentLinks": "Không được chèn liên kết trong bình luận",
+    "commentsClosed": "Chưa thể bình luận ở đây; hãy xem trang đầy đủ.",
+    "justNow": "vừa xong",
+    "quick": {
+      "developer": {
+        "a": "Điểm hợp lý",
+        "b": "Chỉ giáo với 🙏",
+        "c": "Đã theo dõi, quá đỉnh"
+      },
+      "talent": {
+        "a": "Hướng đi hay",
+        "b": "Trò chuyện nhé",
+        "c": "Đã theo dõi"
+      },
+      "article": {
+        "a": "Học được nhiều",
+        "b": "Rất sâu sắc",
+        "c": "Muốn đọc thêm"
+      },
+      "collection": {
+        "a": "Đã lưu",
+        "b": "Thêm loại này nhé",
+        "c": "Lựa chọn đầu tiên quá hay"
+      }
+    },
+    "loadingDetail": "Đang tải…",
+    "railEditor": "Biên tập chọn",
+    "xCategory": {
+      "researcher": "Nhà nghiên cứu",
+      "builder": "Người xây dựng",
+      "media": "Báo công nghệ",
+      "developer": "Lập trình viên hàng đầu"
+    },
+    "viewOnX": "Xem trên X",
+    "xMetrics": {
+      "replies": "Trả lời",
+      "reposts": "Đăng lại",
+      "likes": "Lượt thích",
+      "views": "Lượt xem"
+    },
+    "xLatest": "Gần đây trên X",
+    "railVoices": "Tiếng nói đáng theo dõi",
+    "railVoicesHint": "Chỉ gồm nhà nghiên cứu, người xây dựng, báo công nghệ và lập trình viên đạt 80+ điểm trên ghfind.",
+    "xSource": "Từ X · số liệu là số thật trên X",
+    "ghfindProfile": "Hồ sơ ghfind",
+    "demoX": "Hiện các bài đăng X là dữ liệu mẫu: tài khoản và nội dung đều hư cấu, sẽ tự thay thế khi có bài thật.",
+    "showTranslation": "Xem bản dịch",
+    "showOriginal": "Xem bản gốc",
+    "translatedBy": "Dịch bởi tác tử ghfind",
+    "feed": {
+      "addImage": "Thêm ảnh",
+      "cancel": "Hủy",
+      "capabilitiesError": "Không thể kiểm tra quyền đăng bài. Bạn vẫn có thể tiếp tục đọc.",
+      "checking": "Đang kiểm tra quyền đăng bài…",
+      "composerPlaceholder": "Chia sẻ điều bạn đang làm hoặc suy nghĩ",
+      "conversationDescription": "Đọc bài viết, phản hồi trước đó và trả lời bất kỳ bài nào trong cuộc trò chuyện.",
+      "copyFailed": "Không thể sao chép liên kết. Vui lòng thử lại.",
+      "deleteHint": "Xóa bài viết này? Các phản hồi vẫn được nối với dấu giữ chỗ của bài đã xóa.",
+      "deletePost": "Xóa bài viết",
+      "deleted": "Bài viết này đã bị xóa.",
+      "dislike": "Không thích",
+      "earlierReplies": "Xem phản hồi trước",
+      "empty": "Chưa có bài viết.",
+      "end": "Bạn đã xem hết bài mới nhất.",
+      "followingEmpty": "Theo dõi nhà phát triển để xem bài viết và bài đăng lại của họ.",
+      "imageDescription": "Mô tả ảnh (không bắt buộc)",
+      "loadMore": "Tải thêm",
+      "localInteractions": "Tương tác trên ghfind",
+      "loginRequired": "Đăng nhập để tương tác. Ai cũng có thể đọc.",
+      "mediaCount": "Bạn có thể đính kèm tối đa 4 ảnh.",
+      "mediaInvalid": "Hỗ trợ JPEG, PNG, WebP hoặc GIF, tối đa 10 MB mỗi ảnh.",
+      "myBookmarks": "Mục đã lưu",
+      "noReplies": "Chưa có phản hồi.",
+      "openConversation": "Mở cuộc trò chuyện của {name}",
+      "openImage": "Mở ảnh",
+      "privateBookmarks": "Mục đã lưu chỉ hiển thị với bạn.",
+      "publish": "Đăng",
+      "publishAccessTitle": "Trước khi đăng",
+      "publishRequirement": "Cần tài khoản GitHub đã xác minh và điểm ghfind từ 60 để đăng bài hoặc phản hồi.",
+      "published": "Đã đăng lên ghfind.",
+      "publishing": "Đang đăng…",
+      "rateLimited": "Quá nhiều yêu cầu. Vui lòng đợi một lát rồi thử lại.",
+      "removeImage": "Gỡ ảnh",
+      "repost": "Đăng lại",
+      "repostedBy": "{name} đã đăng lại",
+      "requestFailed": "Không thể hoàn tất yêu cầu. Vui lòng thử lại.",
+      "retry": "Thử lại",
+      "unavailable": "Bài viết này hiện không khả dụng.",
+      "undoDislike": "Hủy không thích",
+      "undoRepost": "Hủy đăng lại",
+      "unfollow": "Bỏ theo dõi",
+      "viewQuotedPost": "Xem bài viết được trích dẫn",
+      "quotedPostPreviewUnavailable": "Không có bản xem trước",
+      "viewAttachedLink": "Xem liên kết đính kèm",
+      "attachedLinkPreviewUnavailable": "Mở liên kết để xem nội dung",
+      "viewOnX": "Xem bài gốc trên X",
+      "showOriginal": "Bản gốc",
+      "showTranslated": "Bản dịch",
+      "translationToggle": "Xem bản gốc hoặc bản dịch",
+      "views": "Lượt xem trên ghfind",
+      "viewReplies": "Xem phản hồi",
+      "scoreBelowMinimum": "Điểm đã lưu của bạn dưới 60. Bạn chưa thể đăng bài hoặc trả lời.",
+      "scoreMissing": "Chưa có điểm đã lưu. Hãy tra cứu điểm tài khoản GitHub của bạn trước.",
+      "verifyScore": "Không thể xác minh chủ sở hữu điểm đã lưu. Vui lòng thử lại.",
+      "rescanAccount": "Quét lại từ hồ sơ của tôi",
+      "authorCard": {
+        "followingAction": "Following",
+        "follow": "Follow",
+        "followsYou": "Follows you",
+        "retry": "Could not load · Retry",
+        "loading": "Loading…",
+        "score": "ghfind score",
+        "unscored": "Not scored",
+        "following": "Following",
+        "followers": "Followers",
+        "source": "Follow counts from ghfind"
+      }
+    }
+  },
+  "realms": {
+    "qi": {
+      "name": "Luyện Khí",
+      "blurb": "Bước đầu tiên · Xây nền tảng"
+    },
+    "foundation": {
+      "name": "Trúc Cơ",
+      "blurb": "Nền đã vững · Tiến đều"
+    },
+    "goldenCore": {
+      "name": "Kết Đan",
+      "blurb": "Đan thành · Lộ sắc bén"
+    },
+    "nascentSoul": {
+      "name": "Nguyên Anh",
+      "blurb": "Anh sơ thành · Phong cách riêng"
+    },
+    "deity": {
+      "name": "Hóa Thần",
+      "blurb": "Thần thức thông · Ảnh hưởng một vùng"
+    },
+    "voidRefining": {
+      "name": "Luyện Hư",
+      "blurb": "Trở về chất phác · Nhẹ như không"
+    },
+    "integration": {
+      "name": "Hợp Thể",
+      "blurb": "Thiên nhân hợp nhất · Tông sư hàng đầu"
+    },
+    "mahayana": {
+      "name": "Đại Thừa",
+      "blurb": "Gần đại đạo · Chuẩn mực điện đường"
+    }
   }
 }

@@ -45,16 +45,23 @@ import {
 import { computeTrendingScore, rankTrending } from "./hotness";
 import { VS_MIN_SCORE } from "./site";
 import {
+  advanceScoreDetailRevision,
   bumpCampaignLeaderboardRevision,
-  clearCachedReactionCounts,
-  getCachedReactionCounts,
+  getCachedLanguageLadder,
   releaseLookupGate,
-  setCachedReactionCounts,
+  setCachedLanguageLadder,
   tryAcquireLookupGate,
 } from "./redis";
 import type { Lang } from "./lang";
 import { rankSimilar } from "./similarity";
-import { LEGACY_READ_FALLBACK, RELEASE_VERSION_MANIFEST } from "./release-versions";
+import {
+  isPublicScoreVersion,
+  isRetainedPublicScoreArtifact,
+  LEGACY_READ_FALLBACK,
+  PUBLIC_SCORE_READ_ORDER,
+  publicScoreVersionSql,
+  RELEASE_VERSION_MANIFEST,
+} from "./release-versions";
 import {
   materializeCanonicalScore,
   type CanonicalScoreMaterialization,
@@ -97,6 +104,23 @@ import type {
 const EMPTY_TAGS: Tags = { zh: [], en: [] };
 const PUBLIC_PROFILE_SCORE_VERSION = RELEASE_VERSION_MANIFEST.compatibility
   .publicScoreReadOrder[0];
+
+/** `profile_snapshots.scan_version` uses the same labels as score_version.
+ *  Canonical writes still pin PUBLIC_PROFILE_SCORE_VERSION; public profile
+ *  reads must also accept retained labels in publicScoreReadOrder so a score
+ *  advance does not blank top_repos / impact_repos until organic rescan. */
+function publicScanVersionSql(column = "scan_version"): string {
+  const list = PUBLIC_SCORE_READ_ORDER.map((version) => `'${version}'`).join(", ");
+  return `${column} IN (${list})`;
+}
+
+function publicScanVersionOrderSql(column = "scan_version"): string {
+  const cases = PUBLIC_SCORE_READ_ORDER.map(
+    (version, index) => `WHEN '${version}' THEN ${index}`,
+  ).join(" ");
+  return `CASE ${column} ${cases} ELSE ${PUBLIC_SCORE_READ_ORDER.length} END`;
+}
+
 const HEAT_LOOKUP_WINDOW_MS = 24 * 60 * 60 * 1000;
 const TRENDING_LOOKUP_WINDOW_MS = 7 * HEAT_LOOKUP_WINDOW_MS;
 const MIN_RECORDED_LOOKUP_COUNT = 1;
@@ -104,19 +128,19 @@ const MAX_PUBLIC_SCAN_EXECUTION_CAPACITY = 4;
 
 /**
  * Public reads must never surface a score merely because it is the newest row.
- * A row is readable only after the current quick collector has materialized the
- * current formal v10 score. The roast route separately requires an exact v10/v4
- * snapshot hash before it generates or replays text. The previous-release
- * emergency path is handled explicitly by the profile/roast readers and never
- * joins rankings.
+ * A row is readable when it is in publicScoreReadOrder (v13, then v10 until
+ * rescan) and the current collector materialized it. The roast route separately
+ * requires an exact target-score snapshot hash before it generates or replays
+ * text. The previous-release emergency path is handled explicitly by the
+ * profile/roast readers and never joins rankings.
  */
 function canonicalPublicScorePredicate(alias: string): string {
-  return `${alias}.score_version = '${SCORE_CACHE_VERSION}'`;
+  return publicScoreVersionSql(alias);
 }
 
 function isTargetReleaseScoreRow(row: Record<string, unknown>): boolean {
   return (
-    row.score_version === SCORE_CACHE_VERSION &&
+    isPublicScoreVersion(row.score_version) &&
     (row.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION ||
       row.collection_version === PUBLIC_SCAN_COLLECTION_VERSION)
   );
@@ -285,6 +309,46 @@ async function getLegacyReadFallbackRow(
   }
 }
 
+/**
+ * Newest-public-version verified copy in score_release_fallbacks, for accounts
+ * whose `scores` row was written by a release that is no longer publicly read
+ * (e.g. v11/v12 after the v10 restore). Without it those profiles 404 even
+ * though an older public-version artifact was captured for them.
+ */
+async function getRetainedPublicFallbackRow(
+  db: Client,
+  username: string,
+): Promise<Record<string, unknown> | null> {
+  const collections = RELEASE_VERSION_MANIFEST.compatibility.collectionReadOrder;
+  try {
+    const result = await db.execute({
+      sql: `SELECT username, display_name, avatar_url, profile_url, final_score, tier,
+                   tags, roast_line, roast, roast_en, roast_version, roast_en_version,
+                   bot_score, sub_scores, risk_assessment, risk_notes, score_version,
+                   collection_version, collection_version AS score_source_collection_version,
+                   snapshot_hash AS score_source_snapshot_hash, scanned_at,
+                   NULL AS prev_score, NULL AS prev_scanned_at
+            FROM score_release_fallbacks
+            WHERE username = ?
+              AND score_version IN (${PUBLIC_SCORE_READ_ORDER.map(() => "?").join(", ")})
+              AND collection_version IN (${collections.map(() => "?").join(", ")})`,
+      args: [username.toLowerCase(), ...PUBLIC_SCORE_READ_ORDER, ...collections],
+    });
+    const rank = (row: Record<string, unknown>) =>
+      PUBLIC_SCORE_READ_ORDER.indexOf(String(row.score_version)) * collections.length +
+      collections.indexOf(String(row.collection_version));
+    const rows = (result.rows as unknown as Record<string, unknown>[])
+      .filter((row) =>
+        typeof row.score_source_snapshot_hash === "string" &&
+        /^[a-f0-9]{64}$/.test(row.score_source_snapshot_hash),
+      )
+      .sort((a, b) => rank(a) - rank(b));
+    return rows[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function logPublicScanDbFailure(operation: string, error: unknown): void {
   console.error(
     "public_scan.db_failure",
@@ -431,6 +495,11 @@ function heatIpHash(ip: string): string {
 
 let client: Client | null = null;
 let schemaReady: Promise<void> | null = null;
+
+/** Database used by the scan path. Null when neither D1 nor Turso is configured. */
+export function getScanDatabase(): Client | null {
+  return getClient();
+}
 
 function getClient(): Client | null {
   if (client) return client;
@@ -785,6 +854,8 @@ function ensureSchema(db: Client): Promise<void> {
           // index-only, without touching the table.
           `CREATE INDEX IF NOT EXISTS idx_account_lookup_limits_counted_user
              ON account_lookup_limits(last_counted_at, username)`,
+          `CREATE INDEX IF NOT EXISTS idx_account_lookup_limits_user_counted
+             ON account_lookup_limits(username, last_counted_at)`,
           // Event cohorts are labels over the canonical score population, not a
           // second score store. One account can join many campaigns while its
           // latest score/profile continues to live in `scores`.
@@ -930,6 +1001,7 @@ function ensureSchema(db: Client): Promise<void> {
            )`,
           `CREATE INDEX IF NOT EXISTS idx_repos_stars ON repos(stars DESC)`,
           `CREATE INDEX IF NOT EXISTS idx_repos_owner ON repos(owner_login)`,
+          `CREATE INDEX IF NOT EXISTS idx_repos_lower_name ON repos(lower(name))`,
           // The developer⟷repo edge. relation = 'owner' (their own/attributed
           // work) | 'contributor' (landed commits/PRs). Powers both directions:
           // a repo's contributor list (WHERE repo_key = ?) and a developer's
@@ -981,6 +1053,8 @@ function ensureSchema(db: Client): Promise<void> {
       ]) {
         await addColumnIfMissing(db, "scores", col);
       }
+      await db.execute(`CREATE INDEX IF NOT EXISTS idx_scores_public_order
+        ON scores(hidden, score_version, final_score DESC, scanned_at DESC)`);
       await addColumnIfMissing(
         db,
         "public_scan_commit_repo_facts",
@@ -1186,6 +1260,12 @@ function isCanonicalSnapshotHash(value: unknown): value is string {
  * `getLegacyReadFallbackScan` will refuse to claim a complete scan.
  */
 async function preserveLegacyReadFallback(db: SqlExecutor, username: string): Promise<void> {
+  // A wording-only release shares its score/collection tuple with its predecessor.
+  // Only an actual previous-version report identifies a historical artifact;
+  // otherwise a newly generated report could be captured as its own fallback.
+  const roastOnlyRelease =
+    LEGACY_READ_FALLBACK.score === SCORE_CACHE_VERSION &&
+    LEGACY_READ_FALLBACK.collection === PUBLIC_SCAN_COLLECTION_VERSION;
   await db.execute({
     sql: `INSERT OR IGNORE INTO score_release_fallbacks
             (username, score_version, collection_version, display_name, avatar_url,
@@ -1217,7 +1297,8 @@ async function preserveLegacyReadFallback(db: SqlExecutor, username: string): Pr
           WHERE s.username = ?
             AND s.hidden = 0
             AND s.score_version = ?
-            AND (s.score_source_collection_version = ? OR s.score_source_collection_version IS NULL)`,
+            AND (s.score_source_collection_version = ? OR s.score_source_collection_version IS NULL)
+            ${roastOnlyRelease ? "AND (s.roast_version = ? OR s.roast_en_version = ?)" : ""}`,
     args: [
       LEGACY_READ_FALLBACK.collection,
       Date.now(),
@@ -1226,6 +1307,7 @@ async function preserveLegacyReadFallback(db: SqlExecutor, username: string): Pr
       username,
       LEGACY_READ_FALLBACK.score,
       LEGACY_READ_FALLBACK.collection,
+      ...(roastOnlyRelease ? [LEGACY_READ_FALLBACK.roast, LEGACY_READ_FALLBACK.roast] : []),
     ],
   });
 }
@@ -1710,13 +1792,15 @@ function mapPublicScanJob(row: Record<string, unknown>): PublicScanJob {
 }
 
 /**
- * Atomically publish a bounded quick scan and its deterministic score.
- * The quick snapshot is the production score contract for every account.
+ * Publish collected evidence and its deterministic score. The name remains for
+ * existing callers; collection metadata distinguishes quick/full and completeness.
  */
 export async function publishCompleteQuickScan(
   scan: ScanResult,
   scannedAt = Date.now(),
 ): Promise<ScoreWriteIdentity | null> {
+  const coverage = scan.collection?.coverage ?? "complete_public";
+  const sources = coverage === "complete_public" ? PUBLIC_SCAN_COMPLETE_SOURCES : { ...PUBLIC_SCAN_PENDING_SOURCES, quick: "complete" as const };
   const snapshot = JSON.stringify(scan);
   const snapshotHash = createHash("sha256").update(snapshot).digest("hex");
   const materialized = materializeCanonicalScore({
@@ -1727,7 +1811,7 @@ export async function publishCompleteQuickScan(
     collectionVersion: PUBLIC_SCAN_COLLECTION_VERSION,
     scannedAt,
     mode: "quick",
-    sourceStatus: PUBLIC_SCAN_COMPLETE_SOURCES,
+    sourceStatus: sources,
   });
   if (!materialized) return null;
 
@@ -1748,18 +1832,20 @@ export async function publishCompleteQuickScan(
               (id, username, score_version, collection_version, state, coverage,
                source_status, quick_scan, snapshot, snapshot_hash,
                started_at, completed_at, updated_at)
-            SELECT ?, ?, ?, ?, 'complete_public', 'complete_public', ?, ?, ?, ?, ?, ?, ?
+            SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             WHERE NOT EXISTS (
               SELECT 1 FROM public_scan_runs
               WHERE username = ? AND score_version = ? AND collection_version = ?
-                AND state = 'complete_public' AND snapshot_hash = ? AND started_at = ?
+                AND state = ? AND snapshot_hash = ? AND started_at = ?
             )`,
       args: [
         randomUUID(),
         materialized.scoreEntry.username,
         SCORE_CACHE_VERSION,
         PUBLIC_SCAN_COLLECTION_VERSION,
-        JSON.stringify(PUBLIC_SCAN_COMPLETE_SOURCES),
+        coverage,
+        coverage,
+        JSON.stringify(sources),
         snapshot,
         snapshot,
         snapshotHash,
@@ -1769,11 +1855,19 @@ export async function publishCompleteQuickScan(
         materialized.scoreEntry.username,
         SCORE_CACHE_VERSION,
         PUBLIC_SCAN_COLLECTION_VERSION,
+        coverage,
         snapshotHash,
         scannedAt,
       ],
     });
+    await advanceScoreDetailRevision(materialized.scoreEntry.username);
     await recordProfileSnapshot(materialized.scan);
+    // Cursor book is not part of the snapshot. A failed write does not roll
+    // back the public scan; the next scan reconciles a missing cursor.
+    // Dynamic import keeps this module from initializing scan-core, which
+    // reads the database through getScanDatabase.
+    const { commitScanCursorsAfterPersist } = await import("./scan-core");
+    await commitScanCursorsAfterPersist(scan);
     return scoreWrite.identity;
   } catch (error) {
     logPublicScanDbFailure("publish_quick_score", error);
@@ -2269,24 +2363,62 @@ export async function getLatestPublicScanRun(
  * bytes. Historical queue rows are ignored unless their fingerprint is still
  * the score row currently served to users.
  */
+function parseVerifiedCanonicalSnapshot(
+  username: string,
+  snapshot: string,
+  snapshotHash: string,
+  scannedAt?: number,
+): { scan: ScanResult; snapshotHash: string; scannedAt?: number } | null {
+  if (
+    !/^[a-f0-9]{64}$/.test(snapshotHash) ||
+    createHash("sha256").update(snapshot).digest("hex") !== snapshotHash
+  ) {
+    return null;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(snapshot);
+  } catch {
+    return null;
+  }
+  const scan = parsed as Partial<ScanResult>;
+  if (
+    typeof scan.metrics?.username !== "string" ||
+    scan.metrics.username.toLowerCase() !== username.toLowerCase() ||
+    !scan.scoring
+  ) {
+    return null;
+  }
+  const currentScan = scan as ScanResult;
+  const scanned =
+    typeof scannedAt === "number" && Number.isSafeInteger(scannedAt) && scannedAt > 0
+      ? scannedAt
+      : undefined;
+  return {
+    scan: { ...currentScan, scoring: score(currentScan.metrics) },
+    snapshotHash,
+    ...(scanned ? { scannedAt: scanned } : {}),
+  };
+}
+
 export async function getCurrentCanonicalQuickScan(
   username: string,
-): Promise<{ scan: ScanResult; snapshotHash: string } | null> {
+): Promise<{ scan: ScanResult; snapshotHash: string; scannedAt?: number } | null> {
   const db = getClient();
   if (!db) return null;
   try {
     await ensureSchema(db);
     const result = await db.execute({
-      sql: `SELECT r.snapshot, r.snapshot_hash
+      sql: `SELECT r.snapshot, r.snapshot_hash, s.scanned_at
             FROM public_scan_runs r
             INNER JOIN scores s
               ON s.username = r.username
              AND s.hidden = 0
-             AND s.score_version = ?
+             AND ${publicScoreVersionSql("s")}
              AND s.score_source_collection_version = ?
              AND s.score_source_snapshot_hash = r.snapshot_hash
             WHERE r.username = ?
-              AND r.score_version = ?
+              AND ${publicScoreVersionSql("r")}
               AND r.collection_version = ?
               AND r.state = 'complete_public'
               AND r.coverage = 'complete_public'
@@ -2295,40 +2427,75 @@ export async function getCurrentCanonicalQuickScan(
             ORDER BY s.scanned_at DESC, r.completed_at DESC, r.id DESC
             LIMIT 1`,
       args: [
-        SCORE_CACHE_VERSION,
         PUBLIC_SCAN_COLLECTION_VERSION,
         username.toLowerCase(),
-        SCORE_CACHE_VERSION,
         PUBLIC_SCAN_COLLECTION_VERSION,
       ],
     });
     const row = result.rows[0] as Record<string, unknown> | undefined;
     const snapshot = typeof row?.snapshot === "string" ? row.snapshot : null;
     const snapshotHash = typeof row?.snapshot_hash === "string" ? row.snapshot_hash : null;
-    if (
-      !snapshot ||
-      !snapshotHash ||
-      !/^[a-f0-9]{64}$/.test(snapshotHash) ||
-      createHash("sha256").update(snapshot).digest("hex") !== snapshotHash
-    ) {
-      return null;
-    }
-    const scan = JSON.parse(snapshot) as Partial<ScanResult>;
-    if (
-      typeof scan.metrics?.username !== "string" ||
-      scan.metrics.username.toLowerCase() !== username.toLowerCase() ||
-      !scan.scoring
-    ) {
-      return null;
-    }
+    if (!snapshot || !snapshotHash) return null;
     // A v9 snapshot can be promoted to a v10 canonical score during the
     // bounded backfill without rewriting its immutable bytes/hash. Recompute
     // the embedded scoring object at the read boundary so roast/profile paths
     // never consume the legacy embedded rules after that promotion.
-    const currentScan = scan as ScanResult;
-    return { scan: { ...currentScan, scoring: score(currentScan.metrics) }, snapshotHash };
+    return parseVerifiedCanonicalSnapshot(
+      username,
+      snapshot,
+      snapshotHash,
+      Number(row?.scanned_at),
+    );
   } catch (error) {
     console.error("getCurrentCanonicalQuickScan failed:", error);
+    return null;
+  }
+}
+
+/**
+ * Latest verified public snapshot for emergency /api/scan reads. Prefers the
+ * currently published scores row; otherwise the newest matching public_scan_runs
+ * row, with no age limit. Provenance matches getCurrentCanonicalQuickScan:
+ * public score version (v13, then leftover v10) + v5 + complete_public + 64-hex
+ * hash of the snapshot bytes. Snapshots are rescored with the current formula.
+ */
+export async function getLatestVerifiedCanonicalScan(
+  username: string,
+): Promise<{ scan: ScanResult; snapshotHash: string; scannedAt?: number } | null> {
+  const indexed = await getCurrentCanonicalQuickScan(username);
+  if (indexed) return indexed;
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const result = await db.execute({
+      sql: `SELECT snapshot, snapshot_hash, started_at, completed_at
+            FROM public_scan_runs
+            WHERE username = ?
+              AND ${publicScoreVersionSql()}
+              AND collection_version = ?
+              AND state = 'complete_public'
+              AND coverage = 'complete_public'
+              AND snapshot IS NOT NULL
+              AND snapshot_hash IS NOT NULL
+            ORDER BY COALESCE(completed_at, started_at) DESC, id DESC
+            LIMIT 8`,
+      args: [
+        username.toLowerCase(),
+        PUBLIC_SCAN_COLLECTION_VERSION,
+      ],
+    });
+    for (const row of result.rows as Record<string, unknown>[]) {
+      const snapshot = typeof row.snapshot === "string" ? row.snapshot : null;
+      const snapshotHash = typeof row.snapshot_hash === "string" ? row.snapshot_hash : null;
+      if (!snapshot || !snapshotHash) continue;
+      const scannedAt = Number(row.completed_at ?? row.started_at);
+      const parsed = parseVerifiedCanonicalSnapshot(username, snapshot, snapshotHash, scannedAt);
+      if (parsed) return parsed;
+    }
+    return null;
+  } catch (error) {
+    console.error("getLatestVerifiedCanonicalScan failed:", error);
     return null;
   }
 }
@@ -4510,13 +4677,10 @@ export async function getProfileSnapshot(
     const res = await db.execute({
       sql: `SELECT top_repos, impact_repos, signature_work, pinned_repos, organizations, metrics, scanned_at
             FROM profile_snapshots
-            WHERE username = ? AND scan_version = ?
-            ORDER BY scanned_at DESC
+            WHERE username = ? AND ${publicScanVersionSql()}
+            ORDER BY ${publicScanVersionOrderSql()}, scanned_at DESC
             LIMIT 1`,
-      args: [
-        username.toLowerCase(),
-        PUBLIC_PROFILE_SCORE_VERSION,
-      ],
+      args: [username.toLowerCase()],
     });
     const r = res.rows[0];
     if (!r) return null;
@@ -4679,12 +4843,28 @@ export async function updateRoast(
       ],
       "write",
     );
-    return (
-      Number(updated.rowsAffected ?? 0) === 1 && Number(snapshot.rowsAffected ?? 0) === 1
-    );
+    const persisted =
+      Number(updated.rowsAffected ?? 0) === 1 && Number(snapshot.rowsAffected ?? 0) === 1;
+    if (persisted) await refreshScoreDetailAfterRoast(normalizedUsername);
+    return persisted;
   } catch (e) {
     console.error("updateRoast failed:", e);
     return false;
+  }
+}
+
+/**
+ * The cached public score detail (/api/score, verdicts) embeds roast_line and
+ * the version-gated report fields, so a persisted report must move readers to
+ * a fresh namespace like a score publication does. The row is already
+ * committed; a coordination failure only leaves the old detail until its TTL
+ * and must not turn the persisted report into a failure.
+ */
+async function refreshScoreDetailAfterRoast(username: string): Promise<void> {
+  try {
+    await advanceScoreDetailRevision(username);
+  } catch (error) {
+    console.error("updateRoast: score detail revision not advanced", { username, error });
   }
 }
 
@@ -4796,6 +4976,82 @@ export interface FacetRank {
   ahead: { username: string; final_score: number } | null;
 }
 
+/** One language bucket's ranked members, best first (the directory board's order). */
+export interface LanguageScoreLadder {
+  usernames: string[];
+  scores: number[];
+}
+
+/**
+ * Rank/total/ahead for `score` on a ladder — the same answers as counting the
+ * bucket in SQL: rank = 1 + members strictly above (ties share), ahead = the
+ * lowest-scoring member strictly above. Null when the bucket has ≤1 ranked dev.
+ */
+export function rankOnLadder(
+  ladder: LanguageScoreLadder,
+  facetValue: string,
+  score: number,
+): FacetRank | null {
+  const total = ladder.scores.length;
+  if (total <= 1) return null;
+  // scores are descending: binary-search the count strictly above `score`.
+  let lo = 0;
+  let hi = total;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (ladder.scores[mid] > score) lo = mid + 1;
+    else hi = mid;
+  }
+  const above = lo;
+  return {
+    facetType: "language",
+    facetValue,
+    rank: above + 1,
+    total,
+    ahead:
+      above > 0
+        ? { username: ladder.usernames[above - 1], final_score: ladder.scores[above - 1] }
+        : null,
+  };
+}
+
+const ladderInflight = new Map<string, Promise<LanguageScoreLadder>>();
+
+/** A language bucket's ladder, cache-aside + single-flight (one bucket read per TTL). */
+async function languageScoreLadder(db: Client, facetValue: string): Promise<LanguageScoreLadder> {
+  const cached = await getCachedLanguageLadder(facetValue);
+  if (cached) return cached;
+  const existing = ladderInflight.get(facetValue);
+  if (existing) return existing;
+  const run = (async () => {
+    const res = await db.execute({
+      sql: `SELECT s.username, s.final_score
+            FROM developer_facets AS f
+            JOIN scores AS s ON s.username = f.username
+            WHERE f.facet_type = 'language'
+              AND f.facet_value = ?
+              AND s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
+              AND s.final_score >= ?
+            ORDER BY s.final_score DESC, s.username ASC`,
+      args: [facetValue, FACET_MIN_SCORE],
+    });
+    const ladder: LanguageScoreLadder = { usernames: [], scores: [] };
+    for (const row of res.rows) {
+      ladder.usernames.push(String(row.username));
+      ladder.scores.push(Number(row.final_score));
+    }
+    await setCachedLanguageLadder(facetValue, ladder);
+    return ladder;
+  })();
+  ladderInflight.set(facetValue, run);
+  try {
+    return await run;
+  } finally {
+    ladderInflight.delete(facetValue);
+  }
+}
+
 /**
  * Where `username` ranks inside their strongest language bucket on the
  * /developers directory — the "you're #12 on the Rust board, one spot behind
@@ -4805,7 +5061,8 @@ export interface FacetRank {
  * {@link getDevelopersByFacet} (hidden = 0, final_score ≥ FACET_MIN_SCORE) so the
  * rank matches the board the link lands on. Returns null when the dev has no
  * language facet, is below the directory floor, or the bucket has ≤1 ranked dev.
- * Every join is an index seek via idx_developer_facets_lookup. Best-effort like
+ * The bucket itself is read once per language per hour (the cached ladder);
+ * per profile only the indexed primary-language lookup runs. Best-effort like
  * the rest of this module.
  */
 export async function getFacetRank(
@@ -4817,8 +5074,8 @@ export async function getFacetRank(
   try {
     await ensureSchema(db);
     const uname = username.toLowerCase();
-    // The dev's primary language (the directory only ranks devs above the floor,
-    // so a below-floor dev has no meaningful position to show).
+    // The directory only ranks devs above the floor, so a below-floor dev has
+    // no meaningful position to show.
     if (score < FACET_MIN_SCORE) return null;
     const topRes = await db.execute({
       sql: `SELECT facet_value FROM developer_facets
@@ -4828,55 +5085,7 @@ export async function getFacetRank(
     });
     const facetValue = topRes.rows[0]?.facet_value;
     if (typeof facetValue !== "string" || !facetValue) return null;
-    // rank + total, and the nearest dev above, in one round trip.
-    const [rankRes, aheadRes] = await db.batch(
-      [
-        {
-          sql: `SELECT
-                  SUM(CASE WHEN s.final_score > ? THEN 1 ELSE 0 END) AS above,
-                  COUNT(*) AS total
-                FROM developer_facets AS f
-                JOIN scores AS s ON s.username = f.username
-                WHERE f.facet_type = 'language'
-                  AND f.facet_value = ?
-                  AND s.hidden = 0
-                  AND ${canonicalPublicScorePredicate("s")}
-                  AND s.final_score >= ?`,
-          args: [score, facetValue, FACET_MIN_SCORE],
-        },
-        {
-          sql: `SELECT s.username, s.final_score
-                FROM developer_facets AS f
-                JOIN scores AS s ON s.username = f.username
-                WHERE f.facet_type = 'language'
-                  AND f.facet_value = ?
-                  AND s.hidden = 0
-                  AND ${canonicalPublicScorePredicate("s")}
-                  AND s.final_score > ?
-                ORDER BY s.final_score ASC
-                LIMIT 1`,
-          args: [facetValue, score],
-        },
-      ],
-      "read",
-    );
-    const row = rankRes.rows[0];
-    if (!row) return null;
-    const total = Number(row.total);
-    if (total <= 1) return null;
-    const aheadRow = aheadRes.rows[0];
-    return {
-      facetType: "language",
-      facetValue,
-      rank: Number(row.above) + 1,
-      total,
-      ahead: aheadRow
-        ? {
-            username: String(aheadRow.username),
-            final_score: Number(aheadRow.final_score),
-          }
-        : null,
-    };
+    return rankOnLadder(await languageScoreLadder(db, facetValue), facetValue, score);
   } catch (e) {
     console.error("getFacetRank failed:", e);
     return null;
@@ -4928,7 +5137,7 @@ function toLeaderboardEntry(r: LeaderboardRow, now = Date.now()): LeaderboardEnt
     profile_url: r.profile_url as string | null,
     final_score,
     tier: String(r.tier) as Tier,
-    tags: r.score_version === SCORE_CACHE_VERSION ? parseTags(r.tags) : EMPTY_TAGS,
+    tags: isPublicScoreVersion(r.score_version) ? parseTags(r.tags) : EMPTY_TAGS,
     lookup_count,
     recent_lookup_count,
     trending_score: computeTrendingScore(
@@ -5031,27 +5240,33 @@ export async function getLeaderboard(
   try {
     await ensureSchema(db);
     const { recentCutoff, activeOnly } = resolveLeaderboardWindow(window, Date.now());
+    // Select the score-ordered population before enriching it with visit counts.
+    // EXISTS keeps the active-window filter ahead of LIMIT without aggregating
+    // every visitor in the window. MATERIALIZED bounds the subsequent joins.
     const res = await db.execute({
-      sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
-                   s.final_score, s.tier, s.tags, s.score_version,
+      sql: `WITH candidates AS MATERIALIZED (
+              SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
+                     s.final_score, s.tier, s.tags, s.score_version, s.scanned_at
+              FROM scores AS s
+              WHERE s.hidden = 0
+                AND ${canonicalPublicScorePredicate("s")}
+                AND s.final_score >= ?
+                ${activeOnly ? `AND EXISTS (
+                  SELECT 1 FROM account_lookup_limits AS l
+                  WHERE l.username = s.username AND l.last_counted_at >= ?
+                )` : ""}
+              ORDER BY s.final_score DESC, s.scanned_at DESC
+              LIMIT ?
+            )
+            SELECT s.*,
                    MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count,
-                   COALESCE(recent.recent_lookup_count, 0) AS recent_lookup_count,
+                   (SELECT COUNT(*) FROM account_lookup_limits AS l
+                    WHERE l.username = s.username AND l.last_counted_at >= ?) AS recent_lookup_count,
                    stats.last_lookup_at AS last_lookup_at
-            FROM scores AS s
+            FROM candidates AS s
             LEFT JOIN account_stats AS stats ON stats.username = s.username
-            LEFT JOIN (
-              SELECT username, COUNT(*) AS recent_lookup_count
-              FROM account_lookup_limits
-              WHERE last_counted_at >= ?
-              GROUP BY username
-            ) AS recent ON recent.username = s.username
-            WHERE s.hidden = 0
-              AND ${canonicalPublicScorePredicate("s")}
-              AND s.final_score >= ?
-            ${activeOnly ? "AND recent.recent_lookup_count > 0" : ""}
-            ORDER BY s.final_score DESC, s.scanned_at DESC
-            LIMIT ?`,
-      args: [recentCutoff, minScore, limit],
+            ORDER BY s.final_score DESC, s.scanned_at DESC`,
+      args: [minScore, ...(activeOnly ? [recentCutoff] : []), limit, recentCutoff],
     });
     const now = Date.now();
     return res.rows.map((r) => toLeaderboardEntry(r as unknown as LeaderboardRow, now));
@@ -5264,13 +5479,20 @@ export async function getDevelopersByFacet(
   try {
     await ensureSchema(db);
     const capped = Math.max(1, Math.min(DEVELOPERS_PER_FACET_LIMIT, limit));
+    // Join order by bucket size. Org/repo buckets are small (≤ a few hundred
+    // members) but number in the tens of thousands, so most board views miss
+    // the cache: start from the bucket's members (CROSS JOIN pins the order in
+    // SQLite). Left to the planner it walked every public score in score order
+    // (~12k rows) to fill a 2-member board. Language buckets reach ~9k members,
+    // where walking scores in order and stopping at LIMIT is the cheaper plan.
+    const join = facetType === "language" ? "JOIN" : "CROSS JOIN";
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
                    s.final_score, s.tier, s.tags, s.score_version,
                    MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count,
                    stats.last_lookup_at AS last_lookup_at
             FROM developer_facets AS f
-            JOIN scores AS s ON s.username = f.username
+            ${join} scores AS s ON s.username = f.username
             LEFT JOIN account_stats AS stats ON stats.username = s.username
             WHERE f.facet_type = ?
               AND f.facet_value = ?
@@ -5367,6 +5589,7 @@ async function attachTopContributors(
   const topByRepo = new Map<string, RepoOwnerRef[]>();
   if (keys.length > 0) {
     const placeholders = keys.map(() => "?").join(",");
+    // Keep filtered edges outermost; each contributor then seeks scores by username.
     const contributors = await db.execute({
       sql: `SELECT edges.repo_key, s.username, s.display_name, s.avatar_url,
                    s.final_score, s.tier
@@ -5374,7 +5597,7 @@ async function attachTopContributors(
               SELECT DISTINCT repo_key, username FROM repo_developers
               WHERE repo_key IN (${placeholders})
             ) AS edges
-            JOIN scores AS s ON s.username = edges.username
+            CROSS JOIN scores AS s ON s.username = edges.username
             WHERE s.hidden = 0
               AND ${canonicalPublicScorePredicate("s")}
               AND s.final_score >= ?
@@ -5466,6 +5689,38 @@ async function queryProjectItems(
         ...(options.language ? [options.language] : []),
       ],
     });
+  } else if (options.language) {
+    // Per-language list (related-project filler): restrict the edge set to the
+    // language's repos BEFORE aggregating. Filtering after the whole-graph
+    // `edges` CTE read every repo_developers row (and scanned the whole
+    // account_lookup_limits table for `recent`) for each of the hundreds of
+    // languages — ~215k rows_read per cold key. CROSS JOIN pins the order, and
+    // the lookup count is a per-contributor index seek.
+    result = await db.execute({
+      sql: `WITH edges AS (
+              SELECT DISTINCT rd.repo_key, rd.username
+              FROM repos AS r0
+              CROSS JOIN repo_developers AS rd ON rd.repo_key = r0.repo_key
+              WHERE lower(r0.language) = lower(?)
+            )
+            SELECT r.repo_key, r.name_with_owner, r.owner_login, r.name,
+                   r.description, r.stars, r.forks, r.language, r.topics,
+                   COUNT(*) AS contributor_count,
+                   AVG(s.final_score) AS avg_score,
+                   SUM(CASE WHEN s.tier IN ('夯', '顶级') THEN 1 ELSE 0 END) AS elite_count,
+                   COALESCE(SUM((
+                     SELECT COUNT(*) FROM account_lookup_limits AS l
+                     WHERE l.username = edges.username AND l.last_counted_at >= ?
+                   )), 0) AS recent_lookup_count
+            FROM edges
+            CROSS JOIN repos AS r ON r.repo_key = edges.repo_key
+            CROSS JOIN scores AS s ON s.username = edges.username
+              AND s.hidden = 0
+              AND ${canonicalPublicScorePredicate("s")}
+              AND s.final_score >= ?
+            GROUP BY r.repo_key`,
+      args: [options.language, cutoff, FACET_MIN_SCORE],
+    });
   } else {
     // Whole-graph aggregation (the /projects feed): inherently reads every
     // edge, so it must only run behind the Redis cache (project-discovery.ts).
@@ -5555,14 +5810,21 @@ export async function searchRepos(query: string, limit = 4): Promise<RepoDetail[
   if (!db || !normalized) return [];
   try {
     await ensureSchema(db);
+    // Prefix match as two index range seeks (repo_key is stored lowercase;
+    // idx_repos_lower_name covers the name) — a `LIKE 'x%'` on lower() can't
+    // use an index and read the whole table (~35k rows) per keystroke.
     const result = await db.execute({
       sql: `SELECT repo_key, name_with_owner, owner_login, name, description,
                    stars, forks, language, topics
             FROM repos
-            WHERE lower(repo_key) LIKE ? OR lower(name) LIKE ?
+            WHERE repo_key IN (
+              SELECT repo_key FROM repos WHERE repo_key >= ?1 AND repo_key < ?2
+              UNION
+              SELECT repo_key FROM repos WHERE lower(name) >= ?1 AND lower(name) < ?2
+            )
             ORDER BY stars DESC, repo_key ASC
-            LIMIT ?`,
-      args: [`${normalized}%`, `${normalized}%`, Math.max(1, Math.min(20, limit))],
+            LIMIT ?3`,
+      args: [normalized, `${normalized}\uffff`, Math.max(1, Math.min(20, limit))],
     });
     return result.rows.map((row) => repoDetailFromRow(row as unknown as Record<string, unknown>));
   } catch (e) {
@@ -5649,30 +5911,55 @@ export async function getDeveloperCommonProjects(
   usernameB: string,
   limit = 6,
 ): Promise<ProjectListItem[]> {
+  return (await getProfileCommonProjects(usernameA, [usernameB], limit))[0] ?? [];
+}
+
+/**
+ * Common projects between one profile and each of its similar candidates, in
+ * candidate order: per candidate, the first `limit` shared repo keys
+ * (repo_key ASC) as eligible project items. Same answer as one
+ * getDeveloperCommonProjects call per pair, but in two queries total: one
+ * username-index seek over the profile and its candidates, and one
+ * queryProjectItems over the union of shared repos, so a repo shared with
+ * several candidates is read once. When nothing is shared (the common case)
+ * the second query never runs, which keeps a cache miss cheap.
+ */
+export async function getProfileCommonProjects(
+  username: string,
+  candidates: string[],
+  limit = 6,
+): Promise<ProjectListItem[][]> {
   const db = getClient();
-  const a = usernameA.trim().toLowerCase();
-  const b = usernameB.trim().toLowerCase();
-  if (!db || !a || !b || a === b) return [];
+  const user = username.trim().toLowerCase();
+  const others = candidates.map((candidate) => candidate.trim().toLowerCase());
+  const queried = [...new Set(others.filter((candidate) => candidate && candidate !== user))];
+  if (!db || !user || queried.length === 0) return others.map(() => []);
+  const perCandidate = Math.max(1, Math.min(50, limit));
   try {
     await ensureSchema(db);
-    const result = await db.execute({
-      sql: `SELECT repo_key
+    const shared = await db.execute({
+      sql: `SELECT DISTINCT username, repo_key
             FROM repo_developers
-            WHERE username IN (?, ?)
-            GROUP BY repo_key
-            HAVING COUNT(DISTINCT username) = 2
-            ORDER BY repo_key ASC
-            LIMIT ?`,
-      args: [a, b, Math.max(1, Math.min(50, limit))],
+            WHERE username IN (${queried.map(() => "?").join(",")})
+              AND repo_key IN (SELECT repo_key FROM repo_developers WHERE username = ?)
+            ORDER BY username ASC, repo_key ASC`,
+      args: [...queried, user],
     });
-    return await queryProjectItems(db, {
-      sort: "quality",
-      repoKeys: result.rows.map((row) => String(row.repo_key)),
-      limit,
+    const keysByCandidate = new Map<string, string[]>();
+    for (const row of shared.rows) {
+      const keys = keysByCandidate.get(String(row.username)) ?? [];
+      if (keys.length < perCandidate) keys.push(String(row.repo_key));
+      keysByCandidate.set(String(row.username), keys);
+    }
+    const union = [...new Set([...keysByCandidate.values()].flat())];
+    const items = await queryProjectItems(db, { sort: "quality", repoKeys: union, limit: union.length || 1 });
+    return others.map((candidate) => {
+      const keys = new Set(candidate === user ? [] : (keysByCandidate.get(candidate) ?? []));
+      return items.filter((item) => keys.has(item.repo.repo_key)).slice(0, limit);
     });
   } catch (e) {
     // Rethrow: the cache layer must not persist an error as "no common repos".
-    console.error("getDeveloperCommonProjects failed:", e);
+    console.error("getProfileCommonProjects failed:", e);
     throw e;
   }
 }
@@ -5788,6 +6075,7 @@ export async function filterExistingRepoKeys(keys: string[]): Promise<Set<string
 }
 
 export interface AccountDetail {
+  scan_coverage?: PublicScanCoverage | "quick";
   username: string;
   display_name: string | null;
   avatar_url: string | null;
@@ -5816,6 +6104,14 @@ export interface AccountDetail {
   prev_scanned_at: number | null;
   risk_assessment?: RiskAssessment | null;
   risk_notes?: RiskSignal[];
+  /**
+   * Report from an older roast release on a current score. Never the current
+   * report: the page labels it 旧版锐评 while the auto re-roast regenerates it.
+   */
+  stale_roast?: string;
+  stale_roast_en?: string;
+  stale_roast_version?: string;
+  stale_roast_en_version?: string;
 }
 
 export interface ArchivedRoast {
@@ -5892,18 +6188,36 @@ export async function searchScoredUsers(
   if (!q) return [];
   try {
     await ensureSchema(db);
-    // Escape LIKE wildcards in user input so `_`/`%` are matched literally.
-    const like = `${q.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
-    const res = await db.execute({
-      sql: `SELECT username, display_name, avatar_url, final_score, tier
-            FROM scores
-            WHERE hidden = 0
-              AND ${canonicalPublicScorePredicate("scores")}
-              AND username LIKE ? ESCAPE '\\'
-            ORDER BY final_score DESC
-            LIMIT ?`,
-      args: [like, limit],
-    });
+    // `username LIKE` can't use the binary-collated PK index, so it scanned
+    // scores in score order until `limit` rows matched — the whole table
+    // (~41k rows_read) for any rare prefix. usernames are stored lowercase, so
+    // an equivalent half-open range plus the PK index seeks only the matching
+    // rows. Short prefixes match too many rows for that to pay off (the score
+    // scan finds `limit` hits almost immediately), so they keep the planner's
+    // default.
+    const upper = `${q}\uffff`;
+    const run = (indexHint: string) =>
+      db.execute({
+        sql: `SELECT username, display_name, avatar_url, final_score, tier
+              FROM scores ${indexHint}
+              WHERE hidden = 0
+                AND ${canonicalPublicScorePredicate("scores")}
+                AND username >= ? AND username < ?
+              ORDER BY final_score DESC
+              LIMIT ?`,
+        args: [q, upper, limit],
+      });
+    let res;
+    if (q.length >= 3) {
+      try {
+        res = await run("INDEXED BY sqlite_autoindex_scores_1");
+      } catch {
+        // Index renamed/absent (e.g. a local schema): correctness over speed.
+        res = await run("");
+      }
+    } else {
+      res = await run("");
+    }
     return res.rows.map((r) => ({
       username: String(r.username),
       display_name: (r.display_name as string | null) ?? null,
@@ -5928,7 +6242,7 @@ function parseRiskAssessment(raw: unknown): RiskAssessment | null {
   if (typeof raw !== "string" || !raw) return null;
   try {
     const parsed = JSON.parse(raw) as Partial<RiskAssessment>;
-    return parsed && parsed.version === "v10" && Array.isArray(parsed.signals)
+    return parsed && (parsed.version === "v9" || parsed.version === "v10") && Array.isArray(parsed.signals)
       ? (parsed as RiskAssessment)
       : null;
   } catch {
@@ -6145,6 +6459,34 @@ export async function getIndexableMatchups(): Promise<
   }
 }
 
+/** Identity-only recovery for a known public account whose score release was
+ * retired. This never makes the retired score readable or starts collection. */
+export async function getRetiredAccountIdentity(username: string): Promise<{
+  username: string; displayName: string | null;
+} | null> {
+  if (!/^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$/.test(username)) return null;
+  const db = getClient();
+  if (!db) return null;
+  await ensureSchema(db);
+  const result = await db.execute({
+    sql: `SELECT username, display_name FROM scores
+          WHERE username = ? AND hidden = 0
+            AND score_version NOT IN (${PUBLIC_SCORE_READ_ORDER.map(() => "?").join(", ")})
+          LIMIT 1`,
+    args: [username.toLowerCase(), ...PUBLIC_SCORE_READ_ORDER],
+  });
+  const row = result.rows[0];
+  return row ? { username: String(row.username), displayName: row.display_name ? String(row.display_name) : null } : null;
+}
+
+/** A non-empty report written by an older roast release (see AccountDetail.stale_roast). */
+function staleRoastArtifact(version: unknown, report: unknown): { version: string; report: string } | null {
+  return typeof version === "string" && version && version !== ROAST_CACHE_VERSION &&
+    typeof report === "string" && report.trim()
+    ? { version, report }
+    : null;
+}
+
 /** Full persisted record for one account's detail page (null if absent/hidden). */
 export async function getAccountDetail(username: string): Promise<AccountDetail | null> {
   const db = getClient();
@@ -6168,17 +6510,30 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       currentScore &&
       typeof currentRow?.score_source_snapshot_hash === "string" &&
       /^[a-f0-9]{64}$/.test(currentRow.score_source_snapshot_hash);
-    // A broken/incomplete target-version row must not hide the last verified
-    // release during an incident. A canonical v10 row always wins; otherwise
-    // prefer the immutable previous-release copy when one was captured.
-    const fallbackRow = canonicalScore
+    // A broken/incomplete public-version row must not hide the last verified
+    // release during an incident. A hashed public v13/v10 row always wins;
+    // otherwise prefer the immutable previous-release copy when one was captured.
+    const retainedScore = Boolean(currentRow && isRetainedPublicScoreArtifact(
+      currentRow.score_version, currentRow.score_source_collection_version, currentRow.score_source_snapshot_hash,
+    ));
+    const legacyFallbackRow = canonicalScore || retainedScore
       ? null
       : await getLegacyReadFallbackRow(db, username);
+    // The scores row is from a retired release and there is no previous-release
+    // copy: serve the newest captured public-version artifact instead of 404ing.
+    const currentReadable = Boolean(
+      currentRow && (currentScore || retainedScore || isLegacyReadFallbackProfile(currentRow)),
+    );
+    const retainedFallbackRow = legacyFallbackRow || currentReadable
+      ? null
+      : await getRetainedPublicFallbackRow(db, username);
+    const fallbackRow = legacyFallbackRow ?? retainedFallbackRow;
     const r = fallbackRow ?? currentRow;
     if (!r) return null;
-    const resolvedCurrentScore = isTargetReleaseScoreRow(r);
+    const resolvedCurrentScore = !fallbackRow && isTargetReleaseScoreRow(r);
     const legacyReadFallback =
-      !resolvedCurrentScore && isLegacyReadFallbackProfile(r);
+      !resolvedCurrentScore &&
+      (retainedScore || Boolean(retainedFallbackRow) || isLegacyReadFallbackProfile(r));
     const readableArtifacts = resolvedCurrentScore || legacyReadFallback;
     if (!readableArtifacts) return null;
     const artifactRoastVersion = canonicalScore && resolvedCurrentScore
@@ -6186,7 +6541,26 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       : legacyReadFallback
         ? LEGACY_READ_FALLBACK.roast
         : null;
+    const zhCurrent = Boolean(artifactRoastVersion) && r.roast_version === artifactRoastVersion;
+    const enCurrent = Boolean(artifactRoastVersion) && r.roast_en_version === artifactRoastVersion;
+    // Every report generation rewrites the bilingual one-liner, so it is
+    // current exactly when one of the reports is (mirrors the Go profile API).
+    const roastLineCurrent = readableArtifacts && (zhCurrent || enCurrent);
+    const staleZh = canonicalScore && resolvedCurrentScore && !zhCurrent
+      ? staleRoastArtifact(r.roast_version, r.roast)
+      : null;
+    const staleEn = canonicalScore && resolvedCurrentScore && !enCurrent
+      ? staleRoastArtifact(r.roast_en_version, r.roast_en)
+      : null;
+    let scanCoverage: PublicScanCoverage | "quick" = "quick";
+    if (r.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION && typeof r.score_source_snapshot_hash === "string") {
+      const evidence = await db.execute({ sql: `SELECT coverage FROM public_scan_runs WHERE username = ? AND snapshot_hash = ? AND collection_version = ? ORDER BY started_at DESC LIMIT 1`,
+        args: [String(r.username).toLowerCase(), r.score_source_snapshot_hash, PUBLIC_SCAN_COLLECTION_VERSION] });
+      const value = evidence.rows[0]?.coverage;
+      if (value === "partial_public" || value === "complete_public") scanCoverage = value;
+    }
     return {
+      scan_coverage: scanCoverage,
       username: String(r.username),
       display_name: r.display_name as string | null,
       avatar_url: r.avatar_url as string | null,
@@ -6194,18 +6568,14 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       final_score: Number(r.final_score),
       tier: String(r.tier) as Tier,
       tags: readableArtifacts ? parseTags(r.tags) : EMPTY_TAGS,
-      roast_line: readableArtifacts ? parseRoastLine(r.roast_line) : EMPTY_ROAST_LINE,
+      roast_line: roastLineCurrent ? parseRoastLine(r.roast_line) : EMPTY_ROAST_LINE,
       sub_scores: parseSubScores(r.sub_scores),
       risk_assessment: parseRiskAssessment(r.risk_assessment),
       risk_notes: parseRiskNotes(r.risk_notes),
-      roast:
-        artifactRoastVersion && r.roast_version === artifactRoastVersion
-          ? ((r.roast as string | null) ?? null)
-          : null,
-      roast_en:
-        artifactRoastVersion && r.roast_en_version === artifactRoastVersion
-          ? ((r.roast_en as string | null) ?? null)
-          : null,
+      roast: zhCurrent ? ((r.roast as string | null) ?? null) : null,
+      roast_en: enCurrent ? ((r.roast_en as string | null) ?? null) : null,
+      ...(staleZh ? { stale_roast: staleZh.report, stale_roast_version: staleZh.version } : {}),
+      ...(staleEn ? { stale_roast_en: staleEn.report, stale_roast_en_version: staleEn.version } : {}),
       score_version: typeof r.score_version === "string" ? r.score_version : null,
       legacy_read_fallback: legacyReadFallback,
       score_source_collection_version:
@@ -6237,6 +6607,9 @@ export async function hasLegacyReadFallbackProfile(username: string): Promise<bo
     await ensureSchema(db);
     const fallback = await getLegacyReadFallbackRow(db, username);
     if (fallback && isLegacyReadFallbackProfile(fallback)) return true;
+    // When the retained previous score is still a public read (v10 in v13's
+    // read order), the live scores row is canonical, not an emergency artifact.
+    if (isPublicScoreVersion(LEGACY_READ_FALLBACK.score)) return false;
     const result = await db.execute({
       sql: `SELECT score_version, score_source_collection_version
             FROM scores
@@ -6268,6 +6641,7 @@ export async function getLegacyReadFallbackScan(username: string): Promise<ScanR
       const scan = await getVerifiedLegacyReadFallbackScan(db, fallback);
       if (scan) return scan;
     }
+    if (isPublicScoreVersion(LEGACY_READ_FALLBACK.score)) return null;
     const result = await db.execute({
       sql: `SELECT username, final_score, score_version,
                    score_source_collection_version, roast, roast_en,
@@ -6304,6 +6678,8 @@ export async function getLegacyReadFallbackRoast(
     const fallback = await getLegacyReadFallbackRow(db, username);
     const result = fallback
       ? { rows: [fallback] }
+      : isPublicScoreVersion(LEGACY_READ_FALLBACK.score)
+        ? { rows: [] }
       : await db.execute({
       sql: `SELECT username, final_score, tier, tags, roast_line, score_version,
                    roast, roast_en, roast_version, roast_en_version
@@ -6452,10 +6828,37 @@ const SIMILAR_POOL = 300;
  * Developers most similar to `username`: pre-filter by a score band (uses the
  * final_score index — the cost-safe lever), then rank that pool by 6-dim profile
  * distance and return the closest `limit`. The target's score/profile are passed
- * in (the caller already has them) to avoid a second lookup. Returns [] on any
- * failure or when the DB is unconfigured.
+ * in (the caller already has them) to avoid a second lookup. Not cached across
+ * requests: profile traffic is a crawler long tail, so a shared KV entry was
+ * written on nearly every render (~53k/day) and rarely read back, and a KV
+ * write costs more than the bounded read it saved. Concurrent identical calls
+ * in one isolate share a query. Returns [] on failure/unconfigured DB.
  */
+const similarInflight = new Map<string, Promise<LeaderboardEntry[]>>();
+
 export async function getSimilarAccounts(
+  username: string,
+  finalScore: number,
+  subScores: SubScores,
+  limit = 6,
+): Promise<LeaderboardEntry[]> {
+  if (!getClient() || limit <= 0) return [];
+  const key = JSON.stringify([
+    username.toLowerCase(), finalScore, limit,
+    Object.entries(subScores).sort(([a], [b]) => a.localeCompare(b)),
+  ]);
+  const existing = similarInflight.get(key);
+  if (existing) return existing;
+  const run = getSimilarAccountsUncached(username, finalScore, subScores, limit).catch((error) => {
+    console.error("getSimilarAccounts failed:", error);
+    return [];
+  });
+  similarInflight.set(key, run);
+  try { return await run; }
+  finally { similarInflight.delete(key); }
+}
+
+async function getSimilarAccountsUncached(
   username: string,
   finalScore: number,
   subScores: SubScores,
@@ -6541,12 +6944,12 @@ export async function hasCanonicalPublicScore(username: string): Promise<boolean
     await ensureSchema(db);
     const res = await db.execute({
       sql: `SELECT 1 FROM scores
-            WHERE username = ? AND hidden = 0 AND score_version = ?
+            WHERE username = ? AND hidden = 0 AND ${publicScoreVersionSql()}
               AND score_source_collection_version = ?
               AND length(score_source_snapshot_hash) = 64
               AND score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'
             LIMIT 1`,
-      args: [username.toLowerCase(), SCORE_CACHE_VERSION, PUBLIC_SCAN_COLLECTION_VERSION],
+      args: [username.toLowerCase(), PUBLIC_SCAN_COLLECTION_VERSION],
     });
     return res.rows.length > 0;
   } catch (e) {
@@ -6923,14 +7326,14 @@ function validGithubId(value: number): boolean {
   return Number.isSafeInteger(value) && value > 0;
 }
 
-/** Cache-aside read of a profile's global reaction tallies. A hit skips the
- *  GROUP BY entirely — the hot path for crawlers and logged-out visitors. */
+/** A profile's global reaction tallies. Read live: the GROUP BY is answered
+ *  from idx_profile_reactions_target_reaction (a handful of rows), while a
+ *  60s shared cache missed on nearly every crawler render and turned each one
+ *  into a KV write — far more expensive than the read it saved. */
 async function readReactionCounts(
   db: Client,
   target: string,
 ): Promise<ProfileReactionCounts> {
-  const cached = await getCachedReactionCounts(target);
-  if (cached) return cached;
   const counts = emptyReactionCounts();
   const res = await db.execute({
     sql: `SELECT reaction, COUNT(*) AS count
@@ -6942,7 +7345,6 @@ async function readReactionCounts(
   for (const row of res.rows) {
     if (isProfileReaction(row.reaction)) counts[row.reaction] = Number(row.count) || 0;
   }
-  await setCachedReactionCounts(target, counts);
   return counts;
 }
 
@@ -7008,7 +7410,6 @@ export async function setProfileReaction(
               updated_at = excluded.updated_at`,
       args: [target, input.voterGithubId, voterLogin, input.reaction, now, now],
     });
-    await clearCachedReactionCounts(target);
     return getProfileReactionState(target, input.voterGithubId);
   } catch (e) {
     console.error("setProfileReaction failed:", e);
@@ -7030,7 +7431,6 @@ export async function removeProfileReaction(
             WHERE target_username = ? AND voter_github_id = ?`,
       args: [target, input.voterGithubId],
     });
-    await clearCachedReactionCounts(target);
     return getProfileReactionState(target, input.voterGithubId);
   } catch (e) {
     console.error("removeProfileReaction failed:", e);

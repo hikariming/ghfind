@@ -1,8 +1,8 @@
-import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import type { CollectionItem, DeveloperPickStats, RepoPickStats } from "@/lib/collections";
 import { pickText } from "@/lib/collections";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
+import type { Translator } from "@/lib/translator";
 
 /**
  * Server-rendered cards for curated collection items. Numbers come from the
@@ -35,16 +35,18 @@ function PositionBadge({ position }: { position: number }) {
   );
 }
 
-export async function RepoPickCard({
+export function RepoPickCard({
   item,
   locale,
   position,
+  t,
 }: {
   item: Extract<CollectionItem, { kind: "repo" }>;
   locale: string;
   position: number;
+  /** "collections" namespace. */
+  t: Translator;
 }) {
-  const t = await getTranslations("collections");
   const stats: RepoPickStats = item.stats;
   const [owner, name] = item.id.split("/");
   const href = `/developers/repo/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
@@ -89,7 +91,7 @@ export async function RepoPickCard({
                     prefetch={false}
                     className={`rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[11px] hover:bg-white/[0.07] ${style.text}`}
                   >
-                    {style.emoji} @{c.username}
+                    @{c.username}
                   </Link>
                 );
               })}
@@ -114,17 +116,21 @@ export async function RepoPickCard({
   );
 }
 
-export async function DeveloperPickCard({
+export function DeveloperPickCard({
   item,
   locale,
   position,
+  t,
+  tTiers,
 }: {
   item: Extract<CollectionItem, { kind: "developer" }>;
   locale: string;
   position: number;
+  /** "collections" namespace. */
+  t: Translator;
+  /** "tiers" namespace. */
+  tTiers: Translator;
 }) {
-  const t = await getTranslations("collections");
-  const tTiers = await getTranslations("tiers");
   const stats: DeveloperPickStats = item.stats;
   const style = tierStyle(stats.tier);
   return (
@@ -152,7 +158,7 @@ export async function DeveloperPickCard({
                 <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
                   {stats.name && <span>{stats.name}</span>}
                   <span className={`font-semibold ${style.text}`}>
-                    {style.emoji} {tTiers(`${TIER_KEY[stats.tier]}.name`)}
+                    {tTiers(`${TIER_KEY[stats.tier]}.name`)}
                   </span>
                 </div>
               </div>
@@ -205,18 +211,22 @@ export async function DeveloperPickCard({
   );
 }
 
-export async function CollectionItemCard({
+export function CollectionItemCard({
   item,
   locale,
   position,
+  t,
+  tTiers,
 }: {
   item: CollectionItem;
   locale: string;
   position: number;
+  t: Translator;
+  tTiers: Translator;
 }) {
   return item.kind === "repo" ? (
-    <RepoPickCard item={item} locale={locale} position={position} />
+    <RepoPickCard item={item} locale={locale} position={position} t={t} />
   ) : (
-    <DeveloperPickCard item={item} locale={locale} position={position} />
+    <DeveloperPickCard item={item} locale={locale} position={position} t={t} tTiers={tTiers} />
   );
 }

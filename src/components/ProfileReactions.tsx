@@ -23,14 +23,15 @@ export function ProfileReactions({
   authAvailable,
   initialState,
   profileUsername,
-  signInAction,
+  signInCallbackUrl,
   flat = false,
 }: {
   authenticated: boolean;
   authAvailable: boolean;
   initialState: ProfileReactionState;
   profileUsername: string;
-  signInAction: () => Promise<void>;
+  /** Where the GitHub sign-in returns to (this profile). */
+  signInCallbackUrl: string;
   flat?: boolean;
 }) {
   const t = useTranslations("reactions");
@@ -211,7 +212,8 @@ export function ProfileReactions({
             {t("loginRequired")}
           </p>
           {authAvailable ? (
-            <form action={signInAction}>
+            <form action="/api/auth/github" method="get">
+              <input type="hidden" name="callbackUrl" value={signInCallbackUrl} />
               <button
                 type="submit"
                 className="rounded-full bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-500"

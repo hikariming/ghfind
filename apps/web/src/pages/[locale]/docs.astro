@@ -1,0 +1,15 @@
+---
+import Base from "../../layouts/Base.astro";
+import { Docs } from "../../views";
+import { getTranslator, routeLocale } from "../../lib/i18n";
+import { STATIC_PAGE_CACHE } from "../../lib/not-found";
+
+const locale = routeLocale(Astro.params.locale);
+if (!locale) return new Response(null, { status: 404 });
+
+const [t] = await Promise.all([getTranslator(locale, "docs")]);
+Astro.response.headers.set("Cache-Control", STATIC_PAGE_CACHE);
+---
+<Base locale={locale} path="/docs" title={t("metaTitle")} description={t("metaDescription")}>
+  <Docs route={{ locale, path: "/docs" }} t={t} />
+</Base>

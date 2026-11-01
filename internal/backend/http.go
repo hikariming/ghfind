@@ -996,7 +996,7 @@ type scanResponse struct {
 }
 
 func scanPayload(scan ScanResult, cached bool) scanResponse {
-	return scanResponse{ScanResult: scan, Cached: cached, Coverage: "quick"}
+	return scanResponse{ScanResult: scan, Cached: cached, Coverage: scanCoverage(scan)}
 }
 
 func (s *APIServer) scanJobStatus(w http.ResponseWriter, request *http.Request) {

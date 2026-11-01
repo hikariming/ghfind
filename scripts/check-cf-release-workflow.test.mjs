@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const checker = resolve('scripts/check-cf-release-workflow.mts');
-const originals = Object.fromEntries(['ci.yml', 'deploy-cf-production.yml', 'feed-catalog-reconcile.yml'].map(name => [name, readFileSync(`.github/workflows/${name}`, 'utf8')]));
+const originals = Object.fromEntries(['ci.yml', 'deploy-cf-production.yml', 'feed-catalog-reconcile.yml', 'cost-monitor.yml', 'deploy-apps-production.yml'].map(name => [name, readFileSync(`.github/workflows/${name}`, 'utf8')]));
 function check(change = {}) {
   const temporary = mkdtempSync(join(tmpdir(), 'feed-workflow-contract-'));
   try {
@@ -18,6 +18,20 @@ function check(change = {}) {
 
 test('current exact-checkout CI, direct production and containment gates satisfy the workflow contract', () => {
   assert.match(check(), /workflow contract passed/);
+});
+
+test('bot release cannot precede SCORE, use a stale SHA, skip migrations or escape serialization', () => {
+  const production = originals['deploy-cf-production.yml'];
+  const begin = production.indexOf('\n  deploy-bot:\n');
+  for (const fragment of ['needs: [deploy]', 'environment: Production', 'group: ghfind-bot-production',
+    'cancel-in-progress: false', 'ref: ${{ github.event.workflow_run.head_sha }}',
+    'if [ "$current_main" != "$RELEASE_SHA" ]; then', 'pnpm exec wrangler d1 migrations apply ghfind-bot --remote --env production',
+    "github.event.workflow_run.event == 'push'"]) {
+    const unsafe = production.slice(0, begin) + production.slice(begin).replace(fragment, 'removed');
+    assert.throws(() => check({ 'deploy-cf-production.yml': unsafe }), /Bot production gate/);
+  }
+  const unsafe = production.slice(0, begin) + production.slice(begin).replace('    needs: [deploy]', '    needs: [deploy]\n    continue-on-error: true');
+  assert.throws(() => check({ 'deploy-cf-production.yml': unsafe }), /Bot must wait/);
 });
 
 test('gate text elsewhere does not compensate for a production job that lost its dependency or environment', () => {
@@ -90,26 +104,24 @@ test('a configured image identity does not replace inspection of both compiled e
 
 test('baseline cannot replace native mode transition with an idle wait or move it after readiness', () => {
   const production = originals['deploy-cf-production.yml'];
-  assert.throws(() => check({'deploy-cf-production.yml':production.replace('240s node scripts/feed-production-transition.mjs','240s node missing-transition.mjs')}));
+  assert.throws(() => check({'deploy-cf-production.yml':production.replace('420s node scripts/feed-production-transition.mjs','420s node missing-transition.mjs')}));
   assert.throws(() => check({'deploy-cf-production.yml':production.replace('          # Explicitly stop and restart','          sleep 130\n          # Explicitly stop and restart')}));
   assert.throws(() => check({'deploy-cf-production.yml':production.replace('      FEED_ASSESSMENT_CARRYOVER: ops/feed-production-assessment-carryover.json\n','')}));
 });
 
-test('paid recovery waits for native baseline and cannot bypass its journal or credential', () => {
+test('completed assessment requires source preflight and projection after baseline without paid operations', () => {
   const production = originals['deploy-cf-production.yml'];
-  for (const fragment of ['node scripts/feed-production-assessment-operator.mjs', 'node scripts/feed-production-assessment.mjs operator-window', 'PROJECT_ANALYSIS_RECONCILE_SECRET: ${{ secrets.PROJECT_ANALYSIS_RECONCILE_SECRET }}'])
-    assert.throws(() => check({'deploy-cf-production.yml': production.replace(fragment, 'removed')}));
+  for (const fragment of ['Verify completed assessment source before deployment', 'ops/feed-production-assessment-checkpoint.json', 'Verify completed assessment and current durable projection'])
+    assert.throws(() => check({'deploy-cf-production.yml': production.replaceAll(fragment, 'removed')}));
+  for (const suffix of [' --source-only', ' || true'])
+    assert.throws(() => check({'deploy-cf-production.yml': production.replace('assessment-result.json"', 'assessment-result.json"' + suffix)}));
+  for (const command of ['node scripts/feed-production-assessment.mjs start', 'node scripts/feed-production-assessment-operator.mjs', 'node scripts/feed-production-assessment-recovery.mjs'])
+    assert.throws(() => check({'deploy-cf-production.yml': production.replace('      - name: Build the real Web', '          '+command+'\n      - name: Build the real Web')}));
+  assert.throws(() => check({'deploy-cf-production.yml': production.replace('      - name: Verify completed assessment and current durable projection\n', '      - name: Verify completed assessment and current durable projection\n        if: always()\n')}));
   const a = production.indexOf('      - name: Activate executor');
-  const b = production.indexOf('      - name: Start or resume');
-  const c = production.indexOf('      - name: Require real assessment');
+  const b = production.indexOf('      - name: Verify completed assessment and current durable projection');
+  const c = production.indexOf('      - name: Verify bounded authenticated');
   assert.throws(() => check({'deploy-cf-production.yml': production.slice(0,a) + production.slice(b,c) + production.slice(a,b) + production.slice(c)}));
-});
-
-
-test('journal preflight cannot be combined with mutation or bypass its failed restore', () => {
-  const production=originals['deploy-cf-production.yml'];
-  assert.throws(()=>check({'deploy-cf-production.yml':production.replace('Restore the assessment journal without provider mutations','Missing restore boundary')}));
-  assert.throws(()=>check({'deploy-cf-production.yml':production.replace('      - name: Start or resume the single real production assessment\n', '      - name: Start or resume the single real production assessment\n        if: always()\n')}));
 });
 
 test('provider failure cannot strand the new public Web without its build cache', () => {
@@ -117,4 +129,22 @@ test('provider failure cannot strand the new public Web without its build cache'
   assert.throws(()=>check({'deploy-cf-production.yml':production.replace('Populate new build cache before replacing the public Web','Missing early cache')}));
   const command='run: node node_modules/@opennextjs/cloudflare/dist/cli/index.js populateCache remote --config platform/runtime/wrangler.web.production.generated.json --cacheChunkSize 10';
   assert.throws(()=>check({'deploy-cf-production.yml':production.replace(command,'run: true')}));
+});
+
+test('off process replacement cannot bypass pause evidence, deployment or readiness', () => {
+  const production=originals['deploy-cf-production.yml'];
+  for (const part of ['240s node scripts/feed-production-off-transition.mjs', 'consumer-pause.json" "$RUNNER_TEMP/feed-production-evidence/off-transition.json"'])
+    assert.throws(()=>check({'deploy-cf-production.yml':production.replace(part,'removed')}));
+  assert.throws(()=>check({'deploy-cf-production.yml':production.replace('off-transition.json"','off-transition.json" || true')}));
+});
+
+test("off restart requires bounded platform rollout completion", () => {
+  assert.throws(() => check({"deploy-cf-production.yml": originals["deploy-cf-production.yml"].replace("310s node scripts/feed-production-rollout.mjs", "310s node scripts/removed.mjs")}));
+});
+
+test('superseded release guards protect every following deployment step',()=>{
+ for(const name of ['deploy-cf-production.yml','cost-monitor.yml','deploy-apps-production.yml']){
+  const content=originals[name].replace("        if: steps.current.outputs.current == 'true'\n",'');
+  assert.throws(()=>check({[name]:content}),/unguarded post-authorization step/);
+ }
 });

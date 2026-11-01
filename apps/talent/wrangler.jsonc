@@ -1,0 +1,66 @@
+{
+  // ghfind-talent: hosts the Talent Match report Workflow and the job
+  // requirement sync Workflow (JobSyncWorkflow). No routes; the API
+  // Worker (ghfind-api) starts instances through a cross-script `workflows`
+  // binding (TALENT_REPORT). Reads the core D1 and the Feed D1 (growth
+  // projects). LLM credentials are operator-held secrets on this Worker:
+  // LLM_API_KEY (+ LLM_BASE_URL / LLM_MODEL), optionally LLM_FALLBACK_*, or
+  // TALENT_LLM_API_KEY + TALENT_LLM_BASE_URL + TALENT_LLM_MODEL to run Talent
+  // Match on its own model. Set them with `wrangler secret put --env <env>`.
+  "name": "ghfind-talent",
+  "account_id": "8f19bebe359e4ec1a24c68c5f49c1584",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-06",
+  // nodejs_compat populates process.env from vars/secrets (src/lib reads it).
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "observability": { "enabled": true },
+  "alias": {
+    "@opennextjs/cloudflare": "./src/shims/opennext-cloudflare.ts"
+  },
+  "workflows": [
+    { "name": "ghfind-talent-report-local", "binding": "TALENT_REPORT", "class_name": "TalentReportWorkflow" },
+    { "name": "ghfind-talent-jobs-local", "binding": "JOB_SYNC", "class_name": "JobSyncWorkflow" }
+  ],
+  "d1_databases": [
+    { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d" },
+    { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed-dev", "database_id": "bd305af9-2cab-4fe8-8c2f-324391cf105e" }
+  ],
+  "vars": { "GHFIND_DEPLOY_ENV": "development" },
+  "env": {
+    "dev": {
+      "name": "ghfind-talent-dev",
+      "workflows": [
+        { "name": "ghfind-talent-report-dev", "binding": "TALENT_REPORT", "class_name": "TalentReportWorkflow" },
+        { "name": "ghfind-talent-jobs-dev", "binding": "JOB_SYNC", "class_name": "JobSyncWorkflow" }
+      ],
+      // No cron on dev: dev and production share the core database, so the
+      // production cron keeps job_requirements current for both. Trigger
+      // ghfind-talent-jobs-dev by hand when testing.
+      "d1_databases": [
+        { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d" },
+        { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed-dev", "database_id": "bd305af9-2cab-4fe8-8c2f-324391cf105e" }
+      ],
+      "vars": { "GHFIND_DEPLOY_ENV": "preview" }
+    },
+    "production": {
+      "name": "ghfind-talent",
+      "workflows": [
+        { "name": "ghfind-talent-report", "binding": "TALENT_REPORT", "class_name": "TalentReportWorkflow" },
+        { "name": "ghfind-talent-jobs", "binding": "JOB_SYNC", "class_name": "JobSyncWorkflow" }
+      ],
+      // Daily job-requirement sync; unchanged jobs cost one indexed read each.
+      "triggers": { "crons": ["17 3 * * *"] },
+      "d1_databases": [
+        { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d" },
+        { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed", "database_id": "9c4ac13a-4c90-40a8-9d56-d7141f864bbf" }
+      ],
+      "vars": {
+        "GHFIND_DEPLOY_ENV": "production",
+        // src/lib/site.ts refuses to start in production without these.
+        "PUBLIC_SITE_URL": "https://ghfind.com",
+        "NEXT_PUBLIC_SITE_URL": "https://ghfind.com"
+      }
+    }
+  }
+}

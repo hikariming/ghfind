@@ -1,0 +1,5 @@
+# Astro build output, generated types, and local wrangler state.
+dist/
+.astro/
+.wrangler/
+.generated/

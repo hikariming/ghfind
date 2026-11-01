@@ -51,6 +51,10 @@ export type FeedProject = {
   name: string;
   canonicalUrl: string;
   summary: string;
+  /** Discover card hook; empty on legacy projections. */
+  discoverHook: string;
+  painStatement: string;
+  audiencePrimary: string | null;
   language: string | null;
   topics: string[];
   projectType: string;
@@ -139,6 +143,11 @@ const DEFAULT_TAGS: ReadonlyArray<Omit<FeedTag, "taxonomyVersion">> = [
   ["stage", "feature-complete", "功能完成", "Feature complete", "Project primarily receiving fixes."],
   ["stage", "experimental", "实验阶段", "Experimental", "Early experimental project."],
   ["stage", "abandoned", "已停更", "Abandoned", "No longer actively maintained."],
+  // Discover interest partitions (additive; formal taxonomy v2 bump is gated).
+  ["use_case", "ai-agent", "智能体", "AI agent", "Autonomous or tool-using AI agent workflows."],
+  ["use_case", "agent-skill", "Agent 技能", "Agent skill", "Reusable skill/plugin packs for coding agents."],
+  ["artifact", "microservice", "微服务", "Microservice", "Independently deployable service boundary."],
+  ["artifact", "sandbox", "沙盒", "Sandbox", "Isolated or untrusted-code execution runtime."],
 ].map(([namespace, slug, labelZh, labelEn, description]) => ({
   id: `${namespace}:${slug}`,
   namespace: namespace as FeedNamespace,
@@ -183,7 +192,7 @@ const LOCAL_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS feed_taxonomy_versions (version INTEGER PRIMARY KEY, status TEXT NOT NULL, created_at INTEGER NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS feed_tag_definitions (id TEXT PRIMARY KEY, namespace TEXT NOT NULL, slug TEXT NOT NULL, label_zh TEXT NOT NULL, label_en TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', status TEXT NOT NULL, taxonomy_version INTEGER NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, UNIQUE(namespace, slug))`,
   `CREATE TABLE IF NOT EXISTS feed_tag_aliases (namespace TEXT NOT NULL, slug TEXT NOT NULL, canonical_tag_id TEXT NOT NULL, taxonomy_version INTEGER NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY(namespace, slug))`,
-  `CREATE TABLE IF NOT EXISTS feed_projects (repo_key TEXT PRIMARY KEY, analysis_id TEXT NOT NULL, owner_login TEXT NOT NULL, name TEXT NOT NULL, canonical_url TEXT NOT NULL, summary TEXT NOT NULL, language TEXT, topics_json TEXT NOT NULL DEFAULT '[]', project_type TEXT NOT NULL, lifecycle TEXT NOT NULL, product_score REAL NOT NULL, confidence REAL NOT NULL, verification_level TEXT NOT NULL, exposure_band TEXT NOT NULL, treasure_eligible INTEGER NOT NULL DEFAULT 0, classic_eligible INTEGER NOT NULL DEFAULT 0, analyzed_at INTEGER NOT NULL, risks_json TEXT NOT NULL, published INTEGER NOT NULL DEFAULT 0, source_hash TEXT NOT NULL, projected_at INTEGER NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS feed_projects (repo_key TEXT PRIMARY KEY, analysis_id TEXT NOT NULL, owner_login TEXT NOT NULL, name TEXT NOT NULL, canonical_url TEXT NOT NULL, summary TEXT NOT NULL, discover_hook TEXT NOT NULL DEFAULT '', pain_statement TEXT NOT NULL DEFAULT '', audience_primary TEXT NOT NULL DEFAULT '', language TEXT, topics_json TEXT NOT NULL DEFAULT '[]', project_type TEXT NOT NULL, lifecycle TEXT NOT NULL, product_score REAL NOT NULL, confidence REAL NOT NULL, verification_level TEXT NOT NULL, exposure_band TEXT NOT NULL, treasure_eligible INTEGER NOT NULL DEFAULT 0, classic_eligible INTEGER NOT NULL DEFAULT 0, analyzed_at INTEGER NOT NULL, risks_json TEXT NOT NULL, published INTEGER NOT NULL DEFAULT 0, source_hash TEXT NOT NULL, projected_at INTEGER NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS feed_project_moderation (repo_key TEXT PRIMARY KEY, removed INTEGER NOT NULL DEFAULT 0, allow_high_risk INTEGER NOT NULL DEFAULT 0, reason TEXT NOT NULL DEFAULT '', updated_at INTEGER NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS feed_project_tags (repo_key TEXT NOT NULL, tag_id TEXT NOT NULL, source TEXT NOT NULL, weight REAL NOT NULL, confidence REAL NOT NULL, evidence_json TEXT NOT NULL DEFAULT '[]', analysis_id TEXT NOT NULL, taxonomy_version INTEGER NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY(repo_key, tag_id))`,
   `CREATE TABLE IF NOT EXISTS feed_tag_proposals (id TEXT PRIMARY KEY, repo_key TEXT NOT NULL, analysis_id TEXT NOT NULL, namespace TEXT NOT NULL, slug TEXT NOT NULL, label_zh TEXT NOT NULL, label_en TEXT NOT NULL, evidence_json TEXT NOT NULL DEFAULT '[]', status TEXT NOT NULL, reviewed_by TEXT, review_reason TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, UNIQUE(repo_key, analysis_id, namespace, slug))`,
@@ -360,13 +369,15 @@ export async function syncFeedProjectProjection(
   const statements: InStatement[] = [
     {
       sql: `INSERT INTO feed_projects
-            (repo_key, analysis_id, owner_login, name, canonical_url, summary, language, topics_json,
+            (repo_key, analysis_id, owner_login, name, canonical_url, summary, discover_hook, pain_statement, audience_primary, language, topics_json,
              project_type, lifecycle, product_score, confidence, verification_level, exposure_band,
              treasure_eligible, classic_eligible, analyzed_at, risks_json, published, source_hash, projected_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?)
             ON CONFLICT(repo_key) DO UPDATE SET
               analysis_id = excluded.analysis_id, owner_login = excluded.owner_login, name = excluded.name,
-              canonical_url = excluded.canonical_url, summary = excluded.summary, language = excluded.language,
+              canonical_url = excluded.canonical_url, summary = excluded.summary,
+              discover_hook = excluded.discover_hook, pain_statement = excluded.pain_statement,
+              audience_primary = excluded.audience_primary, language = excluded.language,
               topics_json = excluded.topics_json, project_type = excluded.project_type, lifecycle = excluded.lifecycle,
               product_score = excluded.product_score, confidence = excluded.confidence,
               verification_level = excluded.verification_level, exposure_band = excluded.exposure_band,
@@ -374,6 +385,8 @@ export async function syncFeedProjectProjection(
               source_hash = excluded.source_hash, projected_at = excluded.projected_at`,
       args: [
         repoKey, analysisId, ownerLogin, name, analysis.repository.canonical_url, analysis.project.summary,
+        analysis.project.discover_hook ?? "", analysis.project.pain_statement,
+        analysis.project.target_users[0] ?? "",
         language, JSON.stringify(topics), analysis.project.project_type, analysis.project.lifecycle,
         analysis.scores.product_score, analysis.confidence, analysis.verification_level, analysis.exposure.band,
         Date.parse(analysis.analyzed_at), JSON.stringify(analysis.risks), publishable, sourceHash(analysis), now,
@@ -772,6 +785,9 @@ async function loadCandidates(db: Client, viewer: Viewer, since: number): Promis
       name: rowString(row, "name"),
       canonicalUrl: rowString(row, "canonical_url"),
       summary: rowString(row, "summary"),
+      discoverHook: rowString(row, "discover_hook"),
+      painStatement: rowString(row, "pain_statement"),
+      audiencePrimary: rowString(row, "audience_primary") || null,
       language: rowString(row, "language") || null,
       topics: parseStringArray(row.topics_json),
       projectType: rowString(row, "project_type"),

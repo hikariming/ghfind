@@ -113,7 +113,24 @@ function versionChangeErrors(baseRef: string): string[] {
   return errors;
 }
 
-const errors = releaseVersionErrors();
+// Recovery reads must be backed by an actual ancestor's public read contract,
+// not an invented label or alias. This allows restoring a dropped legacy read
+// without backfilling users or weakening canonical-write provenance.
+function historicalReadErrors(): string[] {
+  const history = JSON.parse(readFileSync(resolve("config/public-read-history.json"), "utf8"));
+  if (!/^[a-f0-9]{40}$/.test(history.sourceCommit)) return ["public read history must pin a commit"];
+  try {
+    git("merge-base", "--is-ancestor", history.sourceCommit, "HEAD");
+    const manifest = baseManifest(history.sourceCommit);
+    if (!manifest || JSON.stringify(history.scoreVersions) !== JSON.stringify(manifest.compatibility.publicScoreReadOrder) ||
+      JSON.stringify(history.collectionVersions) !== JSON.stringify(manifest.compatibility.collectionReadOrder)) {
+      return ["public read history must exactly match its ancestor manifest"];
+    }
+  } catch { return ["public read history must reference an available ancestor"]; }
+  return [];
+}
+
+const errors = [...releaseVersionErrors(), ...historicalReadErrors()];
 const releasePlan = resolve(RELEASE_VERSION_MANIFEST.releasePlan);
 if (!existsSync(releasePlan) || readFileSync(releasePlan, "utf8").trim().length === 0) {
   errors.push(`release plan is missing: ${RELEASE_VERSION_MANIFEST.releasePlan}`);

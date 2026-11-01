@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { consumeRoastStream, decodeRoastMeta } from "../roast-stream";
 import type { RoastMeta } from "../types";
@@ -92,6 +93,39 @@ describe("consumeRoastStream", () => {
     expect(out.report).toBe("");
   });
 
+  it("surfaces an E-frame after report mode has started", async () => {
+    const onError = vi.fn();
+    const onReport = vi.fn();
+    const report = "## partial roast\n";
+    const res = makeRes([
+      frame("M", encodeMeta()),
+      report,
+      frame("E", JSON.stringify({ error: "late_failure" })),
+      "discarded after failure",
+    ]);
+
+    const out = await consumeRoastStream(res, { onError, onReport });
+
+    expect(out.errored).toBe(true);
+    expect(out.report).toBe(report);
+    expect(onReport).toHaveBeenLastCalledWith(report);
+    expect(onError).toHaveBeenCalledWith({ error: "late_failure" });
+  });
+
+  it("handles a late E-frame split across chunks", async () => {
+    const onError = vi.fn();
+    const payload = JSON.stringify({ error: "late_failure" });
+    const wire = `partial report\x1fE${payload}\nignored after failure`;
+    const cut = "partial report\x1fE".length + Math.floor(payload.length / 2);
+    const res = makeRes([wire.slice(0, cut), wire.slice(cut)]);
+
+    const out = await consumeRoastStream(res, { onError });
+
+    expect(out.errored).toBe(true);
+    expect(out.report).toBe("partial report");
+    expect(onError).toHaveBeenCalledWith({ error: "late_failure" });
+  });
+
   it("passes a stale report fallback carried by an E-frame", async () => {
     const onError = vi.fn();
     const fallbackMeta = { ...META, final_score: 42 };
@@ -121,4 +155,18 @@ describe("consumeRoastStream", () => {
     expect(out.report).toBe(body);
     expect(out.errored).toBe(false);
   });
+});
+
+describe("roast action integrations", () => {
+  it.each(["RescanButton.tsx", "VsSummonButton.tsx"])(
+    "%s checks the decoded error before refreshing",
+    (file) => {
+      const source = readFileSync(new URL(`../../components/${file}`, import.meta.url), "utf8");
+
+      expect(source).toMatch(
+        /const \{ errored \} = await consumeRoastStream\(roastRes, \{\s*onError: \(\) => setStatus\("error"\),\s*\}\);\s*if \(errored\) return;\s*router\.refresh\(\);\s*setStatus\("idle"\);/,
+      );
+      expect(source).not.toContain("roastRes.body.getReader()");
+    },
+  );
 });

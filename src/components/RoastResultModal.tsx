@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { tagsForLocale } from "@/lib/roast-tags";
 import { X } from "lucide-react";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { SITE_URL } from "@/lib/site";
@@ -14,6 +15,9 @@ import { CopyBadge } from "./CopyBadge";
 import { MaterialCardPreview, MaterialCardSaveButton } from "./MaterialCardPanel";
 import { ProfileShare } from "./ProfileShare";
 import { TierAvatarFrame } from "./TierAvatarFrame";
+import { AdventurerLevel } from "@/components/realm/AdventurerLevel";
+import { RealmChip } from "@/components/realm/RealmGlyph";
+import { realmForScore } from "@/lib/realm";
 
 /**
  * The share-first result popup for a homepage arrival on a profile page. Opens
@@ -55,13 +59,15 @@ export function RoastResultModal({
 }) {
   const t = useTranslations("detail");
   const tTier = useTranslations("tiers");
+  const tRealm = useTranslations("realms");
+  const tDetail = useTranslations("detail");
   const locale = useLocale();
   const [showBadge, setShowBadge] = useState(false);
 
   const style = tierStyle(meta.tier);
   const tierKey = TIER_KEY[meta.tier];
   const line = pickLine(meta.roast_line, locale);
-  const tags = [...(meta.tags?.zh ?? []), ...(meta.tags?.en ?? [])];
+  const tags = tagsForLocale(meta.tags, locale);
   const beat = meta.percentile?.beat ?? null;
 
   return (
@@ -96,14 +102,13 @@ export function RoastResultModal({
             className="mt-4"
           />
           <div className={`mt-3 text-5xl font-black tabular-nums ${style.text}`}>
-            {meta.final_score.toFixed(2)}
-            <span className="text-xl text-zinc-600">/100</span>
+            <AdventurerLevel score={meta.final_score} caption={tDetail("adventurerLevel")} size="md" />
           </div>
           <div className={`mt-1 text-xl font-bold ${style.text}`}>
-            {style.emoji} {tTier(`${tierKey}.name`)}
+            <RealmChip realm={realmForScore(meta.final_score)} name={tRealm(`${realmForScore(meta.final_score).id}.name`)} />
           </div>
           <div className="mt-1 text-sm font-medium text-zinc-300">
-            {tTier(`${tierKey}.blurb`)}
+            {tRealm(`${realmForScore(meta.final_score).id}.blurb`)}
           </div>
           {meta.percentile &&
             (meta.percentile.beat === null ? (
@@ -117,11 +122,11 @@ export function RoastResultModal({
               </div>
             ))}
           {tags.length > 0 && (
-            <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
               {tags.map((tag, i) => (
                 <span
                   key={`${tag}-${i}`}
-                  className="rounded-full border border-orange-400/30 bg-orange-500/10 px-2.5 py-0.5 text-xs font-medium text-orange-200"
+                  className="rounded-full border border-zinc-500/25 bg-zinc-500/[0.08] px-2 py-0.5 text-[10px] font-medium tracking-wide text-zinc-400"
                 >
                   #{tag}
                 </span>
@@ -173,7 +178,7 @@ export function RoastResultModal({
             avatarUrl={avatarUrl}
             score={meta.final_score}
             tier={meta.tier}
-            tierLabel={tTier(`${tierKey}.blurb`)}
+            tierLabel={tRealm(`${realmForScore(meta.final_score).id}.blurb`)}
             beat={beat}
             tags={meta.tags ?? { zh: [], en: [] }}
             saveAction={

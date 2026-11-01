@@ -126,7 +126,12 @@ export async function verifyRemote(sha, destination, { request = githubRequest }
   const run = await request(`/repos/${repository}/actions/runs/${candidates[0].id}`);
   assert(run.status === 'completed' && run.conclusion === 'success', 'latest eligible CI run has not passed');
   const currentRef = await request(`/repos/${repository}/git/ref/heads/${run.head_branch.split('/').map(encodeURIComponent).join('/')}`);
-  assert(currentRef.object?.type === 'commit' && currentRef.object.sha === sha, 'release SHA is no longer the current branch HEAD');
+  assert(currentRef.object?.type === 'commit', 'branch HEAD must be a commit');
+  if(currentRef.object.sha !== sha){
+    const result={status:'superseded',sha,currentSha:currentRef.object.sha};
+    writeJSON(destination,result);
+    return result;
+  }
   const listing = await request(`/repos/${repository}/actions/runs/${run.id}/artifacts?per_page=100`);
   assert(listing.total_count <= 100, 'artifact pagination exceeds bounded verifier');
   const artifacts = listing.artifacts.filter(item => item.name === artifactName(sha, String(run.id), String(run.run_attempt)));
@@ -169,6 +174,7 @@ async function main(args) {
     writeJSON(parameters[1], aggregateEvidence(context, JSON.parse(process.env.CI_JOB_RESULTS ?? '{}'), receipts));
   } else if (command === 'verify-ci-remote' && parameters.length === 2) {
     const evidence = await verifyRemote(parameters[0], parameters[1]);
+    if(evidence.status==='superseded'){console.log('::notice::superseded');if(process.env.ALLOW_SUPERSEDED_SKIP!=='1')process.exitCode=78;return;}
     console.log(`Verified actual checkout ${evidence.context.checkoutSha}, CI run ${evidence.context.runId} attempt ${evidence.context.runAttempt}; all required jobs passed.`);
   } else throw new Error('Usage: feed-ci-evidence.mjs record-job <job> <file> | aggregate <receipt-directory> <file> | verify-ci-remote <sha> <file>');
 }

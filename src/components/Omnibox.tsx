@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, Swords, ChartNoAxesColumn, AtSign } from "lucide-react";
+import { Search, Swords, ChartNoAxesColumn, AtSign, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
@@ -61,6 +61,8 @@ interface OmniboxProps {
   busy: boolean;
   placeholder?: string;
   stackCtaOnMobile?: boolean;
+  /** Shows the Talent Match CTA; gets the typed handle, or null when none. */
+  onMatch?: (username: string | null) => void;
 }
 
 /**
@@ -82,6 +84,7 @@ export function Omnibox({
   busy,
   placeholder,
   stackCtaOnMobile = false,
+  onMatch,
 }: OmniboxProps) {
   const t = useTranslations("omnibox");
   const router = useRouter();
@@ -418,6 +421,19 @@ export function Omnibox({
             ctaLabel
           )}
         </Button>
+        {onMatch && (
+          <button
+            type="button"
+            onClick={() => onMatch(intent.kind === "user" ? intent.username : null)}
+            disabled={busy}
+            title={t("ctaMatchHint")}
+            aria-label={t("ctaMatchHint")}
+            className={`omnibox-match shrink-0 whitespace-nowrap ${stackCtaOnMobile ? "basis-full sm:basis-auto" : ""}`}
+          >
+            <Sparkles aria-hidden="true" className="size-4" />
+            <span className="omnibox-match-label">{t("ctaMatch")}</span>
+          </button>
+        )}
       </div>
 
       {open && rows.length > 0 && (
@@ -475,7 +491,7 @@ export function Omnibox({
                         <span
                           className={`shrink-0 text-xs font-bold tabular-nums ${style.text}`}
                         >
-                          {style.emoji} {row.user.final_score.toFixed(1)}
+                          {`Lv.${Math.floor(row.user.final_score)}`}
                         </span>
                       )}
                     </>

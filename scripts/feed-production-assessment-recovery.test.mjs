@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { extractReceipt, githubReader, mayHaveStarted, recover, repository, startStep, validateContext, workflowPath } from './feed-production-assessment-recovery.mjs';
+import { extractReceipt, githubReader, intervalReads, limits, mayHaveStarted, readRunHistory, recover, repository, startStep, validateContext, workflowPath } from './feed-production-assessment-recovery.mjs';
 const sourceSha = 'a'.repeat(40);
 const intentId = '11111111-1111-4111-8111-111111111111';
 const env = { GITHUB_ACTIONS: 'true', GITHUB_REPOSITORY: repository, GITHUB_REF: 'refs/heads/main',
@@ -243,8 +243,147 @@ test('an intervening unknown paid start or truncated interval fails without rese
     assert.equal(existsSync(f.destination), false);
   }
 });
+test('a same-SHA sibling created after the current run is outside the interval and is not required in it', async t => {
+  // Release 7302ded (run 36872298225): CI completion triggered a second,
+  // skipped deploy run 36s after the current one. The interval ends at the
+  // current run's creation, so that sibling can never appear in it; requiring
+  // it failed every attempt regardless of index lag.
+  const f = fixture(t, [{ headSha: oldSha, receipt: paidReceipt() }]);
+  const sameSha = `/repos/${repository}/actions/workflows/deploy-cf-production.yml/runs?head_sha=${sourceSha}&per_page=100`;
+  const listing = f.responses.get(sameSha);
+  const later = { ...listing.workflow_runs.find(run => run.id === 20), id: 21, created_at: '2026-09-14T01:21:00Z', conclusion: 'skipped' };
+  f.responses.set(sameSha, { total_count: listing.total_count + 1, workflow_runs: [...listing.workflow_runs, later] });
+  const deps = withCarryover(f);
+  deps.sleep = async () => assert.fail('a complete interval must not be re-read');
+  assert.equal((await recover(sourceSha, f.destination, deps)).status, 'recovered');
+  assert.equal(f.calls.filter(call => call.path.includes('created=')).length, 1);
+});
+test('a lagging interval index is re-read but a persistently omitted current run still fails closed', async t => {
+  // Run 36594682840: the search-indexed created= listing briefly omitted the
+  // just-created current run that the head_sha listing already reported.
+  for (const catchUpAfter of [2, Infinity]) {
+    const f = fixture(t, [{ headSha: oldSha, receipt: paidReceipt() }]);
+    const key = [...f.responses.keys()].find(key => key.includes('created='));
+    const complete = f.responses.get(key);
+    const lagging = complete.workflow_runs.filter(run => run.id !== 20);
+    let reads = 0;
+    const sleeps = [], deps = withCarryover(f);
+    const request = deps.request;
+    deps.request = async (path, binary) => path !== key ? request(path, binary) :
+      ++reads > catchUpAfter ? complete : { total_count: lagging.length, workflow_runs: lagging };
+    deps.sleep = async ms => { sleeps.push(ms); };
+    if (catchUpAfter === Infinity) {
+      await assert.rejects(recover(sourceSha, f.destination, deps), /omits or conflicts .*\(runs 20\)/);
+      assert.equal(reads, intervalReads.attempts);
+      assert.equal(existsSync(f.destination), false);
+    } else {
+      assert.equal((await recover(sourceSha, f.destination, deps)).status, 'recovered');
+      assert.equal(reads, catchUpAfter + 1);
+    }
+    assert.deepEqual(sleeps, Array(reads - 1).fill(intervalReads.delayMs));
+  }
+});
 
-const reviewedHistory = JSON.parse(readFileSync(new URL('../ops/feed-production-assessment-history-evidence.json', import.meta.url)));
+test('bounded history reads all pages through the declared total', async () => {
+  const runs = Array.from({ length: limits.runs }, (_, i) => ({ id: i + 1 })), calls = [];
+  const found = await readRunHistory('/runs?per_page=100', async path => {
+    calls.push(path);
+    const page = Number(new URL(path, 'https://example.invalid').searchParams.get('page') ?? 1);
+    return { total_count: runs.length, workflow_runs: runs.slice((page - 1) * 100, page * 100) };
+  }, 'incomplete test history');
+  assert.deepEqual(found, runs);
+  assert.deepEqual(calls, ['/runs?per_page=100', '/runs?per_page=100&page=2', '/runs?per_page=100&page=3']);
+});
+
+test('pagination rejects truncated pages, changing totals, duplicate IDs and search saturation', async () => {
+  const runs = Array.from({ length: 101 }, (_, i) => ({ id: i + 1 }));
+  for (const second of [
+    { total_count: 101, workflow_runs: [] },
+    { total_count: 102, workflow_runs: runs.slice(100) },
+    { total_count: 101, workflow_runs: [runs[0]] },
+    { total_count: 101, workflow_runs: [{ id: '01' }] },
+    { total_count: 101, workflow_runs: runs.slice(99) },
+  ]) {
+    let reads = 0;
+    await assert.rejects(readRunHistory('/runs?per_page=100', async () => ++reads === 1
+      ? { total_count: 101, workflow_runs: runs.slice(0, 100) } : second, 'incomplete test history'));
+    assert.equal(reads, 2);
+  }
+  for (const total of [limits.runs + 1, 1000, 1001, -1, 1.5]) {
+    let reads = 0;
+    await assert.rejects(readRunHistory('/runs?per_page=100', async () => {
+      reads++; return { total_count: total, workflow_runs: runs.slice(0, 100) };
+    }, 'incomplete test history'), total >= 1000 ? /filtered history search limit/ : /incomplete/);
+    assert.equal(reads, 1);
+  }
+});
+
+function paginatedCarryover(t) {
+  const f = fixture(t, [{ headSha: oldSha, receipt: paidReceipt() }]);
+  const path = [...f.responses.keys()].find(key => key.includes('created='));
+  const original = f.responses.get(path).workflow_runs;
+  const current = original.find(run => run.id === 20), predecessor = original.find(run => run.id === 10);
+  const middle = Array.from({ length: 99 }, (_, i) => ({ ...current, id: 100 + i, head_sha: 'c'.repeat(40), created_at: '2026-09-14T01:15:00Z' }));
+  for (const run of middle) {
+    f.responses.set(`/repos/${repository}/actions/runs/${run.id}/attempts/1`, run);
+    f.responses.set(`/repos/${repository}/actions/runs/${run.id}/attempts/1/jobs?per_page=100`,
+      { total_count: 1, jobs: [{ run_id: run.id, head_sha: run.head_sha, steps: [{ name: 'Build Web', status: 'completed', conclusion: 'failure' }] }] });
+  }
+  f.responses.set(path, { total_count: 101, workflow_runs: [current, ...middle] });
+  f.responses.set(`${path}&page=2`, { total_count: 101, workflow_runs: [predecessor] });
+  return { ...f, pageTwo: `${path}&page=2` };
+}
+
+test('the 101st carryover release restores the original paid intent from page two', async t => {
+  const f = paginatedCarryover(t);
+  const result = await recover(sourceSha, f.destination, withCarryover(f));
+  assert.equal(result.status, 'recovered');
+  assert.equal(result.inspectedAttempts, 100);
+  assert.equal(result.possibleStarts, 1);
+  assert.deepEqual(JSON.parse(readFileSync(f.destination)), paidReceipt());
+  assert.equal(f.calls.filter(call => call.path === f.pageTwo).length, 1);
+  assert.ok(f.calls.length < limits.requests);
+});
+
+test('a second-page start still requires its exact artifact and pinned receipt', async t => {
+  const f = paginatedCarryover(t);
+  f.responses.set(`/repos/${repository}/actions/runs/10/artifacts?per_page=100`, { total_count: 0, artifacts: [] });
+  await assert.rejects(recover(sourceSha, f.destination, withCarryover(f)), /missing, expired/);
+  assert.equal(existsSync(f.destination), false);
+});
+
+test('second-page foreign and out-of-range runs fail before any receipt is restored', async t => {
+  for (const changes of [{ created_at: '2026-09-13T01:10:00Z' }, { repository: { full_name: 'other/project' } }]) {
+    const f = paginatedCarryover(t), second = f.responses.get(f.pageTwo);
+    second.workflow_runs = second.workflow_runs.map(run => ({ ...run, ...changes }));
+    await assert.rejects(recover(sourceSha, f.destination, withCarryover(f)), /out-of-range|identity/);
+    assert.equal(existsSync(f.destination), false);
+    assert.equal(f.calls.some(call => call.path.includes('/attempts/')), false);
+  }
+});
+
+test('multi-page history still enforces the total read budget before restoring a receipt', async t => {
+  const f = paginatedCarryover(t), deps = withCarryover(f);
+  const firstPage = f.responses.get(f.pageTwo.replace('&page=2', ''));
+  for (const run of firstPage.workflow_runs) if (run.id !== 20) run.run_attempt = limits.attempts;
+  const request = deps.request;
+  let reads = 0;
+  deps.request = async (path, binary) => {
+    reads++;
+    const match = path.match(/\/runs\/(1[0-9]{2})\/attempts\/([0-9]+)(\/jobs\?per_page=100)?$/);
+    if (match) {
+      const run = firstPage.workflow_runs.find(item => item.id === Number(match[1]));
+      if (!match[3]) return { ...run, run_attempt: Number(match[2]) };
+      return { total_count: 1, jobs: [{ run_id: run.id, head_sha: run.head_sha, steps: [] }] };
+    }
+    return request(path, binary);
+  };
+  await assert.rejects(recover(sourceSha, f.destination, deps), /request bound exceeded/);
+  assert.equal(reads, limits.requests);
+  assert.equal(existsSync(f.destination), false);
+});
+
+const reviewedHistory =JSON.parse(readFileSync(new URL('../ops/feed-production-assessment-history-evidence.json', import.meta.url)));
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 function readonlyFixture(t, changes = {}) {
   const archive = zip({ 'read-only-evidence.json': '{}' }), logs = Buffer.from('possible previous assessment POST lacks a unique intent receipt\nProcess completed with exit code 1.');

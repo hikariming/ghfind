@@ -67,3 +67,18 @@ func TestOriginalRepoQualitySoftensNotesDiscountWithOrganicTraction(t *testing.T
 		}
 	}
 }
+
+func TestImpactQualitySignalsCountExternalPRsOnly(t *testing.T) {
+	docs, code := "docs: update guide", "fix scheduler"
+	own, engine := "alice/popular", "org/engine"
+	prs := []RecentPR{
+		{Title: &code, Repo: &own, RepoStars: 30000, Files: []string{"src/a.go"}},
+		{Title: &code, Repo: &engine, RepoStars: 2000, Files: []string{"src/b.go"}},
+		{Title: &docs, Repo: &engine, RepoStars: 2000, Files: []string{"docs/x.md"}},
+	}
+	got := ComputeImpactQualitySignals(prs, 5, "alice", 1)
+	want := ImpactQualitySignals{VerifiedImpactPRCount: 2, CoreImpactPRCount: 1, DocLikeImpactPRCount: 1, UnverifiedImpactPRCount: 2}
+	if got != want {
+		t.Fatalf("signals = %#v, want %#v", got, want)
+	}
+}

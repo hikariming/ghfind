@@ -1,3 +1,5 @@
+import { scanCoverage } from "@/lib/scan-coverage";
+import { scheduleFullScanIfNeeded } from "@/lib/scan-background-refresh";
 import { NextRequest } from "next/server";
 import {
   getAccountDetail,
@@ -17,8 +19,8 @@ import {
   getCachedScoreDetail,
   rateLimitHeaders,
 } from "@/lib/redis";
-import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
-import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
+import { buildScanResult, logFreshScanFailure, scanErrorResponse } from "@/lib/scan-core";
+import { isPublicScoreVersion, isRetainedPublicScoreArtifact } from "@/lib/release-versions";
 import { PUBLIC_SCAN_COLLECTION_VERSION } from "@/lib/scan-run-types";
 import { roundHalfEven } from "@/lib/score";
 import type { ScanResult, Tier } from "@/lib/types";
@@ -99,7 +101,7 @@ async function liveScoreResponse(scan: ScanResult, cached: boolean, headers: Rec
   return json(
     {
       source: "quick",
-      coverage: "quick",
+      coverage: scanCoverage(scan),
       cached,
       username: metrics.username,
       display_name: metrics.name,
@@ -127,7 +129,7 @@ async function liveScoreResponse(scan: ScanResult, cached: boolean, headers: Rec
 
 function isCanonicalDetail(detail: AccountDetail): boolean {
   return (
-    detail.score_version === SCORE_CACHE_VERSION &&
+    isPublicScoreVersion(detail.score_version) &&
     detail.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
     typeof detail.score_source_snapshot_hash === "string" &&
     /^[a-f0-9]{64}$/.test(detail.score_source_snapshot_hash)
@@ -141,7 +143,7 @@ async function persistedScoreResponse(
   return json(
     {
       source: options.source,
-      coverage: options.current ? "quick" : "legacy",
+      coverage: options.current ? (detail.scan_coverage ?? "quick") : "legacy",
       stale: !options.current,
       username: detail.username,
       display_name: detail.display_name,
@@ -168,7 +170,7 @@ async function persistedScoreResponse(
   );
 }
 
-/** Public deterministic score: bounded quick collection only, never queue work. */
+/** Public deterministic score; oversized collections deepen in the background. */
 export async function GET(
   req: NextRequest,
   ctx: { params: Promise<{ username: string }> },
@@ -195,6 +197,14 @@ export async function GET(
   }
   if (detail && isCanonicalDetail(detail)) {
     return persistedScoreResponse(detail, { source: "indexed", current: true });
+  }
+
+  // A collection-only release must not turn every existing score read into a
+  // GitHub crawl. Serve the explicitly retained artifact as stale; POST /scan
+  // remains the fresh collection path. Never relabel or materialize it.
+  if (detail && isRetainedPublicScoreArtifact(detail.score_version,
+    detail.score_source_collection_version, detail.score_source_snapshot_hash)) {
+    return persistedScoreResponse(detail, { source: "indexed", current: false });
   }
 
   const limit = await checkRateLimit(clientIp(req));
@@ -230,10 +240,16 @@ export async function GET(
       const scannedAt = Date.now();
       const quickScan = await buildScanResult(handle);
       if (!(await persistQuickScan(quickScan, scannedAt))) throw new ScorePersistenceError();
+      scheduleFullScanIfNeeded(quickScan);
       return quickScan;
       });
     }
   } catch (error) {
+    logFreshScanFailure(error, {
+      route: "score",
+      username: handle,
+      persistenceFailure: error instanceof ScorePersistenceError,
+    });
     if (detail?.legacy_read_fallback) {
       return persistedScoreResponse(detail, {
         source: "legacy_v5_v5_v3",

@@ -1,6 +1,7 @@
+import { projectShare } from "./co-creator";
 import type { ImpactRepo, SignatureWork, TopRepo } from "./types";
 
-export type ProfileWorkSource = "signature" | "impact" | "organization" | "own";
+export type ProfileWorkSource = "signature" | "impact" | "organization" | "own" | "co_created";
 
 export interface ProfileWorkItem {
   repo: string;
@@ -14,6 +15,7 @@ export interface ProfileWorkItem {
   description?: string | null;
   examples?: string[];
   orgContextRepo?: string;
+  attributionShare?: number;
 }
 
 export interface ProfileWorkInput {
@@ -66,6 +68,7 @@ function mergeWork(
     language: prev.language ?? item.language,
     description: prev.description ?? item.description,
     orgContextRepo: prev.orgContextRepo ?? item.orgContextRepo,
+    attributionShare: prev.attributionShare ?? item.attributionShare,
   });
 }
 
@@ -153,8 +156,9 @@ export function rankProfileWorks(input: ProfileWorkInput, limit = 6): ProfileWor
       repo: fullName,
       name: repo.name,
       stars: repo.stars,
-      source: "own",
-      score: (isPinned ? 8 : 0) + Math.log10(Math.max(0, repo.stars) + 10) * 5,
+      source: repo.attribution_share === undefined ? "own" : "co_created",
+      attributionShare: repo.attribution_share,
+      score: ((isPinned ? 8 : 0) + Math.log10(Math.max(0, repo.stars) + 10) * 5) * projectShare(repo),
       language: repo.language,
       description: repo.description,
     });

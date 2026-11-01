@@ -1,18 +1,17 @@
-import type { NextRequest } from "next/server";
-
 /**
  * limit/offset pagination over an already-cached array. Defaults must preserve
  * each route's historical full-payload behavior (existing SDK/frontend callers
  * read `entries` and nothing else).
  */
 export function parsePagination(
-  req: NextRequest,
+  req: Request,
   opts: { defaultLimit: number; maxLimit: number },
 ): { limit: number; offset: number } {
   // Absent params must fall back to the defaults — Number(null) is 0, so parse
   // the raw strings and treat null/empty/non-integer as "not provided".
+  const params = new URL(req.url).searchParams;
   const parse = (name: string): number | null => {
-    const raw = req.nextUrl.searchParams.get(name);
+    const raw = params.get(name);
     if (raw === null || raw === "") return null;
     const value = Number(raw);
     return Number.isInteger(value) ? value : null;

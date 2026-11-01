@@ -1,0 +1,14 @@
+---
+import Base from "../../layouts/Base.astro";
+import { VsIndexIsland } from "../../islands/VsIndexIsland";
+import { getMessages, getTranslator, pickMessages, routeLocale } from "../../lib/i18n";
+import { getGoTrendingVsMatchups } from "@/lib/go-profile.server";
+
+const locale = routeLocale(Astro.params.locale);
+if (!locale) return new Response(null, { status: 404 });
+const [t, messages, matchups] = await Promise.all([getTranslator(locale, "vs"), getMessages(locale), getGoTrendingVsMatchups()]);
+Astro.response.headers.set("Cache-Control", "private, no-cache, no-store, max-age=0, must-revalidate");
+---
+<Base locale={locale} path="/vs" title={t("trendingHeading")} description={t("trendingSub")}>
+  <VsIndexIsland client:load locale={locale} matchups={matchups} intl={{ locale, pathname: "/vs", messages: pickMessages(messages, ["vs"]) }} />
+</Base>

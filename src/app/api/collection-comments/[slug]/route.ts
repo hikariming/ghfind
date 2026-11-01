@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth, authConfigured } from "@/lib/auth";
 import {
+  commentClientIp,
+  commentContainsLink,
   normalizeBlogSlug,
   normalizeCommentText,
   normalizeGitHubUsername,
@@ -8,8 +10,9 @@ import {
   type CommentAuthor,
   type CreateCollectionCommentResponse,
 } from "@/lib/comments";
-import { getCollection } from "@/lib/collections";
+import { collectionExists } from "@/lib/collections";
 import { createCollectionComment, getCollectionComments } from "@/lib/db";
+import { checkCommentRateLimit, rateLimitHeaders } from "@/lib/redis";
 import { decodeRouteParam } from "@/lib/route-params";
 
 export const runtime = "nodejs";
@@ -29,10 +32,10 @@ function jsonNoStore(body: unknown, init?: ResponseInit) {
   });
 }
 
-function collectionSlugFromParam(value: string | undefined): string | null {
+async function collectionSlugFromParam(value: string | undefined): Promise<string | null> {
   try {
     const slug = normalizeBlogSlug(decodeRouteParam(value ?? ""));
-    return slug && getCollection(slug) ? slug : null;
+    return slug && (await collectionExists(slug)) ? slug : null;
   } catch {
     return null;
   }
@@ -43,7 +46,7 @@ export async function GET(
   ctx: { params: Promise<{ slug: string }> },
 ) {
   const { slug: rawSlug } = await ctx.params;
-  const collectionSlug = collectionSlugFromParam(rawSlug);
+  const collectionSlug = await collectionSlugFromParam(rawSlug);
   if (!collectionSlug) {
     return jsonNoStore({ error: "invalid_collection" }, { status: 404 });
   }
@@ -57,7 +60,7 @@ export async function POST(
   ctx: { params: Promise<{ slug: string }> },
 ) {
   const { slug: rawSlug } = await ctx.params;
-  const collectionSlug = collectionSlugFromParam(rawSlug);
+  const collectionSlug = await collectionSlugFromParam(rawSlug);
   if (!collectionSlug) {
     return jsonNoStore({ error: "invalid_collection" }, { status: 404 });
   }
@@ -71,6 +74,9 @@ export async function POST(
 
   const text = normalizeCommentText(body.text);
   if (!text) return jsonNoStore({ error: "empty_comment" }, { status: 400 });
+  if (commentContainsLink(text)) {
+    return jsonNoStore({ error: "links_not_allowed" }, { status: 400 });
+  }
 
   const anonymous = body.anonymous === true;
   let author: CommentAuthor;
@@ -90,6 +96,18 @@ export async function POST(
       avatarUrl: session?.user.image ?? null,
     };
     authorGithubId = session?.user.githubId;
+  }
+
+  const principal =
+    author.type === "github"
+      ? `gh:${author.username}`
+      : `ip:${commentClientIp(req.headers)}`;
+  const limit = await checkCommentRateLimit(principal);
+  if (!limit.success) {
+    return jsonNoStore(
+      { error: "rate_limited" },
+      { status: 429, headers: rateLimitHeaders(limit) },
+    );
   }
 
   const comment = await createCollectionComment({

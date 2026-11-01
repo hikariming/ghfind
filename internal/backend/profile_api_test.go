@@ -66,8 +66,8 @@ func insertProfileAPITestScore(t *testing.T, store *TursoStore, username string,
 		 roast_version, roast_en_version, scanned_at, prev_score, prev_scanned_at, hidden)
 		VALUES (?, ?, ?, ?, ?, '顶级', '{"zh":["工程"],"en":["engineering"]}', '{"zh":"一句","en":"line"}',
 		'{"account_maturity":8,"original_project_quality":12,"contribution_quality":19,"ecosystem_impact":14,"community_influence":5,"activity_authenticity":13}',
-		'中文报告', 'English report', 'v10', 'v4', ?, 'v10', 'v10', 1000, 70, 100, 0)`,
-		username, username, "https://avatars.example/"+username, "https://github.com/"+username, score, strings.Repeat("a", 64))
+		'中文报告', 'English report', ?, ?, ?, ?, ?, 1000, 70, 100, 0)`,
+		username, username, "https://avatars.example/"+username, "https://github.com/"+username, score, goCanonicalScoreVersion, goCanonicalCollectionVersion, strings.Repeat("a", 64), roastArtifactVersion, roastArtifactVersion)
 	if err != nil {
 		t.Fatalf("insert score %s: %v", username, err)
 	}
@@ -80,8 +80,8 @@ func insertProfileAPITestScore(t *testing.T, store *TursoStore, username string,
 	}
 	_, err = store.db.Exec(`INSERT INTO public_scan_runs
 		(id, username, score_version, collection_version, state, coverage, snapshot, snapshot_hash)
-		VALUES (?, ?, 'v10', 'v4', 'complete_public', 'complete_public', ?, ?)`,
-		"scan-"+username, username,
+		VALUES (?, ?, ?, ?, 'complete_public', 'complete_public', ?, ?)`,
+		"scan-"+username, username, goCanonicalScoreVersion, goCanonicalCollectionVersion,
 		fmt.Sprintf(`{"scoring":{"sub_scores":{"account_maturity":8,"original_project_quality":12,"contribution_quality":19,"ecosystem_impact":14,"community_influence":5,"activity_authenticity":%.2f},"base_score":%.2f,"red_flags":[{"flag":"mostly_forks","penalty":10,"detail":"Mostly forks"}],"total_penalty":10,"final_score":%.2f,"tier":"顶级","tier_label":"test"}}`, activity, base, score),
 		strings.Repeat("a", 64))
 	if err != nil {
@@ -103,7 +103,7 @@ func TestProfilePresentationPreservesVersionGatedPublicFields(t *testing.T) {
 		VALUES ('profile', 'octocat', 1000, '[{"name":"demo","name_with_owner":"octocat/demo","stars":9,"forks":0,"open_issues":0,"size":1,"language":"Go"}]',
 		'[{"repo":"acme/core","stars":1000,"commits":2,"prs":1}]',
 		'{"bio":"builds reliable things","followers":5,"public_repos":2,"total_stars":9}', '["octocat/demo"]', '["acme"]',
-		'{"impact_repo_representatives":[],"work_clusters":[],"source":"recent_sample"}', 'v10')`); err != nil {
+		'{"impact_repo_representatives":[],"work_clusters":[],"source":"recent_sample"}', ?)`, canonicalScoreVersion); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.db.Exec(`INSERT INTO vs_matchups
@@ -139,6 +139,44 @@ func TestProfilePresentationPreservesVersionGatedPublicFields(t *testing.T) {
 	}
 	if got := response.Header().Get("Cache-Control"); got != profileCacheControl {
 		t.Fatalf("cache-control=%q", got)
+	}
+}
+
+func TestGetProfileSnapshotFallsBackToRetainedPublicVersion(t *testing.T) {
+	store := openProfileAPITestStore(t)
+	// Anonymized fixture only — no real GitHub logins.
+	const username = "profile-snapshot-fallback"
+	if _, err := store.db.Exec(`INSERT INTO profile_snapshots
+		(id, username, scanned_at, top_repos, impact_repos, metrics, pinned_repos, organizations, signature_work, scan_version)
+		VALUES ('legacy-nonpublic', ?, 400, '[]', '[]', '{"followers":1}', '[]', '[]', NULL, 'v8')`, username); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.db.Exec(`INSERT INTO profile_snapshots
+		(id, username, scanned_at, top_repos, impact_repos, metrics, pinned_repos, organizations, signature_work, scan_version)
+		VALUES ('retained-public', ?, 300, '[{"name":"demo","name_with_owner":"org/demo","stars":3,"forks":0,"open_issues":0,"size":1,"language":"Go"}]',
+		'[{"repo":"org/lib","stars":50,"commits":1,"prs":1}]', '{"followers":16,"last_year_contributions":42}', '[]', '[]', NULL, ?)`,
+		username, goPreviousPublicScoreVersion); err != nil {
+		t.Fatal(err)
+	}
+	view, err := store.GetProfileSnapshot(context.Background(), username)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view == nil || view.Metrics.Followers != 16 || len(view.TopRepos) != 1 || len(view.ImpactRepos) != 1 {
+		t.Fatalf("view=%#v", view)
+	}
+	if _, err := store.db.Exec(`INSERT INTO profile_snapshots
+		(id, username, scanned_at, top_repos, impact_repos, metrics, pinned_repos, organizations, signature_work, scan_version)
+		VALUES ('canonical', ?, 200, '[]', '[]', '{"followers":9}', '[]', '[]', NULL, ?)`,
+		username, goCanonicalScoreVersion); err != nil {
+		t.Fatal(err)
+	}
+	view, err = store.GetProfileSnapshot(context.Background(), username)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view == nil || view.Metrics.Followers != 9 || view.ScannedAt != 200 {
+		t.Fatalf("canonical preferred view=%#v", view)
 	}
 }
 
@@ -181,5 +219,69 @@ func TestProfileDetailFallsBackWithoutInventingRedFlags(t *testing.T) {
 	}
 	if len(detail.ScoreBreakdown.RedFlags) != 0 {
 		t.Fatalf("red flags=%#v, want none", detail.ScoreBreakdown.RedFlags)
+	}
+}
+
+func TestProfileDetailWithholdsOlderRoastReleaseArtifacts(t *testing.T) {
+	store := openProfileAPITestStore(t)
+	insertProfileAPITestScore(t, store, "demo-dev", 70)
+	if _, err := store.db.Exec(`UPDATE scores SET roast_version = 'v11', roast_en_version = 'v11' WHERE username = 'demo-dev'`); err != nil {
+		t.Fatal(err)
+	}
+	detail, err := store.GetProfileDetail(context.Background(), "demo-dev")
+	if err != nil || detail == nil {
+		t.Fatalf("detail=%#v err=%v", detail, err)
+	}
+	if detail.Roast != nil || detail.RoastEN != nil {
+		t.Fatalf("older-release report served as current: %#v / %#v", detail.Roast, detail.RoastEN)
+	}
+	if detail.RoastLine != (RoastLine{}) {
+		t.Fatalf("older-release one-liner served as current: %#v", detail.RoastLine)
+	}
+	if detail.StaleRoast == nil || *detail.StaleRoast != "中文报告" || detail.StaleRoastVersion == nil || *detail.StaleRoastVersion != "v11" {
+		t.Fatalf("stale zh report=%#v version=%#v", detail.StaleRoast, detail.StaleRoastVersion)
+	}
+	if detail.StaleRoastEN == nil || *detail.StaleRoastEN != "English report" {
+		t.Fatalf("stale en report=%#v", detail.StaleRoastEN)
+	}
+}
+
+func TestProfileDetailKeepsOneLinerWhenEitherReportIsCurrent(t *testing.T) {
+	store := openProfileAPITestStore(t)
+	insertProfileAPITestScore(t, store, "sample-a", 70)
+	if _, err := store.db.Exec(`UPDATE scores SET roast_en_version = 'v11' WHERE username = 'sample-a'`); err != nil {
+		t.Fatal(err)
+	}
+	detail, err := store.GetProfileDetail(context.Background(), "sample-a")
+	if err != nil || detail == nil {
+		t.Fatalf("detail=%#v err=%v", detail, err)
+	}
+	if detail.Roast == nil || detail.RoastEN != nil {
+		t.Fatalf("roast=%#v roast_en=%#v", detail.Roast, detail.RoastEN)
+	}
+	if detail.RoastLine.ZH != "一句" || detail.RoastLine.EN != "line" {
+		t.Fatalf("one-liner=%#v", detail.RoastLine)
+	}
+	if detail.StaleRoast != nil || detail.StaleRoastEN == nil {
+		t.Fatalf("stale zh=%#v stale en=%#v", detail.StaleRoast, detail.StaleRoastEN)
+	}
+}
+
+func TestStoredScoreWithholdsOlderRoastReleaseOneLiner(t *testing.T) {
+	store := openProfileAPITestStore(t)
+	insertProfileAPITestScore(t, store, "demo-dev", 70)
+	current, err := store.GetStoredScore(context.Background(), "demo-dev")
+	if err != nil || current == nil || current.RoastLine.ZH != "一句" {
+		t.Fatalf("current=%#v err=%v", current, err)
+	}
+	if _, err := store.db.Exec(`UPDATE scores SET roast_version = 'v11', roast_en_version = NULL WHERE username = 'demo-dev'`); err != nil {
+		t.Fatal(err)
+	}
+	stale, err := store.GetStoredScore(context.Background(), "demo-dev")
+	if err != nil || stale == nil {
+		t.Fatalf("stale=%#v err=%v", stale, err)
+	}
+	if stale.RoastLine != (RoastLine{}) {
+		t.Fatalf("older-release one-liner served: %#v", stale.RoastLine)
 	}
 }

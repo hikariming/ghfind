@@ -1,23 +1,50 @@
 /**
- * The sponsor logo as a data URL, for the server-rendered cards.
+ * The title sponsor credited on every server-rendered card.
  *
- * Every card is generated on the server and then travels alone: an SVG inside an
- * `<img>` may not fetch anything, and a Satori PNG is rasterized before it
- * leaves. So the logo bytes have to be inlined rather than linked.
+ * The title slot is a fixed, long-term placement, so it is a constant rather
+ * than a D1 lookup: a card embedded in someone's README must never depend on a
+ * database query (or a pending migration) just to draw a credit line. The
+ * sponsor page and homepage rows still read the `sponsorships` table.
  *
- * The bytes ship base64-embedded in the bundle (scripts/gen-embedded-assets.mts)
- * — no runtime filesystem on Workers. A missing sponsor asset resolves to null
- * rather than failing: a credit line without its logo, never a broken card.
+ * Every card travels alone — an SVG inside an `<img>` may not fetch anything,
+ * and a Satori PNG is rasterized before it leaves — so the logo bytes are
+ * inlined from the bundle (scripts/gen-embedded-assets.mts). A missing asset
+ * resolves to null: a credit line without its logo, never a broken card.
  *
  * Pick `small` for the SVG cards (inlined into every response, drawn ~13px) and
- * `full` for the PNG/print surfaces, where the bytes are rasterized away or the
- * card is an export asset.
+ * `full` for the PNG/print surfaces.
  */
 
 import assets from "@/generated/embedded-assets.json";
-import { SPONSOR } from "./sponsor";
 
-export function sponsorLogoDataUrl(size: "small" | "full" = "full"): Promise<string | null> {
-  const file = size === "small" ? SPONSOR.logoSmall : SPONSOR.logo;
-  return Promise.resolve((assets.sponsor as Record<string, string>)[file] ?? null);
+export interface CurrentTitleSponsor {
+  name: string;
+  url: string | null;
+  description: string | null;
+  logo: string | null;
+}
+
+const TITLE_SPONSOR = {
+  name: "LobeHub",
+  url: "https://lobehub.com",
+  description: "Your Chief Agent Operator · 你的首席 Agent 操作官",
+  logo: "/lobehub.png",
+  /** 32px re-encode of the same mark, so SVG cards don't inline the 192px original. */
+  logoSmall: "/lobehub-32.png",
+};
+
+export function getCurrentTitleSponsor(
+  size: "small" | "full" = "full",
+): Promise<CurrentTitleSponsor | null> {
+  const embedded = assets.sponsor as Record<string, string>;
+  const logo = size === "small"
+    ? embedded[TITLE_SPONSOR.logoSmall] ?? embedded[TITLE_SPONSOR.logo] ?? null
+    : embedded[TITLE_SPONSOR.logo] ?? null;
+
+  return Promise.resolve({
+    name: TITLE_SPONSOR.name,
+    url: TITLE_SPONSOR.url,
+    description: TITLE_SPONSOR.description,
+    logo,
+  });
 }

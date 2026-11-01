@@ -31,8 +31,8 @@ func (s *TursoStore) GetBadgeData(ctx context.Context, username string, now time
 	var prevScannedAt sql.NullInt64
 	err := s.db.QueryRowContext(ctx, `SELECT final_score, tier, prev_score, prev_scanned_at
 		FROM scores
-		WHERE username = ? AND hidden = 0 AND score_version = ?
-		LIMIT 1`, username, canonicalScoreVersion).Scan(&score, &tier, &prevScore, &prevScannedAt)
+		WHERE username = ? AND hidden = 0 AND `+publicScoreVersionClause("score_version")+`
+		LIMIT 1`, append([]any{username}, publicScoreVersionArgs()...)...).Scan(&score, &tier, &prevScore, &prevScannedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return BadgeData{}, nil
 	}

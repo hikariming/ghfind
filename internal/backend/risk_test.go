@@ -37,7 +37,7 @@ func TestV10RiskRules(t *testing.T) {
 		m.Bio, m.Followers, m.Following, m.TotalStars, m.MaxStars = nil, 0, 0, 0, 0
 		m.MergedPRCount, m.TotalPRCount, m.LastYearContributions, m.ActivityTypeCount = 0, 0, 0, 0
 		m.RecentMergedPRSample, m.RecentPRSample = 0, 0
-		output := Score(m)
+		output := eligibilityRiskOutput(m)
 		if output.TotalPenalty != 0 || len(output.RedFlags) != 0 {
 			t.Fatalf("footprint penalty=%v flags=%#v", output.TotalPenalty, output.RedFlags)
 		}
@@ -50,7 +50,7 @@ func TestV10RiskRules(t *testing.T) {
 		m := neutralRiskMetrics()
 		m.RecentMergedPRSample, m.RecentPRSample = 30, 30
 		m.TopRepoPRShare, m.TemplatedPRRatio, m.PRFloodSuspect = 1, 1, false
-		output := Score(m)
+		output := eligibilityRiskOutput(m)
 		if output.TotalPenalty != 0 || len(output.RedFlags) != 0 {
 			t.Fatalf("self repository penalty=%v flags=%#v", output.TotalPenalty, output.RedFlags)
 		}
@@ -59,7 +59,7 @@ func TestV10RiskRules(t *testing.T) {
 	t.Run("small trivial sample is note only", func(t *testing.T) {
 		m := neutralRiskMetrics()
 		m.RecentMergedPRSample, m.ExternalTrivialPRCount = 19, 15
-		output := Score(m)
+		output := eligibilityRiskOutput(m)
 		if output.TotalPenalty != 0 || riskFlags(output)["trivial_pr_farming"].Disposition != "note" {
 			t.Fatalf("trivial risk=%#v", output)
 		}
@@ -68,13 +68,13 @@ func TestV10RiskRules(t *testing.T) {
 	t.Run("template requires corroboration", func(t *testing.T) {
 		m := neutralRiskMetrics()
 		m.RecentPRSample, m.TopRepoPRShare, m.TemplatedPRRatio, m.PRFloodSuspect = 30, 1, 1, true
-		onlyTemplate := Score(m)
+		onlyTemplate := eligibilityRiskOutput(m)
 		if onlyTemplate.TotalPenalty != 0 || riskFlags(onlyTemplate)["templated_pr_flooding"].Disposition != "note" {
 			t.Fatalf("template-only risk=%#v", onlyTemplate)
 		}
 
 		m.RecentMergedPRSample, m.ExternalTrivialPRCount = 30, 30
-		corroborated := Score(m)
+		corroborated := eligibilityRiskOutput(m)
 		if corroborated.TotalPenalty <= 0 || len(corroborated.RedFlags) != 2 {
 			t.Fatalf("corroborated risk=%#v", corroborated)
 		}
@@ -83,14 +83,14 @@ func TestV10RiskRules(t *testing.T) {
 	t.Run("social evidence is conjunctive", func(t *testing.T) {
 		m := neutralRiskMetrics()
 		m.Following, m.Followers = 2000, 100
-		single := Score(m)
+		single := eligibilityRiskOutput(m)
 		if single.TotalPenalty != 0 || riskFlags(single)["follow_farming"].Disposition != "note" {
 			t.Fatalf("single social signal=%#v", single)
 		}
 
 		m.Following, m.Followers = 10_000, 0
 		m.StarInflationSuspect, m.MaxStars, m.TopRepoEngagementRatio = true, 10_000, riskTestFloat(0)
-		paired := Score(m)
+		paired := eligibilityRiskOutput(m)
 		if paired.TotalPenalty <= 0 || paired.TotalPenalty > riskSocialCap {
 			t.Fatalf("paired social penalty=%v", paired.TotalPenalty)
 		}
@@ -99,7 +99,7 @@ func TestV10RiskRules(t *testing.T) {
 	t.Run("missing optional metrics never penalize", func(t *testing.T) {
 		m := neutralRiskMetrics()
 		m.StarInflationSuspect, m.MaxStars = true, 2000
-		output := Score(m)
+		output := eligibilityRiskOutput(m)
 		if output.TotalPenalty != 0 || riskFlags(output)["possible_star_inflation"].Disposition != "note" {
 			t.Fatalf("missing engagement risk=%#v", output)
 		}
@@ -108,18 +108,18 @@ func TestV10RiskRules(t *testing.T) {
 	t.Run("rejection note requires an unusually high observed rate", func(t *testing.T) {
 		m := neutralRiskMetrics()
 		m.MergedPRCount, m.MaintainerClosedUnmergedPRCount = 193, riskTestFloat(5)
-		if _, ok := riskFlags(Score(m))["high_pr_rejection"]; ok {
+		if _, ok := riskFlags(eligibilityRiskOutput(m))["high_pr_rejection"]; ok {
 			t.Fatal("low rejection rate produced a high-rejection signal")
 		}
 
 		m.MergedPRCount, m.MaintainerClosedUnmergedPRCount = 3, riskTestFloat(2)
-		smallHighRate := Score(m)
+		smallHighRate := eligibilityRiskOutput(m)
 		if signal := riskFlags(smallHighRate)["high_pr_rejection"]; signal.Disposition != "note" || len(smallHighRate.RedFlags) != 0 {
 			t.Fatalf("small high-rate sample=%#v", smallHighRate)
 		}
 
 		m.MergedPRCount, m.MaintainerClosedUnmergedPRCount = 5, riskTestFloat(20)
-		if signal := riskFlags(Score(m))["high_pr_rejection"]; signal.Penalty <= 0 {
+		if signal := riskFlags(eligibilityRiskOutput(m))["high_pr_rejection"]; signal.Penalty <= 0 {
 			t.Fatalf("corroborated rejection signal=%#v", signal)
 		}
 	})
@@ -131,9 +131,15 @@ func TestV10RiskRules(t *testing.T) {
 		m.RecentPRSample, m.TopRepoPRShare, m.TemplatedPRRatio, m.PRFloodSuspect = 40, 1, 1, true
 		m.Following, m.Followers = 10_000, 0
 		m.StarInflationSuspect, m.MaxStars, m.TopRepoEngagementRatio = true, 10_000, riskTestFloat(0)
-		output := Score(m)
+		output := eligibilityRiskOutput(m)
 		if output.TotalPenalty != riskTotalCap || output.RiskAssessment.RiskScore != 100 || output.RiskAssessment.Level != "high" {
 			t.Fatalf("capped risk=%#v", output)
 		}
 	})
+}
+
+// v10 risk is the active score deduction.
+func eligibilityRiskOutput(m RawMetrics) Scoring {
+	assessment, notes, flags, penalty := AssessRisk(m)
+	return Scoring{RiskAssessment: assessment, RiskNotes: notes, RedFlags: flags, TotalPenalty: penalty}
 }

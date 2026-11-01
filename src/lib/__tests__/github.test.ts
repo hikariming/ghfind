@@ -1,8 +1,14 @@
+import { stubGithubFetch } from "./inventory-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { buildRoastMessages } from "../prompt";
+import { score } from "../score";
 import {
   boundedContributionYearsActive,
   collect,
+  collectImpactCodeSamples,
   fetchDurablePullRequestPage,
+  fetchExternalMergedPrs,
+  fetchImpactRepoSignals,
   firstCommitHistoryAfter,
   ghFetch,
   githubTokens,
@@ -25,6 +31,10 @@ function graphqlQuery(init?: RequestInit): string {
   return (JSON.parse(String(init?.body ?? "{}")) as { query?: string }).query ?? "";
 }
 
+function coCreatorResponse(commits: number, association = "MEMBER") {
+  return jsonResponse({data:{repository:{pullRequests:{totalCount:20},defaultBranchRef:{target:{history:{totalCount:commits*2}}}},search:{issueCount:10,nodes:Array.from({length:3},()=>({authorAssociation:association,changedFiles:1,files:{nodes:[{path:"src/main.go",additions:500,deletions:10}]}}))}}});
+}
+
 function firstCommitOrgCollectFetch(input: {
   login: string;
   owner: string;
@@ -32,6 +42,7 @@ function firstCommitOrgCollectFetch(input: {
   stars: number;
   commits: number;
   firstCommitLogin: string;
+  member?: boolean;
 }) {
   const nameWithOwner = `${input.owner}/${input.name}`;
   const repoNode = {
@@ -78,6 +89,7 @@ function firstCommitOrgCollectFetch(input: {
         topics: [],
       });
     }
+    if (url.includes(`/repos/${nameWithOwner}/contributors?`)) return jsonResponse([{login:input.login,contributions:input.commits},{login:"other",contributions:input.commits}]);
     if (url.startsWith(`https://api.github.com/repos/${nameWithOwner}/releases`)) {
       return jsonResponse([]);
     }
@@ -101,6 +113,7 @@ function firstCommitOrgCollectFetch(input: {
     }
     if (url === "https://api.github.com/graphql") {
       const query = graphqlQuery(init);
+      if (query.includes("authorAssociation changedFiles")) return coCreatorResponse(input.commits);
       if (query.includes("contributionsCollection(from:")) {
         return jsonResponse({
           data: {
@@ -115,7 +128,7 @@ function firstCommitOrgCollectFetch(input: {
         });
       }
       if (query.includes("organizations(first:")) {
-        return jsonResponse({ data: { user: { organizations: { nodes: [] } } } });
+        return jsonResponse({ data: { user: { organizations: { nodes: input.member ? [{login: input.owner}] : [] } } } });
       }
       if (query.includes("pullRequests(first:") && query.includes("states: MERGED")) {
         return jsonResponse({
@@ -133,7 +146,7 @@ function firstCommitOrgCollectFetch(input: {
         return jsonResponse({ data: { r0: { issues: { totalCount: 0 } } } });
       }
       if (query.includes("pullRequests(first:")) {
-        return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
+        return jsonResponse({ data: { user: { pullRequests: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } } } });
       }
       if (query.includes("isFork") && query.includes("defaultBranchRef")) {
         return jsonResponse({
@@ -226,10 +239,10 @@ describe("first-commit identity", () => {
   });
 
   it("parses only GitHub noreply mailbox logins", () => {
-    expect(parseGithubNoreplyLogin("48499089+yifanxuaaa@users.noreply.github.com")).toBe(
-      "yifanxuaaa",
+    expect(parseGithubNoreplyLogin("48499089+fixture-account-070@users.noreply.github.com")).toBe(
+      "fixture-account-070",
     );
-    expect(parseGithubNoreplyLogin("samzong@users.noreply.github.com")).toBe("samzong");
+    expect(parseGithubNoreplyLogin("fixture-account-057@users.noreply.github.com")).toBe("fixture-account-057");
     expect(parseGithubNoreplyLogin("person@example.com")).toBeNull();
   });
 
@@ -249,10 +262,10 @@ describe("first-commit identity", () => {
     ).toEqual({ login: "bob", source: "committer.user" });
     expect(
       resolveFirstCommitGithubLogin({
-        authorEmail: "12+carol@users.noreply.github.com",
+        authorEmail: "12+fixture-account-017@users.noreply.github.com",
       }),
-    ).toEqual({ login: "carol", source: "noreply-email" });
-    expect(resolveFirstCommitGithubLogin({ authorEmail: "carol@example.com" })).toEqual({
+    ).toEqual({ login: "fixture-account-017", source: "noreply-email" });
+    expect(resolveFirstCommitGithubLogin({ authorEmail: "fixture-account-017@example.com" })).toEqual({
       login: null,
       source: "none",
     });
@@ -301,8 +314,7 @@ describe("collect", () => {
   });
 
   it("fails when required GitHub GraphQL data is unavailable", async () => {
-    vi.stubGlobal(
-      "fetch",
+    stubGithubFetch(
       vi.fn(async (input: string | URL | Request) => {
         const url =
           typeof input === "string"
@@ -342,12 +354,12 @@ describe("collect", () => {
     await expect(collect("alice")).rejects.toBeInstanceOf(GitHubDataUnavailableError);
   });
 
-  it("uses public events for activity recency when owned repo pushes are stale", async () => {
+  it.each(["she/her", null])("collects profile pronouns (%s) alongside public activity", async (pronouns) => {
+    let overviewQuery = "";
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-18T12:00:00Z"));
 
-    vi.stubGlobal(
-      "fetch",
+    stubGithubFetch(
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
         const url =
           typeof input === "string"
@@ -426,16 +438,18 @@ describe("collect", () => {
           if (
             query.includes("pullRequests(first: $count, orderBy: {field: CREATED_AT, direction: DESC})")
           ) {
-            return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
+            return jsonResponse({ data: { user: { pullRequests: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } } } });
           }
 
           if (
             query.includes("mergedPRs: pullRequests") &&
             query.includes("pinnedItems(first: 6, types: REPOSITORY)")
           ) {
+            overviewQuery = query;
             return jsonResponse({
               data: {
                 user: {
+                  pronouns,
                   pinnedItems: { nodes: [] },
                   mergedPRs: { totalCount: 0 },
                   allPRs: { totalCount: 0 },
@@ -465,13 +479,19 @@ describe("collect", () => {
     const result = await collect("active");
 
     expect(result.metrics.days_since_last_activity).toBe(0);
+    expect(overviewQuery).toMatch(/\bpronouns\b/);
+    expect(result.metrics.pronouns).toBe(pronouns);
+    const [, writerInput] = buildRoastMessages({ ...result, scoring: score(result.metrics) }, "en");
+    const writerPayload = JSON.parse(writerInput.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(writerPayload.metrics.pronouns).toBe(pronouns);
+    expect(writerPayload.context_notes.pronoun_usage).toContain("they/them");
   });
 
   it("splits the contribution query when GitHub reports RESOURCE_LIMITS_EXCEEDED", async () => {
+    let overviewQuery = "";
     let combinedAttempts = 0;
     let boundedMergedAggregationCalls = 0;
-    vi.stubGlobal(
-      "fetch",
+    stubGithubFetch(
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
         const url =
           typeof input === "string"
@@ -521,9 +541,11 @@ describe("collect", () => {
 
           // Degraded overview refetch (no stat fields).
           if (query.includes("contributionYears")) {
+            overviewQuery = query;
             return jsonResponse({
               data: {
                 user: {
+                  pronouns: "they/them",
                   pinnedItems: { nodes: [] },
                   mergedPRs: { totalCount: 480 },
                   allPRs: { totalCount: 520 },
@@ -565,11 +587,11 @@ describe("collect", () => {
 
           if (query.includes("pullRequests(first: $count, states: MERGED, after:") && !query.includes("files(first:")) {
             boundedMergedAggregationCalls += 1;
-            return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
+            return jsonResponse({ data: { user: { pullRequests: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } } } });
           }
 
           if (query.includes("pullRequests(first:")) {
-            return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
+            return jsonResponse({ data: { user: { pullRequests: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } } } });
           }
 
           return jsonResponse({ data: { user: null } });
@@ -582,6 +604,8 @@ describe("collect", () => {
     const result = await collect("hyper");
 
     expect(combinedAttempts).toBe(1);
+    expect(overviewQuery).toMatch(/\bpronouns\b/);
+    expect(result.metrics.pronouns).toBe("they/them");
     expect(result.metrics.last_year_contributions).toBe(7810);
     expect(result.metrics.merged_pr_count).toBe(480);
     expect(result.metrics.issues_created).toBe(220);
@@ -592,8 +616,7 @@ describe("collect", () => {
   });
 
   it("keeps the newest 300 merged PRs as an impact lower bound when history is larger", async () => {
-    vi.stubGlobal(
-      "fetch",
+    stubGithubFetch(
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
         const url =
           typeof input === "string"
@@ -749,6 +772,7 @@ describe("collect", () => {
         });
       }
 
+      if (url.includes("repos/acme/core/contributors?")) return jsonResponse([{login:"dev",contributions:75},{login:"other",contributions:25}]);
       if (url === "https://api.github.com/repos/acme/core/releases?per_page=10") {
         return jsonResponse([{ author: { login: "dev" }, tag_name: "v1.0.0" }]);
       }
@@ -794,6 +818,7 @@ ${"Useful project detail. ".repeat(50)}
       if (url === "https://api.github.com/graphql") {
         const body = JSON.parse(String(init?.body ?? "{}")) as { query?: string };
         const query = body.query ?? "";
+        if (query.includes("authorAssociation changedFiles")) return coCreatorResponse(75);
         if (query.includes("contributionsCollection(from:")) {
           const repo = {
             nameWithOwner: "acme/core",
@@ -827,7 +852,7 @@ ${"Useful project detail. ".repeat(50)}
         }
 
         if (query.includes("pullRequests(states: MERGED, first:")) {
-          return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
+          return jsonResponse({ data: { user: { pullRequests: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } } } });
         }
 
         if (query.includes("issues(states: OPEN)")) {
@@ -835,7 +860,7 @@ ${"Useful project detail. ".repeat(50)}
         }
 
         if (query.includes("pullRequests(first:")) {
-          return jsonResponse({ data: { user: { pullRequests: { nodes: [] } } } });
+          return jsonResponse({ data: { user: { pullRequests: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } } } });
         }
 
         if (query.includes("repository(owner:")) {
@@ -878,13 +903,15 @@ ${"Useful project detail. ".repeat(50)}
 
       return jsonResponse({}, 404);
     });
-    vi.stubGlobal("fetch", fetchMock);
+    stubGithubFetch( fetchMock);
 
     const result = await collect("dev");
 
     expect(result.metrics.attributed_original_repo_count).toBe(1);
     expect(result.metrics.nonempty_original_repo_count).toBe(1);
-    expect(result.metrics.total_stars).toBe(12345);
+    expect(result.metrics.total_stars).toBeGreaterThan(0);
+    expect(result.metrics.total_stars).toBeLessThan(12345);
+    expect(result.metrics.total_stars).toBeCloseTo(12345*result.top_repos[0].attribution_share!,8);
     // Engagement of the top-starred repo: (300 + 800 + 400) / 12345
     expect(result.metrics.top_repo_engagement_ratio).toBeCloseTo(0.1215, 3);
     expect(result.top_repos[0]).toMatchObject({
@@ -894,16 +921,15 @@ ${"Useful project detail. ".repeat(50)}
       attributed_original: true,
       open_issue_count: 0,
     });
-    expect(result.top_repos[0].attribution_evidence?.join(" ")).toContain("75 commits");
+    expect(result.top_repos[0].attribution_evidence?.join(" ")).toContain("75/");
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.github.com/repos/acme/core/readme",
       expect.anything(),
     );
   });
 
-  it("attributes a long-term org repo when the first commit author is the scored user", async () => {
-    vi.stubGlobal(
-      "fetch",
+  it.each([false, true])("preserves founding evidence with organization membership=%s", async (member) => {
+    stubGithubFetch(
       firstCommitOrgCollectFetch({
         login: "alice",
         owner: "lab",
@@ -911,6 +937,7 @@ ${"Useful project detail. ".repeat(50)}
         stars: 80,
         commits: 200,
         firstCommitLogin: "alice",
+        member,
       }),
     );
 
@@ -928,9 +955,8 @@ ${"Useful project detail. ".repeat(50)}
     );
   });
 
-  it("does not attribute an org repo whose first commit belongs to someone else", async () => {
-    vi.stubGlobal(
-      "fetch",
+  it("attributes a substantive co-builder without claiming first authorship", async () => {
+    stubGithubFetch(
       firstCommitOrgCollectFetch({
         login: "alice",
         owner: "lab",
@@ -943,13 +969,14 @@ ${"Useful project detail. ".repeat(50)}
 
     const result = await collect("alice");
 
-    expect(result.metrics.attributed_original_repo_count).toBe(0);
-    expect(result.top_repos).toHaveLength(0);
+    expect(result.metrics.attributed_original_repo_count).toBe(1);
+    expect(result.top_repos[0].attribution_share).toBeGreaterThan(0);
+    expect(result.top_repos[0].attribution_evidence?.join(" ")).not.toContain("first commit author is alice");
+    expect(result.top_repos).toHaveLength(1);
   });
 
   it("does not count unmerged PR contribution graph entries as high-star impact", async () => {
-    vi.stubGlobal(
-      "fetch",
+    stubGithubFetch(
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
         const url =
           typeof input === "string"
@@ -1096,8 +1123,7 @@ ${"Useful project detail. ".repeat(50)}
   });
 
   it("degrades gracefully when organization lookup lacks read:org scope", async () => {
-    vi.stubGlobal(
-      "fetch",
+    stubGithubFetch(
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
         const url =
           typeof input === "string"
@@ -1173,7 +1199,7 @@ ${"Useful project detail. ".repeat(50)}
             return jsonResponse({
               data: {
                 user: {
-                  pullRequests: { nodes: [] },
+                  pullRequests: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } },
                 },
               },
             });
@@ -1185,7 +1211,7 @@ ${"Useful project detail. ".repeat(50)}
             return jsonResponse({
               data: {
                 user: {
-                  pullRequests: { nodes: [] },
+                  pullRequests: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } },
                 },
               },
             });
@@ -1200,6 +1226,98 @@ ${"Useful project detail. ".repeat(50)}
 
     expect(result.organizations).toEqual([]);
     expect(result.metrics.username).toBe("alice");
+    expect(result.metrics.github_user_id).toBe("1");
+  });
+});
+
+describe("fetchImpactRepoSignals", () => {
+  beforeEach(() => {
+    process.env.GITHUB_TOKEN = "test-token";
+  });
+
+  afterEach(() => {
+    if (originalToken === undefined) delete process.env.GITHUB_TOKEN;
+    else process.env.GITHUB_TOKEN = originalToken;
+    vi.unstubAllGlobals();
+  });
+
+  const agg = (repo: string, stars: number, commits: number) => ({
+    repo,
+    stars,
+    is_private: false,
+    is_fork: false,
+    owner_login: repo.split("/")[0],
+    commits,
+    prs: 0,
+    active_years: 1,
+  });
+  const repos = [agg("org/engine", 9000, 40), agg("org/tiny", 50, 40), agg("me/own", 500, 40)];
+
+  it("queries only impact-eligible repos and counts multi-parent commits", async () => {
+    const fetchMock = vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { query: string; variables: Record<string, string> };
+      expect(body.query).toContain("history(first: 100, author: { id: $author })");
+      expect(body.variables).toEqual({ author: "U_me", o0: "org", n0: "engine" });
+      return jsonResponse({
+        data: {
+          r0: {
+            repositoryTopics: { nodes: [{ topic: { name: "awesome" } }] },
+            defaultBranchRef: {
+              target: {
+                history: {
+                  nodes: [
+                    { parents: { totalCount: 2 } },
+                    { parents: { totalCount: 1 } },
+                    { parents: { totalCount: 1 } },
+                    { parents: { totalCount: 1 } },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      });
+    });
+    stubGithubFetch( fetchMock);
+
+    const signals = await fetchImpactRepoSignals(repos, "me", "U_me");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(signals.get("org/engine")).toEqual({
+      topics: ["awesome"],
+      sampled_commits: 4,
+      merge_commits: 1,
+    });
+  });
+
+  it("measures community engagement alongside the merge sample", async () => {
+    stubGithubFetch(
+      vi.fn(async () =>
+        jsonResponse({
+          data: {
+            r0: {
+              repositoryTopics: { nodes: [] },
+              stargazerCount: 9000,
+              hasIssuesEnabled: true,
+              isMirror: false,
+              watchers: { totalCount: 30 },
+              issues: { totalCount: 40 },
+              pullRequests: { totalCount: 20 },
+              defaultBranchRef: null,
+            },
+          },
+        }),
+      ),
+    );
+    const signals = await fetchImpactRepoSignals(repos, "me", "U_me");
+    expect(signals.get("org/engine")?.engagement).toBe(0.01);
+  });
+
+  it("degrades to no signals on query errors but surfaces rate limits", async () => {
+    stubGithubFetch( vi.fn(async () => jsonResponse({ errors: [{ message: "timeout" }] })));
+    expect((await fetchImpactRepoSignals(repos, "me", "U_me")).size).toBe(0);
+
+    stubGithubFetch( vi.fn(async () => jsonResponse({ message: "rate limited" }, 429)));
+    await expect(fetchImpactRepoSignals(repos, "me", "U_me")).rejects.toThrow();
   });
 });
 
@@ -1215,8 +1333,7 @@ describe("fetchDurablePullRequestPage", () => {
   });
 
   it("returns durable merged PR facts and an opaque resume cursor", async () => {
-    vi.stubGlobal(
-      "fetch",
+    stubGithubFetch(
       vi.fn(async (input: string | URL | Request) => {
         const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
         if (url === "https://api.github.com/graphql") {
@@ -1324,8 +1441,7 @@ describe("ghFetch rotation + failover", () => {
   it("round-robins the Authorization token across sequential requests", async () => {
     process.env.GITHUB_TOKEN = "t1,t2,t3";
     const seen: (string | undefined)[] = [];
-    vi.stubGlobal(
-      "fetch",
+    stubGithubFetch(
       vi.fn(async (_input: unknown, init?: RequestInit) => {
         seen.push(authOf(init));
         return jsonResponse({ ok: true });
@@ -1354,7 +1470,7 @@ describe("ghFetch rotation + failover", () => {
       }
       return jsonResponse({ recovered: true });
     });
-    vi.stubGlobal("fetch", fetchMock);
+    stubGithubFetch( fetchMock);
 
     const res = await ghFetch("https://api.github.com/x");
 
@@ -1373,7 +1489,7 @@ describe("ghFetch rotation + failover", () => {
       if (auths.length === 1) return new Response("{}", { status: 401 });
       return jsonResponse({ ok: true });
     });
-    vi.stubGlobal("fetch", fetchMock);
+    stubGithubFetch( fetchMock);
 
     const res = await ghFetch("https://api.github.com/x");
 
@@ -1385,11 +1501,112 @@ describe("ghFetch rotation + failover", () => {
   it("does not retry a definitive 404", async () => {
     process.env.GITHUB_TOKEN = "t1,t2";
     const fetchMock = vi.fn(async () => new Response("{}", { status: 404 }));
-    vi.stubGlobal("fetch", fetchMock);
+    stubGithubFetch( fetchMock);
 
     const res = await ghFetch("https://api.github.com/x");
 
     expect(res.status).toBe(404);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("external merged PRs and per-repo code samples", () => {
+  beforeEach(() => {
+    process.env.GITHUB_TOKEN = "test-token";
+  });
+
+  afterEach(() => {
+    if (originalToken === undefined) delete process.env.GITHUB_TOKEN;
+    else process.env.GITHUB_TOKEN = originalToken;
+    vi.unstubAllGlobals();
+  });
+
+  const repoNode = (nameWithOwner: string, stargazerCount: number) => ({
+    nameWithOwner,
+    stargazerCount,
+    isPrivate: false,
+    isFork: false,
+    owner: { login: nameWithOwner.split("/")[0] },
+  });
+
+  it("searches public merged PRs outside the user's repos", async () => {
+    const fetchMock = vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { variables: { q: string } };
+      expect(body.variables.q).toBe("is:pr is:merged is:public author:alice -user:alice sort:created-desc");
+      return jsonResponse({
+        data: {
+          search: {
+            issueCount: 2,
+            nodes: [
+              { id: "PR_1", mergedAt: "2026-01-02T00:00:00Z", repository: repoNode("org/engine", 900) },
+              { id: "PR_2", mergedAt: "2026-02-02T00:00:00Z", repository: repoNode("bob/tiny", 3) },
+              {},
+            ],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      });
+    });
+    stubGithubFetch( fetchMock);
+    const result = await fetchExternalMergedPrs("alice");
+    expect(result?.total).toBe(2);
+    expect(result?.nodes.map((n) => n.id)).toEqual(["PR_1", "PR_2"]);
+
+    stubGithubFetch( vi.fn(async () => jsonResponse({ errors: [{ message: "boom" }] })));
+    expect(await fetchExternalMergedPrs("alice")).toBeNull();
+    stubGithubFetch( vi.fn(async () => jsonResponse({ message: "rate limited" }, 429)));
+    await expect(fetchExternalMergedPrs("alice")).rejects.toThrow();
+  });
+
+  it("fetches code samples only for impact repos the recent window under-covers", async () => {
+    const agg = (repo: string, stars: number, prs: number) => ({
+      repo,
+      stars,
+      is_private: false,
+      is_fork: false,
+      owner_login: repo.split("/")[0],
+      commits: 0,
+      prs,
+      active_years: 1,
+    });
+    const codePr = (repo: string) => ({
+      title: "fix scheduler",
+      repo,
+      repo_stars: 5000,
+      churn: 40,
+      changed_files: 1,
+      trivial: false,
+      files: ["src/scheduler.ts"],
+    });
+    const fetchMock = vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { query: string; variables: Record<string, string> };
+      expect(body.variables).toEqual({ q0: "repo:org/docsy is:pr is:merged author:alice sort:created-desc" });
+      return jsonResponse({
+        data: {
+          s0: {
+            nodes: [
+              {
+                title: "docs: update guide",
+                additions: 10,
+                deletions: 0,
+                changedFiles: 1,
+                repository: { nameWithOwner: "org/docsy", stargazerCount: 5000, isPrivate: false },
+                files: { nodes: [{ path: "docs/guide.md" }] },
+              },
+            ],
+          },
+        },
+      });
+    });
+    stubGithubFetch( fetchMock);
+    const samples = await collectImpactCodeSamples(
+      [agg("org/engine", 9000, 1), agg("org/docsy", 5000, 3), agg("org/tiny", 50, 9)],
+      "alice",
+      [codePr("org/engine")],
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(samples.get("org/engine")).toEqual({ pr_sample: 1, code_pr_sample: 1 });
+    expect(samples.get("org/docsy")).toEqual({ pr_sample: 1, code_pr_sample: 0 });
+    expect(samples.has("org/tiny")).toBe(false);
   });
 });

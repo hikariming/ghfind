@@ -72,3 +72,83 @@ test('production operator reads require independent roles and exact context; mut
   assert.equal((await handleAdminRequest(operation('feed-admin/v1/sql', {}), { ...binding, FEED_MODE: 'baseline' })).status, 404);
   assert.equal(calls, 3);
 });
+
+import { actorConfiguration } from '../src/router';
+test('actor configuration reports DO-owned metadata without process or lifecycle calls', async () => {
+  const actorId = 'f'.repeat(64), edge = { ...env, FEED_MODE: 'baseline' };
+  let reads = 0;
+  const forbidden = async () => assert.fail('configuration must not contact or mutate a process');
+  const d: Dispatch = {
+    fetch: forbidden, stop: forbidden, probe: forbidden, restart: forbidden,
+    actorId: () => actorId,
+    configuration: async target => { reads++; return actorConfiguration(env, target, actorId); },
+  };
+  const result = await handleRequest(admin('/internal/runtime/api-0/configuration'), edge, d);
+  assert.equal(result.status, 200);
+  assert.deepEqual(await result.json(), {
+    target: 'api-0', actorId, workerVersionId: env.WORKER_VERSION.id, sourceSha: env.FEED_RELEASE_SHA,
+    configuredImage: env.FEED_IMAGE_REFERENCE, imageBuildId: env.FEED_IMAGE_BUILD_ID,
+    mode: 'off', writerEpoch: 1,
+  });
+  assert.equal(reads, 1);
+  const unchanged = await handleRequest(admin('/internal/runtime/configuration'), edge, d);
+  assert.deepEqual(await unchanged.json(), {
+    service: 'feed-runtime', version: env.FEED_RELEASE_SHA, contractVersion: '1',
+    workerVersionId: env.WORKER_VERSION.id, configuredImage: env.FEED_IMAGE_REFERENCE,
+    imageBuildId: env.FEED_IMAGE_BUILD_ID, mode: 'baseline', writerEpoch: 1,
+  });
+  assert.equal(reads, 1);
+});
+
+test('actor metadata endpoint authenticates and fixes target before binding access', async () => {
+  let reads = 0;
+  const d = { ...dispatch(), configuration: async () => { reads++; assert.fail('must not read'); } };
+  for (const [request, status] of [
+    [new Request('https://runtime/internal/runtime/api-0/configuration'), 401],
+    [admin('/internal/runtime/api-99/configuration'), 404],
+    [admin('/internal/runtime/api-0/configuration?secret=x'), 404],
+    [admin('/internal/runtime/api-0/configuration', 'POST'), 405],
+  ] as const) assert.equal((await handleRequest(request, env, d)).status, status);
+  assert.equal(reads, 0);
+});
+
+test('old DO missing configuration method and malformed identities fail without a lifecycle operation', async () => {
+  const actorId = 'f'.repeat(64), correct = actorConfiguration(env, 'api-0', actorId);
+  const forbidden = async () => assert.fail('must not touch process');
+  for (const patch of [null, {}, { actorId: 'e'.repeat(64) }, { target: 'api-1' }, { mode: 'other' },
+    { workerVersionId: 'unknown' }, { imageBuildId: 'bad' }, { sourceSha: 'bad' },
+    { configuredImage: 'bad' }, { writerEpoch: 0 }, { secret: 'never-return' }]) {
+    const d: Dispatch = { fetch: forbidden, stop: forbidden, probe: forbidden, restart: forbidden,
+      actorId: () => actorId,
+      configuration: async () => patch === null ? null : Object.keys(patch).length ? { ...correct, ...patch } : {},
+    };
+    const result = await handleRequest(admin('/internal/runtime/api-0/configuration'), env, d);
+    assert.equal(result.status, 503);
+    assert.deepEqual(await result.json(), { error: 'runtime_configuration_invalid' });
+  }
+  const old = await handleRequest(admin('/internal/runtime/api-0/configuration'), env,
+    { fetch: forbidden, stop: forbidden, actorId: () => actorId });
+  assert.equal(old.status, 503);
+  assert.deepEqual(await old.json(), { error: 'runtime_configuration_unavailable' });
+});
+
+test('disabled off executor exposes only metadata while readiness and lifecycle stay gated', async () => {
+  const off = { ...env, FEED_MODE: 'off', FEED_EXECUTOR_ENABLED: 'false' };
+  const actorId = 'f'.repeat(64);
+  let reads = 0;
+  const forbidden = async () => assert.fail('disabled executor must not contact or mutate a process');
+  const d: Dispatch = {
+    fetch: forbidden, stop: forbidden, probe: forbidden, restart: forbidden,
+    actorId: () => actorId,
+    configuration: async target => { reads++; return actorConfiguration(off, target, actorId); },
+  };
+  const result = await handleRequest(admin('/internal/runtime/executor-0/configuration'), off, d);
+  assert.equal(result.status, 200);
+  assert.deepEqual(await result.json(), actorConfiguration(off, 'executor-0', actorId));
+  for (const [path, method] of [['ready', 'GET'], ['restart', 'POST'], ['stop', 'POST']]) {
+    const gated = await handleRequest(admin(`/internal/runtime/executor-0/${path}`, method), off, d);
+    assert.equal(gated.status, 503);
+    assert.deepEqual(await gated.json(), { error: 'executor_not_enabled' });
+  }
+  assert.equal(reads, 1);
+});

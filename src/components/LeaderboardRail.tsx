@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { tierStyle } from "@/lib/tier";
+import { AdventurerLevelInline } from "@/components/realm/AdventurerLevel";
+import { realmCssVars, realmForScore } from "@/lib/realm";
 import type { LeaderboardClientEntry, LeaderboardView } from "./LeaderboardClient";
 import { LeaderboardRailTabs } from "./LeaderboardRailTabs";
 import { withDevLeaderboardPreview } from "./devLeaderboardPreview";
@@ -33,7 +34,7 @@ function RailBoard({
     <>
       <ol className="mt-3 flex flex-col gap-1">
         {rows.map((entry, i) => {
-          const style = tierStyle(entry.tier);
+          const realm = realmForScore(entry.final_score);
           return (
             <li key={entry.username}>
               <Link
@@ -58,9 +59,11 @@ function RailBoard({
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold text-zinc-200">
                   {entry.display_name || `@${entry.username}`}
                 </span>
-                <span className={`shrink-0 text-sm font-black tabular-nums ${style.text}`}>
-                  {style.emoji} {entry.final_score.toFixed(1)}
-                </span>
+                <AdventurerLevelInline
+                  score={entry.final_score}
+                  realm={realm}
+                  className="text-sm"
+                />
               </Link>
             </li>
           );
@@ -115,7 +118,7 @@ function RailSkeleton() {
  * time (that used to render an empty rail that got ISR-cached for everyone).
  * Instead the static shell ships the rail frame + skeleton and the three
  * boards are fetched from /api/leaderboard on mount (CDN-cached, one request
- * per view) — the same pattern as DeveloperCount. Tab switching stays purely
+ * per view). Tab switching stays purely
  * local. Each board shows RAIL_LIMIT rows; the interactive board (time
  * windows, pagination, VS) still lives at /leaderboard.
  */

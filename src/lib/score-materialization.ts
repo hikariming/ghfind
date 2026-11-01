@@ -94,11 +94,19 @@ const REQUIRED_NUMBER_METRICS = [
 ] as const satisfies readonly (keyof RawMetrics)[];
 
 const OPTIONAL_NUMBER_METRICS = [
+  "content_skill_star_share",
+  "content_skill_confidence",
+  "weighted_total_stars",
+  "weighted_max_stars",
   "top_repo_engagement_ratio",
+  "personal_original_project_quality_score",
   "attributed_original_repo_count",
   "attributed_original_repo_stars",
   "best_original_repo_quality_score",
   "top_starred_original_repo_quality_score",
+  "external_merged_pr_count",
+  "external_high_star_pr_share",
+  "own_pr_community",
   "workflow_landed_pr_count",
   "recent_doc_like_pr_count",
   "recent_doc_like_pr_ratio",
@@ -131,6 +139,7 @@ const REQUIRED_NULLABLE_STRING_METRICS = [
 ] as const satisfies readonly (keyof RawMetrics)[];
 
 const OPTIONAL_NULLABLE_STRING_METRICS = [
+  "pronouns",
   "best_original_repo_quality_repo",
   "top_starred_original_repo_quality_repo",
 ] as const satisfies readonly (keyof RawMetrics)[];
@@ -204,8 +213,11 @@ function hasValidTopRepo(value: unknown): value is TopRepo {
   if (!optionalMatches(value, "name_with_owner", (item) => typeof item === "string")) return false;
   if (!optionalMatches(value, "readme_excerpt", isNullableString)) return false;
   if (!optionalMatches(value, "topics", isStringArray)) return false;
+  if (!optionalMatches(value, "root_paths", isStringArray)) return false;
+  if (!optionalMatches(value, "content_skill_share", (item) => typeof item === "number" && Number.isFinite(item) && item >= 0 && item <= 1)) return false;
   if (!optionalMatches(value, "attributed_original", (item) => typeof item === "boolean")) return false;
   if (!optionalMatches(value, "attribution_evidence", isStringArray)) return false;
+  if (!optionalMatches(value, "attribution_share", item => typeof item === "number" && Number.isFinite(item) && item >= 0 && item <= 1)) return false;
   if (
     !optionalMatches(
       value,
@@ -352,9 +364,9 @@ function hasValidEmbeddedScoring(value: unknown): value is Scoring {
   ];
   const tiers = ["夯", "顶级", "人上人", "NPC", "拉完了"];
   const hasLegacyRiskShape = value.risk_assessment === undefined && value.risk_notes === undefined;
-  const hasV10RiskShape =
+  const hasStructuredRiskShape =
     isRecord(value.risk_assessment) &&
-    value.risk_assessment.version === "v10" &&
+    ["v9", "v10"].includes(String(value.risk_assessment.version)) &&
     isFiniteNumber(value.risk_assessment.risk_score) &&
     ["none", "review", "high"].includes(String(value.risk_assessment.level)) &&
     isFiniteNumber(value.risk_assessment.confidence) &&
@@ -380,7 +392,7 @@ function hasValidEmbeddedScoring(value: unknown): value is Scoring {
     typeof value.tier === "string" &&
     tiers.includes(value.tier) &&
     typeof value.tier_label === "string" &&
-    (hasLegacyRiskShape || hasV10RiskShape)
+    (hasLegacyRiskShape || hasStructuredRiskShape)
   );
 }
 

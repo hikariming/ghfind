@@ -1,0 +1,328 @@
+// Drives the real ScanSlot/ScanCapacity (and KeyValue) objects, both directly
+// and through src/lib/redis.ts. Lives under apps/coord because it imports the
+// Durable Objects, whose cloudflare:workers types only this app's tsconfig knows.
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("cloudflare:workers", () => ({
+  DurableObject: class {
+    constructor(
+      protected ctx: unknown,
+      protected env: unknown,
+    ) {}
+  },
+}));
+
+const libEnv: Record<string, unknown> = {};
+vi.mock("@opennextjs/cloudflare", () => ({ getCloudflareContext: () => ({ env: libEnv }) }));
+
+const { ScanSlot } = await import("../scan-slot");
+const { ScanCapacity } = await import("../scan-capacity");
+const { KeyValue } = await import("../key-value");
+
+function fakeCtx() {
+  const data = new Map<string, unknown>();
+  return {
+    storage: {
+      kv: {
+        get: (k: string) => data.get(k),
+        put: (k: string, v: unknown) => void data.set(k, structuredClone(v)),
+        delete: (k: string) => data.delete(k),
+        *list(opts: { prefix?: string } = {}) {
+          for (const [k, v] of data) if (!opts.prefix || k.startsWith(opts.prefix)) yield [k, v];
+        },
+      },
+      setAlarm: async () => {},
+      deleteAlarm: async () => {},
+      deleteAll: async () => data.clear(),
+    },
+  };
+}
+
+/** A namespace of real objects; each call is async like RPC. */
+function namespace<T extends object>(make: (ctx: ReturnType<typeof fakeCtx>) => T) {
+  const objects = new Map<string, T>();
+  return {
+    idFromName: (name: string) => name,
+    get(id: unknown) {
+      const name = id as string;
+      if (!objects.has(name)) objects.set(name, make(fakeCtx()));
+      const obj = objects.get(name)!;
+      return new Proxy(obj, {
+        get: (target, prop) => {
+          const value = (target as Record<string | symbol, unknown>)[prop];
+          return typeof value === "function"
+            ? (...args: unknown[]) => Promise.resolve().then(() => (value as (...a: unknown[]) => unknown).apply(target, args))
+            : value;
+        },
+      });
+    },
+    objects,
+  };
+}
+
+function world(api?: { run: (username: string, owner: string) => Promise<{ ok: boolean; status: string }> }) {
+  const capacity = namespace((ctx) => new ScanCapacity(ctx as never, {} as never));
+  const slots = namespace((ctx) => new ScanSlot(ctx as never, { SCAN_CAPACITY: capacity, GHFIND_API: api } as never));
+  const kv = namespace((ctx) => new KeyValue(ctx as never, {} as never));
+  return { capacity, slots, kv };
+}
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllEnvs();
+  for (const k of Object.keys(libEnv)) delete libEnv[k];
+});
+
+describe("ScanSlot", () => {
+  it("admits one producer, makes others wait, and publishes only for the owner", async () => {
+    const { slots } = world();
+    const slot = slots.get("scan:k");
+    expect(await slot.admit("a", 300_000, "pool", 96)).toBe(1);
+    expect(await slot.admit("b", 300_000, "pool", 96)).toBe(0);
+    expect(await slot.publish("b", '{"x":1}', 60, true)).toBe(0);
+    expect(await slot.publish("a", '{"x":2}', 60, true)).toBe(1);
+    expect(await slot.payload()).toBe('{"x":2}');
+    expect(await slot.revision()).toBe("a");
+  });
+
+  it("puts a failed key on a 15s cooldown and frees its capacity lease", async () => {
+    vi.useFakeTimers({ now: 0 });
+    const { slots, capacity } = world();
+    const slot = slots.get("scan:k");
+    await slot.admit("a", 300_000, "pool", 1);
+    await slot.release("a", true, "pool");
+    expect(await slot.admit("b", 300_000, "pool", 1)).toBe(-1); // cooldown
+    vi.setSystemTime(15_000);
+    expect(await slot.admit("b", 300_000, "pool", 1)).toBe(1); // lease was released
+    expect(await capacity.get("pool").acquire("c", 300_000, 1)).toBe(false);
+  });
+
+  it("returns -1 when the global pool is full and rolls its lock back", async () => {
+    const { slots } = world();
+    expect(await slots.get("scan:1").admit("a", 300_000, "pool", 2)).toBe(1);
+    expect(await slots.get("scan:2").admit("b", 300_000, "pool", 2)).toBe(1);
+    const third = slots.get("scan:3");
+    expect(await third.admit("c", 300_000, "pool", 2)).toBe(-1);
+    // No stale lock left behind: after a lease frees up, the key is admissible.
+    await slots.get("scan:1").release("a", false, "pool");
+    expect(await third.admit("c", 300_000, "pool", 2)).toBe(1);
+  });
+
+  it("recovers capacity and the lock after a killed producer's lease expires", async () => {
+    vi.useFakeTimers({ now: 0 });
+    const { slots } = world();
+    await slots.get("scan:1").admit("dead", 300_000, "pool", 1);
+    expect(await slots.get("scan:2").admit("b", 300_000, "pool", 1)).toBe(-1);
+    vi.setSystemTime(300_000);
+    expect(await slots.get("scan:1").admit("next", 300_000, "pool", 1)).toBe(1);
+    expect(await slots.get("scan:1").publish("dead", "{}", 60, false)).toBe(0);
+  });
+
+  it("writes a 7-day stale shadow only for the owner and keeps it after the hot payload expires", async () => {
+    vi.useFakeTimers({ now: 0 });
+    const { slots } = world();
+    const slot = slots.get("scan:k");
+    await slot.admit("a", 300_000, "pool", 96);
+    expect(await slot.publish("b", '"stolen"', 60, true, 7 * 24 * 60 * 60)).toBe(0);
+    expect(await slot.stalePayload()).toBeNull();
+    expect(await slot.publish("a", '"fresh"', 60, true, 7 * 24 * 60 * 60)).toBe(1);
+    expect(await slot.payload()).toBe('"fresh"');
+    expect(await slot.stalePayload()).toBe('"fresh"');
+    vi.setSystemTime(60_000);
+    expect(await slot.payload()).toBeNull();
+    expect(await slot.stalePayload()).toBe('"fresh"');
+  });
+
+  it("arms pending only for the lock owner and requires the API binding", async () => {
+    const { slots } = world();
+    const slot = slots.get("scan:k");
+    expect(await slot.markPending("ghost", "tj", 240_000)).toBe(0);
+    await slot.admit("a", 240_000, "pool", 96);
+    expect(await slot.markPending("a", "tj", 240_000)).toBe(-1);
+    const api = { run: vi.fn(async () => ({ ok: true, status: "published" })) };
+    const armed = world(api);
+    const live = armed.slots.get("scan:k");
+    await live.admit("a", 240_000, "pool", 96);
+    expect(await live.markPending("a", "tj", 240_000)).toBe(1);
+    expect(await live.pending()).toMatchObject({ owner: "a", username: "tj" });
+    await live.alarm();
+    expect(api.run).toHaveBeenCalledWith("tj", "a");
+  });
+
+  it("retries the API RPC on throw without reclaiming the owner", async () => {
+    vi.useFakeTimers({ now: 0 });
+    const api = { run: vi.fn(async () => { throw new Error("api down"); }) };
+    const { slots } = world(api);
+    const slot = slots.get("scan:k");
+    await slot.admit("a", 240_000, "pool", 96);
+    expect(await slot.markPending("a", "tj", 240_000)).toBe(1);
+    await slot.alarm();
+    expect(await slot.pending()).toMatchObject({ owner: "a", username: "tj" });
+    expect(await slot.publish("a", "{}", 60, true)).toBe(1);
+  });
+
+  it("retains only the owner's terminal failure until a new admission", async () => {
+    vi.useFakeTimers({ now: 1 });
+    const { slots } = world({ run: vi.fn(async () => ({ ok: false, status: "failed" })) });
+    const slot = slots.get("scan:fiction");
+    await slot.admit("owner", 360_000, "pool", 96);
+    await slot.markPending("owner", "fiction-dev", 360_000);
+    expect(await slot.fail("other", "scan_failed")).toBe(0);
+    expect(await slot.fail("owner", "github_collect_deadline")).toBe(1);
+    await slot.release("owner", true, "pool");
+    expect(await slot.pending()).toBeNull();
+    expect(await slot.failure()).toEqual({ owner: "owner", code: "github_collect_deadline" });
+    vi.setSystemTime(15_001);
+    expect(await slot.admit("next", 360_000, "pool", 96)).toBe(1);
+    expect(await slot.failure()).toBeNull();
+  });
+
+  it("renews only the living owner and rejects a stolen publish", async () => {
+    vi.useFakeTimers({ now: 0 });
+    const { slots, capacity } = world();
+    const slot = slots.get("scan:k");
+    await slot.admit("a", 1_000, "pool", 96);
+    vi.setSystemTime(1_000);
+    expect(await slot.renew("a", 240_000, "pool")).toBe(0);
+    expect(await slot.publish("a", "{}", 60, true)).toBe(0);
+    await slot.admit("b", 240_000, "pool", 96);
+    expect(await slot.renew("b", 240_000, "pool")).toBe(1);
+    expect(await capacity.get("pool").renew("b", 240_000)).toBe(true);
+    expect(await slot.publish("a", '"stolen"', 60, true)).toBe(0);
+  });
+
+  it("serves a forced reader only a publication newer than its baseline", async () => {
+    const { slots } = world();
+    const slot = slots.get("scan:k");
+    await slot.admit("a", 300_000, "pool", 96);
+    await slot.publish("a", '"old"', 60, true);
+    await slot.release("a", false, "pool");
+    const baseline = (await slot.revision())!;
+    expect(await slot.payloadAfter(baseline)).toBeNull();
+    await slot.admit("b", 300_000, "pool", 96);
+    await slot.publish("b", '"new"', 60, true);
+    expect(await slot.payloadAfter(baseline)).toBe('"new"');
+  });
+});
+
+describe("redis.ts scan paths on Durable Objects", () => {
+  async function loadRedis() {
+    vi.resetModules();
+    return import("../../../../src/lib/redis");
+  }
+
+  function useDurableObjects(api?: Parameters<typeof world>[0]) {
+    const w = world(api);
+    vi.stubEnv("UPSTASH_REDIS_REST_URL", "");
+    vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "");
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("GHFIND_DEPLOY_ENV", "production");
+    vi.stubEnv("GHFIND_COORD_BACKEND", "do");
+    libEnv.SCAN_SLOT = w.slots;
+    libEnv.COORD_KV = w.kv;
+    return w;
+  }
+
+  const scan = (login: string) =>
+    ({ metrics: { username: login }, login }) as unknown as import("../../../../src/lib/types").ScanResult;
+
+  it("durably queues one full refresh past a warm cache without inline work or interactive wait", async () => {
+    const run = vi.fn(async () => ({ ok: true, status: "published" }));
+    const { slots } = useDurableObjects({ run });
+    vi.doMock("../../../../src/lib/score", () => ({ score: () => ({ final: 1 }) }));
+    const { coalesceScan, scanKey } = await loadRedis();
+    const { ScanPendingError } = await import("../../../../src/lib/scan-protection");
+    const slot = slots.get(scanKey("fiction-highfork"));
+    await slot.admit("old", 360_000, "scan:active-producers:v1", 96);
+    await slot.publish("old", JSON.stringify(scan("fiction-highfork")), 60, true);
+    await slot.release("old", false, "scan:active-producers:v1");
+    const producer = vi.fn(async () => scan("fiction-highfork"));
+    const options = { force: true, background: true, continueOnDeadline: true, full: true };
+    await expect(coalesceScan("fiction-highfork", producer, options)).rejects.toBeInstanceOf(ScanPendingError);
+    const pending = await slot.pending();
+    expect(pending).toMatchObject({ full: true, refresh: true, username: "fiction-highfork" });
+    await expect(coalesceScan("FICTION-HIGHFORK", producer, options)).rejects.toBeInstanceOf(ScanPendingError);
+    expect((await slot.pending())?.owner).toBe(pending?.owner);
+    expect(producer).not.toHaveBeenCalled();
+    await slot.alarm();
+    expect(run).toHaveBeenCalledExactlyOnceWith("fiction-highfork", pending?.owner);
+  });
+
+  it("coalesces concurrent cold scans into one producer", async () => {
+    useDurableObjects();
+    vi.doMock("../../../../src/lib/score", () => ({ score: () => ({ final: 1 }) }));
+    const { coalesceScan } = await loadRedis();
+    let produced = 0;
+    const producer = async () => {
+      produced++;
+      await new Promise((r) => setTimeout(r, 20));
+      return scan("u");
+    };
+    const results = await Promise.all([
+      coalesceScan("u", producer),
+      coalesceScan("U", producer),
+      coalesceScan("u", producer),
+    ]);
+    expect(produced).toBe(1);
+    expect(results.map((r) => (r as unknown as { login: string }).login)).toEqual(["u", "u", "u"]);
+    vi.doUnmock("../../../../src/lib/score");
+  });
+
+  it("serves the cached scan afterwards and clears it", async () => {
+    useDurableObjects();
+    vi.doMock("../../../../src/lib/score", () => ({ score: () => ({ final: 1 }) }));
+    const { coalesceScan, getCachedScan, getStaleCachedScan, clearCachedScan } = await loadRedis();
+    await coalesceScan("u", async () => scan("u"));
+    expect(await getCachedScan("u")).toMatchObject({ login: "u", scoring: { final: 1 } });
+    expect(await getStaleCachedScan("u")).toMatchObject({ login: "u", scoring: { final: 1 } });
+    await clearCachedScan("u");
+    expect(await getCachedScan("u")).toBeNull();
+    expect(await getStaleCachedScan("u")).toBeNull();
+    vi.doUnmock("../../../../src/lib/score");
+  });
+
+  it("a forced refresh produces again instead of accepting the warm snapshot", async () => {
+    useDurableObjects();
+    vi.doMock("../../../../src/lib/score", () => ({ score: () => ({ final: 1 }) }));
+    const { coalesceScan } = await loadRedis();
+    await coalesceScan("u", async () => ({ ...scan("u"), login: "v1" }) as never);
+    const refreshed = await coalesceScan("u", async () => ({ ...scan("u"), login: "v2" }) as never, { force: true });
+    expect((refreshed as unknown as { login: string }).login).toBe("v2");
+    vi.doUnmock("../../../../src/lib/score");
+  });
+
+  it("score detail is cached per revision and advancing the revision reloads", async () => {
+    useDurableObjects();
+    const { getCachedScoreDetail, advanceScoreDetailRevision } = await loadRedis();
+    let loads = 0;
+    const load = async () => ({ username: "u", n: ++loads }) as never;
+    expect(await getCachedScoreDetail("u", load)).toEqual({ username: "u", n: 1 });
+    expect(await getCachedScoreDetail("u", load)).toEqual({ username: "u", n: 1 });
+    await advanceScoreDetailRevision("u");
+    expect(await getCachedScoreDetail("u", load)).toEqual({ username: "u", n: 2 });
+  });
+
+  it("acquires a 15-minute refresh cooldown and fails closed without a store", async () => {
+    useDurableObjects();
+    const { tryAcquireScanRefresh } = await loadRedis();
+    expect(await tryAcquireScanRefresh("u")).toBe(true);
+    expect(await tryAcquireScanRefresh("u")).toBe(false);
+    vi.unstubAllEnvs();
+    vi.resetModules();
+    const idle = await import("../../../../src/lib/redis");
+    expect(await idle.tryAcquireScanRefresh("u")).toBe(false);
+  });
+
+  it("fails closed in production when the slot object is unreachable", async () => {
+    useDurableObjects();
+    libEnv.SCAN_SLOT = {
+      idFromName: (n: string) => n,
+      get: () => ({ admit: async () => { throw new Error("down"); }, payload: async () => null, release: async () => {} }),
+    };
+    const { coalesceScan } = await loadRedis();
+    const { ScanBusyError } = await import("../../../../src/lib/scan-protection");
+    const producer = vi.fn(async () => scan("u"));
+    await expect(coalesceScan("u", producer)).rejects.toBeInstanceOf(ScanBusyError);
+    expect(producer).not.toHaveBeenCalled();
+  });
+});

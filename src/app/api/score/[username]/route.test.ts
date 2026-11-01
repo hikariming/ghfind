@@ -5,6 +5,7 @@ import type { ScanResult } from "@/lib/types";
 
 const mocks = vi.hoisted(() => ({
   buildScanResult: vi.fn(),
+  logFreshScanFailure: vi.fn(),
   checkRateLimit: vi.fn(),
   coalesceScan: vi.fn(),
   getAccountDetail: vi.fn(),
@@ -35,7 +36,9 @@ vi.mock("@/lib/redis", () => ({
 }));
 vi.mock("@/lib/scan-core", () => ({
   buildScanResult: mocks.buildScanResult,
+  logFreshScanFailure: mocks.logFreshScanFailure,
   scanErrorResponse: mocks.scanErrorResponse,
+  discardIncrementalCursor: vi.fn(),
 }));
 
 import { GET } from "./route";
@@ -96,6 +99,34 @@ describe("GET /api/score immediate quick contract", () => {
     mocks.scanErrorResponse.mockReturnValue({ error: "scan_failed", status: 500 });
   });
 
+  it("serves a readable v13/v6 score without crawling or publishing", async () => {
+    mocks.getAccountDetail.mockResolvedValue({ ...legacyFallback,
+      score_version: "v13", score_source_collection_version: "v6",
+      score_source_snapshot_hash: "a".repeat(64),
+    });
+    const response = await GET(new NextRequest("https://example.test/api/score/fixture-user"), {
+      params: Promise.resolve({ username: "fixture-user" }),
+    });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ source: "indexed", stale: true, coverage: "legacy", final_score: 64 });
+    expect(mocks.buildScanResult).not.toHaveBeenCalled();
+    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
+  });
+
+  it("serves a retained v10/v5 score as stale without crawling or publishing", async () => {
+    mocks.getAccountDetail.mockResolvedValue({ ...legacyFallback,
+      score_version: "v10", score_source_collection_version: "v5",
+      score_source_snapshot_hash: "a".repeat(64),
+    });
+    const response = await GET(new NextRequest("https://example.test/api/score/fixture-user"), {
+      params: Promise.resolve({ username: "fixture-user" }),
+    });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ source: "indexed", stale: true, coverage: "legacy", final_score: 64 });
+    expect(mocks.buildScanResult).not.toHaveBeenCalled();
+    expect(mocks.publishCompleteQuickScan).not.toHaveBeenCalled();
+  });
+
   it("materializes a cold account instead of returning 202", async () => {
     const response = await GET(new NextRequest("https://example.test/api/score/DemoDev"), {
       params: Promise.resolve({ username: "DemoDev" }),
@@ -132,6 +163,9 @@ describe("GET /api/score immediate quick contract", () => {
     });
 
     expect(response.status).toBe(200);
+    expect(mocks.logFreshScanFailure).toHaveBeenCalledWith(expect.any(Error), {
+      route: "score", username: "fixture-user", persistenceFailure: false,
+    });
     await expect(response.json()).resolves.toMatchObject({
       source: "legacy_v5_v5_v3",
       coverage: "legacy",

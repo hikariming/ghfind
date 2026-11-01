@@ -9,8 +9,6 @@ import "server-only";
 import {
   getAccountDetail,
   getCurrentCanonicalQuickScan,
-  getDeveloperCommonProjects,
-  getFacetRank,
   getMatchup,
   getProfileSnapshot,
   getSimilarAccounts,
@@ -22,7 +20,11 @@ import {
   type AccountDetail as DbAccountDetail,
   type ProjectListItem,
 } from "@/lib/db";
+import { getFacetRankCached } from "@/lib/developers";
+import { isProfileReadmeRepo } from "@/lib/github";
+import { githubStandings, type GithubStandingRepo } from "@/lib/github-standing";
 import { getPercentileCached, getRankCached } from "@/lib/rank";
+import { getProfileCommonProjectsCached } from "@/lib/project-discovery";
 import { beatPercent } from "@/lib/percentile";
 import { getCachedScan } from "@/lib/redis";
 import { normalizeUsername } from "@/lib/username";
@@ -92,7 +94,7 @@ function isValidRiskAssessment(value: unknown): value is RiskAssessment {
   const assessment = value as Record<string, unknown>;
   const coverage = assessment.coverage;
   return (
-    assessment.version === "v10" &&
+    (assessment.version === "v9" || assessment.version === "v10") &&
     (assessment.level === "none" || assessment.level === "review" || assessment.level === "high") &&
     isFiniteNumber(assessment.risk_score) &&
     isFiniteNumber(assessment.confidence) &&
@@ -102,8 +104,8 @@ function isValidRiskAssessment(value: unknown): value is RiskAssessment {
     assessment.confidence >= 0 &&
     assessment.confidence <= 100 &&
     assessment.applied_penalty >= 0 &&
-    assessment.applied_penalty <= 25 &&
-    isClose(assessment.risk_score, assessment.applied_penalty / 25 * 100) &&
+    assessment.applied_penalty <= (assessment.version === "v9" ? 40 : 25) &&
+    isClose(assessment.risk_score, assessment.applied_penalty / (assessment.version === "v9" ? 40 : 25) * 100) &&
     Array.isArray(assessment.signals) &&
     coverage !== null &&
     typeof coverage === "object" &&
@@ -145,7 +147,7 @@ function scoreBreakdownFromScan(
     scoring.base_score < 0 ||
     scoring.base_score > 100 ||
     scoring.total_penalty < 0 ||
-    scoring.total_penalty > 25 ||
+    scoring.total_penalty > (scoring.risk_assessment?.version === "v10" ? 25 : 40) ||
     scoring.final_score < 0 ||
     scoring.final_score > 100
   ) {
@@ -168,7 +170,7 @@ function scoreBreakdownFromScan(
 
   const flagPenaltyTotal = Math.min(
     scoring.red_flags.reduce((sum, flag) => sum + flag.penalty, 0),
-    25,
+    scoring.risk_assessment?.version === "v10" ? 25 : 40,
   );
   if (!isClose(flagPenaltyTotal, scoring.total_penalty)) return null;
 
@@ -188,7 +190,7 @@ function scoreBreakdownFromScan(
       !riskAssessment.signals.every(isValidRiskSignal) ||
       !riskNotes.every(isValidRiskSignal) ||
       riskAssessment.applied_penalty < 0 ||
-      riskAssessment.applied_penalty > 25 ||
+      riskAssessment.applied_penalty > (riskAssessment.version === "v9" ? 40 : 25) ||
       !isClose(riskAssessment.applied_penalty, scoring.total_penalty))
   ) {
     return null;
@@ -241,7 +243,8 @@ function toCommonProject(item: ProjectListItem): CommonProfileProject {
 /**
  * Common projects with the first few similar developers, deduped across
  * candidates. Each candidate batch is ordered by average member score (the Go
- * query's ORDER BY AVG DESC, repo_key ASC) before merging.
+ * query's ORDER BY AVG DESC, repo_key ASC) before merging. All candidates are
+ * read together — one cache entry and one database round trip per profile.
  */
 async function buildCommonProjects(
   username: string,
@@ -249,9 +252,9 @@ async function buildCommonProjects(
 ): Promise<CommonProfileProject[]> {
   const seen = new Set<string>();
   const result: CommonProfileProject[] = [];
-  for (const candidate of candidates) {
+  const lists = await getProfileCommonProjectsCached(username, candidates, COMMON_PROJECT_LIMIT);
+  for (const items of lists) {
     if (result.length >= COMMON_PROJECT_LIMIT) break;
-    const items = await getDeveloperCommonProjects(username, candidate, COMMON_PROJECT_LIMIT);
     const batch = items
       .map(toCommonProject)
       .toSorted(
@@ -284,6 +287,28 @@ function snapshotRepoKeys(snapshot: ProfileSnapshotView | null): string[] {
   }
   for (const repo of snapshot.impact_repos) keys.push(repo.repo);
   return keys;
+}
+
+/**
+ * The repository the whole-GitHub standing ranks: the most-starred entry of
+ * `top_repos` by raw stars. The `<login>/<login>` profile README is a profile
+ * page, not a project; the scanner leaves it out of star totals too.
+ * Co-built repositories keep their credited share for the label: the rank
+ * itself describes the repository, like its star count does.
+ */
+function standingRepo(username: string, snapshot: ProfileSnapshotView): GithubStandingRepo | undefined {
+  const loginLower = username.toLowerCase();
+  let best: ProfileSnapshotView["top_repos"][number] | undefined;
+  for (const repo of snapshot.top_repos) {
+    if (isProfileReadmeRepo(repo, loginLower)) continue;
+    if (!best || (repo.stars ?? 0) > (best.stars ?? 0)) best = repo;
+  }
+  if (!best) return undefined;
+  return {
+    name_with_owner: best.name_with_owner ?? `${best.owner_login ?? username}/${best.name}`,
+    stars: Math.max(0, best.stars ?? 0),
+    ...(best.attribution_share !== undefined ? { attribution_share: best.attribution_share } : {}),
+  };
 }
 
 async function buildExistingRepoKeys(snapshot: ProfileSnapshotView | null): Promise<string[]> {
@@ -347,7 +372,7 @@ export async function buildProfilePresentation(
     // has no position there (mirrors the Go facet-rank score gate).
     detail.legacy_read_fallback
       ? Promise.resolve(null)
-      : getFacetRank(detail.username, detail.final_score),
+      : getFacetRankCached(detail.username, detail.final_score),
     weeklyScoreDelta(detail),
   ]);
   const [common_projects, existing_repo_keys] = await Promise.all([
@@ -360,6 +385,11 @@ export async function buildProfilePresentation(
   return {
     detail: toPresentationDetail(detail, scoreBreakdown),
     snapshot,
+    ...(snapshot
+      ? {
+          github_standing: githubStandings(snapshot.metrics, standingRepo(detail.username, snapshot)),
+        }
+      : {}),
     rank,
     percentile,
     delta,
@@ -369,6 +399,34 @@ export async function buildProfilePresentation(
     facetRank,
     existing_repo_keys,
   };
+}
+
+/** What the embeddable cards render (`/api/card/*`, mini, material). */
+export type ProfileCardPresentation = Pick<
+  ProfilePresentation,
+  "detail" | "snapshot" | "rank" | "percentile" | "delta"
+>;
+
+/**
+ * The card subset of {@link buildProfilePresentation}, without the discovery
+ * reads cards never show (similar accounts, common projects, battles, facet
+ * rank, repo-link check, scan breakdown). Card URLs are a crawler / camo long
+ * tail whose cache-busting params miss the CDN, so every miss used to pay a
+ * whole profile build — including the per-profile common-projects cache write.
+ */
+export async function buildProfileCardPresentation(
+  username: string,
+): Promise<ProfileCardPresentation | null> {
+  const handle = normalizeUsername(username);
+  if (!handle) return null;
+  const detail = await getAccountDetail(handle);
+  if (!detail) return null;
+  const [snapshot, { rank, percentile }, delta] = await Promise.all([
+    getProfileSnapshot(detail.username),
+    buildScorePercentile(detail.final_score),
+    weeklyScoreDelta(detail),
+  ]);
+  return { detail: toPresentationDetail(detail), snapshot, rank, percentile, delta };
 }
 
 export async function buildVsPresentation(a: string, b: string): Promise<VsPresentation | null> {

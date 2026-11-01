@@ -1,0 +1,21 @@
+---
+import Base from "../../../layouts/Base.astro";
+import { JobDetail } from "../../../views";
+import { getTranslator, routeLocale } from "../../../lib/i18n";
+import { notFound } from "../../../lib/not-found";
+import { getJob } from "@/lib/jobs";
+
+const locale = routeLocale(Astro.params.locale);
+const id = Astro.params.id ?? "";
+// D1 errors propagate (5xx, not cached) instead of a 404.
+const job = locale ? await getJob(locale, id) : null;
+if (!locale || !job) return notFound();
+
+const t = await getTranslator(locale, "jobs");
+const path = `/jobs/${id}`;
+// Same edge cache as the /jobs board.
+Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-revalidate=86400");
+---
+<Base locale={locale} path={path} title={`${job.title} · ${job.company.name} · ghfind`} description={job.summary ?? undefined}>
+  <JobDetail route={{ locale, path }} t={t} job={job} />
+</Base>

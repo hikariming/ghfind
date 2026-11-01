@@ -66,54 +66,95 @@ type workflowLandedPR struct {
 	OwnerLogin string
 }
 
-func (c *GitHubClient) fetchWorkflowLandedPRs(ctx context.Context, username string, closedPRCount float64) ([]workflowLandedPR, error) {
+func (c *GitHubClient) fetchWorkflowLandedPRs(ctx context.Context, username string, closedPRCount float64, scopes ...*collectionScope) ([]workflowLandedPR, error) {
+	scope := sourceScope(scopes)
 	if closedPRCount == 0 {
 		return []workflowLandedPR{}, nil
 	}
-	var candidates struct {
-		User *struct {
-			PullRequests *struct {
-				Nodes []struct {
-					ID     string `json:"id"`
-					Labels *struct {
-						Nodes []struct {
-							Name *string `json:"name"`
-						} `json:"nodes"`
-					} `json:"labels"`
-				} `json:"nodes"`
-			} `json:"pullRequests"`
-		} `json:"user"`
-	}
-	candidateQuery := `query($login: String!) {
+	var after *string
+	landed := []workflowLandedPR{}
+	for {
+		var candidates struct {
+			User *struct {
+				PullRequests *struct {
+					PageInfo *graphPageInfo `json:"pageInfo"`
+					Nodes    []struct {
+						ID     string `json:"id"`
+						Labels *struct {
+							Nodes []struct {
+								Name *string `json:"name"`
+							} `json:"nodes"`
+						} `json:"labels"`
+					} `json:"nodes"`
+				} `json:"pullRequests"`
+			} `json:"user"`
+		}
+		candidateQuery := `query($login: String!, $after: String) {
   user(login: $login) {
-    pullRequests(first: 100, states: CLOSED, orderBy: {field: CREATED_AT, direction: DESC}) {
+    pullRequests(first: 100, states: CLOSED, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
       nodes { id labels(first: 20) { nodes { name } } }
+ pageInfo { hasNextPage endCursor }
     }
   }
 }`
-	if err := c.graphql(ctx, candidateQuery, map[string]any{"login": username}, &candidates); err != nil {
-		// Optional enrichment: preserve native GitHub merge results on failure.
-		return []workflowLandedPR{}, nil
-	}
-	ids := []string{}
-	if candidates.User != nil && candidates.User.PullRequests != nil {
-		for _, candidate := range candidates.User.PullRequests.Nodes {
-			for _, label := range safeLabelNodes(candidate.Labels) {
-				if label.Name != nil && strings.EqualFold(strings.TrimSpace(*label.Name), "merged") {
-					ids = append(ids, candidate.ID)
+		if err := c.graphql(ctx, candidateQuery, map[string]any{"login": username, "after": after}, &candidates); err != nil {
+			scope.note("workflow_unavailable")
+			// Optional enrichment: preserve native GitHub merge results on failure.
+			return landed, nil
+		}
+		ids := []string{}
+		if candidates.User != nil && candidates.User.PullRequests != nil {
+			for _, candidate := range candidates.User.PullRequests.Nodes {
+				for _, label := range safeLabelNodes(candidate.Labels) {
+					if label.Name != nil && strings.EqualFold(strings.TrimSpace(*label.Name), "merged") {
+						ids = append(ids, candidate.ID)
+						break
+					}
+				}
+				if !scope.Full && len(ids) == workflowCandidateCap {
+					scope.note("workflow_candidate_cap")
 					break
 				}
 			}
-			if len(ids) == 25 {
-				break
-			}
 		}
+		for start := 0; start < len(ids); start += workflowCandidateCap {
+			end := start + workflowCandidateCap
+			if end > len(ids) {
+				end = len(ids)
+			}
+			batch, err := c.fetchWorkflowLandedByIDs(ctx, ids[start:end], scope)
+			if err != nil {
+				return nil, err
+			}
+			landed = append(landed, batch...)
+		}
+		if candidates.User == nil || candidates.User.PullRequests == nil {
+			scope.note("workflow_unavailable")
+			return landed, nil
+		}
+		page := candidates.User.PullRequests
+		if !scope.Full {
+			if closedPRCount > githubPageSize || (page.PageInfo != nil && page.PageInfo.HasNextPage) {
+				scope.note("workflow_page_limit")
+			}
+			return landed, nil
+		}
+		if page.PageInfo == nil {
+			scope.note("workflow_unavailable")
+			return landed, nil
+		}
+		if !page.PageInfo.HasNextPage {
+			return landed, nil
+		}
+		if len(page.Nodes) == 0 || page.PageInfo.EndCursor == nil || *page.PageInfo.EndCursor == "" || (after != nil && *after == *page.PageInfo.EndCursor) {
+			scope.note("workflow_cursor")
+			return landed, nil
+		}
+		after = page.PageInfo.EndCursor
 	}
-	if len(ids) == 0 {
-		return []workflowLandedPR{}, nil
-	}
-	return c.fetchWorkflowLandedByIDs(ctx, ids)
 }
+
+const workflowCandidateCap = 25
 
 func safeLabelNodes(labels *struct {
 	Nodes []struct {
@@ -128,7 +169,7 @@ func safeLabelNodes(labels *struct {
 	return labels.Nodes
 }
 
-func (c *GitHubClient) fetchWorkflowLandedByIDs(ctx context.Context, ids []string) ([]workflowLandedPR, error) {
+func (c *GitHubClient) fetchWorkflowLandedByIDs(ctx context.Context, ids []string, scopes ...*collectionScope) ([]workflowLandedPR, error) {
 	var result struct {
 		Nodes []workflowPRNode `json:"nodes"`
 	}
@@ -148,6 +189,7 @@ func (c *GitHubClient) fetchWorkflowLandedByIDs(ctx context.Context, ids []strin
   }
 }`
 	if err := c.graphql(ctx, query, map[string]any{"ids": ids}, &result); err != nil {
+		sourceScope(scopes).note("workflow_unavailable")
 		return []workflowLandedPR{}, nil
 	}
 	landed := []workflowLandedPR{}

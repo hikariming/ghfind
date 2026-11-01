@@ -1,4 +1,9 @@
-from ghfind._score import score
+from ghfind._risk import assess_risk
+
+
+def score(m):
+    assessment, notes, flags, penalty = assess_risk(m)
+    return dict(risk_assessment=assessment, risk_notes=notes, red_flags=flags, total_penalty=penalty)
 
 
 def _base(**over):

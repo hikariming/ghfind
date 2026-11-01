@@ -199,7 +199,7 @@ func runPortableAPIContractWithTransport(t *testing.T, ctx context.Context, stor
 	}
 	call(0, "GET", "/api/feed/projects", nil, 401)
 	tags, _, err := store.ListFeedTags(ctx)
-	if err != nil || len(tags) != 13 {
+	if err != nil || len(tags) != 17 {
 		t.Fatalf("unapproved taxonomy: %d %v", len(tags), err)
 	}
 	page := func(path string) feedProjectsResponse {

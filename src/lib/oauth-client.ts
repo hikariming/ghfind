@@ -1,17 +1,31 @@
 "use client";
 
-/** Start the Go-owned GitHub OAuth redirect without depending on NextAuth. */
-export function signInWithGitHub(callbackUrl?: string): void {
+import type { LoginProvider } from "@/lib/me-client";
+
+/** Start the server-owned provider flow; tokens stay outside the browser. */
+export function signInWithProvider(provider: LoginProvider, callbackUrl?: string): void {
   if (typeof window === "undefined") return;
-  const target = callbackUrl ?? window.location.href;
-  window.location.assign(`/api/auth/github?callbackUrl=${encodeURIComponent(target)}`);
+  const target = new URL(callbackUrl ?? window.location.href, window.location.origin);
+  target.searchParams.delete("auth_error");
+  window.location.assign(`/api/auth/${provider}?callbackUrl=${encodeURIComponent(target.href)}`);
 }
 
-/** End the Go-owned signed session and return to the public home page. */
-export async function signOutOfGitHub(): Promise<void> {
+/** GitHub-specific features intentionally retain this explicit entry point. */
+export function signInWithGitHub(callbackUrl?: string): void {
+  signInWithProvider("github", callbackUrl);
+}
+
+/** End every provider session and return to the public home page. */
+export async function signOut(): Promise<boolean> {
   try {
-    await fetch("/api/auth/signout", { method: "POST", credentials: "same-origin" });
-  } finally {
+    const response = await fetch("/api/auth/signout", { method: "POST", credentials: "same-origin", signal: AbortSignal.timeout(10_000) });
+    if (!response.ok) return false;
     if (typeof window !== "undefined") window.location.assign("/");
+    return true;
+  } catch {
+    return false;
   }
 }
+
+/** Compatibility alias for existing GitHub feature surfaces. */
+export const signOutOfGitHub = signOut;

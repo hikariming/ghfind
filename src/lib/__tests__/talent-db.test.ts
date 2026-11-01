@@ -41,14 +41,10 @@ const publishedRow = {
 
 it("lists only published talents, mapped to the directory shape", async () => {
   vi.stubEnv("TURSO_DATABASE_URL", "file:test.db");
-  client.execute.mockResolvedValueOnce({ rows: [] }); // ensureSchema DDL
-  client.execute.mockResolvedValueOnce({ rows: [] }); // ensureSchema i18n ALTER
-  client.execute.mockResolvedValueOnce({ rows: [] }); // ensureSchema official_tags ALTER
-  client.execute.mockResolvedValueOnce({ rows: [] }); // ensureSchema pinned ALTER
-  client.execute.mockResolvedValueOnce({ rows: [] }); // ensureSchema corner_tag ALTER
+  mockSchema();
   client.execute.mockResolvedValueOnce({ rows: [{ ...publishedRow, ghfind_score: 94.2 }, { ...publishedRow, id: "x", status: "pending" }] });
   const talents = await listPublishedTalents();
-  expect(client.execute.mock.calls[5][0].sql).toContain("status = 'published'");
+  expect(client.execute.mock.calls[SCHEMA_CALLS][0].sql).toContain("status = 'published'");
   expect(talents).toHaveLength(2);
   const [talent] = talents;
   expect(talent.name).toBe("梁博文 (Bowen Liang)");
@@ -59,6 +55,21 @@ it("lists only published talents, mapped to the directory shape", async () => {
   expect(talents[1].score).toBeNull();
   expect(talent.tags).toEqual(["后端 / 基础设施", "Java", "Python"]);
   expect(talent.pending).toBeUndefined();
+  expect(talent.avatarUrl).toBeUndefined();
+});
+
+it("maps only https avatar URLs", async () => {
+  vi.stubEnv("TURSO_DATABASE_URL", "file:test.db");
+  mockSchema();
+  client.execute.mockResolvedValueOnce({
+    rows: [
+      { ...publishedRow, id: "a", avatar_url: "https://assets.ghfind.com/talent/a.jpg" },
+      { ...publishedRow, id: "b", avatar_url: "javascript:alert(1)" },
+      { ...publishedRow, id: "c", avatar_url: "http://example.com/c.jpg" },
+    ],
+  });
+  const talents = await listPublishedTalents();
+  expect(talents.map((t) => t.avatarUrl)).toEqual(["https://assets.ghfind.com/talent/a.jpg", undefined, undefined]);
 });
 
 it("overlays English content for non-zh locales and falls back per field", async () => {
@@ -73,11 +84,7 @@ it("overlays English content for non-zh locales and falls back per field", async
     resetTalentDbForTests();
     vi.clearAllMocks();
     vi.stubEnv("TURSO_DATABASE_URL", "file:test.db");
-    client.execute.mockResolvedValueOnce({ rows: [] });
-    client.execute.mockResolvedValueOnce({ rows: [] });
-    client.execute.mockResolvedValueOnce({ rows: [] });
-    client.execute.mockResolvedValueOnce({ rows: [] });
-    client.execute.mockResolvedValueOnce({ rows: [] });
+    mockSchema();
     client.execute.mockResolvedValueOnce({ rows: [i18nRow] });
     const [talent] = await listPublishedTalents(locale);
     expect(talent.role).toBe(expectEn ? "Apache Kyuubi PMC member" : "Apache Kyuubi PMC 成员");
@@ -90,11 +97,7 @@ it("overlays English content for non-zh locales and falls back per field", async
 
 it("stores intake submissions as pending without leaking non-public fields", async () => {
   vi.stubEnv("TURSO_DATABASE_URL", "file:test.db");
-  client.execute.mockResolvedValueOnce({ rows: [] }); // ensureSchema DDL
-  client.execute.mockResolvedValueOnce({ rows: [] }); // ensureSchema i18n ALTER
-  client.execute.mockResolvedValueOnce({ rows: [] }); // ensureSchema official_tags ALTER
-  client.execute.mockResolvedValueOnce({ rows: [] }); // ensureSchema pinned ALTER
-  client.execute.mockResolvedValueOnce({ rows: [] }); // ensureSchema corner_tag ALTER
+  mockSchema();
   client.execute.mockResolvedValueOnce({ rows: [], rowsAffected: 1 });
   await createPendingTalent({
     id: "intake-1",
@@ -117,15 +120,18 @@ it("stores intake submissions as pending without leaking non-public fields", asy
     available: false,
     publicFields: { email: "hello@example.com" },
   });
-  const insert = client.execute.mock.calls[5][0];
+  const insert = client.execute.mock.calls[SCHEMA_CALLS][0];
   expect(insert.sql).toContain("'pending'");
   expect(insert.args[1]).toBe("Alias");
   expect(JSON.stringify(insert.args)).toContain("hello@example.com");
   expect(JSON.stringify(insert.args)).not.toContain("projectDescription");
 });
 
+/** ensureSchema: CREATE TABLE + one best-effort ALTER per migrated column. */
+const SCHEMA_CALLS = 6;
+
 function mockSchema() {
-  for (let i = 0; i < 5; i++) client.execute.mockResolvedValueOnce({ rows: [] });
+  for (let i = 0; i < SCHEMA_CALLS; i++) client.execute.mockResolvedValueOnce({ rows: [] });
 }
 
 it("parses field-prefixed query tokens into targeted LIKE clauses", async () => {
@@ -134,7 +140,7 @@ it("parses field-prefixed query tokens into targeted LIKE clauses", async () => 
   client.execute.mockResolvedValueOnce({ rows: [{ n: 1 }] }); // count
   client.execute.mockResolvedValueOnce({ rows: [{ ...publishedRow, ghfind_score: null }] });
   await listTalentsPage({ query: "技能:Rust 地点:上海 前端" });
-  const selectCall = client.execute.mock.calls[6][0];
+  const selectCall = client.execute.mock.calls[SCHEMA_CALLS + 1][0];
   expect(selectCall.sql).toContain("t.skills_json LIKE ?");
   expect(selectCall.sql).toContain("t.location LIKE ?");
   expect(selectCall.sql).toContain("t.name LIKE ?");
@@ -152,18 +158,14 @@ it("clamps out-of-range pages to the last page", async () => {
   expect(result.page).toBe(1);
   expect(result.pageSize).toBe(24);
   expect(result.hasMore).toBe(false);
-  const selectCall = client.execute.mock.calls[6][0];
+  const selectCall = client.execute.mock.calls[SCHEMA_CALLS + 1][0];
   expect(selectCall.args[selectCall.args.length - 2]).toBe(24); // LIMIT
   expect(selectCall.args[selectCall.args.length - 1]).toBe(24); // OFFSET = safePage * pageSize
 });
 
 it("rejects name-less intake submissions", async () => {
   vi.stubEnv("TURSO_DATABASE_URL", "file:test.db");
-  client.execute.mockResolvedValueOnce({ rows: [] });
-  client.execute.mockResolvedValueOnce({ rows: [] });
-  client.execute.mockResolvedValueOnce({ rows: [] });
-  client.execute.mockResolvedValueOnce({ rows: [] });
-  client.execute.mockResolvedValueOnce({ rows: [] });
+  mockSchema();
   await expect(
     createPendingTalent({ id: "x", name: "  " } as never),
   ).rejects.toThrow("name");
@@ -175,7 +177,7 @@ it("expands categories to direction sets and matches official tags", async () =>
   client.execute.mockResolvedValueOnce({ rows: [{ n: 0 }] });
   client.execute.mockResolvedValueOnce({ rows: [] });
   await listTalentsPage({ category: "infra", tag: "dsh内测用户" });
-  const selectCall = client.execute.mock.calls[6][0];
+  const selectCall = client.execute.mock.calls[SCHEMA_CALLS + 1][0];
   expect(selectCall.sql).toContain("t.direction IN (?, ?, ?)");
   expect(selectCall.args).toContain("后端与基础设施");
   expect(selectCall.sql).toContain("t.official_tags_json LIKE ?");

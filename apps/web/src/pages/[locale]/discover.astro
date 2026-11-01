@@ -1,0 +1,18 @@
+---
+import Base from "../../layouts/Base.astro";
+import { DiscoverIsland } from "../../islands/DiscoverIsland";
+import { getMessages, getTranslator, pickMessages, routeLocale } from "../../lib/i18n";
+import { loadDiscoverPage } from "@/lib/pages/discover";
+
+const locale = routeLocale(Astro.params.locale);
+if (!locale) return new Response(null, { status: 404 });
+const [t, messages, { cards, board, nextOffset }] = await Promise.all([
+  getTranslator(locale, "discover"),
+  getMessages(locale),
+  loadDiscoverPage(locale),
+]);
+Astro.response.headers.set("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
+---
+<Base locale={locale} path="/discover" title={t("metaTitle")} description={t("metaDescription")}>
+  <DiscoverIsland client:load locale={locale} initialCards={cards} initialBoard={board} initialOffset={nextOffset} intl={{ locale, pathname: "/discover", search: Astro.url.search, messages: pickMessages(messages, ["discover"]) }} />
+</Base>

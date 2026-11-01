@@ -17,8 +17,8 @@ const ROAST_META_HEADER = "x-roast-meta";
 const FRAME = "\x1f";
 const DEFAULT_HOST = "https://ghfind.com";
 const GITHUB_API = "https://api.github.com";
-const SCAN_JOB_TIMEOUT_MS = 75_000;
-const SCAN_JOB_POLL_MS = 1_000;
+const SCAN_JOB_TIMEOUT_MS = 180_000;
+const SCAN_JOB_POLL_MS = 5_000;
 
 export type FetchLike = (
   input: string,
@@ -171,16 +171,40 @@ export class GhFind {
 
   private async pollScanJob(location: string): Promise<ScanResult> {
     const deadline = Date.now() + SCAN_JOB_TIMEOUT_MS;
-    let last: { status?: { state?: string; error?: string }; result?: ScanResult } | null = null;
+    let last: {
+      error?: string;
+      status?: { state?: string; error?: string };
+      result?: ScanResult;
+      metrics?: unknown;
+      scoring?: unknown;
+    } | null = null;
+    let interval = SCAN_JOB_POLL_MS;
     for (;;) {
       const res = await this.fetchImpl(this.absoluteURL(location), { method: "GET" });
-      if (!res.ok) await this.readError(res);
-      const payload = (await res.json()) as {
-        status?: { state?: string; error?: string };
-        result?: ScanResult;
-      };
+      const payload = (await res.json()) as NonNullable<typeof last>;
       last = payload;
-      if (payload.result) return payload.result;
+      const nested = payload.result;
+      const done =
+        nested && nested.metrics && nested.scoring
+          ? nested
+          : payload.metrics && payload.scoring
+            ? (payload as ScanResult)
+            : null;
+      if (res.status === 200 && done) return done;
+      if (res.status === 202) {
+        const retryAfter = Number(res.headers.get("retry-after") ?? res.headers.get("Retry-After"));
+        if (Number.isFinite(retryAfter) && retryAfter > 0) interval = Math.min(retryAfter, 30) * 1000;
+        if (Date.now() >= deadline) break;
+        await sleep(interval);
+        continue;
+      }
+      if (!res.ok) {
+        throw new GhFindError(typeof payload.error === "string" ? payload.error : "scan_status_unavailable", {
+          status: res.status,
+          code: (typeof payload.error === "string" && payload.error) || payload.status?.error || null,
+          body: payload,
+        });
+      }
       if (payload.status?.state === "failed") {
         throw new GhFindError("Scan job failed", {
           status: res.status,
@@ -188,15 +212,14 @@ export class GhFind {
           body: payload,
         });
       }
-      if (Date.now() >= deadline) {
-        throw new GhFindError("Scan job timed out", {
-          status: 202,
-          code: "scan_timeout",
-          body: last,
-        });
-      }
-      await sleep(SCAN_JOB_POLL_MS);
+      if (Date.now() >= deadline) break;
+      await sleep(interval);
     }
+    throw new GhFindError("Scan job timed out", {
+      status: 202,
+      code: "scan_timeout",
+      body: last,
+    });
   }
 
   // ---- GitHub existence check (client-side; does NOT touch ghfind) -----------

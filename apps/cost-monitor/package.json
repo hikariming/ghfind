@@ -1,0 +1,16 @@
+{
+  "name": "@ghfind/cost-monitor",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "types": "wrangler types --env production --include-runtime false",
+    "build": "wrangler deploy --dry-run --env production",
+    "e2e": "node ../../scripts/cost-monitor-e2e.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260929.1",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.143.0"
+  }
+}

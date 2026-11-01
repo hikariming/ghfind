@@ -24,6 +24,7 @@ const projection = (
   name: "repository",
   canonicalUrl: "https://github.com/project-owner/repository",
   summary: `Summary ${version}`,
+  discoverHook: `Hook ${version}`,
   painStatement: "A verified problem.",
   targetUsers: ["developers"],
   language: "Go",
@@ -46,6 +47,9 @@ const projection = (
   publishable: true,
   blockedReason: "",
   riskOverrideEligible: false,
+  discoverScore: 84,
+  discoverBand: "worth_a_look",
+  discoverScoreVersion: "discover-score-v1.1",
   productTags: [
     {
       namespace: "use_case",
@@ -241,6 +245,14 @@ describe("D1 discrete job leases and ordered projection", () => {
       source_kind: "agent_submission",
       source_version: 1,
     });
+    const shadow = await env.FEED_DB.prepare(
+      "SELECT discover_score,discover_band,discover_score_version FROM feed_projects",
+    ).first();
+    expect(shadow).toEqual({
+      discover_score: 84,
+      discover_band: "worth_a_look",
+      discover_score_version: "discover-score-v1.1",
+    });
     const tags = await env.FEED_DB.prepare(
       "SELECT tag_id FROM feed_project_tags ORDER BY tag_id",
     ).all();
@@ -256,7 +268,7 @@ describe("D1 discrete job leases and ordered projection", () => {
       (await env.FEED_DB.prepare(
         "SELECT COUNT(*) AS n FROM feed_tag_definitions",
       ).first<{ n: number }>())!.n,
-    ).toBe(13);
+    ).toBe(17);
     const available = await success<{ available: Record<string, boolean> }>(
       "projects.available",
       { githubId: 1, repoKeys: [e.aggregateKey] },
@@ -370,7 +382,7 @@ describe("user tag proposal contract", () => {
       (await env.FEED_DB.prepare(
         "SELECT COUNT(*) AS n FROM feed_tag_definitions",
       ).first<{ n: number }>())!.n,
-    ).toBe(13);
+    ).toBe(17);
   });
   it("does not overwrite evidence or elevate an existing reviewed proposal", async () => {
     const input = await setup();

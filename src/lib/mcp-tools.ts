@@ -1,3 +1,5 @@
+import { scanCoverage } from "@/lib/scan-coverage";
+import { scheduleFullScanIfNeeded } from "@/lib/scan-background-refresh";
 /** Shared deterministic MCP tool implementations. */
 import { getAccountDetail, publishCompleteQuickScan, searchScoredUsers } from "@/lib/db";
 import { getPercentileCached, getRankCached } from "@/lib/rank";
@@ -7,6 +9,7 @@ import type { LeaderboardWindow } from "@/lib/db";
 import { coalesceScan, getCachedScan } from "@/lib/redis";
 import { buildScanResult, scanErrorResponse } from "@/lib/scan-core";
 import { SCORE_CACHE_VERSION } from "@/lib/cache-version";
+import { isPublicScoreVersion } from "@/lib/release-versions";
 import { PUBLIC_SCAN_COLLECTION_VERSION } from "@/lib/scan-run-types";
 import { normalizeUsername } from "@/lib/username";
 import { beatPercent } from "@/lib/percentile";
@@ -33,12 +36,13 @@ async function quickScan(handle: string): Promise<ScanResult> {
   if (!(await publishCompleteQuickScan(scan))) {
     throw new Error("score persistence unavailable");
   }
+  scheduleFullScanIfNeeded(scan);
   return scan;
 }
 
 function isCanonicalDetail(detail: NonNullable<Awaited<ReturnType<typeof getAccountDetail>>>): boolean {
   return (
-    detail.score_version === SCORE_CACHE_VERSION &&
+    isPublicScoreVersion(detail.score_version) &&
     detail.score_source_collection_version === PUBLIC_SCAN_COLLECTION_VERSION &&
     typeof detail.score_source_snapshot_hash === "string" &&
     /^[a-f0-9]{64}$/.test(detail.score_source_snapshot_hash)
@@ -68,7 +72,7 @@ export async function scoreUser(
   if (detail && isCanonicalDetail(detail)) {
     return {
       source: "indexed",
-      coverage: "quick",
+      coverage: detail.scan_coverage ?? "quick",
       stale: detail.score_version !== SCORE_CACHE_VERSION,
       username: detail.username,
       display_name: detail.display_name,
@@ -94,7 +98,7 @@ export async function scoreUser(
     const tier = scoring.tier as Tier;
     return {
       source: "quick",
-      coverage: "quick",
+      coverage: scanCoverage(result),
       username: metrics.username,
       display_name: metrics.name,
       final_score: scoring.final_score,

@@ -1,4 +1,4 @@
-.page { --talent-green: #89b69a; --talent-tint: #202e25; --talent-gold: #e3c15f; --talent-gold-tint: rgba(227,193,95,.12); --talent-gold-border: rgba(227,193,95,.38); --talent-gold-a: #f0d586; --talent-gold-b: #c1912a; max-width: 1280px; margin: auto; padding: 27px 44px 64px; }
+.page { --talent-green: #89b69a; --talent-tint: #202e25; --talent-gold: #e3c15f; --talent-gold-tint: rgba(227,193,95,.12); --talent-gold-border: rgba(227,193,95,.38); --talent-gold-a: #f0d586; --talent-gold-b: #c1912a; width: 100%; max-width: 1280px; margin: auto; padding: 27px 44px 64px; }
 :global(html[data-theme='light']) .page { --talent-green: #48745a; --talent-tint: #edf4ee; --talent-gold: #8a6d1a; --talent-gold-tint: rgba(160,124,26,.1); --talent-gold-border: rgba(160,124,26,.42); --talent-gold-a: #e9c664; --talent-gold-b: #b8892a; }
 .topline { display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--muted-foreground); }
 .topline strong { color:var(--foreground); font-weight:500; }.slash { margin:0 12px; opacity:.4; }
@@ -147,4 +147,14 @@
   .collectionGrid::-webkit-scrollbar { display:none; }
   .collectionCard { flex:0 0 78%; scroll-snap-align:start; }
   .sectionGrid { grid-template-columns:1fr; }
+}
+
+/* Keep the directory within the shared page boundaries. */
+@media(min-width:900px) {
+  .page { padding-inline: clamp(28px, 3vw, 56px); }
+  .hero h1 { font-size: clamp(40px, 3.45vw, 56px); }
+  .hero > p { font-size: 16px; }
+  .topline, .people, .primary, .secondary, .tabs button, .search input { font-size: 14px; }
+  .preview, .sessionHint { font-size: 12px; }
+  .search input { height: 48px; }
 }

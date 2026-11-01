@@ -2,6 +2,7 @@ package backend
 
 import (
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -40,6 +41,77 @@ func TestScoreMatchesCanonicalNodeFixtures(t *testing.T) {
 				t.Fatalf("invalid v10 risk output: %#v", got.RiskAssessment)
 			}
 		})
+	}
+}
+
+func ptrFloat(value float64) *float64 { return &value }
+
+func TestOwnPRCommunityCredit(t *testing.T) {
+	m := neutralRiskMetrics()
+	m.MergedPRCount = 200
+	m.OwnPRCommunity = ptrFloat(1)
+	if got := ownPRCommunityCredit(m); got != 0 {
+		t.Fatalf("missing external_merged_pr_count must keep v10: got %v", got)
+	}
+
+	zero := 0.0
+	m.ExternalMergedPRCount = &zero
+	m.OwnPRCommunity = ptrFloat(0)
+	if got := ownPRCommunityCredit(m); got != 0 {
+		t.Fatalf("A=0 must add nothing: got %v", got)
+	}
+
+	m.OwnPRCommunity = ptrFloat(1)
+	if got := ownPRCommunityCredit(m); got != 6 {
+		t.Fatalf("saturated own PRs with A=1: got %v want 6", got)
+	}
+
+	lift := m
+	lift.MergedPRCount = 50
+	lift.TotalPRCount = 55
+	without := lift
+	without.OwnPRCommunity = nil
+	v10 := Score(without)
+	v13 := Score(lift)
+	if v13.SubScores.ContributionQuality <= v10.SubScores.ContributionQuality {
+		t.Fatalf("community credit must raise contribution quality: v10=%v v13=%v", v10.SubScores.ContributionQuality, v13.SubScores.ContributionQuality)
+	}
+	if v13.FinalScore <= v10.FinalScore || v13.FinalScore-v10.FinalScore > 6 {
+		t.Fatalf("v13 must not decrease or spike: v10=%v v13=%v", v10.FinalScore, v13.FinalScore)
+	}
+	capped := Score(m)
+	m.OwnPRCommunity = nil
+	if capped.FinalScore < Score(m).FinalScore {
+		t.Fatalf("capped community credit must not decrease: v10=%v v13=%v", Score(m).FinalScore, capped.FinalScore)
+	}
+	m.OwnPRCommunity = ptrFloat(1)
+
+	m.MergedPRCount = 400
+	m.OwnPRCommunity = ptrFloat(0.5)
+	if got := ownPRCommunityCredit(m); got != 3 {
+		t.Fatalf("A=0.5 saturates at 3: got %v", got)
+	}
+
+	m.MergedPRCount = 50
+	external := 40.0
+	m.ExternalMergedPRCount = &external
+	m.OwnPRCommunity = ptrFloat(1)
+	want := LogRatio(10, 200) * 6
+	if got := ownPRCommunityCredit(m); math.Abs(got-want) > 1e-9 {
+		t.Fatalf("partial own volume: got %v want %v", got, want)
+	}
+}
+
+func TestPublicScoreReadOrder(t *testing.T) {
+	if publicScoreVersionClause("score_version") != "score_version IN (?, ?, ?, ?, ?, ?, ?, ?)" {
+		t.Fatalf("clause=%q", publicScoreVersionClause("score_version"))
+	}
+	args := publicScoreVersionArgs()
+	if len(args) != 8 || args[0] != "v19" || args[1] != "v18" || args[2] != "v17" || args[3] != "v16" || args[4] != "v15" || args[5] != "v14" || args[6] != "v13" || args[7] != "v10" {
+		t.Fatalf("args=%v", args)
+	}
+	if !isPublicScoreVersion("v14") || !isPublicScoreVersion("v13") || !isPublicScoreVersion("v10") || isPublicScoreVersion("v12") {
+		t.Fatal("v14 and leftover v13 are public; retired v12 is not")
 	}
 }
 
@@ -109,5 +181,38 @@ func TestScanResultJSONHonorsNodeNullSemantics(t *testing.T) {
 		if _, isArray := value.([]any); !isArray {
 			t.Errorf("required array %q serialized as %T, want JSON array", array, value)
 		}
+	}
+}
+
+func TestV10RiskBreakdownAtTwentyFivePointCap(t *testing.T) {
+	m := neutralRiskMetrics()
+	m.NonemptyOriginalRepoCount = 0
+	m.Following, m.Followers = 5000, 1
+	m.PRFloodSuspect, m.StarInflationSuspect = true, true
+	m.TopRepoPRShare, m.TemplatedPRRatio = 1, 1
+	m.RecentMergedPRSample, m.ExternalTrivialPRCount = 30, 30
+	got := Score(m)
+	if got.RiskAssessment.Version != "v10" || got.TotalPenalty < 0 || got.TotalPenalty > 25 {
+		t.Fatalf("invalid v10 cap: %#v", got)
+	}
+	detail := &ProfileDetail{SubScores: got.SubScores, FinalScore: got.FinalScore}
+	if !validProfileScoring(&got, detail) {
+		t.Fatal("v10 score lost its complete profile breakdown")
+	}
+	encoded, err := json.Marshal(got.RiskAssessment)
+	if err != nil || parseRiskAssessment(string(encoded)) == nil {
+		t.Fatal("stored v10 risk assessment was rejected")
+	}
+	got.TotalPenalty = 40
+	got.RiskAssessment.AppliedPenalty = 40
+	got.RiskAssessment.RiskScore = 100
+	if validProfileScoring(&got, detail) {
+		t.Fatal("v10 must keep the 25-point cap")
+	}
+}
+
+func TestScanCacheSeparatesDerivedImpactVersions(t *testing.T) {
+	if scanCacheKey(" fixture-account-045 ") != "scan:v19:v8:fixture-account-045" || scanFlightKey(" fixture-account-045 ") != "lock:scan:v19:v8:fixture-account-045" {
+		t.Fatal("derived-impact cache must isolate score v19 and collection v8")
 	}
 }

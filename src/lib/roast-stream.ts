@@ -8,6 +8,7 @@
  * so the homepage `Roaster` and the profile-page `LiveRoast` decode it
  * identically. Framework-free (no React) — callers wire the callbacks to state.
  */
+import type { RoastGenerator } from "./roast-progress";
 import type { RoastMeta } from "./types";
 
 const FRAME = "\x1f";
@@ -47,6 +48,18 @@ export interface RoastStreamCallbacks {
     useByoKey?: boolean;
     fallback?: { report?: string; meta?: RoastMeta };
   }): void;
+  /** X-Roast-Generator, when the server names the copy chain for this response. */
+  onGenerator?(generator: RoastGenerator): void;
+  /**
+   * Epoch ms the durable job started (X-Roast-Started-At, or an S-frame).
+   * The ring resumes from this instead of the moment the page attached.
+   */
+  onStarted?(startedAtMs: number): void;
+}
+
+export function readRoastGeneratorHeader(value: string | null): RoastGenerator | null {
+  const token = value?.trim().toLowerCase();
+  return token === "v12" || token === "v13" ? token : null;
 }
 
 /**
@@ -63,6 +76,11 @@ export async function consumeRoastStream(
   res: Response,
   cb: RoastStreamCallbacks,
 ): Promise<{ report: string; errored: boolean; fresh: boolean }> {
+  const generator = readRoastGeneratorHeader(res.headers.get("X-Roast-Generator"));
+  if (generator) cb.onGenerator?.(generator);
+  const startedHeader = Number(res.headers.get("X-Roast-Started-At"));
+  if (Number.isFinite(startedHeader) && startedHeader > 0) cb.onStarted?.(startedHeader);
+
   const metaHeader = res.headers.get("X-Roast-Meta");
   if (metaHeader) {
     const meta = decodeRoastMeta(metaHeader);
@@ -81,46 +99,87 @@ export async function consumeRoastStream(
   // (cache/archive/single-flight follower) are pure markdown with no frames.
   let fresh = false;
 
+  const emitError = (payload: string) => {
+    try {
+      cb.onError?.(JSON.parse(payload));
+    } catch {
+      cb.onError?.({});
+    }
+  };
+
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
     buf += decoder.decode(value, { stream: true });
 
-    while (!inReport && buf.length > 0) {
-      // Anything not starting with the frame separator is report content.
-      if (buf[0] !== FRAME) {
-        inReport = true;
+    while (!aborted && buf.length > 0) {
+      if (!inReport) {
+        // Anything not starting with the frame separator is report content.
+        if (buf[0] !== FRAME) {
+          inReport = true;
+          continue;
+        }
+        const nl = buf.indexOf("\n");
+        if (nl === -1) break; // partial control line — wait for more bytes
+        const type = buf[1];
+        const payload = buf.slice(2, nl);
+        buf = buf.slice(nl + 1);
+        if (type === "T") {
+          fresh = true;
+          cb.onThinking?.(payload);
+        } else if (type === "S") {
+          fresh = true;
+          const startedAt = Number(payload);
+          if (Number.isFinite(startedAt) && startedAt > 0) cb.onStarted?.(startedAt);
+        } else if (type === "M") {
+          fresh = true;
+          const meta = decodeRoastMeta(payload);
+          if (meta) cb.onMeta?.(meta);
+          inReport = true;
+        } else if (type === "E") {
+          emitError(payload);
+          buf = "";
+          aborted = true;
+        }
+        continue;
+      }
+
+      const frameStart = buf.indexOf(FRAME);
+      if (frameStart === -1) {
+        acc += buf;
+        buf = "";
+        cb.onReport?.(acc);
         break;
       }
+      if (frameStart > 0) {
+        acc += buf.slice(0, frameStart);
+        buf = buf.slice(frameStart);
+        cb.onReport?.(acc);
+      }
+
+      // E-frames remain terminal even after M has switched the stream to report
+      // mode: generation or persistence can fail after the report has started.
       const nl = buf.indexOf("\n");
-      if (nl === -1) break; // partial control line — wait for more bytes
-      const type = buf[1];
-      const payload = buf.slice(2, nl);
-      buf = buf.slice(nl + 1);
-      if (type === "T") {
-        fresh = true;
-        cb.onThinking?.(payload);
-      } else if (type === "M") {
-        fresh = true;
-        const meta = decodeRoastMeta(payload);
-        if (meta) cb.onMeta?.(meta);
-        inReport = true;
-      } else if (type === "E") {
-        try {
-          cb.onError?.(JSON.parse(payload));
-        } catch {
-          cb.onError?.({});
-        }
+      if (nl === -1) break; // partial late error frame — wait for more bytes
+      if (buf[1] === "E") {
+        emitError(buf.slice(2, nl));
+        buf = "";
         aborted = true;
         break;
       }
-    }
-    if (aborted) break;
-    if (inReport && buf) {
-      acc += buf;
-      buf = "";
+
+      // The separator is reserved for control frames. Preserve an unexpected
+      // non-E frame as report text rather than silently dropping user-visible data.
+      acc += buf[0];
+      buf = buf.slice(1);
       cb.onReport?.(acc);
     }
+    if (aborted) break;
+  }
+
+  if (!aborted && buf) {
+    acc += buf;
+    cb.onReport?.(acc);
   }
 
   return { report: acc, errored: aborted, fresh };

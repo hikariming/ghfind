@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getPost, getPostSlugs } from "@/lib/blog";
-import { getCollection, getCollectionSlugs } from "@/lib/collections";
+import { listCollections } from "@/lib/collections";
 import type { FacetType } from "@/lib/facets";
 import { getGoFacetCategories } from "@/lib/go-developers.server";
 import { getGoSitemapInventory } from "@/lib/go-sitemap.server";
@@ -59,6 +59,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entry("/docs", { changeFrequency: "weekly", priority: 0.8 }),
     entry("/methodology", { changeFrequency: "monthly", priority: 0.7 }),
     entry("/about", { changeFrequency: "monthly", priority: 0.5 }),
+    entry("/jobs", { changeFrequency: "daily", priority: 0.6 }),
     entry("/contact", { changeFrequency: "monthly", priority: 0.4 }),
     entry("/github-bot", { changeFrequency: "monthly", priority: 0.5 }),
     entry("/sponsor", { changeFrequency: "monthly", priority: 0.4 }),
@@ -70,7 +71,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // (fallback pages canonicalize onto en anyway, so a missing translation only
   // costs an extra hreflang hint, never a duplicate-content page).
   const blogRoutes: MetadataRoute.Sitemap = [
-    entry("/blog", { changeFrequency: "weekly", priority: 0.7 }),
     ...getPostSlugs().map((slug) => {
       const post = getPost(slug, "en");
       return entry(`/blog/${slug}`, {
@@ -81,17 +81,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }),
   ];
 
-  // Curated collections: synchronous fs reads, same shape as blog posts.
+  // Curated collections (D1), same shape as blog posts. A failed read only
+  // drops the detail URLs from this response, never the whole sitemap.
+  const collections = await withTimeout(
+    listCollections().catch((error: unknown) => {
+      console.error("sitemap: listCollections failed:", error);
+      return [];
+    }),
+    PROFILE_QUERY_TIMEOUT_MS,
+    [],
+  );
   const collectionRoutes: MetadataRoute.Sitemap = [
     entry("/collections", { changeFrequency: "weekly", priority: 0.8 }),
-    ...getCollectionSlugs().map((slug) => {
-      const collection = getCollection(slug);
-      return entry(`/collections/${slug}`, {
-        lastModified: collection ? new Date(collection.publishedAt) : undefined,
+    ...collections.map((collection) =>
+      entry(`/collections/${collection.slug}`, {
+        lastModified: new Date(collection.publishedAt),
         changeFrequency: "weekly",
         priority: 0.7,
-      });
-    }),
+      }),
+    ),
   ];
 
   // Directory buckets (top languages + projects + orgs). Reads the same cached

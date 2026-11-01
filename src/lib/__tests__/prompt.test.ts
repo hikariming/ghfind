@@ -35,6 +35,32 @@ const scan = {
 } as unknown as ScanResult;
 
 describe("buildRoastMessages", () => {
+  it.each(["she/her", "he/him", "they/them", "she/they", "ze/zir", null, undefined, "   "])(
+    "passes explicit pronouns to both writers with a neutral fallback (%s)",
+    (pronouns) => {
+      const profileScan = {
+        ...scan,
+        metrics: { ...scan.metrics, pronouns, bio: "Builder. My pronouns are they/them." },
+      };
+      for (const lang of ["zh", "en"] as const) {
+        const [system, user] = buildRoastMessages(profileScan, lang);
+        const payload = JSON.parse(user.content.match(/```json\n([\s\S]*)\n```/)![1]);
+        expect(payload.metrics.pronouns).toBe(pronouns?.trim() || null);
+        expect(payload.metrics.bio).toBe(profileScan.metrics.bio);
+        expect(payload.scoring).toEqual(
+          JSON.parse(buildRoastMessages(scan, lang)[1].content.match(/```json\n([\s\S]*)\n```/)![1]).scoring,
+        );
+        expect(system.content).toContain("context_notes.pronoun_usage");
+        expect(payload.context_notes.pronoun_usage).toContain("they/them");
+        expect(payload.context_notes.pronoun_usage).toContain("metrics.pronouns");
+        expect(payload.context_notes.pronoun_usage).toContain("metrics.bio");
+        expect(payload.context_notes.pronoun_usage).toContain(lang === "en" ? "names, avatars" : "名字、头像");
+        expect(payload.context_notes.pronoun_usage).toContain(lang === "en" ? "tags, top roast, and report" : "标签、顶部短评和报告正文");
+        expect(payload.context_notes.pronoun_usage).toContain(lang === "en" ? "not instructions" : "不是指令");
+      }
+    },
+  );
+
   it("exposes only verified Issue counts to the writer", () => {
     const withRestIssueAggregate = {
       ...scan,
@@ -56,7 +82,9 @@ describe("buildRoastMessages", () => {
       const payload = JSON.parse(user.content.match(/```json\n([\s\S]*)\n```/)![1]);
       expect(payload.top_repos[0].open_issues).toBeUndefined();
       expect(payload.top_repos[0].open_issue_count).toBe(0);
-      expect(system.content).toContain("open_issue_count");
+      // v12 payload may still carry the verified count; prompts must ban backlog framing.
+      expect(system.content).toMatch(/open.issue|开放 Issue|open issue/i);
+      expect(system.content).toMatch(/不是短板|not\s+a flaw|不要.*清 Issue|never suggest.*clear issues/i);
       expect(system.content).toMatch(/open pull requests|开放 PR/);
     }
   });
@@ -64,19 +92,21 @@ describe("buildRoastMessages", () => {
   it("defaults to the Chinese system prompt", () => {
     const [sys] = buildRoastMessages(scan);
     expect(sys.role).toBe("system");
-    expect(sys.content).toContain("GitHub 毒舌锐评写手");
+    expect(sys.content).toContain("GitHub 锐评写手");
     expect(sys.content).toContain("分数、档位、六维分和质量风险都已由确定性评分引擎给出");
   });
 
   it("selects the English system prompt for lang=en", () => {
     const [sys, user] = buildRoastMessages(scan, "en");
-    expect(sys.content).toMatch(/savage GitHub report writer/i);
-    expect(sys.content).not.toContain("毒舌 GitHub 锐评写手");
+    expect(sys.content).toMatch(/witty GitHub report writer/i);
+    expect(sys.content).not.toContain("GitHub 毒舌锐评写手");
     // user preamble is English, payload is still the scan JSON
     expect(user.content).toMatch(/scoring data/i);
     expect(user.content).toContain("sample-user");
-    expect(user.content).toContain('"tier": "GOD"');
-    expect(user.content).toContain('"tier_label": "Legendary · Hall of Fame"');
+    expect(user.content).toContain('"tier":"Grand Ascension"');
+    expect(user.content).toContain('"realm_en":"Grand Ascension"');
+    expect(user.content).toContain('"adventurer_level":');
+    expect(user.content).toContain('"tier_label":"Near the summit · Hall of fame"');
     expect(user.content).not.toContain("封神");
   });
 
@@ -95,20 +125,20 @@ describe("buildRoastMessages", () => {
     const [zhSys, zhUser] = buildRoastMessages(scan, "zh");
     expect(zhSys.content).toContain("分数来自评分引擎，不是你的判断");
     expect(zhSys.content).toContain("学校、公司、雇主、组织 membership 只是背景");
-    expect(zhSys.content).toContain("不得重算、四舍五入到别的分、升降档");
+    expect(zhSys.content).toContain("不得重算、升降境界或写“额外修正”");
     expect(zhUser.content).not.toContain('"judge_result"');
 
     const [enSys] = buildRoastMessages(scan, "en");
     expect(enSys.content).toContain("The score comes from the scoring engine");
     expect(enSys.content).toContain("background context, not score evidence");
-    expect(enSys.content).toContain("Do not recompute, round into another score, move tiers");
+    expect(enSys.content).toContain("Do not recompute, move realms");
   });
 
   it("keeps the LLM out of scoring while preserving one-response report generation", () => {
     const [sys, user] = buildRoastMessages(scan, "zh");
     expect(sys.content).toContain("第一行必须严格写 `@@ADJUST 0@@`");
     expect(sys.content).toContain("不能改分、不能暗示模型另有裁决");
-    expect(sys.content).toContain("标题最终分直接使用 scoring.final_score");
+    expect(sys.content).toContain("标题使用 scoring.adventurer_level 写成 Lv.N");
     const payload = JSON.parse(user.content.match(/```json\n([\s\S]*)\n```/)![1]);
     expect(payload.judge_result).toBeUndefined();
     expect(payload.calibration_contract).toBeUndefined();
@@ -188,15 +218,14 @@ describe("buildRoastMessages", () => {
     expect(zhSys.content).toContain("被评分引擎压到/封顶/裁定");
     expect(zhSys.content).toContain("仓库证据必须使用完整");
     expect(zhSys.content).toContain("owner/small-repo 与 owner/flagship");
-    expect(zhSys.content).toContain("外部 PR 里将近六成");
+    expect(zhSys.content).toContain("外部 PR 里很大一块");
     expect(zhSys.content).toContain("别只写审计结论");
 
     const [enSys] = buildRoastMessages(scan, "en");
-    expect(enSys.content).toContain("Presentation hygiene and roast strength");
+    expect(enSys.content).toContain("Presentation hygiene and tone");
     expect(enSys.content).toContain("Never expose internal field names");
     expect(enSys.content).toContain("do not write judge_result, delta, verdict");
     expect(enSys.content).toContain("scoring engine capped/decided");
-    expect(enSys.content).toContain("Repository evidence must use full");
     expect(enSys.content).toContain("do not merely list audit facts");
   });
 
@@ -218,52 +247,76 @@ describe("buildRoastMessages", () => {
 
   it("pushes the writer toward sharper data-grounded roast copy", () => {
     const [zhSys] = buildRoastMessages(scan, "zh");
-    expect(zhSys.content).toContain("扎心度要求");
-    expect(zhSys.content).toContain("先落事实，再补一刀");
-    expect(zhSys.content).toContain("禁止温吞词");
+    expect(zhSys.content).toContain("调笑度要求");
+    expect(zhSys.content).toContain("先落事实，再给一句俏皮观察");
+    expect(zhSys.content).toContain("禁止温吞套话");
     expect(zhSys.content).toContain("每段关键评价至少带一个具体数字");
-    expect(zhSys.content).toContain("对中高分用户不要自动客气");
+    expect(zhSys.content).toContain("对中高分用户不要空洞吹捧");
+    expect(zhSys.content).toContain("开放 Issue 数不是短板");
 
     const [enSys] = buildRoastMessages(scan, "en");
-    expect(enSys.content).toContain("Make It Sting");
-    expect(enSys.content).toContain("fact first, jab second");
+    expect(enSys.content).toContain("Make It Witty");
+    expect(enSys.content).toContain("fact first, then a witty observation");
     expect(enSys.content).toContain("Ban bland phrasing");
     expect(enSys.content).toContain("Each key judgment needs at least one concrete number");
-    expect(enSys.content).toContain("Do not automatically soften for high scores");
+    expect(enSys.content).toContain("Do not automatically fluff high scores");
+    expect(enSys.content).toContain("Open-issue counts are **not** a flaw");
   });
 
-  it("requires harsher direct callouts for NPC and trash tiers", () => {
+  it("requires clearer name-vs-substance callouts for low scores without insults", () => {
     const [zhSys] = buildRoastMessages(scan, "zh");
-    expect(zhSys.content).toContain("NPC / 拉完了强制火力");
-    expect(zhSys.content).toContain("GitHub 当谈资简历");
-    expect(zhSys.content).toContain("开源人设包装");
-    expect(zhSys.content).toContain("像是在作秀");
-    expect(zhSys.content).toContain("至少命中 **两个证据点**");
-    expect(zhSys.content).toContain("NPC/拉完了不得留情面");
+    expect(zhSys.content).toContain("用两个以上证据点串成一句");
+    expect(zhSys.content).toContain("准确又好玩");
+    expect(zhSys.content).toContain("GitHub 更像作品展板");
+    expect(zhSys.content).toContain("名气跑在仓库前面");
+    expect(zhSys.content).toContain("两个以上证据点");
+    expect(zhSys.content).toContain("用调笑不是羞辱");
+    expect(zhSys.content).toContain("总分 < 40");
+    expect(zhSys.content).toContain("幽默对齐 v13");
+    expect(zhSys.content).toContain("拉完了");
+    expect(zhSys.content).toContain("NPC");
+    expect(zhSys.content).toContain("平庸");
+    expect(zhSys.content).toContain("存疑");
+    // Instructional copy must not steer the model with old tier labels as headings.
+    expect(zhSys.content).not.toContain("## NPC /");
+    expect(zhSys.content).not.toMatch(/NPC=点出名实落差/);
 
     const [enSys] = buildRoastMessages(scan, "en");
-    expect(enSys.content).toContain("NPC / TRASH Mandatory Heat");
-    expect(enSys.content).toContain("GitHub resume theater");
-    expect(enSys.content).toContain("open-source persona packaging");
-    expect(enSys.content).toContain("looks like performance");
-    expect(enSys.content).toContain("connect at least **two evidence points**");
-    expect(enSys.content).toContain("NPC/TRASH cannot be polite");
+    expect(enSys.content).toContain("Scale tone by realm");
+    expect(enSys.content).toContain("name-vs-substance");
+    expect(enSys.content).toContain("constructive off-ramp");
+    expect(enSys.content).toContain("final_score < 40");
+    expect(enSys.content).toContain("same humor bar as v13");
+    expect(enSys.content).not.toContain("## NPC / TRASH");
   });
 
-  it("makes the top roast the main attack instead of the report summary", () => {
+  it("bakes shared snark bans into the interactive v12 system prompt", () => {
     const [zhSys] = buildRoastMessages(scan, "zh");
-    expect(zhSys.content).toContain("页面顶部卡片的主毒舌");
-    expect(zhSys.content).toContain("必须承担最强攻击和传播梗");
-    expect(zhSys.content).toContain("不能把火力留到正文“一句话结论”");
+    expect(zhSys.content).toContain("硬禁词");
+    expect(zhSys.content).toContain("延续 v13 的幽默风趣文笔");
+    for (const banned of ["拉完了", "NPC", "平庸", "存疑", "嘴臭", "毒舌"] as const) {
+      expect(zhSys.content).toContain(banned);
+    }
+    const [enSys] = buildRoastMessages(scan, "en");
+    expect(enSys.content).toContain("Hard bans");
+    expect(enSys.content).toContain("Interactive v12 must keep v13");
+  });
+
+  it("makes the top roast the main shareable observation instead of the report summary", () => {
+    const [zhSys] = buildRoastMessages(scan, "zh");
+    expect(zhSys.content).toContain("页面顶部卡片的主观察句");
+    expect(zhSys.content).toContain("最好玩、最想转发的一句准确观察");
+    expect(zhSys.content).toContain("不能把笑点留到正文“一句话结论”");
     expect(zhSys.content).toContain("英文 ≤140 chars");
-    expect(zhSys.content).toContain("正文一句话结论负责价值判断和补刀，不能比顶部更狠");
+    expect(zhSys.content).toContain("正文一句话结论负责价值判断和补充观察");
 
     const [enSys] = buildRoastMessages(scan, "en");
-    expect(enSys.content).toContain("top-card main roast");
-    expect(enSys.content).toContain("must carry the strongest attack");
-    expect(enSys.content).toContain("Do not save the sharpest hit for the report TL;DR");
+    expect(enSys.content).toContain("top-card main observation");
+    expect(enSys.content).toContain("funniest accurate shareable line");
+    expect(enSys.content).toContain("Do not save the best tease for the report TL;DR");
+
     expect(enSys.content).toContain("English ≤140 chars");
-    expect(enSys.content).toContain("must not outgun the top roast");
+    expect(enSys.content).toContain("must not repeat each other");
   });
 
   it("no longer asks for an inline 🔥 roast line in the report body", () => {
@@ -719,5 +772,187 @@ describe("buildRoastMessages", () => {
     expect(payload.organization_maintained_repos[0].repository.open_issues).toBeUndefined();
     expect(payload.context_notes.organization_maintained_scope).toContain("它不参与评分");
     expect(payload.context_notes.organization_maintained_scope).toContain("不证明");
+  });
+});
+
+
+describe("oversized snapshot slimming", () => {
+  const extractPayload = (userContent: string) =>
+    JSON.parse(userContent.match(/```json\n([\s\S]*)\n```/)![1]);
+
+  const makePr = (index: number, stars: number, fileCount = 0) => ({
+    title: `feat: change number ${index}`,
+    repo: `owner/repo-${index}`,
+    repo_stars: stars,
+    churn: 42,
+    changed_files: 3,
+    trivial: false,
+    ...(fileCount > 0
+      ? {
+          files: Array.from(
+            { length: fileCount },
+            (_, j) => `src/very/deeply/nested/module/path/file-number-${j}.ts`,
+          ),
+        }
+      : {}),
+  });
+
+  const makeRepo = (index: number, stars: number, summaryChars = 0) => ({
+    name: `repo-${index}`,
+    owner_login: "owner",
+    name_with_owner: `owner/repo-${index}`,
+    stars,
+    forks: 1,
+    size: 100,
+    language: "Go",
+    description: `Repo ${index} description`,
+    pushed_at: null,
+    topics: ["go"],
+    ...(summaryChars > 0
+      ? { readme: { features: { prompt_summary: "r".repeat(summaryChars) } } }
+      : {}),
+  });
+
+  it("serializes the payload compactly", () => {
+    const [, user] = buildRoastMessages(scan, "zh");
+    const captured = user.content.match(/```json\n([\s\S]*)\n```/)![1];
+    expect(captured).toBe(JSON.stringify(JSON.parse(captured)));
+  });
+
+  it("keeps small snapshots fully intact", () => {
+    const small = {
+      ...scan,
+      recent_prs: [makePr(0, 10, 3), makePr(1, 5, 2)],
+      verified_impact_prs: [makePr(2, 5000, 2)],
+      top_repos: [makeRepo(0, 100, 400)],
+    } as unknown as ScanResult;
+    const payload = extractPayload(buildRoastMessages(small, "zh")[1].content);
+    expect(payload.recent_prs).toHaveLength(2);
+    expect(payload.recent_prs[0].files).toHaveLength(3);
+    expect(payload.verified_impact_prs).toHaveLength(1);
+    expect(payload.top_repos[0].readme).toBeDefined();
+  });
+
+  it("drops PR file lists beyond the budget but keeps every title and the strongest samples", () => {
+    const big = {
+      ...scan,
+      recent_prs: [
+        makePr(0, 5000, 15),
+        makePr(1, 5000, 15),
+        makePr(2, 5000, 15),
+        ...Array.from({ length: 47 }, (_, i) => makePr(i + 3, 20, 15)),
+      ],
+      verified_impact_prs: Array.from({ length: 10 }, (_, i) => makePr(i, 100 + i, 2)),
+      top_repos: [makeRepo(0, 100, 400)],
+    } as unknown as ScanResult;
+    const payload = extractPayload(buildRoastMessages(big, "zh")[1].content);
+
+    expect(payload.recent_prs).toHaveLength(50);
+    expect(payload.recent_prs.map((pr: { title: string }) => pr.title)).toContain(
+      "feat: change number 49",
+    );
+    // High-star PRs plus the strongest few keep their file lists; the rest keep
+    // title/repo/stars only. Verified sample and readmes are untouched at this rung.
+    const withFiles = payload.recent_prs.filter(
+      (pr: { files?: string[] }) => pr.files !== undefined,
+    );
+    expect(withFiles).toHaveLength(5);
+    expect(withFiles.map((pr: { repo_stars: number }) => pr.repo_stars)).toEqual([
+      5000, 5000, 5000, 20, 20,
+    ]);
+    expect(payload.verified_impact_prs).toHaveLength(10);
+    expect(payload.top_repos[0].readme).toBeDefined();
+  });
+
+  it("trims the verified-impact sample to its strongest entries before touching readmes", () => {
+    const big = {
+      ...scan,
+      recent_prs: Array.from({ length: 10 }, (_, i) => makePr(i, 20)),
+      verified_impact_prs: Array.from({ length: 12 }, (_, i) => makePr(i, 100 * (i + 1), 45)),
+      top_repos: Array.from({ length: 10 }, (_, i) => makeRepo(i, 100 - i, 1500)),
+    } as unknown as ScanResult;
+    const payload = extractPayload(buildRoastMessages(big, "zh")[1].content);
+
+    expect(payload.verified_impact_prs).toHaveLength(8);
+    const stars = payload.verified_impact_prs.map((pr: { repo_stars: number }) => pr.repo_stars);
+    expect(stars).toEqual([...stars].sort((a, b) => b - a));
+    expect(stars[0]).toBe(1200);
+    expect(payload.top_repos.every((repo: { readme?: unknown }) => repo.readme)).toBe(true);
+  });
+
+  it("strips readmes outside the top-starred repos as the last resort", () => {
+    const big = {
+      ...scan,
+      recent_prs: Array.from({ length: 10 }, (_, i) => makePr(i, 20)),
+      verified_impact_prs: Array.from({ length: 12 }, (_, i) => makePr(i, 100 * (i + 1), 30)),
+      top_repos: Array.from({ length: 10 }, (_, i) => makeRepo(i, 1000 - 100 * i, 4000)),
+    } as unknown as ScanResult;
+    const payload = extractPayload(buildRoastMessages(big, "zh")[1].content);
+
+    expect(payload.top_repos).toHaveLength(10);
+    const withReadme = payload.top_repos.filter(
+      (repo: { readme?: unknown }) => repo.readme !== undefined,
+    );
+    expect(withReadme.map((repo: { name_with_owner: string }) => repo.name_with_owner)).toEqual([
+      "owner/repo-0",
+      "owner/repo-1",
+      "owner/repo-2",
+    ]);
+    expect(
+      payload.top_repos.every(
+        (repo: { description?: string; topics?: string[] }) =>
+          repo.description && repo.topics?.length,
+      ),
+    ).toBe(true);
+  });
+});
+
+
+describe("language evidence attribution", () => {
+  it.each(["Alanxtl", "another-contributor"])("keeps engineering evidence without making %s a language target", username => {
+    const input = {
+      ...scan,
+      metrics: { ...scan.metrics, username, bio: "Apache Dubbo Committer; Oceanbase Powercontext; vllm semantic-router" },
+      recent_prs: [{ title: "docs: fix typo and grammar in shared README", repo: "apache/dubbo-go", repo_stars: 4961 }],
+    } as unknown as ScanResult;
+    for (const lang of ["zh", "en"] as const) {
+      const messages = buildRoastMessages(input, lang);
+      const payload = JSON.parse(messages[1].content.split("```json\n")[1].split("\n```")[0]);
+      expect(messages[0].content).toContain("context_notes.language_evidence");
+      const rule = payload.context_notes.language_evidence;
+      for (const text of lang === "en"
+        ? ["not evidence of engineering ability", "tags, the top roast, report, or recommendations", "not proof that its author made the original mistake", "brand spellings", "verifiable missing installation", "instead of inventing English mistakes"]
+        : ["不是开发能力", "标签、顶部短评、报告正文或建议", "不能反推错误由作者制造", "品牌写法", "可验证的内容", "不得为了凑笑点捏造语言错误"]) {
+        expect(rule).toContain(text);
+      }
+      expect(payload.metrics.bio).toBe(input.metrics.bio);
+      expect(payload.recent_prs[0].title).toBe(input.recent_prs[0].title);
+      expect(payload.scoring.final_score).toBe(input.scoring.final_score);
+    }
+  });
+});
+
+import ledFixture from "./led-project-prompt-fixture.json";
+describe("led / co-maintained project wording", () => {
+  const payload = (s: ScanResult, lang: "zh" | "en") =>
+    JSON.parse(buildRoastMessages(s, lang)[1].content.match(/```json\n([\s\S]*)\n```/)![1]);
+  it.each(["zh", "en"] as const)("credits the current maintainer and shows integer stars (%s)", (lang) => {
+    const p = payload(ledFixture.scan as unknown as ScanResult, lang);
+    const expected = ledFixture.expected[lang];
+    expect(p.factual_guardrails).toEqual(expected.factual_guardrails);
+    expect(p.risk_notes).toEqual(expected.risk_notes);
+    expect([p.metrics.total_stars, p.metrics.max_stars, p.metrics.weighted_total_stars]).toEqual([216, 133, 216]);
+    const text = JSON.stringify(p.risk_notes);
+    expect(text).not.toMatch(/profile\/config|背景板|展示材料/);
+    expect(p.factual_guardrails.join("\n")).toContain(lang === "zh" ? "当前主要维护和运营" : "actively maintains and runs");
+    // Incidental tiny-share repos are not presented as led projects.
+    expect(p.factual_guardrails.join("\n")).not.toContain("org-x/app-z");
+  });
+  it("keeps the weak-project note for a top-starred repo the user does not lead", () => {
+    const s = structuredClone(ledFixture.scan) as unknown as ScanResult;
+    (s.top_repos[0] as { attribution_share?: number }).attribution_share = 0.05;
+    const p = payload(s, "zh");
+    expect(p.risk_notes.join("\n")).toContain("org-x/app-y 是最高星原创信号，但项目完整度信号偏弱");
+    expect(p.factual_guardrails.join("\n")).not.toContain("当前主要维护和运营");
   });
 });

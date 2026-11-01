@@ -1,0 +1,22 @@
+---
+import { listPosts } from "@/lib/blog";
+import Base from "../../../layouts/Base.astro";
+import { CollectionsIndex } from "../../../views";
+import { getTranslator, routeLocale } from "../../../lib/i18n";
+import { STATIC_PAGE_CACHE } from "../../../lib/not-found";
+import { listCollections } from "@/lib/collections";
+
+const locale = routeLocale(Astro.params.locale);
+if (!locale) return new Response(null, { status: 404 });
+
+// D1 errors propagate (5xx, not cached) rather than an empty index cached for a day.
+const [t, tBlog, collections] = await Promise.all([
+  getTranslator(locale, "collections"),
+  getTranslator(locale, "blog"),
+  listCollections(),
+]);
+Astro.response.headers.set("Cache-Control", STATIC_PAGE_CACHE);
+---
+<Base locale={locale} path="/collections" title={t("metaTitle")} description={t("metaDescription")}>
+  <CollectionsIndex route={{ locale, path: "/collections" }} locale={locale} collections={collections} posts={listPosts(locale)} t={t} tBlog={tBlog} />
+</Base>

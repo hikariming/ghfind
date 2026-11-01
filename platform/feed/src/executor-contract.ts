@@ -37,6 +37,7 @@ const projection = z.strictObject({
   name: id,
   canonicalUrl: z.url().max(500),
   summary: z.string().max(16000),
+  discoverHook: z.string().max(16000).optional().default(""),
   painStatement: z.string().max(16000),
   targetUsers: strings,
   language: z.string().max(100).nullable(),
@@ -70,6 +71,17 @@ const projection = z.strictObject({
   publishable: z.boolean(),
   blockedReason: z.string().max(2000),
   riskOverrideEligible: z.boolean(),
+  // Shadow discover score (write-only; older writers omit these).
+  discoverScore: z.number().int().min(0).max(100).nullable().optional().default(null),
+  discoverBand: z
+    .enum(["", "must_try", "worth_a_look", "situational", "weak", "skip"])
+    .optional()
+    .default(""),
+  discoverScoreVersion: z
+    .string()
+    .regex(/^(?:|discover-score-v\d+(?:\.\d+)?)$/)
+    .optional()
+    .default(""),
   productTags: z
     .array(
       z.strictObject({

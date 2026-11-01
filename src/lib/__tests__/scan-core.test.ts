@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { buildPublicSignatureWork, buildRecentSignatureWork } from "../scan-core";
+import { describe, expect, it, vi } from "vitest";
+import { buildPublicSignatureWork, buildRecentSignatureWork, logFreshScanFailure, scanErrorResponse } from "../scan-core";
 import type { PublicScanPrFact } from "../scan-run-types";
 import type { ScanResult } from "../types";
 
@@ -149,5 +149,62 @@ describe("buildRecentSignatureWork", () => {
       "fix: citations prompt",
       "Experimental",
     ]);
+  });
+});
+
+
+describe("safe scan failure diagnostics", () => {
+  it("logs a static GitHub category without upstream messages or tokens", async () => {
+    const {
+      GitHubInternalQueryError,
+      GitHubResourceLimitError,
+      GitHubQueryTimeoutError,
+      GitHubCollectDeadlineError,
+      GitHubDataUnavailableError,
+    } = await import("../github");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      for (const [ErrorType, category] of [
+        [GitHubInternalQueryError, "github_internal"],
+        [GitHubResourceLimitError, "github_resource_limit"],
+        [GitHubQueryTimeoutError, "github_query_timeout"],
+        [GitHubCollectDeadlineError, "github_collect_deadline"],
+      ] as const) {
+        logFreshScanFailure(new ErrorType("secret Authorization: Bearer ghp_test"), {
+          route: "scan", username: "Cyrene2008", persistenceFailure: false,
+        });
+        expect(log).toHaveBeenLastCalledWith("fresh_scan_failed", {
+          route: "scan", username: "Cyrene2008", category,
+        });
+      }
+      logFreshScanFailure(new Error("secret upstream body"), {
+        route: "score", username: "invalid\nsecret", persistenceFailure: true,
+      });
+      expect(log).toHaveBeenLastCalledWith("fresh_scan_failed", {
+        route: "score", username: "invalid", category: "score_persistence",
+      });
+      const { DeferredScanError } = await import("../scan-protection");
+      logFreshScanFailure(new DeferredScanError("github_internal"), {
+        route: "scan", username: "fixture-user", persistenceFailure: false,
+      });
+      expect(log).toHaveBeenLastCalledWith("fresh_scan_failed", {
+        route: "scan", username: "fixture-user", category: "github_internal",
+      });
+      scanErrorResponse(new Error("secret upstream body"));
+      expect(scanErrorResponse(new GitHubCollectDeadlineError("secret"))).toMatchObject({
+        error: "github_collect_deadline",
+        status: 503,
+        retry_after: 15,
+      });
+      expect(scanErrorResponse(new GitHubDataUnavailableError("secret"))).toMatchObject({
+        error: "github_unavailable",
+        status: 503,
+        retry_after: 60,
+      });
+      expect(JSON.stringify(log.mock.calls)).not.toContain("secret");
+      expect(JSON.stringify(log.mock.calls)).not.toContain("ghp_test");
+    } finally {
+      log.mockRestore();
+    }
   });
 });

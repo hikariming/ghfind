@@ -1,0 +1,13 @@
+---
+import Base from "../../layouts/Base.astro";
+import { TalentMatchIsland } from "../../islands/TalentMatchIsland";
+import { getMessages, pickMessages, routeLocale } from "../../lib/i18n";
+
+const locale = routeLocale(Astro.params.locale);
+if (!locale) return new Response(null, { status: 404 });
+const messages = await getMessages(locale);
+Astro.response.headers.set("Cache-Control", "private, no-cache, no-store, max-age=0, must-revalidate");
+---
+<Base locale={locale} path="/talent-match" title={locale === "zh" ? "人才匹配 · ghfind" : "Talent Match · ghfind"} alternates="layout" robots="noindex, nofollow">
+  <TalentMatchIsland client:load zh={locale === "zh"} intl={{ locale, pathname: "/talent-match", messages: pickMessages(messages, ["talentMatch", "share"]) }} />
+</Base>

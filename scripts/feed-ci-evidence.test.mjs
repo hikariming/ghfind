@@ -126,7 +126,11 @@ test('remote verifier downloads the exact attempt artifact and validates its arc
     };
     await verifyRemote(checkoutSha, output, { request });
     assert.equal(JSON.parse(readFileSync(output)).context.checkoutSha, checkoutSha);
-    for (mode of ['newest-failed', 'branch-advanced', 'wrong-digest']) {
+    mode='branch-advanced';
+    assert.equal((await verifyRemote(checkoutSha,output,{request})).status,'superseded');
+    assert.equal(JSON.parse(readFileSync(output)).status,'superseded');
+    assert.equal(JSON.parse(readFileSync(output)).context,undefined);
+    for (mode of ['newest-failed', 'wrong-digest']) {
       rmSync(output, { force: true });
       await assert.rejects(verifyRemote(checkoutSha, output, { request }));
       assert.equal(existsSync(output), false, `${mode} must not leave a usable acceptance file`);

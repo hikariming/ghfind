@@ -1,9 +1,11 @@
 package backend
 
 import (
+	"encoding/json"
 	"math"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -43,33 +45,45 @@ type RepoLanguage struct {
 }
 
 type TopRepo struct {
-	Name                string         `json:"name"`
-	OwnerLogin          *string        `json:"owner_login,omitempty"`
-	NameWithOwner       *string        `json:"name_with_owner,omitempty"`
-	Stars               float64        `json:"stars"`
-	Forks               float64        `json:"forks"`
-	OpenIssues          float64        `json:"open_issues"`
-	OpenIssueCount      *float64       `json:"open_issue_count,omitempty"`
-	Size                float64        `json:"size"`
-	Language            *string        `json:"language"`
-	Description         *string        `json:"description"`
-	PushedAt            *string        `json:"pushed_at"`
-	Readme              *RepoReadme    `json:"readme,omitempty"`
-	ReadmeExcerpt       *string        `json:"readme_excerpt,omitempty"`
-	Topics              []string       `json:"topics,omitempty"`
-	Languages           []RepoLanguage `json:"languages,omitempty"`
-	AttributedOriginal  bool           `json:"attributed_original,omitempty"`
-	AttributionEvidence []string       `json:"attribution_evidence,omitempty"`
+	RootPaths           []string        `json:"root_paths,omitempty"`
+	ContentSkillShare   *float64        `json:"content_skill_share,omitempty"`
+	AttributionShare    *float64        `json:"attribution_share,omitempty"`
+	CoCreatorFacts      *CoCreatorFacts `json:"co_creator_facts,omitempty"`
+	Name                string          `json:"name"`
+	OwnerLogin          *string         `json:"owner_login,omitempty"`
+	NameWithOwner       *string         `json:"name_with_owner,omitempty"`
+	Stars               float64         `json:"stars"`
+	Forks               float64         `json:"forks"`
+	OpenIssues          float64         `json:"open_issues"`
+	OpenIssueCount      *float64        `json:"open_issue_count,omitempty"`
+	Size                float64         `json:"size"`
+	Language            *string         `json:"language"`
+	Description         *string         `json:"description"`
+	PushedAt            *string         `json:"pushed_at"`
+	Readme              *RepoReadme     `json:"readme,omitempty"`
+	ReadmeExcerpt       *string         `json:"readme_excerpt,omitempty"`
+	Topics              []string        `json:"topics,omitempty"`
+	Languages           []RepoLanguage  `json:"languages,omitempty"`
+	AttributedOriginal  bool            `json:"attributed_original,omitempty"`
+	AttributionEvidence []string        `json:"attribution_evidence,omitempty"`
+}
+
+type PRFileChange struct {
+	Path      string  `json:"path"`
+	Additions float64 `json:"additions"`
+	Deletions float64 `json:"deletions"`
 }
 
 type RecentPR struct {
-	Title        *string  `json:"title"`
-	Repo         *string  `json:"repo"`
-	RepoStars    float64  `json:"repo_stars"`
-	Churn        float64  `json:"churn"`
-	ChangedFiles float64  `json:"changed_files"`
-	Trivial      bool     `json:"trivial"`
-	Files        []string `json:"files,omitempty"`
+	PresentationShare *float64       `json:"presentation_share,omitempty"`
+	FileChanges       []PRFileChange `json:"file_changes,omitempty"`
+	Title             *string        `json:"title"`
+	Repo              *string        `json:"repo"`
+	RepoStars         float64        `json:"repo_stars"`
+	Churn             float64        `json:"churn"`
+	ChangedFiles      float64        `json:"changed_files"`
+	Trivial           bool           `json:"trivial"`
+	Files             []string       `json:"files,omitempty"`
 }
 
 type ImpactRepo struct {
@@ -80,16 +94,21 @@ type ImpactRepo struct {
 }
 
 type ScanResult struct {
-	Metrics           RawMetrics    `json:"metrics"`
-	TopRepos          []TopRepo     `json:"top_repos"`
-	RecentPRs         []RecentPR    `json:"recent_prs"`
-	FloodPRTitles     []string      `json:"flood_pr_titles"`
-	ImpactRepos       []ImpactRepo  `json:"impact_repos,omitempty"`
-	VerifiedImpactPRs []RecentPR    `json:"verified_impact_prs,omitempty"`
-	SignatureWork     SignatureWork `json:"signature_work"`
-	PinnedRepos       []string      `json:"pinned_repos,omitempty"`
-	Organizations     []string      `json:"organizations,omitempty"`
-	Scoring           Scoring       `json:"scoring"`
+	Collection        *CollectionCoverage `json:"collection,omitempty"`
+	Metrics           RawMetrics          `json:"metrics"`
+	TopRepos          []TopRepo           `json:"top_repos"`
+	RecentPRs         []RecentPR          `json:"recent_prs"`
+	FloodPRTitles     []string            `json:"flood_pr_titles"`
+	ImpactRepos       []ImpactRepo        `json:"impact_repos,omitempty"`
+	VerifiedImpactPRs []RecentPR          `json:"verified_impact_prs,omitempty"`
+	SignatureWork     SignatureWork       `json:"signature_work"`
+	PinnedRepos       []string            `json:"pinned_repos,omitempty"`
+	Organizations     []string            `json:"organizations,omitempty"`
+	Scoring           Scoring             `json:"scoring"`
+	// SourceStatus is the per-source ledger written to public_scan_runs.
+	// It stays off the snapshot JSON so a split and an in-process collect
+	// of the same facts keep the same snapshot hash.
+	SourceStatus json.RawMessage `json:"-"`
 }
 
 func repoDisplayName(repo TopRepo) string {
@@ -220,7 +239,7 @@ func BestOriginalRepoQuality(repos []TopRepo, loginLower string, now time.Time) 
 	best := 0.0
 	var bestRepo *string
 	for _, repo := range repos {
-		quality := OriginalRepoQualityScore(repo, loginLower, now)
+		quality := OriginalRepoQualityScore(repo, loginLower, now) * projectShare(repo.AttributionShare)
 		if quality > best {
 			best = quality
 			name := repoDisplayName(repo)
@@ -233,7 +252,7 @@ func BestOriginalRepoQuality(repos []TopRepo, loginLower string, now time.Time) 
 func TopStarredOriginalRepoQuality(repos []TopRepo, loginLower string, now time.Time) (float64, *string) {
 	var top *TopRepo
 	for index := range repos {
-		if repos[index].Stars > 0 && (top == nil || repos[index].Stars > top.Stars) {
+		if repos[index].Stars > 0 && (top == nil || repos[index].Stars*projectShare(repos[index].AttributionShare) > top.Stars*projectShare(top.AttributionShare)) {
 			top = &repos[index]
 		}
 	}
@@ -241,6 +260,10 @@ func TopStarredOriginalRepoQuality(repos []TopRepo, loginLower string, now time.
 		return 0, nil
 	}
 	name := repoDisplayName(*top)
+	// The repo is selected by credited stars, and its stars are already
+	// weighted by share in star points: multiplying quality by share again
+	// would double-count attribution and read a co-maintained product as a
+	// low-quality profile/config repo.
 	return OriginalRepoQualityScore(*top, loginLower, now), &name
 }
 
@@ -318,19 +341,25 @@ func titlePrefix(title string) string {
 	return string(runes)
 }
 
-func IsEcosystemImpactPR(pr RecentPR, loginLower string) bool {
+// IsEcosystemImpactPR mirrors isEcosystemImpactPr in src/lib/github.ts: a
+// substantial PR into someone else's repo with >=200 stars. Own repos are
+// credited through the contribution aggregates, never as ecosystem PRs.
+func IsEcosystemImpactPR(pr RecentPR, loginLower string, repoSets ...[]ContribRepoAgg) bool {
 	if pr.Repo == nil || pr.Trivial {
 		return false
 	}
 	owner := repoOwner(*pr.Repo)
-	if owner == "" {
+	if owner == "" || owner == strings.ToLower(loginLower) {
 		return false
 	}
-	threshold := 200.0
-	if owner == strings.ToLower(loginLower) {
-		threshold = 1000
+	for _, repos := range repoSets {
+		for _, repo := range repos {
+			if strings.EqualFold(repo.Repo, *pr.Repo) && isOwnImpactRepo(repo, loginLower) && projectShare(repo.AttributionShare) >= 1 {
+				return hasAttributedCreatorStarCredit(repo, loginLower) && passesImpactRepoGates(repo, loginLower) && (repo.Stars >= docResourceImpactMinStars || !isDocOrResourceRepo(repo))
+			}
+		}
 	}
-	return pr.RepoStars >= threshold
+	return pr.RepoStars >= 200
 }
 
 func IsExternalTrivialFarmPR(pr RecentPR, loginLower string) bool {
@@ -347,6 +376,13 @@ var coreCodePathRE = regexp.MustCompile(`(?i)\.(c|cc|cpp|cs|go|java|js|jsx|kt|m|
 var docLikeTitleRE = regexp.MustCompile(`(?i)\b(docs?|readme|typo|translate|translation|i18n|website|site|blog|examples?|templates?|tutorial|guide)\b`)
 var docLikeRepoRE = regexp.MustCompile(`(^|[-_.])(docs?|site|website|blog|examples?|templates?|profile|notebook|learning|tutorial|interview|guide|manual)([-_.]|$)`)
 
+// Project websites: "<x>-site", "<x>-website", "<x>-homepage", or a name that
+// simply ends in "website". A bare trailing "site" needs a separator so code
+// such as "composite" or "parasite" is not swept up. Domain-style names only
+// count for GitHub Pages: "socket.io" or "foo.org" are real projects.
+var siteRepoNameRE = regexp.MustCompile(`(^|[-_.])(site|homepage)$|website$`)
+var resourceRepoTopicRE = regexp.MustCompile(`(?i)^(awesome|awesome-lists?|courses?|tutorials?|notes|docs|documentation)$`)
+
 func isLowSignalEntryRepo(repo string) bool {
 	return strings.EqualFold(strings.TrimSpace(repo), "is-a-dev/register") || strings.EqualFold(strings.TrimSpace(repo), "tuna/blogroll")
 }
@@ -359,18 +395,50 @@ func isDocLikeRepo(repo string) bool {
 	if !found {
 		name = strings.ToLower(repo)
 	}
-	return docLikeRepoRE.MatchString(name) || strings.HasSuffix(name, ".github.io")
+	return docLikeRepoRE.MatchString(name) || siteRepoNameRE.MatchString(name) || strings.HasSuffix(name, ".github.io")
 }
 
-func isDocLikePath(path string) bool { return docLikePathRE.MatchString(strings.ToLower(path)) }
-func isPresentationOnlyPath(path string) bool {
-	return presentationPathRE.MatchString(strings.ToLower(path))
+// isDocOrResourceRepo matches docs/site repos by name, plus resource
+// collections (awesome lists, courses, tutorials, notes) by GitHub topic.
+func isDocOrResourceRepo(repo ContribRepoAgg) bool {
+	if isDocLikeRepo(repo.Repo) {
+		return true
+	}
+	for _, topic := range repo.Topics {
+		if resourceRepoTopicRE.MatchString(topic) {
+			return true
+		}
+	}
+	return false
 }
-func isCoreCodePath(path string) bool {
-	return !isDocLikePath(path) && !isPresentationOnlyPath(path) && coreCodePathRE.MatchString(strings.ToLower(path))
+
+// UI libraries, design systems and component kits ship their styles: there a
+// stylesheet is product code, not presentation (e.g. ant-design/x).
+var styleFileRE = regexp.MustCompile(`(?i)\.(css|scss|sass|less|styl)$`)
+var uiLibraryRepoRE = regexp.MustCompile(`(?i)(^|[-_./])(ui|design|design-system|components?|widgets?|styles?|css|themes?|antd|mui|chakra|shadcn|patternfly|tailwind(css)?)([-_./]|$)`)
+
+func isUiLibraryRepo(repo string) bool { return uiLibraryRepoRE.MatchString(repo) }
+
+func isDocLikePath(path string) bool { return docLikePathRE.MatchString(strings.ToLower(path)) }
+func isPresentationOnlyPath(path string, uiLibrary bool) bool {
+	lower := strings.ToLower(path)
+	if uiLibrary && styleFileRE.MatchString(lower) {
+		return false
+	}
+	return presentationPathRE.MatchString(lower)
+}
+func isCoreCodePath(path string, uiLibrary bool) bool {
+	if isDocLikePath(path) || isPresentationOnlyPath(path, uiLibrary) {
+		return false
+	}
+	lower := strings.ToLower(path)
+	return (uiLibrary && styleFileRE.MatchString(lower)) || coreCodePathRE.MatchString(lower)
 }
 
 func IsDocLikeImpactPR(pr RecentPR) bool {
+	if share, ok := prPresentationShare(pr); ok {
+		return share >= .6
+	}
 	if pr.Repo != nil && isDocLikeRepo(*pr.Repo) {
 		return true
 	}
@@ -380,12 +448,13 @@ func IsDocLikeImpactPR(pr RecentPR) bool {
 	if len(pr.Files) == 0 {
 		return false
 	}
+	uiLibrary := pr.Repo != nil && isUiLibraryRepo(*pr.Repo)
 	docLike, coreCode := 0, 0
 	for _, file := range pr.Files {
-		if isDocLikePath(file) || isPresentationOnlyPath(file) {
+		if isDocLikePath(file) || isPresentationOnlyPath(file, uiLibrary) {
 			docLike++
 		}
-		if isCoreCodePath(file) {
+		if isCoreCodePath(file, uiLibrary) {
 			coreCode++
 		}
 	}
@@ -393,52 +462,71 @@ func IsDocLikeImpactPR(pr RecentPR) bool {
 }
 
 type ImpactQualitySignals struct {
-	VerifiedImpactPRCount   float64  `json:"verified_impact_pr_count"`
-	CoreImpactPRCount       float64  `json:"core_impact_pr_count"`
-	DocLikeImpactPRCount    float64  `json:"doc_like_impact_pr_count"`
-	UnverifiedImpactPRCount float64  `json:"unverified_impact_pr_count"`
-	ImpactQualityCap        *float64 `json:"impact_quality_cap,omitempty"`
+	VerifiedImpactPRCount   float64 `json:"verified_impact_pr_count"`
+	CoreImpactPRCount       float64 `json:"core_impact_pr_count"`
+	DocLikeImpactPRCount    float64 `json:"doc_like_impact_pr_count"`
+	UnverifiedImpactPRCount float64 `json:"unverified_impact_pr_count"`
 }
 
-func lowQualityImpactCap(verified, docLike, core, impactPRCount float64) *float64 {
-	if verified <= 0 || docLike <= core {
-		return nil
-	}
-	dominance := (docLike - core) / verified
-	confidence := math.Sqrt(LogRatio(verified, 10) * LogRatio(max(impactPRCount, verified), 10))
-	cap := roundJS(max(4, min(20, 20-max(0, min(1, dominance*confidence))*36))*10) / 10
-	return &cap
-}
-
-func ComputeImpactQualitySignals(recentPRs []RecentPR, impactPRCount float64, loginLower string, workflowLandedImpactPRCount float64) ImpactQualitySignals {
+// ComputeImpactQualitySignals mirrors computeImpactQualitySignals: verified
+// external ecosystem PRs split into core and doc-like. Doc-heavy work is
+// weighted per repo by code share in ComputeImpactFromContribMap.
+func ComputeImpactQualitySignals(recentPRs []RecentPR, impactPRCount float64, loginLower string, workflowLandedImpactPRCount float64, repoSets ...[]ContribRepoAgg) ImpactQualitySignals {
 	verified, docLike := 0.0, 0.0
 	for _, pr := range recentPRs {
-		if IsEcosystemImpactPR(pr, loginLower) {
+		if IsEcosystemImpactPR(pr, loginLower, repoSets...) {
 			verified++
 			if IsDocLikeImpactPR(pr) {
 				docLike++
 			}
 		}
 	}
-	core := verified - docLike
 	return ImpactQualitySignals{
 		VerifiedImpactPRCount:   verified,
-		CoreImpactPRCount:       core,
+		CoreImpactPRCount:       verified - docLike,
 		DocLikeImpactPRCount:    docLike,
 		UnverifiedImpactPRCount: max(0, impactPRCount-verified-workflowLandedImpactPRCount),
-		ImpactQualityCap:        lowQualityImpactCap(verified, docLike, core, impactPRCount),
 	}
 }
 
 type ContribRepoAgg struct {
-	Repo        string  `json:"repo"`
-	Stars       float64 `json:"stars"`
-	IsPrivate   bool    `json:"is_private"`
-	IsFork      bool    `json:"is_fork"`
-	OwnerLogin  string  `json:"owner_login"`
-	Commits     float64 `json:"commits"`
-	PRs         float64 `json:"prs"`
-	ActiveYears float64 `json:"active_years"`
+	ContentSkillShare float64         `json:"content_skill_share,omitempty"`
+	AttributionShare  *float64        `json:"attribution_share,omitempty"`
+	CoCreatorFacts    *CoCreatorFacts `json:"co_creator_facts,omitempty"`
+	Repo              string          `json:"repo"`
+	Stars             float64         `json:"stars"`
+	IsPrivate         bool            `json:"is_private"`
+	IsFork            bool            `json:"is_fork"`
+	OwnerLogin        string          `json:"owner_login"`
+	Commits           float64         `json:"commits"`
+	PRs               float64         `json:"prs"`
+	ActiveYears       float64         `json:"active_years"`
+	// MergeCommits estimates how many of Commits are merge commits (more than
+	// one parent); Topics feeds resource-repo detection. Both are absent when
+	// the repo signal query was unavailable.
+	MergeCommits float64  `json:"merge_commits,omitempty"`
+	Topics       []string `json:"topics,omitempty"`
+	// Months lists distinct "YYYY-MM" months with a merged PR or an authored
+	// commit here; empty means unknown (no tenure discount).
+	Months []string `json:"months,omitempty"`
+	// PRSample merged PRs here were file-classified (<=10), CodePRSample of
+	// them changed code rather than docs/site/examples. Zero = no sample.
+	PRSample     float64 `json:"pr_sample,omitempty"`
+	CodePRSample float64 `json:"code_pr_sample,omitempty"`
+	// Engagement is the repo's (watchers + issues + PRs) / stars; nil = not
+	// measured.
+	Engagement *float64 `json:"engagement,omitempty"`
+	// AttributedOriginal marks an org repo credited as the user's original
+	// project: it counts as own.
+	AttributedOriginal    bool     `json:"attributed_original,omitempty"`
+	AttributionEvidence   []string `json:"attribution_evidence,omitempty"`
+	Forks                 float64  `json:"forks,omitempty"`
+	StarInflationSeverity *float64 `json:"star_inflation_severity,omitempty"`
+	StarInflationSuspect  bool     `json:"star_inflation_suspect,omitempty"`
+	// CommunityFacts/Community: own-project community (absent = not measured);
+	// Community receives a continuous star-inflation discount.
+	CommunityFacts *OwnRepoCommunityFacts `json:"community_facts,omitempty"`
+	Community      *float64               `json:"community,omitempty"`
 }
 
 type ImpactMetrics struct {
@@ -458,8 +546,15 @@ func defaultBranchCommitMin(repo string) float64 {
 	return 2
 }
 
+// Work levels at which a repo gets full prestige credit: prestige needs
+// sustained work, not a handful of PRs.
+const (
+	prestigeCommitFullAt   = 40
+	prestigeMergedPRFullAt = 12
+)
+
 func prestigeWorkMultiplier(commits, prs float64) float64 {
-	workSignal := max(max(0, commits)/10, max(0, prs)/3)
+	workSignal := max(max(0, commits)/prestigeCommitFullAt, max(0, prs)/prestigeMergedPRFullAt)
 	if workSignal <= 0 {
 		return 0
 	}
@@ -469,17 +564,144 @@ func prestigeWorkMultiplier(commits, prs float64) float64 {
 	return math.Log10(1+workSignal*9) / math.Log10(10)
 }
 
+// passesImpactRepoGates holds the popularity and landed-work gates shared by
+// impact scoring and the repo signal query.
+func passesImpactRepoGates(repo ContribRepoAgg, loginLower string) bool {
+	if repo.IsPrivate || repo.IsFork || (isLowSignalEntryRepo(repo.Repo) && repo.Commits <= 1 && repo.PRs <= 1) {
+		return false
+	}
+	if isOwnImpactRepo(repo, loginLower) {
+		if repo.Stars <= 0 || (valueOrZero(repo.Community) <= 0 && impactEvidenceWeight(repo) <= 0) {
+			return false
+		}
+	} else if repo.Stars < 200 {
+		return false
+	}
+	return repo.Commits >= defaultBranchCommitMin(repo.Repo) || repo.PRs >= 1
+}
+
+// v15 adoption saturates in log space; merged PRs outweigh forks.
+func impactEvidenceWeight(repo ContribRepoAgg) float64 {
+	forks, prs := max(0, repo.Forks), 0.0
+	if repo.CommunityFacts != nil {
+		forks = max(forks, repo.CommunityFacts.Forks)
+		prs = max(0, repo.CommunityFacts.OutsideMergedPRs)
+	}
+	return 1 - math.Exp(-2.6*math.Log1p(prs)-0.6*math.Log1p(forks))
+}
+func impactStarSeverity(repo ContribRepoAgg) float64 {
+	forks, prs := max(0, repo.Forks), 0.0
+	if repo.CommunityFacts != nil {
+		forks = max(forks, repo.CommunityFacts.Forks)
+		prs = max(0, repo.CommunityFacts.OutsideMergedPRs)
+	}
+	stars := max(0, repo.Stars)
+	return stars / (stars + 100) / ((1 + forks) * (1 + forks) * (1 + 6*prs) * (1 + 6*prs))
+}
+func impactStarDiscount(repo ContribRepoAgg) float64 {
+	severity := impactStarSeverity(repo)
+	if repo.StarInflationSuspect {
+		severity = 0.9
+	}
+	if repo.StarInflationSeverity != nil {
+		severity = *repo.StarInflationSeverity
+	}
+	share := max(0, min(1, repo.ContentSkillShare))
+	return math.Exp(-7*max(0, min(1, severity))) * (1 - 0.75*share*share*(3-2*share))
+}
+func attributedCreatorWeight(repo ContribRepoAgg, loginLower string) float64 {
+	if !repo.AttributedOriginal {
+		return 0
+	}
+	first, release := false, false
+	for _, e := range repo.AttributionEvidence {
+		if strings.EqualFold(e, "first commit author is "+loginLower) {
+			first = true
+		}
+		if e == "release/tag author" {
+			release = true
+		}
+	}
+	creator := 0.0
+	if first && release {
+		creator = 1
+	} else if first {
+		creator = 0.85
+	} else if release {
+		creator = 0.7
+	}
+	return impactEvidenceWeight(repo) * creator * impactStarDiscount(repo)
+}
+func ownStarWeight(stars float64) float64 { return 1 - math.Exp(-math.Log1p(max(0, stars)/100)) }
+func hasAttributedCreatorStarCredit(repo ContribRepoAgg, loginLower string) bool {
+	return attributedCreatorWeight(repo, loginLower) > 0
+}
+
+func isOwnImpactRepo(repo ContribRepoAgg, loginLower string) bool {
+	return repo.AttributedOriginal || strings.EqualFold(repo.OwnerLogin, loginLower)
+}
+
+// Code-share and tenure weights. Runtime vars, not constants, so 1-floor is
+// evaluated in float64 exactly like the TypeScript collector.
+var (
+	impactCodeSharePrior     = 0.7
+	impactCodeShareFloor     = 0.3
+	impactTenureFloor        = 0.7
+	impactTenureFullMonths   = 6.0
+	ownRepoImpactDepthWeight = 0.3
+)
+
+// impactRepoCodeWeight mirrors impactRepoCodeWeight in src/lib/github.ts: the
+// observed code share is blended with the prior by how much of the repo's work
+// (max of PRs and authored commits, capped at the sample size) it covers.
+func impactRepoCodeWeight(repo ContribRepoAgg) float64 {
+	share := impactCodeSharePrior
+	if repo.PRSample > 0 {
+		observed := max(0, min(repo.CodePRSample/repo.PRSample, 1))
+		work := max(repo.PRs, authoredCommits(repo), 1)
+		coverage := min(1, repo.PRSample/min(impactCodeSampleSize, work))
+		share = coverage*observed + (1-coverage)*impactCodeSharePrior
+	}
+	return impactCodeShareFloor + (1-impactCodeShareFloor)*share
+}
+
+// impactRepoTenureWeight mirrors impactRepoTenureWeight in src/lib/github.ts.
+func impactRepoTenureWeight(repo ContribRepoAgg) float64 {
+	months := float64(len(repo.Months))
+	if months == 0 {
+		return 1
+	}
+	return impactTenureFloor + (1-impactTenureFloor)*min(months/impactTenureFullMonths, 1)
+}
+
+const (
+	// Doc/resource repos below this many stars earn no ecosystem impact;
+	// popular ones count at docResourceImpactWeight.
+	docResourceImpactMinStars = 5000
+	docResourceImpactWeight   = 0.5
+)
+
+// authoredCommits excludes merge commits from a repo's work count.
+func authoredCommits(repo ContribRepoAgg) float64 {
+	return max(0, repo.Commits-max(0, repo.MergeCommits))
+}
+
+// ComputeImpactFromContribMap mirrors computeImpactFromContribMap in
+// src/lib/github.ts. Each repo is weighted by doc/resource kind, code share and
+// tenure. Own repos (including attributed originals) earn impact from their
+// outside community by default; proven attributed creators with outside adoption
+// blend toward historical external star credit with a continuous suspicion discount.
+// Otherwise they earn community-based prestige, plus
+// 2.5 x community depth on top of the smooth damped star depth.
+//
+// TODO(content-repos): also treat a repo as content when its file tree is
+// >=70% md/pdf/png/mp3/html with fewer than 15 code files. The collector has
+// no file listing for contribution repos, and a recursive tree per impact repo
+// is too expensive to add to every scan.
 func ComputeImpactFromContribMap(repos []ContribRepoAgg, loginLower string) ImpactMetrics {
 	qualifying := make([]ContribRepoAgg, 0)
 	for _, repo := range repos {
-		if repo.IsPrivate || repo.IsFork || (isLowSignalEntryRepo(repo.Repo) && repo.Commits <= 1 && repo.PRs <= 1) {
-			continue
-		}
-		threshold := 200.0
-		if strings.EqualFold(repo.OwnerLogin, loginLower) {
-			threshold = 1000
-		}
-		if repo.Stars >= threshold && (repo.Commits >= defaultBranchCommitMin(repo.Repo) || repo.PRs >= 1) {
+		if passesImpactRepoGates(repo, loginLower) && (repo.Stars >= docResourceImpactMinStars || !isDocOrResourceRepo(repo)) {
 			qualifying = append(qualifying, repo)
 		}
 	}
@@ -489,8 +711,48 @@ func ComputeImpactFromContribMap(repos []ContribRepoAgg, loginLower string) Impa
 		metrics.MaxImpactRepoStars = max(metrics.MaxImpactRepoStars, repo.Stars)
 		metrics.ImpactCommitCount += repo.Commits
 		metrics.ImpactPRCount += repo.PRs
-		prestige = max(prestige, LogRatio(repo.Stars, 100000)*prestigeWorkMultiplier(repo.Commits, repo.PRs))
-		depth += LogRatio(repo.Stars, 5000) * min(1+math.Log10(repo.Commits+repo.PRs), 2.5)
+		docWeight := 1.0
+		if isDocOrResourceRepo(repo) {
+			docWeight = docResourceImpactWeight
+		}
+		repoWeight := docWeight * impactRepoCodeWeight(repo) * impactRepoTenureWeight(repo)
+		own := isOwnImpactRepo(repo, loginLower)
+		// Own repos earn prestige from their outside community, never stars.
+		prestigeBase := LogRatio(repo.Stars, 100000)
+		if own {
+			prestigeBase = valueOrZero(repo.Community)
+		}
+		base := prestigeBase * prestigeWorkMultiplier(authoredCommits(repo), repo.PRs) * repoWeight
+		repoPrestige := base
+		if hasAttributedCreatorStarCredit(repo, loginLower) {
+			repoPrestige = base + attributedCreatorWeight(repo, loginLower)*max(0, LogRatio(repo.Stars, 100000)*prestigeWorkMultiplier(authoredCommits(repo), repo.PRs)*docWeight-base)
+		}
+		share := projectShare(repo.AttributionShare)
+		externalPrestige := 0.0
+		if repo.Stars >= 200 {
+			externalPrestige = LogRatio(repo.Stars, 100000) * prestigeWorkMultiplier(authoredCommits(repo), repo.PRs) * repoWeight
+		}
+		prestige = max(prestige, share*repoPrestige+(1-share)*externalPrestige)
+		work := authoredCommits(repo) + repo.PRs
+		weight := 0.0
+		if work > 0 {
+			weight = min(1+math.Log10(work), 2.5)
+		}
+		if own {
+			// Smooth damped own-star depth plus community depth.
+			starDepth := LogRatio(repo.Stars, 5000) * weight * repoWeight * (ownRepoImpactDepthWeight * starEngagementMultiplier(repo.Engagement)) * ownStarWeight(repo.Stars) * impactEvidenceWeight(repo) * impactStarDiscount(repo)
+			ownDepth := starDepth + communityDepth*valueOrZero(repo.Community)*repoWeight
+			if hasAttributedCreatorStarCredit(repo, loginLower) {
+				ownDepth += attributedCreatorWeight(repo, loginLower) * max(0, LogRatio(repo.Stars, 5000)*weight*docWeight-ownDepth)
+			}
+			externalDepth := 0.0
+			if repo.Stars >= 200 {
+				externalDepth = LogRatio(repo.Stars, 5000) * weight * repoWeight
+			}
+			depth += share*ownDepth + (1-share)*externalDepth
+		} else {
+			depth += LogRatio(repo.Stars, 5000) * weight * repoWeight
+		}
 	}
 	metrics.ImpactRepoCount = float64(len(qualifying))
 	metrics.ImpactPrestigeScore = roundJS(prestige*10000) / 10000
@@ -536,6 +798,9 @@ func MergeContribRepoAggs(groups ...[]ContribRepoAgg) []ContribRepoAgg {
 			current.Commits += repo.Commits
 			current.PRs += repo.PRs
 			current.ActiveYears = max(current.ActiveYears, repo.ActiveYears)
+			if len(repo.Months) > 0 {
+				current.Months = unionMonths(current.Months, repo.Months)
+			}
 			merged[repo.Repo] = current
 		}
 	}
@@ -547,6 +812,8 @@ func MergeContribRepoAggs(groups ...[]ContribRepoAgg) []ContribRepoAgg {
 }
 
 type OrgRepoAttribution struct {
+	Share    *float64
+	Facts    *CoCreatorFacts
 	Repo     string
 	Evidence []string
 	Score    float64
@@ -563,7 +830,7 @@ func hasStrongLongTermOrgContribution(repo ContribRepoAgg) bool {
 // non-documentation repository owned by a public organization the developer
 // belongs to may be credited as their original work, and it needs long-term
 // contribution evidence. Pinned/release/maintainer proofs strengthen it.
-func ComputeOrgRepoAttribution(repo ContribRepoAgg, organizations, pinnedRepos []string, releaseOrTagAuthorHit, maintainerFileHit bool) *OrgRepoAttribution {
+func ComputeOrgRepoAttribution(repo ContribRepoAgg, organizations, pinnedRepos []string, releaseOrTagAuthorHit, maintainerFileHit bool, creatorLogins ...string) *OrgRepoAttribution {
 	member := false
 	for _, organization := range organizations {
 		if strings.EqualFold(organization, repo.OwnerLogin) {
@@ -571,10 +838,59 @@ func ComputeOrgRepoAttribution(repo ContribRepoAgg, organizations, pinnedRepos [
 			break
 		}
 	}
-	if !member || repo.IsPrivate || repo.IsFork || isDocLikeRepo(repo.Repo) || !hasStrongLongTermOrgContribution(repo) {
+	firstCommitMatch := len(creatorLogins) == 2 && strings.TrimSpace(creatorLogins[0]) != "" && strings.EqualFold(strings.TrimSpace(creatorLogins[0]), strings.TrimSpace(creatorLogins[1]))
+	if repo.CoCreatorFacts != nil {
+		if (len(creatorLogins) > 0 && strings.EqualFold(repo.OwnerLogin, creatorLogins[0])) || repo.IsPrivate || repo.IsFork || isDocOrResourceRepo(repo) {
+			return nil
+		}
+		f := *repo.CoCreatorFacts
+		f.FirstAuthor = firstCommitMatch
+		f.ReleaseAuthor = releaseOrTagAuthorHit
+		f.MaintainerFile = maintainerFileHit
+		if f.Association == "" && member {
+			f.Association = "MEMBER"
+		}
+		for _, p := range pinnedRepos {
+			if strings.EqualFold(p, repo.Repo) {
+				f.Pinned = true
+			}
+		}
+		share := coCreatorShare(f)
+		if share <= 0 {
+			return nil
+		}
+		evidence := []string{formatNumber(f.UserCommits) + "/" + formatNumber(f.TotalCommits) + " commits; leader " + formatNumber(f.LeadingCommits), formatNumber(f.UserMergedPRs) + "/" + formatNumber(f.TotalMergedPRs) + " merged PRs; " + formatNumber(f.ActiveYears) + " active years", formatNumber(math.Round(f.CoreChurn)) + " core lines in " + formatNumber(f.Samples) + " complete samples"}
+		if f.RecentTotalCommits != nil {
+			evidence = append(evidence, formatNumber(coNZ(f.RecentUserCommits))+"/"+formatNumber(*f.RecentTotalCommits)+" commits in the last "+strconv.Itoa(recentMaintenanceDays)+" days")
+		}
+		if f.RecentTotalMergedPRs != nil {
+			evidence = append(evidence, formatNumber(coNZ(f.RecentUserMergedPRs))+"/"+formatNumber(*f.RecentTotalMergedPRs)+" merged PRs in the last "+strconv.Itoa(recentMaintenanceDays)+" days")
+		}
+		if coNZ(f.ReviewedPRs) > 0 {
+			evidence = append(evidence, "reviewed "+formatNumber(*f.ReviewedPRs)+" PRs by others")
+		}
+		if firstCommitMatch {
+			evidence = append(evidence, "first commit author is "+strings.ToLower(creatorLogins[0]))
+		}
+		if f.ReleaseAuthor {
+			evidence = append(evidence, "release/tag author")
+		}
+		if f.MaintainerFile {
+			evidence = append(evidence, "listed in maintainer/codeowner docs")
+		}
+		if f.Association != "" {
+			evidence = append(evidence, "author association "+f.Association)
+		}
+		return &OrgRepoAttribution{Repo: repo.Repo, Score: share, Share: &share, Facts: &f, Evidence: evidence}
+	}
+	if (!member && !firstCommitMatch) || repo.IsPrivate || repo.IsFork || isDocLikeRepo(repo.Repo) || !hasStrongLongTermOrgContribution(repo) {
 		return nil
 	}
-	evidence := []string{"org member of " + repo.OwnerLogin, formatNumber(repo.Commits) + " commits + " + formatNumber(repo.PRs) + " PRs across " + formatNumber(repo.ActiveYears) + " years"}
+	identity := "org member of " + repo.OwnerLogin
+	if !member {
+		identity = "first commit author is " + creatorLogins[1]
+	}
+	evidence := []string{identity, formatNumber(repo.Commits) + " commits + " + formatNumber(repo.PRs) + " PRs across " + formatNumber(repo.ActiveYears) + " years"}
 	score := 5.0
 	for _, pinned := range pinnedRepos {
 		if strings.EqualFold(pinned, repo.Repo) {
@@ -653,4 +969,155 @@ func minInt(left, right int) int {
 		return left
 	}
 	return right
+}
+
+// unionMonths returns the sorted distinct union of two month lists.
+func unionMonths(left, right []string) []string {
+	seen := map[string]bool{}
+	result := []string{}
+	for _, month := range append(append([]string{}, left...), right...) {
+		if !seen[month] {
+			seen[month] = true
+			result = append(result, month)
+		}
+	}
+	sort.Strings(result)
+	return result
+}
+
+// isProfileReadmeRepo mirrors isProfileReadmeRepo: the <login>/<login>
+// profile page is not a project.
+func isProfileReadmeRepo(repo TopRepo, loginLower string) bool {
+	owner := loginLower
+	if repo.OwnerLogin != nil {
+		owner = strings.ToLower(*repo.OwnerLogin)
+	}
+	return !repo.AttributedOriginal && strings.ToLower(repo.Name) == loginLower && owner == loginLower
+}
+
+var contentRepoNameRE = regexp.MustCompile(`(?i)(^|[-_.])(datasets?|awesome|papers?|books?|cheat-?sheets?|prompts?|skills?|handbooks?|playbooks?)([-_.]|$)`)
+var contentRepoTopicRE = regexp.MustCompile(`(?i)^(datasets?|awesome|awesome-lists?|books?|courses?|tutorials?|notes|docs|documentation|papers?|cheatsheets?|prompts?|skills?|agent-skills?|handbooks?|playbooks?)$`)
+var rootSourceFileRE = regexp.MustCompile(`(?i)\.(go|rs|py|ts|tsx|js|jsx|java|kt|cs|cpp|cc|c|swift)$`)
+var nonCodeLanguages = map[string]bool{
+	"asciidoc": true, "html": true, "markdown": true, "mdx": true,
+	"restructuredtext": true, "rst": true, "plain text": true, "rich text format": true, "roff": true, "tex": true, "text": true,
+}
+
+// ContentSkillShare combines prose bytes and naming with continuous code protection.
+func ContentSkillShare(repo TopRepo) float64 {
+	named := contentRepoNameRE.MatchString(repo.Name)
+	for _, topic := range repo.Topics {
+		named = named || contentRepoTopicRE.MatchString(topic)
+	}
+	total, nonCode := 0.0, 0.0
+	for _, l := range repo.Languages {
+		total += max(0, l.Size)
+		if nonCodeLanguages[strings.ToLower(l.Name)] {
+			nonCode += max(0, l.Size)
+		}
+	}
+	prose, naming := 0.0, 0.0
+	if total > 0 {
+		prose = nonCode / total
+	}
+	if named {
+		naming = 0.55
+		if total > 0 {
+			naming *= 0.2 + 0.8*prose
+		}
+	}
+	if len(repo.RootPaths) == 0 {
+		return 1 - (1-prose)*(1-naming)
+	}
+	markdown, skill, application := 0.0, false, false
+	for _, path := range repo.RootPaths {
+		path = strings.ToLower(path)
+		for _, suffix := range []string{".md", ".mdx", ".rst", ".adoc", ".txt"} {
+			if strings.HasSuffix(path, suffix) {
+				markdown++
+				break
+			}
+		}
+		switch path {
+		case "skill.md", "skills", "prompts", ".claude":
+			skill = true
+		}
+		switch path {
+		case "src", "app", "lib", "cmd", "crates", "packages", "backend", "frontend", "server", "client", "api", "core", "include", "sources":
+			application = true
+		}
+	}
+	for _, path := range repo.RootPaths {
+		if rootSourceFileRE.MatchString(path) {
+			application = true
+		}
+	}
+	markdown = max(0, markdown-1) / float64(len(repo.RootPaths))
+	skillEvidence, nameEvidence, protection := 0.0, 0.0, 1.0
+	if skill {
+		skillEvidence = 0.65
+	}
+	if named {
+		nameEvidence = 0.55
+	}
+	layout := 1 - (1-0.75*markdown)*(1-skillEvidence)
+	if application && total > 0 {
+		protection = 1 - 0.85*(1-prose)
+	}
+	return (1 - (1-prose)*(1-nameEvidence)*(1-layout)) * protection
+}
+func ContentSkillSignals(repos []TopRepo) (float64, float64) {
+	stars, content, evidence := 0.0, 0.0, 0.0
+	for _, repo := range repos {
+		weight := max(0, repo.Stars) * projectShare(repo.AttributionShare)
+		confidence := 0.5
+		if len(repo.RootPaths) > 0 {
+			confidence = 1
+		}
+		for _, l := range repo.Languages {
+			if l.Size > 0 {
+				confidence = 1
+			}
+		}
+		stars += weight
+		content += weight * ContentSkillShare(repo)
+		evidence += weight * confidence
+	}
+	if stars == 0 {
+		return 0, 0
+	}
+	return content / stars, evidence / stars
+}
+
+// Star liveness: full weight when pushed within 12 months, falling linearly
+// to 0.5 at 36 months. Runtime vars keep float math identical to TypeScript.
+var (
+	starLivenessFullMonths  = 12.0
+	starLivenessFloorMonths = 36.0
+	starLivenessFloor       = 0.5
+	monthMillis             = (365.25 / 12) * 24 * 60 * 60 * 1000
+)
+
+// OriginalRepoStarWeight mirrors originalRepoStarWeight in src/lib/github.ts.
+func OriginalRepoStarWeight(repo TopRepo, now time.Time) float64 {
+	liveness := 1.0
+	if pushed, ok := parseTimestamp(repo.PushedAt); ok {
+		months := max(0, float64(now.UnixMilli()-pushed.UnixMilli())/monthMillis)
+		stale := min(max((months-starLivenessFullMonths)/(starLivenessFloorMonths-starLivenessFullMonths), 0), 1)
+		liveness = 1 - (1-starLivenessFloor)*stale
+	}
+	share := ContentSkillShare(repo)
+	return liveness * (1 - 0.75*share*share*(3-2*share))
+}
+
+// WeightedOriginalStars mirrors weightedOriginalStars: liveness- and
+// kind-weighted star total and maximum over the scored originals.
+func WeightedOriginalStars(repos []TopRepo, now time.Time) (float64, float64) {
+	total, maximum := 0.0, 0.0
+	for _, repo := range repos {
+		weighted := max(0, repo.Stars) * projectShare(repo.AttributionShare) * OriginalRepoStarWeight(repo, now)
+		total += weighted
+		maximum = max(maximum, weighted)
+	}
+	return roundJS(total*100) / 100, roundJS(maximum*100) / 100
 }

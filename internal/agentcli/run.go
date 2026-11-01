@@ -12,6 +12,7 @@ import (
 
 type globalOptions struct {
 	Host           string
+	BotHost        string
 	APIKey         string
 	TurnstileToken string
 	GitHubToken    string
@@ -111,6 +112,8 @@ func Execute(args []string, stdout io.Writer, stderr io.Writer) int {
 		return exitError(stderr, fmt.Errorf("unknown update command"))
 	case "commands":
 		return runCommands(positional[1:], opts, stdout, stderr)
+	case "bot":
+		return runBot(positional[1:], opts, stdout, stderr)
 	case "auth":
 		if len(positional) > 1 && positional[1] == "status" {
 			return runAuthStatus(opts, stdout)
@@ -154,7 +157,7 @@ func runLeaderboard(opts globalOptions, stdout io.Writer, stderr io.Writer) int 
 		result["view"], result["window"], len(entries), result["cached"])
 	for i, raw := range entries {
 		entry, _ := raw.(map[string]any)
-		fmt.Fprintf(stdout, "%d. %v %v/100 %v\n", i+1, entry["username"], entry["final_score"], entry["tier"])
+		fmt.Fprintf(stdout, "%d. %v %s\n", i+1, entry["username"], formatLevelRealm(entry["final_score"], opts.Lang))
 	}
 	return 0
 }
@@ -239,8 +242,8 @@ func runRoast(args []string, opts globalOptions, stdout io.Writer, stderr io.Wri
 		fmt.Fprintln(stdout, profileLink(opts.Host, username))
 		return 0
 	case "pretty":
-		fmt.Fprintf(stdout, "%v: %v/100 %v (%v)\n",
-			summary["username"], summary["final_score"], summary["tier"], summary["tier_label"])
+		fmt.Fprintf(stdout, "%v: %s\n",
+			summary["username"], formatLevelRealm(summary["final_score"], opts.Lang))
 		if line := roastLine(summary, opts.Lang); line != "" {
 			fmt.Fprintln(stdout, line)
 			fmt.Fprintln(stdout)
@@ -333,7 +336,7 @@ func runSearch(args []string, opts globalOptions, stdout io.Writer, stderr io.Wr
 	if users, ok := result["users"].([]any); ok {
 		for _, raw := range users {
 			if u, ok := raw.(map[string]any); ok {
-				fmt.Fprintf(stdout, "%v\t%v/100 %v\n", u["username"], u["final_score"], u["tier"])
+				fmt.Fprintf(stdout, "%v\t%s\n", u["username"], formatLevelRealm(u["final_score"], opts.Lang))
 			}
 		}
 	}
@@ -409,8 +412,8 @@ func runScore(args []string, opts globalOptions, stdout io.Writer, stderr io.Wri
 	if opts.Output != "pretty" {
 		return exitError(stderr, fmt.Errorf("invalid output format: %s", opts.Output))
 	}
-	fmt.Fprintf(stdout, "%v: %v/100 %v (%v)\n",
-		payload["username"], payload["final_score"], payload["tier"], payload["tier_key"])
+	fmt.Fprintf(stdout, "%v: %s\n",
+		payload["username"], formatLevelRealm(payload["final_score"], opts.Lang))
 	if subScores, ok := payload["sub_scores"].(map[string]any); ok {
 		for _, key := range subScoreOrder {
 			if value, ok := subScores[key]; ok {
@@ -437,6 +440,7 @@ func runScore(args []string, opts globalOptions, stdout io.Writer, stderr io.Wri
 func parseArgs(args []string) ([]string, globalOptions, error) {
 	opts := globalOptions{
 		Host:           envFirst([]string{"GHFIND_HOST", "GITHUB_ROAST_HOST"}, DefaultHost),
+		BotHost:        envFirst([]string{"GHFIND_BOT_HOST"}, DefaultBotHost),
 		APIKey:         envFirst([]string{"GHFIND_API_KEY", "GITHUB_ROAST_API_KEY"}, ""),
 		TurnstileToken: envFirst([]string{"GHFIND_TURNSTILE_TOKEN", "GITHUB_ROAST_TURNSTILE_TOKEN"}, ""),
 		GitHubToken:    envFirst([]string{"GITHUB_TOKEN"}, ""),
@@ -451,8 +455,15 @@ func parseArgs(args []string) ([]string, globalOptions, error) {
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		switch arg {
-		case "--version", "version":
+		case "--version":
 			opts.Version = true
+		case "version":
+			// Only as the command itself, not as a value such as --prompt version.
+			if len(positional) == 0 {
+				opts.Version = true
+			} else {
+				positional = append(positional, arg)
+			}
 		case "--json":
 			opts.JSON = true
 			opts.Output = "json"

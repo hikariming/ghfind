@@ -1,0 +1,13 @@
+---
+import Base from "../../layouts/Base.astro";
+import { FollowingPageIsland } from "../../islands/FollowingPageIsland";
+import { getMessages, getTranslator, pickMessages, routeLocale } from "../../lib/i18n";
+
+const locale = routeLocale(Astro.params.locale);
+if (!locale) return new Response(null, { status: 404 });
+const [t, tMeta, messages] = await Promise.all([getTranslator(locale, "follow"), getTranslator(locale, "meta"), getMessages(locale)]);
+Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
+---
+<Base locale={locale} path="/following" title={`${t("pageTitle")} · ${tMeta("siteName")}`} description={t("pageSubtitle")} robots="noindex, nofollow">
+  <FollowingPageIsland client:load intl={{ locale, pathname: "/following", messages: pickMessages(messages, ["follow"]) }} />
+</Base>

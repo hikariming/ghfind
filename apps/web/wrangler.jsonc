@@ -1,0 +1,87 @@
+{
+  // ghfind-web: Astro pages behind ghfind-router. Pages run the Next app's
+  // src/lib data code directly (via the shims in astro.config.mjs), so this
+  // Worker carries the same data bindings and vars as ghfind-api
+  // (apps/api/wrangler.jsonc); src/__tests__/apps-production-config.test.ts
+  // pins both to the legacy release config.
+  "name": "ghfind-web",
+  "account_id": "8f19bebe359e4ec1a24c68c5f49c1584",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_date": "2026-08-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": { "directory": "./dist/client", "binding": "ASSETS" },
+  "observability": { "enabled": true },
+  "d1_databases": [
+    { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d", "migrations_dir": "../../migrations" },
+    { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed-dev", "database_id": "bd305af9-2cab-4fe8-8c2f-324391cf105e", "migrations_dir": "../../migrations-feed" }
+  ],
+  "vars": {
+    "GHFIND_DEPLOY_ENV": "development"
+  },
+  "env": {
+    "dev": {
+      "name": "ghfind-web-dev",
+      "workers_dev": true,
+      "d1_databases": [
+        { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d" },
+        { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed-dev", "database_id": "bd305af9-2cab-4fe8-8c2f-324391cf105e" }
+      ],
+      "kv_namespaces": [
+        { "binding": "GHFIND_CACHE", "id": "d66443adfd3f4fccbab02fcb41e63284" }
+      ],
+      // Session checks go to ghfind-api's /api/me (src/lib/session.ts).
+      "services": [{ "binding": "API", "service": "ghfind-api-dev" }],
+      "durable_objects": {
+        "bindings": [
+          { "name": "RATE_LIMITER", "class_name": "RateLimiter", "script_name": "ghfind-coord-dev" },
+          { "name": "COORD_KV", "class_name": "KeyValue", "script_name": "ghfind-coord-dev" },
+          { "name": "SCAN_SLOT", "class_name": "ScanSlot", "script_name": "ghfind-coord-dev" }
+        ]
+      },
+      "vars": {
+        "GHFIND_DEPLOY_ENV": "preview",
+        "GHFIND_CACHE_BACKEND": "kv",
+        "GHFIND_RATELIMIT_BACKEND": "do",
+        "GHFIND_COORD_BACKEND": "do",
+        "PUBLIC_SITE_URL": "https://dev.ghfind.com",
+        "NEXT_PUBLIC_SITE_URL": "https://dev.ghfind.com"
+      }
+    },
+    "production": {
+      "name": "ghfind-web",
+      "workers_dev": true,
+      "d1_databases": [
+        { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d" },
+        { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed", "database_id": "9c4ac13a-4c90-40a8-9d56-d7141f864bbf" }
+      ],
+      "kv_namespaces": [
+        { "binding": "GHFIND_CACHE", "id": "f7a7299eef224d899c21121c1979be32" }
+      ],
+      "services": [{ "binding": "API", "service": "ghfind-api" }],
+      "durable_objects": {
+        "bindings": [
+          { "name": "RATE_LIMITER", "class_name": "RateLimiter", "script_name": "ghfind-coord" },
+          { "name": "COORD_KV", "class_name": "KeyValue", "script_name": "ghfind-coord" },
+          { "name": "SCAN_SLOT", "class_name": "ScanSlot", "script_name": "ghfind-coord" },
+          { "name": "ROAST_JOB", "class_name": "RoastJob", "script_name": "ghfind-coord" }
+        ]
+      },
+      "vars": {
+        "GHFIND_DEPLOY_ENV": "production",
+        "GHFIND_CACHE_BACKEND": "kv",
+        "GHFIND_RATELIMIT_BACKEND": "do",
+        "GHFIND_COORD_BACKEND": "do",
+        "PUBLIC_SITE_URL": "https://ghfind.com",
+        "NEXT_PUBLIC_SITE_URL": "https://ghfind.com",
+        // Same as ghfind-api: shared lib code (project analyses) branches on
+        // these; Feed's own routes stay on the legacy Worker.
+        "FEED_BACKEND": "go",
+        "FEED_SOURCE_OUTBOX_ENABLED": "true",
+        "MOSOO_API_BASE": "https://cloud.mosoo.ai/api/v1",
+        "MOSOO_PROJECT_AGENT_ID": "01M22PWZR0A7ZYCDKWTEA0YEHQ",
+        "MOSOO_PROJECT_USER_ID": "ghfind-production",
+        "MOSOO_PROJECT_REQUEST_TIMEOUT_MS": "15000"
+      }
+    }
+  }
+}

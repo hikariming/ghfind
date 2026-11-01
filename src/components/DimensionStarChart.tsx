@@ -1,8 +1,8 @@
 "use client";
 
 import { DIMENSIONS } from "@/lib/dimensions";
+import { realmForScore, realmForTier, type RealmId } from "@/lib/realm";
 import { SUBSCORE_MAX } from "@/lib/score-presentation";
-import { TIER_KEY } from "@/lib/tier";
 import type { SubScoreKey, SubScores, Tier } from "@/lib/types";
 import {
   PolarAngleAxis,
@@ -15,6 +15,9 @@ import {
 interface DimensionStarChartProps {
   scores: SubScores;
   labels: Record<SubScoreKey, string>;
+  /** Preferred — drives realm-colored stroke/fill/labels. */
+  score?: number;
+  /** Fallback when score is unavailable. */
   tier?: Tier;
   animate?: boolean;
   compact?: boolean;
@@ -102,6 +105,7 @@ function isTickProps(props: unknown): props is AxisTickProps {
 export function DimensionStarChart({
   scores,
   labels,
+  score,
   tier,
   animate = true,
   compact = false,
@@ -126,7 +130,13 @@ export function DimensionStarChart({
   const ariaLabel = data
     .map((dimension) => `${dimension.label} ${dimension.scoreLabel}`)
     .join(", ");
-  const toneKey = tier ? TIER_KEY[tier] : "brand";
+  const realm =
+    typeof score === "number"
+      ? realmForScore(score)
+      : tier
+        ? realmForTier(tier)
+        : null;
+  const realmId: RealmId | "brand" = realm?.id ?? "brand";
 
   const renderTick = (rawProps: unknown) => {
     if (!isTickProps(rawProps)) return <g />;
@@ -176,7 +186,8 @@ export function DimensionStarChart({
     <div
       role="img"
       aria-label={ariaLabel}
-      data-tone={toneKey}
+      data-realm={realmId === "brand" ? undefined : realmId}
+      data-tone={realmId}
       className={`dimension-star-radar mx-auto w-full max-w-3xl ${
         compact ? "h-[20rem] sm:h-[23rem]" : "h-[23rem] sm:h-[26rem]"
       }`}
@@ -212,13 +223,13 @@ export function DimensionStarChart({
         <Radar
           key={animate ? chartKey : "dimension-star-radar"}
           dataKey="pct"
-          stroke="#f97316"
-          fill="rgba(249, 115, 22, 0.16)"
+          stroke="var(--dimension-star-stroke)"
+          fill="var(--dimension-star-fill)"
           fillOpacity={1}
           strokeWidth={3}
           dot={{
             r: 5.5,
-            fill: "#f97316",
+            fill: "var(--dimension-star-stroke)",
             stroke: "var(--background)",
             strokeWidth: 2,
             className: animate ? "dimension-star-radar-dot" : undefined,

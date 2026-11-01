@@ -33,6 +33,8 @@ export interface RepoReadme {
 }
 
 export interface TopRepo {
+  root_paths?: string[];
+  content_skill_share?: number;
   name: string;
   owner_login?: string;
   name_with_owner?: string;
@@ -65,6 +67,8 @@ export interface TopRepo {
    * maintenance signals. */
   attributed_original?: boolean;
   attribution_evidence?: string[];
+  attribution_share?: number;
+  co_creator_facts?: import("./co-creator").CoCreatorFacts;
 }
 
 export interface RecentPr {
@@ -75,6 +79,8 @@ export interface RecentPr {
   changed_files: number;
   trivial: boolean;
   files?: string[];
+  file_changes?: { path: string; additions: number; deletions: number }[];
+  presentation_share?: number;
 }
 
 /**
@@ -148,10 +154,14 @@ export interface SignatureWork {
 
 export interface RawMetrics {
   username: string;
+  /** Stable REST user identity captured with these score facts; never a scoring signal. */
+  github_user_id?: string;
   profile_url: string | null;
   avatar_url: string | null;
   name: string | null;
   bio: string | null;
+  /** Explicit GitHub profile pronouns; writer context only, never a scoring signal. */
+  pronouns?: string | null;
   company: string | null;
   account_age_years: number;
   created_at: string | null;
@@ -165,19 +175,38 @@ export interface RawMetrics {
   empty_original_repo_count: number;
   total_stars: number;
   max_stars: number;
+  /** Stars discounted per repo for staleness (no push in 12–36 months) and
+   * dataset/content kind; Original Project Quality uses these when present.
+   * Optional so older snapshots fall back to the raw totals. */
+  content_skill_star_share?: number;
+  content_skill_confidence?: number;
+  weighted_total_stars?: number;
+  weighted_max_stars?: number;
   /** (watchers + issues ever + PRs ever) / stars for the top-starred original
    * repo. Only measured at ≥500★; undefined = not measured or fetch failed
    * (scored as "no penalty"). Viral-but-hollow repos run <1%, genuinely used
    * projects ≥5%. */
   top_repo_engagement_ratio?: number;
+  personal_original_project_quality_score?: number;
   attributed_original_repo_count?: number;
   attributed_original_repo_stars?: number;
   attributed_original_repos?: string[];
+  attributed_original_repo_shares?: Record<string, number>;
   best_original_repo_quality_score?: number;
   best_original_repo_quality_repo?: string | null;
   top_starred_original_repo_quality_score?: number;
   top_starred_original_repo_quality_repo?: string | null;
   merged_pr_count: number;
+  /** Merged PRs into repos the user does not own (`-user:` search count).
+   * Contribution Quality splits volume into external and own PRs when present;
+   * older snapshots without it keep the single-pool formula. */
+  external_merged_pr_count?: number;
+  /** Share of the sampled external merged PRs that target ≥200★ repos. */
+  external_high_star_pr_share?: number;
+  /** 0..1 community-weighted share of own-repo merged PRs that landed in own
+   * repos with an outside community. v13 adds `6·A·logRatio(own, 200)` on top
+   * of v10's combined PR pool (209ff9f5's lift from 4 to 10). */
+  own_pr_community?: number;
   /** Closed PRs that a repository-owned merge bot explicitly marked as landed.
    * This is intentionally separate from GitHub-native `merged_pr_count`. */
   workflow_landed_pr_count?: number;
@@ -193,6 +222,11 @@ export interface RawMetrics {
   recent_doc_like_pr_ratio?: number;
   recent_external_pr_sample?: number;
   recent_external_doc_like_pr_count?: number;
+  presentation_churn_share?: number;
+  presentation_core_churn_share?: number;
+  presentation_repo_concentration?: number;
+  presentation_pr_sample?: number;
+  presentation_core_pr_count?: number;
   recent_external_doc_like_pr_ratio?: number;
   external_trivial_pr_count: number;
   max_impact_repo_stars: number;
@@ -205,6 +239,8 @@ export interface RawMetrics {
    * GitHub's native merged state. */
   workflow_landed_impact_pr_count?: number;
   impact_depth_raw: number;
+  /** Legacy: the global doc-heavy impact cap. No longer produced or scored —
+   * per-repo code share replaced it — but kept for older snapshots. */
   impact_quality_cap?: number;
   verified_impact_pr_count?: number;
   core_impact_pr_count?: number;
@@ -212,6 +248,8 @@ export interface RawMetrics {
   unverified_impact_pr_count?: number;
   // All-time per-repo impact aggregates (commits + PRs into popular repos).
   // Optional so existing RawMetrics literals / fixtures stay valid.
+  /** Per-repo landed work used for the v19 breadth curve. Missing on old snapshots. */
+  impact_repos?: ImpactRepo[];
   impact_repo_count?: number;
   impact_commit_count?: number;
   /** GitHub rejected the per-repository commit contribution graph for this
@@ -283,7 +321,7 @@ export interface RiskCoverage {
 }
 
 export interface RiskAssessment {
-  version: "v10";
+  version: "v9" | "v10";
   risk_score: number;
   level: RiskLevel;
   confidence: number;
@@ -309,6 +347,7 @@ export interface Scoring {
 
 /** Full scan payload — same shape the Python script prints. */
 export interface ScanResult {
+  collection?: import("./scan-coverage").CollectionCoverage;
   metrics: RawMetrics;
   top_repos: TopRepo[];
   recent_prs: RecentPr[];

@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import type { Resume } from "@/lib/resume";
 import { computePageBreaks, type LineBox } from "@/lib/resume-pagination";
 import { ResumePaper } from "./ResumePaper";
@@ -40,10 +40,22 @@ function sameMetrics(a: Metrics | null, b: Metrics): boolean {
     a.breaks.every((value, index) => Math.abs(value - b.breaks[index]) < .5);
 }
 
+/** Caret offset of a click inside an element whose only child is its text, so
+ *  the editor can place the caret at the same character. */
+function caretOffset(element: HTMLElement, x: number, y: number): number | null {
+  const legacy = document as Document & { caretRangeFromPoint?: (x: number, y: number) => Range | null };
+  const position = document.caretPositionFromPoint?.(x, y);
+  const range = position ? null : legacy.caretRangeFromPoint?.(x, y);
+  const node = position?.offsetNode ?? range?.startContainer;
+  const offset = position?.offset ?? range?.startOffset;
+  if (!node || offset === undefined || node.nodeType !== Node.TEXT_NODE || node.parentNode !== element || element.childNodes.length !== 1) return null;
+  return offset;
+}
+
 // Screen preview as a stack of A4 pages: one full-height copy is measured,
 // then each page is an overflow-hidden window onto another copy of the same
 // render. Breaks snap to line gaps so a page boundary never slices a line.
-export function ResumePagedPaper({ resume, zh }: { resume: Resume; zh: boolean }) {
+export function ResumePagedPaper({ resume, zh, onEdit }: { resume: Resume; zh: boolean; onEdit?: (key: string, offset: number | null) => void }) {
   const measureRef = useRef<HTMLDivElement>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
 
@@ -81,7 +93,14 @@ export function ResumePagedPaper({ resume, zh }: { resume: Resume; zh: boolean }
     return () => observer.disconnect();
   }, [resume, zh]);
 
-  return <div className="resume-pages">
+  function handleClick(event: MouseEvent<HTMLDivElement>) {
+    // Selecting preview text to copy it must not jump to the editor.
+    if (!onEdit || !window.getSelection()?.isCollapsed) return;
+    const target = (event.target as Element).closest<HTMLElement>("[data-edit]");
+    if (target?.dataset.edit) onEdit(target.dataset.edit, caretOffset(target, event.clientX, event.clientY));
+  }
+
+  return <div className={onEdit ? "resume-pages resume-pages-editable" : "resume-pages"} onClick={handleClick}>
     {metrics && metrics.breaks.map((start, index) => {
       // Each page's clip ends exactly where the next page starts, so a line
       // never repeats across pages despite snapped (shorter) windows.

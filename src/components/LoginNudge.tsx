@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
+import { usePathname } from "@/i18n/navigation";
 import { fetchMe } from "@/lib/me-client";
 import { signInWithGitHub } from "@/lib/oauth-client";
 
@@ -28,10 +29,14 @@ const EXIT_MS = 300;
  */
 export function LoginNudge() {
   const t = useTranslations("loginNudge");
+  const pathname = usePathname();
+  // Bot authentication belongs to its admin site; keep the product entry clear.
+  const isBotIntroduction = pathname === "/github-bot";
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    if (isBotIntroduction) return;
     try {
       const raw = localStorage.getItem(DISMISS_KEY);
       if (raw) {
@@ -44,11 +49,10 @@ export function LoginNudge() {
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     // Only nudge when OAuth is actually offered and no session exists.
-    // fetchMe shares the shell's probe (one /api/me per pageview) and resolves
-    // signed-out-but-configured on failure — signed-out is the norm, so we
-    // nudge either way.
+    // fetchMe shares the shell's probe (one /api/me per pageview). A failed
+    // probe stays quiet; the account menu offers an explicit retry.
     fetchMe().then((d) => {
-      if (!alive || d.user || d.oauth === false) return;
+      if (!alive || d.user || d.account || d.oauth === false) return;
       timer = setTimeout(() => {
         setMounted(true);
         // Two frames so the initial (hidden) styles paint before we flip to visible.
@@ -59,7 +63,7 @@ export function LoginNudge() {
       alive = false;
       clearTimeout(timer);
     };
-  }, []);
+  }, [isBotIntroduction]);
 
   const dismiss = () => {
     try {
@@ -71,7 +75,7 @@ export function LoginNudge() {
     setTimeout(() => setMounted(false), EXIT_MS);
   };
 
-  if (!mounted) return null;
+  if (!mounted || isBotIntroduction) return null;
 
   return (
     <div

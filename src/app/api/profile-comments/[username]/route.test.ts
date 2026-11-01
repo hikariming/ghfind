@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   authConfigured: vi.fn(() => true),
   createProfileComment: vi.fn(),
   getProfileComments: vi.fn(),
+  checkCommentRateLimit: vi.fn(async () => ({ success: true })),
 }));
 
 vi.mock("../../../../lib/auth", () => ({
@@ -24,6 +25,11 @@ vi.mock("../../../../lib/auth", () => ({
 vi.mock("../../../../lib/db", () => ({
   createProfileComment: mocks.createProfileComment,
   getProfileComments: mocks.getProfileComments,
+}));
+
+vi.mock("../../../../lib/redis", () => ({
+  checkCommentRateLimit: mocks.checkCommentRateLimit,
+  rateLimitHeaders: vi.fn(() => ({})),
 }));
 
 import { POST } from "./route";
@@ -104,6 +110,36 @@ describe("profile comments API", () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: "authentication_required" });
+    expect(mocks.createProfileComment).not.toHaveBeenCalled();
+  });
+
+  it("rejects comments containing links", async () => {
+    const response = await POST(
+      new NextRequest("https://example.test/api/profile-comments/tiann", {
+        method: "POST",
+        body: JSON.stringify({ text: "好用 t.co/abc123 快看" }),
+      }),
+      context,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "links_not_allowed" });
+    expect(mocks.createProfileComment).not.toHaveBeenCalled();
+  });
+
+  it("returns 429 when the comment rate limit is spent", async () => {
+    mocks.checkCommentRateLimit.mockResolvedValueOnce({ success: false });
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/profile-comments/tiann", {
+        method: "POST",
+        body: JSON.stringify({ text: "再来一条" }),
+      }),
+      context,
+    );
+
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toEqual({ error: "rate_limited" });
     expect(mocks.createProfileComment).not.toHaveBeenCalled();
   });
 });

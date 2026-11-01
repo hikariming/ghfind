@@ -1,0 +1,46 @@
+---
+import Base from "../../../../layouts/Base.astro";
+import { VsIsland } from "../../../../islands/VsIsland";
+import { getMessages, getTranslator, pickMessages, routeLocale } from "../../../../lib/i18n";
+import { notFound } from "../../../../lib/not-found";
+import { canonicalize, isCanonicalVsPath, vsMeta } from "@/lib/pages/vs";
+import { getGoVsPresentation } from "@/lib/go-profile.server";
+import { localePath } from "@/lib/site";
+
+const locale = routeLocale(Astro.params.locale);
+const a = Astro.params.a ?? "";
+const b = Astro.params.b ?? "";
+const pair = locale ? canonicalize(a, b) : null;
+if (!locale || !pair) return notFound();
+// Non-canonical spelling (case / order) → the canonical slug, like next-intl's
+// redirect(): 307 to the locale-prefixed path.
+if (!isCanonicalVsPath(a, b, pair)) {
+  return new Response(null, { status: 307, headers: { Location: localePath(locale, `/vs/${pair.a}/${pair.b}`) } });
+}
+const [t, messages, presentation] = await Promise.all([
+  getTranslator(locale, "vs"),
+  getMessages(locale),
+  getGoVsPresentation(pair.a, pair.b),
+]);
+const title = t("metaTitle", { a: pair.a, b: pair.b });
+const description = t("metaDescription", { a: pair.a, b: pair.b });
+const { image, indexable, path } = vsMeta(locale, pair, presentation);
+Astro.response.headers.set("Cache-Control", "private, no-cache, no-store, max-age=0, must-revalidate");
+---
+<Base
+  locale={locale}
+  path={path}
+  title={title}
+  description={description}
+  robots={indexable ? undefined : "noindex, follow"}
+  openGraph={{ title, description, url: localePath(locale, path), type: "website", images: [{ url: image, width: 1200, height: 630 }] }}
+  twitter={{ card: "summary_large_image", title, description, images: [image] }}
+>
+  <VsIsland
+    client:load
+    locale={locale}
+    pair={pair}
+    presentation={presentation}
+    intl={{ locale, pathname: path, messages: pickMessages(messages, ["vs", "dimensions", "tiers", "realms", "share", "shareCard"]) }}
+  />
+</Base>

@@ -1,0 +1,520 @@
+[
+  {
+    "name": "own-account repo with every filter path",
+    "raw": {
+      "repo": "alice/tool",
+      "forks": 1500,
+      "merged_total": 120,
+      "closed_unmerged_total": 30,
+      "prs_opened_total": 160,
+      "issues_total": 90,
+      "contributors": [
+        {
+          "login": "alice",
+          "type": "User",
+          "contributions": 500
+        },
+        {
+          "login": "renovate[bot]",
+          "type": "Bot",
+          "contributions": 30
+        },
+        {
+          "login": "bob",
+          "type": "User",
+          "contributions": 40
+        },
+        {
+          "login": "fixture-account-028",
+          "type": "User",
+          "contributions": 12
+        },
+        {
+          "login": "fixture-account-030",
+          "type": "User",
+          "contributions": 8
+        },
+        {
+          "login": "fixture-account-017",
+          "type": "User",
+          "contributions": 6
+        },
+        {
+          "login": "fixture-account-021",
+          "type": "User",
+          "contributions": 3
+        },
+        {
+          "login": "fixture-account-054",
+          "type": "User",
+          "contributions": 2
+        },
+        {
+          "login": "fixture-account-033",
+          "type": "User",
+          "contributions": 1
+        }
+      ],
+      "merged": [
+        {
+          "author": "fixture-account-030",
+          "author_type": "User",
+          "created_at": "2026-10-01T00:00:00Z",
+          "merged_at": "2026-10-01T12:00:00Z",
+          "title": "feat: faster parser",
+          "churn": 100,
+          "files": [
+            "src/parser.ts"
+          ]
+        },
+        {
+          "author": "bob",
+          "author_type": "User",
+          "created_at": "2026-09-01T00:00:00Z",
+          "merged_at": "2026-09-02T00:00:00Z",
+          "title": "fix: retry on 502",
+          "churn": 50,
+          "files": [
+            "src/net.ts",
+            "src/net.test.ts"
+          ]
+        },
+        {
+          "author": "bob",
+          "author_type": "User",
+          "created_at": "2026-08-20T00:00:00Z",
+          "merged_at": "2026-08-21T00:00:00Z",
+          "title": "docs: usage",
+          "churn": 20,
+          "files": [
+            "README.md"
+          ]
+        },
+        {
+          "author": "fixture-account-017",
+          "author_type": "User",
+          "created_at": "2026-08-15T00:00:00Z",
+          "merged_at": "2026-08-15T06:00:00Z",
+          "title": "fix typo",
+          "churn": 3,
+          "files": [
+            "src/a.ts"
+          ]
+        },
+        {
+          "author": "fixture-account-017",
+          "author_type": "User",
+          "created_at": "2026-08-01T00:00:00Z",
+          "merged_at": "2026-08-11T00:00:00Z",
+          "title": "feat: plugin api",
+          "churn": 40,
+          "files": [
+            "src/plugin.ts"
+          ]
+        },
+        {
+          "author": "fixture-account-021",
+          "author_type": "User",
+          "created_at": "2026-09-10T00:00:00Z",
+          "merged_at": "2026-09-11T00:00:00Z",
+          "title": "feat: new flag",
+          "churn": 30,
+          "files": [
+            "src/cli.ts"
+          ]
+        },
+        {
+          "author": "fixture-account-028",
+          "author_type": "User",
+          "created_at": "2026-09-12T00:00:00Z",
+          "merged_at": "2026-09-12T01:00:00Z",
+          "title": "refactor: core",
+          "churn": 200,
+          "files": [
+            "src/core.ts"
+          ]
+        },
+        {
+          "author": "fixture-account-023",
+          "author_type": "Bot",
+          "created_at": "2026-09-13T00:00:00Z",
+          "merged_at": "2026-09-13T00:10:00Z",
+          "title": "bump deps",
+          "churn": 4,
+          "files": [
+            "package.json"
+          ]
+        }
+      ],
+      "issues": [
+        {
+          "author": "bob",
+          "author_type": "User",
+          "created_at": "2026-09-20T00:00:00Z",
+          "commenters": [
+            "alice",
+            "bob"
+          ]
+        },
+        {
+          "author": "fixture-account-017",
+          "author_type": "User",
+          "created_at": "2026-10-12T00:00:00Z",
+          "commenters": []
+        },
+        {
+          "author": "fixture-account-021",
+          "author_type": "User",
+          "created_at": "2026-09-25T00:00:00Z",
+          "commenters": [
+            "alice"
+          ]
+        },
+        {
+          "author": "fixture-account-032",
+          "author_type": "Bot",
+          "created_at": "2026-09-26T00:00:00Z",
+          "commenters": []
+        },
+        {
+          "author": "fixture-account-030",
+          "author_type": "User",
+          "created_at": "2026-07-01T00:00:00Z",
+          "commenters": [
+            "bob"
+          ]
+        }
+      ]
+    },
+    "context": {
+      "login": "alice",
+      "owner_orgs": [
+        "alice-org"
+      ],
+      "attributed": false,
+      "mutual_owners": [
+        "fixture-account-030"
+      ],
+      "profiles": {
+        "bob": {
+          "login": "bob",
+          "created_at": "2018-01-01T00:00:00Z",
+          "followers": 50,
+          "merged_prs": 5,
+          "orgs": []
+        },
+        "fixture-account-017": {
+          "login": "fixture-account-017",
+          "created_at": "2019-05-01T00:00:00Z",
+          "followers": 2,
+          "merged_prs": 20,
+          "orgs": []
+        },
+        "fixture-account-021": {
+          "login": "fixture-account-021",
+          "created_at": "2026-08-15T00:00:00Z",
+          "followers": 100,
+          "merged_prs": 100,
+          "orgs": []
+        },
+        "fixture-account-028": {
+          "login": "fixture-account-028",
+          "created_at": "2015-01-01T00:00:00Z",
+          "followers": 80,
+          "merged_prs": 300,
+          "orgs": [
+            "alice-org"
+          ]
+        },
+        "fixture-account-030": {
+          "login": "fixture-account-030",
+          "created_at": "2017-01-01T00:00:00Z",
+          "followers": 12,
+          "merged_prs": 0,
+          "orgs": []
+        },
+        "fixture-account-071": {
+          "login": "fixture-account-071",
+          "created_at": "2016-01-01T00:00:00Z",
+          "followers": 40,
+          "merged_prs": 10,
+          "orgs": [
+            "fixture-owner-004"
+          ]
+        },
+        "fixture-account-072": {
+          "login": "fixture-account-072",
+          "created_at": "2014-01-01T00:00:00Z",
+          "followers": 900,
+          "merged_prs": 2000,
+          "orgs": []
+        },
+        "fixture-account-054": {
+          "login": "fixture-account-054",
+          "created_at": "2020-01-01T00:00:00Z",
+          "followers": 1,
+          "merged_prs": 1,
+          "orgs": []
+        }
+      },
+      "now": "2026-10-13T12:00:00.000Z"
+    },
+    "expected_facts": {
+      "weighted_contributors": 1.3618,
+      "sustained_contributors": 3,
+      "outside_demand": 114,
+      "merge_latency_days": 1,
+      "owner_response_share": 0.5,
+      "outside_acceptance": 0.8,
+      "forks": 1500,
+      "days_since_outside_merge": 12,
+      "lead_share": 1,
+      "outside_merged_prs": 7
+    },
+    "expected_community": 0.2311
+  },
+  {
+    "name": "attributed org original: lead share and org insiders",
+    "raw": {
+      "repo": "fixture-owner-004/engine",
+      "forks": 30000,
+      "merged_total": 4000,
+      "closed_unmerged_total": 1000,
+      "prs_opened_total": 6000,
+      "issues_total": 9000,
+      "contributors": [
+        {
+          "login": "fixture-account-072",
+          "type": "User",
+          "contributions": 400
+        },
+        {
+          "login": "alice",
+          "type": "User",
+          "contributions": 300
+        },
+        {
+          "login": "fixture-account-071",
+          "type": "User",
+          "contributions": 50
+        },
+        {
+          "login": "bob",
+          "type": "User",
+          "contributions": 25
+        }
+      ],
+      "merged": [
+        {
+          "author": "bob",
+          "author_type": "User",
+          "created_at": "2026-01-01T00:00:00Z",
+          "merged_at": "2026-01-03T00:00:00Z",
+          "title": "fix: leak",
+          "churn": 80,
+          "files": [
+            "src/mem.c"
+          ]
+        }
+      ],
+      "issues": [
+        {
+          "author": "bob",
+          "author_type": "User",
+          "created_at": "2026-01-05T00:00:00Z",
+          "commenters": [
+            "fixture-account-072"
+          ]
+        }
+      ]
+    },
+    "context": {
+      "login": "Alice",
+      "owner_orgs": [],
+      "attributed": true,
+      "mutual_owners": [],
+      "profiles": {
+        "bob": {
+          "login": "bob",
+          "created_at": "2018-01-01T00:00:00Z",
+          "followers": 50,
+          "merged_prs": 5,
+          "orgs": []
+        },
+        "fixture-account-017": {
+          "login": "fixture-account-017",
+          "created_at": "2019-05-01T00:00:00Z",
+          "followers": 2,
+          "merged_prs": 20,
+          "orgs": []
+        },
+        "fixture-account-021": {
+          "login": "fixture-account-021",
+          "created_at": "2026-08-15T00:00:00Z",
+          "followers": 100,
+          "merged_prs": 100,
+          "orgs": []
+        },
+        "fixture-account-028": {
+          "login": "fixture-account-028",
+          "created_at": "2015-01-01T00:00:00Z",
+          "followers": 80,
+          "merged_prs": 300,
+          "orgs": [
+            "alice-org"
+          ]
+        },
+        "fixture-account-030": {
+          "login": "fixture-account-030",
+          "created_at": "2017-01-01T00:00:00Z",
+          "followers": 12,
+          "merged_prs": 0,
+          "orgs": []
+        },
+        "fixture-account-071": {
+          "login": "fixture-account-071",
+          "created_at": "2016-01-01T00:00:00Z",
+          "followers": 40,
+          "merged_prs": 10,
+          "orgs": [
+            "fixture-owner-004"
+          ]
+        },
+        "fixture-account-072": {
+          "login": "fixture-account-072",
+          "created_at": "2014-01-01T00:00:00Z",
+          "followers": 900,
+          "merged_prs": 2000,
+          "orgs": []
+        },
+        "fixture-account-054": {
+          "login": "fixture-account-054",
+          "created_at": "2020-01-01T00:00:00Z",
+          "followers": 1,
+          "merged_prs": 1,
+          "orgs": []
+        }
+      },
+      "now": "2026-10-13T12:00:00.000Z"
+    },
+    "expected_facts": {
+      "weighted_contributors": 2,
+      "sustained_contributors": 2,
+      "outside_demand": 15000,
+      "merge_latency_days": 2,
+      "owner_response_share": 0,
+      "outside_acceptance": 0.8,
+      "forks": 30000,
+      "days_since_outside_merge": 283.5,
+      "lead_share": 0.75,
+      "outside_merged_prs": 1
+    },
+    "expected_community": 0.1782
+  },
+  {
+    "name": "no outside contributors",
+    "raw": {
+      "repo": "alice/solo",
+      "forks": 3,
+      "merged_total": 0,
+      "closed_unmerged_total": 0,
+      "prs_opened_total": 0,
+      "issues_total": 0,
+      "contributors": [
+        {
+          "login": "alice",
+          "type": "User",
+          "contributions": 90
+        }
+      ],
+      "merged": [],
+      "issues": []
+    },
+    "context": {
+      "login": "alice",
+      "owner_orgs": [
+        "alice-org"
+      ],
+      "attributed": false,
+      "mutual_owners": [
+        "fixture-account-030"
+      ],
+      "profiles": {
+        "bob": {
+          "login": "bob",
+          "created_at": "2018-01-01T00:00:00Z",
+          "followers": 50,
+          "merged_prs": 5,
+          "orgs": []
+        },
+        "fixture-account-017": {
+          "login": "fixture-account-017",
+          "created_at": "2019-05-01T00:00:00Z",
+          "followers": 2,
+          "merged_prs": 20,
+          "orgs": []
+        },
+        "fixture-account-021": {
+          "login": "fixture-account-021",
+          "created_at": "2026-08-15T00:00:00Z",
+          "followers": 100,
+          "merged_prs": 100,
+          "orgs": []
+        },
+        "fixture-account-028": {
+          "login": "fixture-account-028",
+          "created_at": "2015-01-01T00:00:00Z",
+          "followers": 80,
+          "merged_prs": 300,
+          "orgs": [
+            "alice-org"
+          ]
+        },
+        "fixture-account-030": {
+          "login": "fixture-account-030",
+          "created_at": "2017-01-01T00:00:00Z",
+          "followers": 12,
+          "merged_prs": 0,
+          "orgs": []
+        },
+        "fixture-account-071": {
+          "login": "fixture-account-071",
+          "created_at": "2016-01-01T00:00:00Z",
+          "followers": 40,
+          "merged_prs": 10,
+          "orgs": [
+            "fixture-owner-004"
+          ]
+        },
+        "fixture-account-072": {
+          "login": "fixture-account-072",
+          "created_at": "2014-01-01T00:00:00Z",
+          "followers": 900,
+          "merged_prs": 2000,
+          "orgs": []
+        },
+        "fixture-account-054": {
+          "login": "fixture-account-054",
+          "created_at": "2020-01-01T00:00:00Z",
+          "followers": 1,
+          "merged_prs": 1,
+          "orgs": []
+        }
+      },
+      "now": "2026-10-13T12:00:00.000Z"
+    },
+    "expected_facts": {
+      "weighted_contributors": 0,
+      "sustained_contributors": 0,
+      "outside_demand": 0,
+      "merge_latency_days": null,
+      "owner_response_share": 0,
+      "outside_acceptance": 0,
+      "forks": 3,
+      "days_since_outside_merge": null,
+      "lead_share": 1,
+      "outside_merged_prs": 0
+    },
+    "expected_community": 0
+  }
+]

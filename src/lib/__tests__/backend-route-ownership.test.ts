@@ -13,10 +13,14 @@ const REVIEWED_NEXT_API_ROUTES = new Set([
   "src/app/api/[...notFound]/route.ts",
   "src/app/api/badge/[username]/route.ts",
   "src/app/api/auth/github/route.ts",
+  "src/app/api/auth/google/route.ts",
   "src/app/api/auth/callback/github/route.ts",
+  "src/app/api/auth/callback/google/route.ts",
   "src/app/api/auth/signout/route.ts",
   "src/app/api/me/route.ts",
   "src/app/api/roast/route.ts",
+  // On-view re-roast after a roast-release upgrade: enqueue (gated) + status poll.
+  "src/app/api/roast/auto/route.ts",
   "src/app/api/scan/route.ts",
   "src/app/api/blog-comments/[slug]/route.ts",
   "src/app/api/campaigns/[campaign]/leaderboard/route.ts",
@@ -28,7 +32,37 @@ const REVIEWED_NEXT_API_ROUTES = new Set([
   "src/app/api/profile-reactions/[username]/route.ts",
   // Signed-in user's cloud résumé library (GET/PUT, session-gated, D1-backed).
   "src/app/api/resumes/route.ts",
+  // Per-account CLI/API token management (OAuth session + same-origin writes).
+  "src/app/api/account/tokens/route.ts",
+  "src/app/api/account/tokens/[id]/route.ts",
+  // Bearer personal token -> GitHub id, for the ghfind Review bot's CLI API.
+  "src/app/api/account/whoami/route.ts",
   "src/app/api/developers/route.ts",
+  // Public discover preview: read-only project boards, no Feed profile writes.
+  "src/app/api/discover/public/route.ts",
+  // Internal discover-score ranking: 404 unless GHFIND_DISCOVER_SCORE_V1=1
+  // and the session's GitHub id is on the internal allowlist; private, no-store.
+  "src/app/api/discover/internal/route.ts",
+  // Owner-uploaded discover covers. GET is public; writes require the GitHub owner.
+  "src/app/api/discover/covers/[owner]/[repo]/route.ts",
+  // Social posts: shared handlers also mounted in the API Worker. Public reads;
+  // same-origin, session-gated writes; publishing additionally requires score eligibility.
+  "src/app/api/feed/authors/[id]/route.ts",
+  "src/app/api/feed/authors/[id]/follow/route.ts",
+  "src/app/api/feed/me/bookmarks/route.ts",
+  "src/app/api/feed/media/[id]/route.ts",
+  "src/app/api/feed/media/route.ts",
+  "src/app/api/feed/post-events/route.ts",
+  "src/app/api/feed/posts/[id]/ancestors/route.ts",
+  "src/app/api/feed/posts/[id]/bookmark/route.ts",
+  "src/app/api/feed/posts/[id]/reaction/route.ts",
+  "src/app/api/feed/posts/[id]/replies/route.ts",
+  "src/app/api/feed/posts/[id]/repost/route.ts",
+  "src/app/api/feed/posts/[id]/route.ts",
+  "src/app/api/feed/posts/route.ts",
+  "src/app/api/feed/publishing-capabilities/route.ts",
+  // Content-only X import: dedicated SOCIAL_FEED_INGEST_SECRET bearer token.
+  "src/app/api/internal/social-feed/x-posts/route.ts",
   "src/app/api/feed/events/route.ts",
   "src/app/api/feed/preferences/route.ts",
   "src/app/api/feed/profile/route.ts",
@@ -40,17 +74,32 @@ const REVIEWED_NEXT_API_ROUTES = new Set([
   "src/app/api/facet-rank/[username]/route.ts",
   "src/app/api/leaderboard/route.ts",
   "src/app/api/score/[username]/route.ts",
+  // Public sponsor listing: D1-backed, anonymous-safe fields only.
+  "src/app/api/sponsors/route.ts",
+  // First-party sponsor link hop: 302 to an active sponsorship's stored URL only.
+  "src/app/api/sponsors/[id]/visit/route.ts",
   "src/app/api/search-users/route.ts",
   "src/app/api/stats/route.ts",
+  // Public read-only sponsor listing backed by D1.
+  "src/app/api/sponsors/route.ts",
   // Talent directory pagination: public read-only list/detail, D1-backed.
   "src/app/api/talent/route.ts",
   "src/app/api/talent/[id]/route.ts",
+  // Talent self-submission (was a Server Action): same-origin POST, writes a
+  // pending row that is never listed until an operator reviews it.
+  "src/app/api/talent/intake/route.ts",
+  "src/app/api/talent-match/reports/route.ts",
+  "src/app/api/talent-match/reports/[id]/route.ts",
+  "src/app/api/talent-match/quota/route.ts",
+  "src/app/api/talent-match/profile/route.ts",
   "src/app/api/card/[username]/route.tsx",
   "src/app/api/card/mini/[username]/route.ts",
   "src/app/api/card/vs/[a]/[b]/route.tsx",
   "src/app/api/internal/project-analyses/reconcile/route.ts",
   "src/app/api/internal/feed/reconcile/route.ts",
   "src/app/api/internal/feed/tags/review/route.ts",
+  // Curated X timeline ingest for /feed: ADMIN_SECRET only, KV-backed, no-store.
+  "src/app/api/internal/x-timeline/route.ts",
   "src/app/api/material-card/[username]/route.tsx",
   "src/app/api/og/blog/[slug]/route.tsx",
   "src/app/api/og/home/route.tsx",

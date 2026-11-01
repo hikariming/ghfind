@@ -53,10 +53,11 @@ export async function labels(
   }
   throw new Error("Label pagination exceeded limit");
 }
+// Returns the repository labels read before any review: label was created.
 export async function initializeLabels(
   api: ReturnType<typeof github>,
   repository: string,
-) {
+): Promise<Map<string, Record<string, unknown>>> {
   const path = `/repos/${repository}/labels`;
   const existing = await labels(api, path);
   for (const name of LABELS) {
@@ -92,13 +93,15 @@ export async function initializeLabels(
       if (found.name !== name || found.archived === true) throw error;
     }
   }
+  return existing;
 }
+// Returns the issue labels as read before this sync.
 export async function syncLabel(
   api: ReturnType<typeof github>,
   repository: string,
   pr: number,
   target: Label,
-) {
+): Promise<Map<string, Record<string, unknown>>> {
   const path = `/repos/${repository}/issues/${pr}/labels`;
   const current = await labels(api, path);
   if (!current.has(target)) await api(path, "POST", { labels: [target] });
@@ -110,6 +113,7 @@ export async function syncLabel(
         if (!(error instanceof ApiError && error.status === 404)) throw error;
       }
     }
+  return current;
 }
 
 export const COMMENT_MARKER = "<!-- ghfind-review:author-score:v1 -->";
@@ -118,10 +122,12 @@ function rescoreHint(slug: string): string {
   // The mention is in code so posting this comment does not notify the bot or any person.
   return `The ghfind score service did not return a score. This is not a GitHub App rate limit on the repository.\nTo score this again, the author or a repository admin can comment \`@${name}\` here. Automatic retries stop 60 minutes after this comment.\n没有拿到 ghfind 的分数。这不是这个仓库的 GitHub App 令牌额度用尽。\n要重新评分，作者或仓库管理员可在这里评论 \`@${name}\`。这条 no-score 出现 60 分钟后不再自动重试。这里不会 @ 任何人。`;
 }
+// Mentions are ignored on pull requests, so PR comments omit the rescore hint.
 export function scoreComment(
   login: string,
   score: unknown,
   appSlug = "ghfind-review",
+  pull = false,
 ): string {
   if (!/^[A-Za-z0-9-]+(?:\[bot\])?$/.test(login))
     throw new Error("Invalid author login");
@@ -142,25 +148,51 @@ export function scoreComment(
 | --- | --- | --- | --- |
 | [${author}](https://ghfind.com/en/u/${encodeURIComponent(login)}) | ${available ? `${score} / 100` : "No score"} | \`${label}\` | ${ranges[label]} |
 
-${available ? "The label reflects the author's public GitHub profile at processing time." : `The score could not be obtained. No score does not mean zero.\n${rescoreHint(appSlug)}`}
+${available ? "The label reflects the author's public GitHub profile at processing time." : `The score could not be obtained. No score does not mean zero.${pull ? "" : `\n${rescoreHint(appSlug)}`}`}
 This profile score is not a review of the issue or PR content, or a merge recommendation.`;
 }
 
-export async function syncComment(
-  api: ReturnType<typeof github>,
-  repository: string,
-  number: number,
+const HEADING = "\n### ghfind author profile";
+// The fixed part of the bot comment: score facts and the optional email footer.
+export function commentTemplate(
   login: string,
   score: unknown,
   appSlug: string,
   emailEnabled = false,
-  allowNew = true,
-) {
-  const body =
-    scoreComment(login, score, appSlug) +
+  pull = false,
+): string {
+  return (
+    scoreComment(login, score, appSlug, pull).slice(COMMENT_MARKER.length + 1) +
     (emailEnabled
       ? "\n\n[Email preferences / 邮件设置](https://bot.ghfind.com/notifications): score emails go to available public GitHub addresses by default; unsubscribe in the email. / 有公开邮箱时默认发送评分邮件，可在邮件中退订。"
-      : "");
+      : "")
+  );
+}
+export function composeComment(intro: string, template: string): string {
+  return `${COMMENT_MARKER}\n${intro ? `${intro}\n\n` : ""}${template}`;
+}
+// The intro is everything between the marker and the last template heading.
+// Sanitized intros are single-line, so they never contain the heading.
+export function commentIntro(body: string): string {
+  const at = body.lastIndexOf(HEADING);
+  return at < COMMENT_MARKER.length
+    ? ""
+    : body.slice(COMMENT_MARKER.length, at).trim();
+}
+// The table's level cell; sanitized intros contain no backticks.
+const level = (text: string) => /\| `(review: [a-z-]+)` \|/.exec(text)?.[1];
+// `create` runs only when the bot has no comment here yet; it returns the
+// intro ("" for none) or null to post nothing. An existing comment is edited
+// only when the template facts change. Its intro was written for the old
+// level (e.g. "no score yet"), so a level change drops it.
+export async function syncComment(
+  api: ReturnType<typeof github>,
+  repository: string,
+  number: number,
+  appSlug: string,
+  template: string,
+  create?: () => Promise<string | null>,
+) {
   const path = `/repos/${repository}/issues/${number}/comments`;
   // Check ownership as well as the marker: quoted/spoofed user comments are never edited.
   for (let page = 1; page <= 100; page++) {
@@ -175,6 +207,12 @@ export async function syncComment(
         typeof comment.body === "string" &&
         comment.body.startsWith(COMMENT_MARKER)
       ) {
+        const body = composeComment(
+          level(comment.body) === level(template)
+            ? commentIntro(comment.body)
+            : "",
+          template,
+        );
         if (comment.body !== body)
           await api(
             `/repos/${repository}/issues/comments/${positive(comment.id)}`,
@@ -185,7 +223,9 @@ export async function syncComment(
       }
     }
     if (comments.length < 100) {
-      if (allowNew) await api(path, "POST", { body });
+      const intro = create ? await create() : null;
+      if (intro !== null)
+        await api(path, "POST", { body: composeComment(intro, template) });
       return;
     }
   }

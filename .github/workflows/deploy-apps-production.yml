@@ -1,0 +1,153 @@
+name: Deploy apps (production)
+
+# Deploys the Astro-migration Workers (apps/*) from every successful main CI
+# run: ghfind-coord (Durable Objects other Workers bind to, so first),
+# ghfind-web, ghfind-talent (the Workflow ghfind-api binds to), ghfind-api, then ghfind-router. Independent of the legacy/Feed
+# release (deploy-cf-production.yml): the router reaches the legacy Worker over
+# a service binding and keeps Feed there, so neither release blocks the other.
+#
+# The router only gets traffic once it owns the ghfind.com custom domain; until
+# then this verifies the stack on workers.dev without affecting users.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: >-
+      github.repository == 'hikariming/ghfind' &&
+      ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-latest
+    # Same environment as deploy-cf-production.yml: the release-managed
+    # credentials below live there (branch policy only, no manual gate).
+    environment: Production
+    timeout-minutes: 20
+    concurrency:
+      group: apps-production-deploy
+      cancel-in-progress: false
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Reject superseded releases
+        id: current
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" != "$RELEASE_SHA" ]; then
+            echo "::notice::superseded"
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "current=true" >> "$GITHUB_OUTPUT"
+          test "$CLOUDFLARE_ACCOUNT_ID" = "8f19bebe359e4ec1a24c68c5f49c1584"
+      - run: pnpm install --frozen-lockfile
+        if: steps.current.outputs.current == 'true'
+      - name: Apply approved core D1 migrations before deploying readers
+        if: steps.current.outputs.current == 'true'
+        # The Astro/API Workers read the core database directly. Keep its
+        # indexes available even when the independent Feed release is delayed.
+        # Render only hash-approved files; do not apply any Feed migrations.
+        run: |
+          set -euo pipefail
+          release_config="$(node scripts/feed-platform-schema-release.mjs production "$RUNNER_TEMP/apps-production-schema")"
+          pnpm exec wrangler d1 migrations apply ghfind --remote --config "$release_config"
+      # ScanSlot alarms RPC into ghfind-api's ScanContinueEntrypoint, and
+      # RoastJob alarms RPC into RoastContinueEntrypoint. Publish those named
+      # exports before coord binds them. This deploy omits the ROAST_JOB
+      # binding: the class does not exist until the coord step migrates it.
+      - name: Deploy ghfind-api entrypoints before coord
+        if: steps.current.outputs.current == 'true'
+        run: |
+          node <<'NODE'
+            const { readFileSync, writeFileSync } = require("node:fs");
+            const path = "apps/api/wrangler.jsonc";
+            const text = readFileSync(path, "utf8");
+            const stripped = text.replace(/[ \t]*\{ "name": "ROAST_JOB", "class_name": "RoastJob", "script_name": "ghfind-coord" \},?\n/, "");
+            if (stripped === text) throw new Error("ROAST_JOB binding not found");
+            writeFileSync(path, stripped);
+          NODE
+          pnpm --filter @ghfind/api exec wrangler deploy --env production --tag "production-$RELEASE_SHA"
+          git checkout -- apps/api/wrangler.jsonc
+      - name: Deploy ghfind-coord
+        if: steps.current.outputs.current == 'true'
+        run: pnpm --filter @ghfind/coord exec wrangler deploy --env production --tag "production-$RELEASE_SHA"
+      - name: Deploy ghfind-web
+        if: steps.current.outputs.current == 'true'
+        run: |
+          set -euo pipefail
+          CLOUDFLARE_ENV=production pnpm --filter @ghfind/web build
+          pnpm --filter @ghfind/web exec wrangler deploy --tag "production-$RELEASE_SHA"
+      # Tail consumer must exist before the API producer is deployed.
+      - name: Deploy fault and cost monitor before API tail binding
+        if: steps.current.outputs.current == 'true'
+        run: pnpm --filter @ghfind/cost-monitor exec wrangler deploy --env production --keep-vars --tag "production-$RELEASE_SHA"
+      # Hosts the Talent Match Workflow that ghfind-api binds to, so before the API.
+      - name: Deploy ghfind-talent
+        if: steps.current.outputs.current == 'true'
+        run: pnpm --filter @ghfind/talent exec wrangler deploy --env production --tag "production-$RELEASE_SHA"
+      - name: Deploy ghfind-api
+        if: steps.current.outputs.current == 'true'
+        run: pnpm --filter @ghfind/api exec wrangler deploy --env production --tag "production-$RELEASE_SHA"
+      - name: Sync release-managed credentials to ghfind-api
+        if: steps.current.outputs.current == 'true'
+        # The legacy release writes these to the Web Worker on every release
+        # (feed-production-release.mjs prepare); keep the api Worker identical.
+        # Operator-held secrets (AUTH_*, GITHUB_TOKEN, LLM_*) are set once with
+        # `wrangler secret put` and are not in CI.
+        env:
+          MOSOO_API_TOKEN: ${{ secrets.MOSOO_API_TOKEN }}
+          PROJECT_ANALYSIS_RECONCILE_SECRET: ${{ secrets.PROJECT_ANALYSIS_RECONCILE_SECRET }}
+        run: |
+          set -euo pipefail
+          test -n "$MOSOO_API_TOKEN" && test -n "$PROJECT_ANALYSIS_RECONCILE_SECRET"
+          umask 077
+          node -e 'require("fs").writeFileSync(process.argv[1], JSON.stringify({MOSOO_API_TOKEN: process.env.MOSOO_API_TOKEN, PROJECT_ANALYSIS_RECONCILE_SECRET: process.env.PROJECT_ANALYSIS_RECONCILE_SECRET}))' "$RUNNER_TEMP/api-secrets.json"
+          pnpm --filter @ghfind/api exec wrangler secret bulk "$RUNNER_TEMP/api-secrets.json" --env production
+          rm -f "$RUNNER_TEMP/api-secrets.json"
+      - name: Deploy ghfind-router
+        if: steps.current.outputs.current == 'true'
+        run: pnpm --filter @ghfind/router exec wrangler deploy --env production --tag "production-$RELEASE_SHA"
+      - name: Smoke-test the router on workers.dev
+        if: steps.current.outputs.current == 'true'
+        run: |
+          set -euo pipefail
+          base=https://ghfind-router.beiming1201.workers.dev
+          check() { # path expected-origin
+            # A first deploy's workers.dev hostname takes a short while to go
+            # live (404 until then), so retry before failing.
+            for attempt in 1 2 3 4 5 6; do
+              if headers=$(curl -fsS -o /dev/null -D - --max-time 60 "$base$1") &&
+                 echo "$headers" | tr -d '\r' | grep -qix "x-ghfind-origin: $2"; then return 0; fi
+              echo "attempt $attempt: $1 not yet served by $2"; sleep 15
+            done
+            echo "$1 not served by $2"; exit 1
+          }
+          check /api/stats api
+          check /api/badge/torvalds api
+          check /en/about web
+          check /en web
+          # P5: machine-readable documents on api, public/ files and 404s on web.
+          check /index.md api
+          check /robots.txt api
+          check /favicon.ico web

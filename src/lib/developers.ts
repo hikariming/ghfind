@@ -10,7 +10,9 @@
 import {
   getDevelopersByFacet,
   getFacetCategories,
+  getFacetRank,
   type FacetCategory,
+  type FacetRank,
   type LeaderboardEntry,
 } from "@/lib/db";
 import type { FacetType } from "@/lib/facets";
@@ -75,5 +77,31 @@ export async function getDevelopersByFacetCached(
     return await run;
   } finally {
     developersInflight.delete(key);
+  }
+}
+
+const rankInflight = new Map<string, Promise<FacetRank | null>>();
+
+/**
+ * A developer's language-board position, single-flight. No per-profile cache:
+ * the answer comes from one indexed lookup plus the shared per-language ladder
+ * (cached in getFacetRank), and a per-username KV entry missed on nearly every
+ * crawler render, so it only added a KV write to each profile view.
+ */
+export async function getFacetRankCached(
+  username: string,
+  score: number,
+): Promise<FacetRank | null> {
+  const uname = username.toLowerCase();
+  const key = `${uname}:${score}`;
+  const existing = rankInflight.get(key);
+  if (existing) return existing;
+
+  const run = getFacetRank(uname, score);
+  rankInflight.set(key, run);
+  try {
+    return await run;
+  } finally {
+    rankInflight.delete(key);
   }
 }

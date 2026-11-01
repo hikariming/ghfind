@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { SITE_URL } from "@/lib/site";
 
 /**
@@ -16,6 +15,9 @@ export type ApiErrorCode =
   | "account_not_found"
   | "github_rate_limited"
   | "github_unavailable"
+  | "github_collect_deadline"
+  | "scan_pending"
+  | "scan_busy"
   | "queue_full"
   | "admission_limited"
   | "scan_failed"
@@ -34,6 +36,9 @@ const HINTS: Partial<Record<ApiErrorCode, string>> = {
   account_not_found: "That GitHub login does not exist.",
   github_rate_limited: "GitHub's API is rate limited right now — retry shortly.",
   github_unavailable: "GitHub is temporarily unavailable — retry later.",
+  github_collect_deadline: "GitHub collection timed out — retry shortly.",
+  scan_pending: "Large-account GitHub collection is still running. Poll GET /api/scan?username=… until 200.",
+  scan_busy: "Score generation is busy — retry shortly.",
   queue_full: "Historical scan capacity is busy — retry after the Retry-After interval.",
   admission_limited: "Too many new historical scans from this source — retry after the Retry-After interval.",
   not_scored: "Score the account first (POST /api/scan or GET /api/score/{username}).",
@@ -62,7 +67,7 @@ export function apiError(
     hint?: string;
     headers?: Record<string, string>;
   },
-): NextResponse {
+): Response {
   const body = {
     error: code,
     message: opts.message ?? code.replace(/_/g, " "),
@@ -72,5 +77,5 @@ export function apiError(
   if (opts.status === 401 && !headers["WWW-Authenticate"]) {
     headers["WWW-Authenticate"] = wwwAuthenticateHeader();
   }
-  return NextResponse.json(body, { status: opts.status, headers });
+  return Response.json(body, { status: opts.status, headers });
 }

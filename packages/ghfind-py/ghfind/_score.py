@@ -16,6 +16,8 @@ Parity notes (why this reproduces the TS output bit-for-bit):
 
 from __future__ import annotations
 
+from ._presentation import presentation_discount
+
 import math
 from typing import Any, Dict, List, Mapping, Optional
 
@@ -51,6 +53,19 @@ def log_ratio(value: float, full_at: float) -> float:
 def clamp_score(value: float) -> float:
     """Clamp a score to [0, 100] and round to 2 decimals (banker's)."""
     return round(max(0, min(value, 100)), 2)
+
+
+def star_engagement_multiplier(ratio: Any) -> float:
+    """Match TS starEngagementMultiplier: unmeasured (None) skips the discount."""
+    if ratio is None:
+        return 1
+    if ratio >= 0.04:
+        return 1
+    if ratio >= 0.02:
+        return 0.85
+    if ratio >= 0.01:
+        return 0.7
+    return 0.5
 
 
 def spam_bot_score(m: Mapping[str, Any]) -> float:
@@ -112,39 +127,12 @@ def _doc_like_ratio(m: Mapping[str, Any]) -> tuple:
 
 
 def doc_like_pr_volume_discount(m: Mapping[str, Any], pr_volume: float) -> float:
-    sample, ratio = _doc_like_ratio(m)
-    if sample < 20 or ratio < 0.55:
-        return 0
-    severity = max(0.0, min(1.0, (ratio - 0.55) / 0.075))
-    return min(pr_volume * 0.55, 2.5 + severity * 3.0)
+    from ._presentation import presentation_discount
+    share = min(1, max(0, m.get("external_merged_pr_count") or 0) / max(1, m["merged_pr_count"]))
+    return pr_volume * share * (1-presentation_discount(m)) * .8
 
 
 def contribution_quality_cap(m: Mapping[str, Any]) -> Optional[float]:
-    sample, ratio = _doc_like_ratio(m)
-    if sample < 20 or ratio < 0.55:
-        return None
-    low_trust_impact = (
-        m.get("impact_quality_cap") is not None
-        and m["impact_quality_cap"] <= 4
-        and _nz(m.get("core_impact_pr_count"), 0) <= 2
-    )
-    weak_top_star_project = (
-        _nz(m.get("top_starred_original_repo_quality_score"), 1) < 0.3 and m["total_stars"] > 0
-    )
-    self_closed_external = _nz(m.get("self_closed_external_pr_count"), 0)
-    total_externalish = (
-        m["merged_pr_count"] + _nz(m.get("maintainer_closed_unmerged_pr_count"), 0) + self_closed_external
-    )
-    heavy_self_closed_external = (
-        total_externalish >= 20 and self_closed_external / total_externalish >= 0.25
-    )
-    weak_own_project_signal = (
-        m["max_stars"] < 100
-        and m["total_stars"] < 300
-        and _nz(m.get("top_starred_original_repo_quality_score"), 1) < 0.6
-    )
-    if low_trust_impact and (weak_top_star_project or weak_own_project_signal or heavy_self_closed_external):
-        return 12
     return None
 
 
@@ -157,6 +145,22 @@ def high_impact_core_pr_bonus(m: Mapping[str, Any]) -> float:
     return min(2, star_signal * 0.8 + core_signal * 1.2)
 
 
+OWN_PR_VOLUME_FULL_AT = 200
+OWN_PR_COMMUNITY_BONUS = 6
+
+
+def own_pr_community_credit(m: Mapping[str, Any]) -> float:
+    """v13 extra: 6·A·logRatio(own, 200). Missing external count keeps v10."""
+    if m.get("external_merged_pr_count") is None:
+        return 0.0
+    community = max(0.0, min(_nz(m.get("own_pr_community"), 0), 1.0))
+    if community == 0:
+        return 0.0
+    external = max(0.0, min(m["external_merged_pr_count"], m["merged_pr_count"]))
+    own = max(0.0, m["merged_pr_count"] - external)
+    return log_ratio(own, OWN_PR_VOLUME_FULL_AT) * OWN_PR_COMMUNITY_BONUS * community
+
+
 def impact_prestige_signal(m: Mapping[str, Any]) -> float:
     return max(
         0.0,
@@ -167,14 +171,155 @@ def impact_prestige_signal(m: Mapping[str, Any]) -> float:
     )
 
 
+def soft_min(values, k=6):
+    """Log-sum-exp soft minimum. Approaches the smaller input without a hard cut."""
+    finite = [value for value in values if value is not None and math.isfinite(value)]
+    if not finite:
+        return math.inf
+    peak = max(-k * value for value in finite)
+    total = sum(math.exp(-k * value - peak) for value in finite)
+    return -(peak + math.log(total)) / k
+
+
+def _contribution_evidence_bounds(m: Mapping[str, Any]):
+    def smooth(value):
+        x = max(0, min(1, value))
+        return x*x*(3-2*x)
+    volume = smooth((m["merged_pr_count"]-40)/80)
+    prestige=impact_prestige_signal(m)
+    strong_prestige=smooth((prestige-.65)/.15)
+    core_protection=smooth(((m.get("core_impact_pr_count") or 0)-40)/60)
+    prestige_cap=20+3*smooth((prestige-.3)/.5)+4*strong_prestige+2.5*core_protection*(1-strong_prestige)
+    # Own stars cannot bypass outside adoption. Missing counts mean unknown,
+    # so recognition stays out of the ceiling.
+    bounds = [27, 27-(27-prestige_cap)*volume]
+    if m.get("external_merged_pr_count") is not None:
+        external = max(0, min(m["external_merged_pr_count"], m["merged_pr_count"]))
+        own = max(0, m["merged_pr_count"]-external)
+        community = max(0, min(_nz(m.get("own_pr_community"), 0), 1))
+        # The 80-landing scale matches TypeScript and Go.
+        bounds.append(20+7*(1-math.exp(-(external+own*community)/80)))
+    legacy = contribution_quality_cap(m)
+    if legacy is not None:
+        bounds.append(legacy)
+    return bounds
+
+
+def contribution_evidence_ceiling(m: Mapping[str, Any]) -> float:
+    return soft_min(_contribution_evidence_bounds(m), 6)
+
+
 def low_prestige_bulk_contribution_cap(m: Mapping[str, Any]) -> Optional[float]:
-    if m["merged_pr_count"] < 80:
-        return None
-    if impact_prestige_signal(m) >= log_ratio(10_000, 100_000):
-        return None
-    if m["max_stars"] >= 1000:
-        return None
-    return 22
+    return min(_contribution_evidence_bounds(m))
+
+
+def saturate_toward(raw: float, ceiling: float) -> float:
+    """Smooth min(raw, ceiling). Far below the ceiling this stays on the raw curve."""
+    if raw <= 0:
+        return 0.0
+    if ceiling == math.inf:
+        return raw
+    if ceiling <= 0:
+        return 0.0
+    return soft_min([raw, ceiling], 3)
+
+
+def _clamp01(value: float) -> float:
+    return max(0.0, min(1.0, value))
+
+
+def impact_substance(m: Mapping[str, Any]) -> float:
+    trivial_count = max(0, _nz(m.get("external_trivial_pr_count"), 0))
+    sample = max(0, _nz(m.get("recent_merged_pr_sample"), 0))
+    trivial_known = sample > 0 or trivial_count > 0
+    trivial_share = trivial_count / max(sample, trivial_count, 1) if trivial_known else 0
+    core = max(0, _nz(m.get("core_impact_pr_count"), 0))
+    doc_like = max(0, _nz(m.get("doc_like_impact_pr_count"), 0))
+    class_known = core + doc_like > 0
+    class_quality = 0.45 + 0.55 * core / (core + doc_like) if class_known else 1
+    presentation_known = m.get("presentation_churn_share") is not None
+    presentation = _clamp01(m.get("presentation_churn_share") or 0) if presentation_known else 0
+    if not trivial_known and not class_known and not presentation_known:
+        return 1.0
+    work = max(m.get("impact_pr_count") or 0, sample, trivial_count, core + doc_like, 1)
+    trivial_coverage = min(1, max(sample, trivial_count) / work) if trivial_known else 0
+    class_coverage = min(1, (core + doc_like) / work) if class_known else 0
+    if presentation_known and m.get("presentation_pr_sample") is not None:
+        presentation_sample = m.get("presentation_pr_sample") or 0
+    else:
+        presentation_sample = sample
+    presentation_coverage = min(1, max(presentation_sample, 0) / work) if presentation_known else 0
+    quality = (
+        (1 - trivial_coverage * 0.55 * trivial_share)
+        * (1 - class_coverage * (1 - class_quality))
+        * (1 - presentation_coverage * 0.5 * presentation)
+    )
+    return max(0.18, min(1.0, 0.22 + 0.78 * quality))
+
+
+def _repo_concentration(repos) -> float:
+    weights = [max(0, repo.get("prs") or 0) for repo in repos]
+    total = sum(weights)
+    if total > 0:
+        shares = [weight / total for weight in weights]
+    else:
+        shares = [1 / len(repos)] * len(repos)
+    hhi = sum(share * share for share in shares)
+    if len(repos) <= 1:
+        return 1.0
+    equal = 1 / len(repos)
+    return _clamp01((hhi - equal) / (1 - equal))
+
+
+def _dominant_repo_work(m: Mapping[str, Any], repos: list) -> float:
+    if repos:
+        max_work = 0.0
+        for repo in repos:
+            work = max(0, repo.get("prs") or 0) + max(0, repo.get("commits") or 0) / 4
+            if work > max_work:
+                max_work = work
+        return max_work
+    return max(0, m.get("impact_pr_count") or 0) + max(0, m.get("impact_commit_count") or 0) / 4
+
+
+def impact_breadth(m: Mapping[str, Any]) -> float:
+    repos = [repo for repo in (m.get("impact_repos") or []) if isinstance(repo, Mapping) and isinstance(repo.get("repo"), str)]
+    known = False
+    concentration = 0.0
+    if repos:
+        known = True
+        concentration = _repo_concentration(repos)
+    elif (m.get("impact_repo_count") or 0) > 0:
+        known = True
+        concentration = 1.0 if (m.get("impact_repo_count") or 0) <= 1 else 0.0
+    if not known:
+        return 1.0
+    work = _dominant_repo_work(m, repos)
+    # Sustained dominant-repo work softens concentration; drive-bys stay near the floor.
+    maintainer_relief = 1 - math.exp(-work / 60)
+    effective_concentration = concentration * (1 - 0.4 * maintainer_relief)
+    spread = (1 - effective_concentration) ** 1.15
+    return 0.62 + 0.38 * spread
+
+
+def impact_touch(m: Mapping[str, Any]) -> float:
+    prs_known = m.get("impact_pr_count") is not None
+    commits_known = m.get("impact_commit_count") is not None
+    repos_known = bool(m.get("impact_repos")) or (m.get("impact_repo_count") or 0) > 0
+    if not prs_known and not commits_known and not repos_known:
+        return 1.0
+    prs = max(0, m.get("impact_pr_count") or 0) if prs_known else 0
+    if prs_known and prs == 0 and not commits_known and not repos_known:
+        return 1.0
+    commits = max(0, m.get("impact_commit_count") or 0) if commits_known else 0
+    landed = 1 - math.exp(-(prs + commits / 4) / 18)
+    core = max(0, _nz(m.get("core_impact_pr_count"), 0))
+    doc_like = max(0, _nz(m.get("doc_like_impact_pr_count"), 0))
+    if core + doc_like <= 0:
+        return landed
+    coverage = min(1, (core + doc_like) / max(prs, core + doc_like, 1))
+    core_mix = 0.35 + 0.65 * core / (core + doc_like)
+    return landed * (1 - coverage * (1 - core_mix))
 
 
 def author_self_closed_external_penalty(m: Mapping[str, Any]) -> float:
@@ -221,6 +366,36 @@ def next_tier(final: float) -> Optional[Dict[str, Any]]:
     return None
 
 
+def content_skill_discount(m):
+    share = max(0, min(1, _nz(m.get("content_skill_star_share"), 0)))
+    confidence = max(0, min(1, _nz(m.get("content_skill_confidence"), 0)))
+    external = max(0, _nz(m.get("external_merged_pr_count"), 0))
+    external_share = min(1,external/max(1,m.get("merged_pr_count",0)))
+    engineering = max(max(0,_nz(m.get("core_impact_pr_count"),0))*external_share, external*(1-max(0,min(1,_nz(m.get("presentation_churn_share"),0))))/20)
+    stars = max(0,m["total_stars"])
+    star_mass = stars/(stars+5000)
+    return 1-0.9*share*share*(3-2*share)*confidence*star_mass/(1+engineering)
+
+
+def original_project_quality(m):
+    if m["nonempty_original_repo_count"] == 0:
+        return 0.0
+    else:
+        star_quality = (
+            max(0, min(_nz(m.get("top_starred_original_repo_quality_score"), 1), 1))
+            if m["total_stars"] > 0
+            else 1
+        )
+        star_pts = (
+            (log_ratio(_nz(m.get("weighted_total_stars"), m["total_stars"]), 5000) * 7 + log_ratio(_nz(m.get("weighted_max_stars"), m["max_stars"]), 2000) * 5)
+            * star_quality
+            * star_engagement_multiplier(m.get("top_repo_engagement_ratio"))
+            * content_skill_discount(m)
+        )
+        project_substance = max(0, min(_nz(m.get("best_original_repo_quality_score"), 0), 1)) * 6
+        return round(star_pts + project_substance, 1)
+
+
 def score(m: Mapping[str, Any]) -> Dict[str, Any]:
     sub: Dict[str, float] = {
         "account_maturity": 0,
@@ -238,17 +413,7 @@ def score(m: Mapping[str, Any]) -> Dict[str, Any]:
     sub["account_maturity"] = round(age_pts + span_pts, 1)
 
     # 2. Original Project Quality (18)
-    if m["nonempty_original_repo_count"] == 0:
-        sub["original_project_quality"] = 0.0
-    else:
-        star_quality = (
-            max(0, min(_nz(m.get("top_starred_original_repo_quality_score"), 1), 1))
-            if m["total_stars"] > 0
-            else 1
-        )
-        star_pts = (log_ratio(m["total_stars"], 5000) * 7 + log_ratio(m["max_stars"], 2000) * 5) * star_quality
-        project_substance = max(0, min(_nz(m.get("best_original_repo_quality_score"), 0), 1)) * 6
-        sub["original_project_quality"] = round(star_pts + project_substance, 1)
+    sub["original_project_quality"] = max(original_project_quality(m), max(0,min(18,m.get("personal_original_project_quality_score",0))))
 
     # 3. Contribution Quality (27)
     pr_volume_raw = log_ratio(m["merged_pr_count"], 200) * 16
@@ -273,24 +438,27 @@ def score(m: Mapping[str, Any]) -> Dict[str, Any]:
     issue_pts = log_ratio(m["issues_created"], 100) * 5
     contribution_quality_raw = (
         pr_volume
-        + acceptance
+        + own_pr_community_credit(m)
+        + acceptance - doc_like_pr_volume_discount(m, acceptance)
         + issue_pts
-        + high_impact_core_pr_bonus(m)
+        + high_impact_core_pr_bonus(m) * (1-(1-presentation_discount(m))*.8)
         - author_self_closed_external_penalty(m)
     )
-    contribution_cap = min(
-        contribution_quality_cap(m) if contribution_quality_cap(m) is not None else math.inf,
-        low_prestige_bulk_contribution_cap(m) if low_prestige_bulk_contribution_cap(m) is not None else math.inf,
-        SUBSCORE_MAX["contribution_quality"],
+    sub["contribution_quality"] = round(
+        saturate_toward(max(0, contribution_quality_raw), contribution_evidence_ceiling(m)),
+        1,
     )
-    sub["contribution_quality"] = round(min(contribution_quality_raw, contribution_cap), 1)
 
     # 4. Ecosystem & Maintainer Impact (20)
-    prestige = impact_prestige_signal(m) * 9
-    depth = min(m["impact_depth_raw"] / 8.0, 1.0) * 11
-    ecosystem_raw = prestige + depth
+    substance = impact_substance(m)
+    breadth = impact_breadth(m)
+    prestige = 9 * impact_prestige_signal(m) * substance * impact_touch(m) * (0.72 + 0.28 * breadth)
+    depth = 11 * (1 - math.exp(-max(0, m["impact_depth_raw"]) / 4)) * substance * breadth
+    from ._presentation import ecosystem_presentation_discount
+    external_share = min(1,max(0,_nz(m.get("external_merged_pr_count"),0))/max(1,m["merged_pr_count"]))
+    ecosystem_raw = (prestige + depth) * ecosystem_presentation_discount(m) * (1-(1-content_skill_discount(m))*(1-external_share))
     sub["ecosystem_impact"] = round(
-        ecosystem_raw if m.get("impact_quality_cap") is None else min(ecosystem_raw, m["impact_quality_cap"]),
+        ecosystem_raw,
         1,
     )
 

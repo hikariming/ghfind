@@ -47,11 +47,11 @@ func (s *TursoStore) GetFacetCategories(ctx context.Context, facetType string) (
 		JOIN scores AS s ON s.username = f.username
 		WHERE f.facet_type = ?
 		  AND s.hidden = 0
-		  AND s.score_version = ?
+		  AND `+publicScoreVersionClause("s.score_version")+`
 		  AND s.final_score >= ?
 		GROUP BY f.facet_value
 		ORDER BY count DESC, f.facet_value ASC
-		LIMIT ?`, facetType, canonicalScoreVersion, leaderboardMinScore, developerFacetCategoryLimit)
+		LIMIT ?`, append([]any{facetType}, append(publicScoreVersionArgs(), leaderboardMinScore, developerFacetCategoryLimit)...)...)
 	if err != nil {
 		return nil, fmt.Errorf("list %s facet categories: %w", facetType, err)
 	}
@@ -85,10 +85,10 @@ func (s *TursoStore) GetDevelopersByFacet(
 		WHERE f.facet_type = ?
 		  AND f.facet_value = ?
 		  AND s.hidden = 0
-		  AND s.score_version = ?
+		  AND `+publicScoreVersionClause("s.score_version")+`
 		  AND s.final_score >= ?
 		ORDER BY s.final_score DESC, s.scanned_at DESC
-		LIMIT ?`, minimumRecordedLookups, facetType, facetValue, canonicalScoreVersion, leaderboardMinScore, developersPerFacetLimit)
+		LIMIT ?`, append([]any{minimumRecordedLookups, facetType, facetValue}, append(publicScoreVersionArgs(), leaderboardMinScore, developersPerFacetLimit)...)...)
 	if err != nil {
 		return nil, fmt.Errorf("list %s developers: %w", facetType, err)
 	}

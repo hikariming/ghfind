@@ -1,8 +1,12 @@
+import { api } from "./api";
 import { sendAuthorEmails } from "./author-email";
+import { dispatchCleanups, runCleanup } from "./cleanup";
 import { positive, readText, record, repositoryName } from "./github";
 import { admitMention, allowed, dispatch, putJob, runJob } from "./jobs";
+import { getSettings } from "./settings";
 import { ui } from "./ui";
 
+type Message = { id: string } | { cleanup: string };
 export async function verifySignature(
   body: string,
   signature: string | null,
@@ -86,11 +90,16 @@ export async function webhook(request: Request, env: Env): Promise<Response> {
       const repo = record(payload.repository);
       const fullName = repositoryName(repo.full_name);
       if (!allowed(env, fullName)) return new Response("Outside rollout");
+      const repository = positive(repo.id);
+      // Execution rechecks the toggle; skipping here only avoids queue noise.
+      const settings = await getSettings(env, repository, fullName);
+      if (event === "issues" ? !settings.issuesEnabled : !settings.prsEnabled)
+        return new Response("Disabled for this repository");
       await putJob(env, {
         id: delivery,
         installation,
         kind: "label",
-        repository: positive(repo.id),
+        repository,
         full_name: fullName,
         pr: positive(
           event === "issues" ? record(payload.issue).number : payload.number,
@@ -151,6 +160,7 @@ export default {
           service: "ghfind-github-app",
           enabled: env.ENABLED === "true",
         });
+      if (path.startsWith("/api/")) return await api(request, env);
       if (path === "/avatar.png" || path === "/fonts/dm-sans-variable.ttf")
         return env.ASSETS.fetch(request);
       return await ui(request, env);
@@ -161,10 +171,12 @@ export default {
       });
     }
   },
-  async queue(batch: MessageBatch<{ id: string }>, env: Env) {
+  async queue(batch: MessageBatch<Message>, env: Env) {
     for (const message of batch.messages) {
       try {
-        await runJob(env, message.body.id);
+        if ("cleanup" in message.body)
+          await runCleanup(env, message.body.cleanup);
+        else await runJob(env, message.body.id);
         message.ack();
       } catch {
         message.retry({ delaySeconds: 60 });
@@ -172,7 +184,12 @@ export default {
     }
   },
   async scheduled(_controller: ScheduledController, env: Env) {
-    await dispatch(env);
-    await sendAuthorEmails(env);
+    // Independent steps, in order: one failing must not stop the others.
+    let failure: unknown = null;
+    for (const step of [dispatch, sendAuthorEmails, dispatchCleanups])
+      await step(env).catch((error: unknown) => {
+        failure ??= error;
+      });
+    if (failure) throw failure;
   },
-} satisfies ExportedHandler<Env, { id: string }>;
+} satisfies ExportedHandler<Env, Message>;

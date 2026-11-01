@@ -52,7 +52,7 @@ func (s *fakeScoreStatusStore) SetCachedScan(context.Context, string, ScanResult
 
 func canonicalScoreDetail() *StoredScoreDetail {
 	return &StoredScoreDetail{
-		Username:          "octocat",
+		Username:          "fixture-account-049",
 		FinalScore:        88.2,
 		Tier:              "顶级",
 		Tags:              Tags{ZH: []string{}, EN: []string{}},
@@ -68,7 +68,7 @@ func TestScoreUsesCanonicalIndexBeforeRateLimitOrQueue(t *testing.T) {
 	store := &fakeScoreReadStore{detail: canonicalScoreDetail()}
 	statuses := &fakeStatusStore{limit: RateLimitResult{Success: true, Limit: 10, Remaining: 9, ResetAt: time.Now().Add(time.Minute)}}
 	server := NewAPIServer(Config{PublicSiteURL: "https://ghfind.example"}, store, statuses, &fakePublisher{})
-	request := httptest.NewRequest(http.MethodGet, "/api/score/OctoCat", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/score/fixture-account-049", nil)
 	response := httptest.NewRecorder()
 	server.Handler().ServeHTTP(response, request)
 	if response.Code != http.StatusOK || response.Header().Get("Cache-Control") != scoreRatedCache || statuses.publicLimits != 0 {
@@ -87,7 +87,7 @@ func TestScoreReturnsLegacyOnlyAfterQuickPathCannotRun(t *testing.T) {
 	statuses := &fakeStatusStore{limit: RateLimitResult{Success: true, Limit: 10, Remaining: 9, ResetAt: now.Add(time.Minute)}}
 	server := NewAPIServer(Config{PublicSiteURL: "https://ghfind.example"}, store, statuses, &fakePublisher{})
 	server.clock = func() time.Time { return now }
-	request := httptest.NewRequest(http.MethodGet, "/api/score/octocat", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/score/fixture-account-049", nil)
 	response := httptest.NewRecorder()
 	server.Handler().ServeHTTP(response, request)
 	if response.Code != http.StatusOK || response.Header().Get("RateLimit-Limit") != "10" || !strings.Contains(response.Body.String(), `"source":"legacy_v5_v5_v3"`) {
@@ -98,12 +98,12 @@ func TestScoreReturnsLegacyOnlyAfterQuickPathCannotRun(t *testing.T) {
 func TestScoreCachedQuickResultPersistsBeforeResponding(t *testing.T) {
 	store := &fakeScoreReadScanStore{}
 	now := time.Unix(1_700_000_000, 0).UTC()
-	metrics := RawMetrics{Username: "octocat", AccountAgeYears: 4, NonemptyOriginalRepoCount: 1, ContributionYearsActive: 2}
+	metrics := RawMetrics{Username: "fixture-account-049", AccountAgeYears: 4, NonemptyOriginalRepoCount: 1, ContributionYearsActive: 2}
 	cached := &ScanResult{Metrics: metrics, Scoring: Score(metrics)}
 	statuses := &fakeScoreStatusStore{fakeStatusStore: &fakeStatusStore{limit: RateLimitResult{Success: true, Limit: 10, Remaining: 9, ResetAt: now.Add(time.Minute)}}, cached: cached}
 	server := NewAPIServer(Config{PublicSiteURL: "https://ghfind.example"}, store, statuses, &fakePublisher{})
 	server.clock = func() time.Time { return now }
-	request := httptest.NewRequest(http.MethodGet, "/api/score/octocat", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/score/fixture-account-049", nil)
 	response := httptest.NewRecorder()
 	server.Handler().ServeHTTP(response, request)
 	if response.Code != http.StatusOK || store.persisted != 1 || response.Header().Get("RateLimit-Remaining") != "9" || !strings.Contains(response.Body.String(), `"cached":true`) {

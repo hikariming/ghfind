@@ -1,0 +1,32 @@
+{
+  "name": "@ghfind/web",
+  "private": true,
+  "type": "module",
+  "description": "Astro frontend (ghfind-web Worker). Serves migrated pages behind the ghfind-router Worker.",
+  "scripts": {
+    "dev": "astro dev --port 4321",
+    "build": "astro build",
+    "preview": "astro build && wrangler dev --port 8788",
+    "typecheck": "astro check",
+    "deploy:dev": "CLOUDFLARE_ENV=dev astro build && wrangler deploy"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^14.3.3",
+    "@astrojs/react": "^7.0.0",
+    "@ghfind/i18n": "workspace:*",
+    "astro": "^7.3.5",
+    "lucide-react": "^1.22.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "use-intl": "^4.14.7"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "tailwindcss": "^4.3.1",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.143.0"
+  }
+}

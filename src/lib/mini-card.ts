@@ -24,17 +24,18 @@
  */
 
 import {
-  BADGE_COLOR,
-  BADGE_COLOR_LIGHT,
   escapeXml,
   estimateTextWidth,
-  TIER_EN,
 } from "./badge";
+import {
+  formatAdventurerLevel,
+  realmForScore,
+  realmForTier,
+} from "./realm";
 import { DIMENSIONS } from "./dimensions";
 import { brandMarkSvg, gradeForDimension } from "./material-card";
 import { MINI_CARD_SIZES, type MiniCardVariant } from "./mini-card-sizes";
 import { SUBSCORE_MAX } from "./score";
-import { SPONSOR } from "./sponsor";
 import type { SubScoreKey, SubScores, Tier } from "./types";
 
 export { MINI_CARD_SIZES, type MiniCardVariant };
@@ -61,10 +62,11 @@ export interface MiniCardOptions {
   /** Week-over-week score change. Only positive values render. */
   delta: number | null;
   /**
-   * Sponsor logo as a data URL (`sponsorLogoDataUrl("small")`). Null renders the
-   * credit as text alone. `strip` ignores it — see `renderStrip`.
+   * Sponsor logo as a data URL. The credit is omitted when the database has no
+   * current title-tier sponsor. `strip` ignores it — see `renderStrip`.
    */
   sponsorLogo: string | null;
+  sponsorName?: string | null;
   variant: MiniCardVariant;
   theme: MiniCardTheme;
   lang: MiniCardLang;
@@ -155,9 +157,10 @@ const COPY: Record<MiniCardLang, Copy> = {
   },
 };
 
-function accentFor(tier: Tier | null, mode: "dark" | "light"): string {
-  if (!tier) return NEUTRAL_ACCENT[mode];
-  return mode === "dark" ? BADGE_COLOR[tier] : BADGE_COLOR_LIGHT[tier];
+function accentFor(tier: Tier | null, mode: "dark" | "light", score?: number): string {
+  if (!tier && typeof score !== "number") return NEUTRAL_ACCENT[mode];
+  const realm = typeof score === "number" ? realmForScore(score) : realmForTier(tier!);
+  return mode === "dark" ? realm.colors.fg : realm.colors.fgLight;
 }
 
 /**
@@ -166,9 +169,9 @@ function accentFor(tier: Tier | null, mode: "dark" | "light"): string {
  * renderer ever ignores custom properties, `theme=dark`/`light` (and the
  * `<picture>` snippet built on them) remain exact.
  */
-function paletteFor(theme: MiniCardTheme, tier: Tier | null): Palette {
+function paletteFor(theme: MiniCardTheme, tier: Tier | null, score?: number): Palette {
   if (theme !== "auto") {
-    return { ...THEME_HEX[theme], accent: accentFor(tier, theme) };
+    return { ...THEME_HEX[theme], accent: accentFor(tier, theme, score) };
   }
   const d = THEME_HEX.dark;
   return {
@@ -177,16 +180,16 @@ function paletteFor(theme: MiniCardTheme, tier: Tier | null): Palette {
     muted: `var(--m,${d.muted})`,
     panel: `var(--p,${d.panel})`,
     grid: `var(--g,${d.grid})`,
-    accent: `var(--a,${accentFor(tier, "dark")})`,
+    accent: `var(--a,${accentFor(tier, "dark", score)})`,
   };
 }
 
-function styleBlock(theme: MiniCardTheme, tier: Tier | null): string {
+function styleBlock(theme: MiniCardTheme, tier: Tier | null, score?: number): string {
   const font = `text{font-family:${FONT_STACK}}`;
   if (theme !== "auto") return `<style>${font}</style>`;
   const vars = (mode: "dark" | "light") => {
     const h = THEME_HEX[mode];
-    return `--b:${h.bg};--f:${h.fg};--m:${h.muted};--p:${h.panel};--g:${h.grid};--a:${accentFor(tier, mode)}`;
+    return `--b:${h.bg};--f:${h.fg};--m:${h.muted};--p:${h.panel};--g:${h.grid};--a:${accentFor(tier, mode, score)}`;
   };
   return `<style>:root{${vars("dark")}}@media (prefers-color-scheme:light){:root{${vars("light")}}}${font}</style>`;
 }
@@ -283,8 +286,10 @@ function weekDelta(delta: number | null, c: Copy): string | null {
   return c.week(delta.toFixed(1));
 }
 
-function tierWord(tier: Tier, lang: MiniCardLang): string {
-  return lang === "zh" ? tier : TIER_EN[tier];
+function tierWord(tier: Tier, lang: MiniCardLang, score?: number): string {
+  const realm = typeof score === "number" ? realmForScore(score) : realmForTier(tier);
+  // Mini surfaces are tight — prefer the short EN form (≤ ~12 chars).
+  return lang === "zh" ? realm.nameZh : realm.nameEnShort;
 }
 
 /** Pill with the tier word knocked out of an accent fill. */
@@ -311,6 +316,7 @@ function sponsorGroup(
   x: number,
   y: number,
   logo: string | null,
+  name: string,
   size: number,
   fontSize: number,
   p: Palette,
@@ -325,7 +331,7 @@ function sponsorGroup(
   const svg = [
     mark,
     t(textX, y, label.trimEnd(), { size: fontSize, fill: p.muted }),
-    t(textX + labelWidth, y, escapeXml(SPONSOR.name), {
+    t(textX + labelWidth, y, escapeXml(name), {
       size: fontSize,
       fill: p.fg,
       weight: 600,
@@ -333,7 +339,7 @@ function sponsorGroup(
   ].join("");
   return {
     svg,
-    width: markWidth + labelWidth + estimateTextWidth(SPONSOR.name, fontSize),
+    width: markWidth + labelWidth + estimateTextWidth(name, fontSize),
   };
 }
 
@@ -356,13 +362,13 @@ function footer(
   right: string,
   p: Palette,
   c: Copy,
-  sponsorCredit: { logo: string | null } | null,
+  sponsorCredit: { logo: string | null; name: string } | null,
 ): string {
   const markY = y - Math.round(markSize * 0.78);
   const wordX = leftX + markSize + 3;
   const brandWidth = estimateTextWidth(c.brand, fontSize);
   const sponsor = sponsorCredit
-    ? sponsorGroup(wordX + brandWidth + 12, y, sponsorCredit.logo, markSize, fontSize, p)
+    ? sponsorGroup(wordX + brandWidth + 12, y, sponsorCredit.logo, sponsorCredit.name, markSize, fontSize, p)
     : null;
   const leftEnd = wordX + brandWidth + (sponsor ? 12 + sponsor.width : 0);
   const rightMax = rightX - leftEnd - 12;
@@ -434,17 +440,17 @@ function barGroup(
 }
 
 function renderBars(o: MiniCardOptions, p: Palette, c: Copy): string {
-  const word = tierWord(o.tier, o.lang);
+  const word = tierWord(o.tier, o.lang, o.score);
   const chip = tierChip(422, 27, 22, word, p);
   const chipLeft = 422 - (boldWidth(word, 12) + 18);
   const textMax = chipLeft - 70 - 12;
 
-  const score = o.score.toFixed(2);
+  const score = formatAdventurerLevel(o.score);
   const scoreW = estimateTextWidth(score, 34);
   const outOfX = 18 + scoreW + 5;
   const delta = weekDelta(o.delta, c);
   const deltaNode = delta
-    ? t(outOfX + estimateTextWidth(c.outOf, 12.5) + 9, 92, escapeXml(delta), {
+    ? t(outOfX + 9, 92, escapeXml(delta), {
         size: 11,
         fill: p.accent,
         weight: 700,
@@ -468,14 +474,13 @@ function renderBars(o: MiniCardOptions, p: Palette, c: Copy): string {
       : "",
     chip,
     t(18, 92, score, { size: 34, fill: p.fg, weight: 800, ls: -1 }),
-    t(outOfX, 92, c.outOf, { size: 12.5, fill: p.muted }),
     deltaNode,
     meta ? t(18, 111, escapeXml(meta), { size: 10.5, fill: p.muted }) : "",
     DIMENSIONS.map((key, i) =>
       barGroup(BAR_COLUMN_X[i % 2], BAR_ROW_Y[Math.floor(i / 2)], key, o, p),
     ).join(""),
     `<line x1="18" y1="180" x2="422" y2="180" stroke="${p.grid}" stroke-opacity="0.7"/>`,
-    footer(194, 18, 422, 13, 10, o.languages.join(" · "), p, c, { logo: o.sponsorLogo }),
+    footer(194, 18, 422, 13, 10, o.languages.join(" · "), p, c, o.sponsorName ? { logo: o.sponsorLogo, name: o.sponsorName } : null),
   ].join("");
 }
 
@@ -528,9 +533,9 @@ function renderRadar(o: MiniCardOptions, p: Palette, c: Copy): string {
     )}</g>`;
   }).join("");
 
-  const word = tierWord(o.tier, o.lang);
+  const word = tierWord(o.tier, o.lang, o.score);
   const wordW = boldWidth(word, 14);
-  const score = o.score.toFixed(2);
+  const score = formatAdventurerLevel(o.score);
   const outOfX = 18 + estimateTextWidth(score, 32) + 5;
   const delta = weekDelta(o.delta, c);
   const meta = metaLine(o, c);
@@ -550,9 +555,8 @@ function renderRadar(o: MiniCardOptions, p: Palette, c: Copy): string {
         })
       : "",
     t(18, 92, score, { size: 32, fill: p.fg, weight: 800, ls: -1 }),
-    t(outOfX, 92, c.outOf, { size: 12, fill: p.muted }),
     delta
-      ? t(outOfX + estimateTextWidth(c.outOf, 12) + 9, 92, escapeXml(delta), {
+      ? t(outOfX + 9, 92, escapeXml(delta), {
           size: 11,
           fill: p.accent,
           weight: 700,
@@ -582,7 +586,7 @@ function renderRadar(o: MiniCardOptions, p: Palette, c: Copy): string {
       .join(""),
     grades,
     `<line x1="18" y1="164" x2="422" y2="164" stroke="${p.grid}" stroke-opacity="0.7"/>`,
-    footer(180, 18, 422, 13, 10, o.languages.join(" · "), p, c, { logo: o.sponsorLogo }),
+    footer(180, 18, 422, 13, 10, o.languages.join(" · "), p, c, o.sponsorName ? { logo: o.sponsorLogo, name: o.sponsorName } : null),
   ].join("");
 }
 
@@ -596,9 +600,9 @@ function renderRadar(o: MiniCardOptions, p: Palette, c: Copy): string {
 // ---------------------------------------------------------------------------
 
 function renderStrip(o: MiniCardOptions, p: Palette, c: Copy): string {
-  const score = o.score.toFixed(2);
+  const score = formatAdventurerLevel(o.score);
   const scoreW = estimateTextWidth(score, 22);
-  const word = tierWord(o.tier, o.lang);
+  const word = tierWord(o.tier, o.lang, o.score);
   const delta = weekDelta(o.delta, c);
   const tail = delta ? `${word} ${delta}` : word;
   const tailW = boldWidth(tail, 10);
@@ -641,7 +645,7 @@ export function parseMiniCardLang(value: string | null): MiniCardLang {
 
 export function renderMiniCardSvg(o: MiniCardOptions): string {
   const { w, h } = MINI_CARD_SIZES[o.variant];
-  const p = paletteFor(o.theme, o.tier);
+  const p = paletteFor(o.theme, o.tier, o.score);
   const c = COPY[o.lang];
   const body =
     o.variant === "radar"
@@ -649,11 +653,12 @@ export function renderMiniCardSvg(o: MiniCardOptions): string {
       : o.variant === "strip"
         ? renderStrip(o, p, c)
         : renderBars(o, p, c);
-  const label = `@${o.username} — ${o.score.toFixed(2)}${c.outOf} ${tierWord(
+  const label = `@${o.username} — ${formatAdventurerLevel(o.score)} ${tierWord(
     o.tier,
     o.lang,
+    o.score,
   )} · ${c.brand}`;
-  return svgRoot(w, h, o.variant, label, styleBlock(o.theme, o.tier), body);
+  return svgRoot(w, h, o.variant, label, styleBlock(o.theme, o.tier, o.score), body);
 }
 
 /**

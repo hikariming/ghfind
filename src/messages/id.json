@@ -1,4 +1,29 @@
 {
+  "loginDialog": {
+    "entry": "Masuk",
+    "title": "Masuk ke ghfind",
+    "description": "Pilih akun untuk melanjutkan.",
+    "close": "Tutup",
+    "google": "Lanjutkan dengan Google",
+    "github": "Lanjutkan dengan GitHub",
+    "apple": "Lanjutkan dengan Apple",
+    "redirecting": "Membuka {provider}…",
+    "loading": "Memeriksa opsi masuk…",
+    "retry": "Coba lagi",
+    "loadFailed": "Opsi masuk tidak dapat dimuat. Periksa koneksi Anda dan coba lagi.",
+    "unavailable": "Login sementara tidak tersedia. Anda dapat terus menjelajah dan mencoba lagi nanti.",
+    "githubFeatures": "Mengikuti pengguna, resume cloud, dan token API saat ini memerlukan akun GitHub.",
+    "providerAccount": "Akun {provider}",
+    "switchToGitHub": "Beralih ke login GitHub",
+    "errors": {
+      "denied": "Login dibatalkan. Pilih akun untuk mencoba lagi.",
+      "expired": "Permintaan login ini telah kedaluwarsa. Silakan mulai lagi.",
+      "failed": "Login tidak selesai. Silakan coba lagi.",
+      "unavailable": "Metode login ini tidak tersedia. Pilih opsi lain atau coba lagi nanti."
+    },
+    "signingOut": "Sedang keluar…",
+    "signOutFailed": "Tidak dapat keluar. Periksa koneksi dan coba lagi."
+  },
   "meta": {
     "title": "ghfind | Skor GitHub Pedas, Uji Diri & Temukan Dev Terbaik",
     "description": "ghfind: skor nilai & kepercayaan GitHub 0-100 plus roast pedas dalam 30 detik. Lihat kekuranganmu, uji diri dan berkembang, lalu temukan developer terbaik dan biarkan dunia menemukanmu.",
@@ -15,10 +40,11 @@
     "developers": "Developer",
     "projectBoards": "Papan proyek",
     "projects": "Proyek",
-    "collections": "Pilihan editor",
+    "collections": "Riset Mendalam",
     "languages": "Bahasa",
     "organizations": "Organisasi",
     "versus": "Duel developer",
+    "mfcp": "MFCP Open Source",
     "blog": "Riset",
     "openMenu": "Buka menu",
     "closeMenu": "Tutup menu",
@@ -27,19 +53,30 @@
     "githubBot": "GitHub Bot",
     "groupDiscover": "Jelajahi",
     "groupCareer": "Karier",
-    "groupTools": "Alat",
+    "groupTools": "Integrations",
     "beta": "Beta",
+    "event": "Acara",
     "hint": {
       "roast": "Nilai akun GitHub dalam 30 detik, plus satu komentar pedas",
       "versus": "Adu dua developer secara langsung",
+      "mfcp": "Program mentoring open source MFCP, pendaftaran dibuka",
       "leaderboard": "Jelajahi developer terbaik berdasarkan skor",
       "projectBoards": "Temukan proyek open source menonjol per bidang",
-      "collections": "Proyek dan developer pilihan editor",
+      "collections": "Kisah developer, pilihan proyek sumber terbuka, dan riset ekosistem GitHub.",
       "blog": "Data dan wawasan ekosistem developer",
       "resume": "Buat CV developer dari data GitHub",
       "talent": "Temukan developer yang layak dikenal",
-      "githubBot": "Beri label otomatis pada issue dan PR berdasarkan skor penulis"
-    }
+      "githubBot": "Beri label otomatis pada issue dan PR berdasarkan skor penulis",
+      "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens",
+      "jobs": "Posisi terbuka di perusahaan AI dan open source",
+      "talentMatch": "Laporan talenta AI, pencocokan posisi, dan saran",
+      "discover": "Temukan repo bernilai tinggi lewat grid atau geser",
+      "feed": "Baca postingan pengembang dan postingan dari X"
+    },
+    "cliApi": "CLI & API",
+    "jobs": "Lowongan",
+    "talentMatch": "Talent Match",
+    "feed": "Untuk Anda"
   },
   "globalSearch": {
     "open": "Buka pencarian global",
@@ -92,7 +129,7 @@
     "title": "Kode sumber & algoritma skor sepenuhnya open source · Lihat di GitHub"
   },
   "home": {
-    "brand": "Pedas",
+    "brand": "Roast",
     "headline": "Temukan developer terbaik — dan jadilah salah satunya.",
     "subtitle": "Mulai dari skor 0–100 yang jujur tanpa ampun. Lihat posisimu, tahu harus ke mana.",
     "boardHeading": "🏆 Developer terbaik",
@@ -157,7 +194,11 @@
     "apiCtaLink": "Dokumentasi API →",
     "repoAuthoredBy": "Dirawat oleh",
     "repoContributors": "kontributor terperingkat",
-    "repoAvgScore": "rata-rata skor"
+    "repoAvgScore": "rata-rata skor",
+    "repoGlobalRank": "#{rank} dari {total} di GitHub",
+    "repoGlobalRankApprox": "~#{rank} dari {total} di GitHub",
+    "repoTopAmong": "Top {pct}% dari repo dengan ≥{floor}★",
+    "repoRankNote": "Berdasarkan bintang di antara semua repositori publik non-fork · {asOf}"
   },
   "projects": {
     "metaTitle": "Temukan proyek GitHub berkualitas · ghfind",
@@ -200,11 +241,11 @@
     }
   },
   "collections": {
-    "metaTitle": "Pilihan pendiri: proyek & developer · ghfind",
-    "metaDescription": "Koleksi kurasi proyek dan developer GitHub unggulan, didukung mesin kualitas kontributor ghfind.",
+    "metaTitle": "Riset Mendalam · ghfind",
+    "metaDescription": "Kisah developer, pilihan proyek sumber terbuka, dan riset ekosistem GitHub.",
     "eyebrow": "Pilihan pendiri",
-    "heading": "Proyek & developer pilihan",
-    "subtitle": "Bukan sekadar daftar bintang — setiap pilihan disertai data mesin tentang siapa yang membangun dan seberapa hebat mereka.",
+    "heading": "Riset Mendalam",
+    "subtitle": "Kisah developer, pilihan proyek sumber terbuka, dan riset ekosistem GitHub.",
     "empty": "Belum ada koleksi — kunjungi lagi nanti.",
     "itemCount": "{count} pilihan",
     "publishedOn": "Diterbitkan {date}",
@@ -222,7 +263,7 @@
     "avgScoreLabel": "skor rata-rata kontributor",
     "followersLabel": "pengikut",
     "totalStarsLabel": "total bintang",
-    "backToCollections": "Semua koleksi",
+    "backToCollections": "Kembali ke Riset Mendalam",
     "dataNote": "Skor dan tier berasal dari mesin penilaian ghfind dan diperbarui dengan setiap pemindaian baru."
   },
   "discoveryNext": {
@@ -270,12 +311,24 @@
     "signIn": "Masuk dengan GitHub"
   },
   "detail": {
+    "unratedMessage": "Profil ini tersimpan, tetapi skor publik belum tersedia saat ini. Lihat profil GitHub atau minta hasil baru melalui formulir analisis.",
+    "unratedAction": "Buka formulir analisis",
+    "unratedGithub": "Lihat di GitHub",
     "back": "← Kembali ke Hall of Fame",
     "backfilling": "🔍 Mengambil jejak open source mereka (repo / bahasa / kontribusi)…",
     "rankTitle": "Posisimu",
     "rankUnit": "/ dari {total}",
     "rankUnranked": "Belum terperingkat (data belum cukup)",
     "beatInline": "Mengalahkan {beat}% developer",
+    "githubStandingTitle": "Di seluruh GitHub",
+    "githubStandingAccountAge": "Usia akun",
+    "githubStandingTopRepo": "Repo dengan bintang terbanyak",
+    "githubStandingRank": "#{rank} dari {total}",
+    "githubStandingRankApprox": "~#{rank} dari {total}",
+    "githubStandingTopAmong": "Top {pct}% dari repo dengan ≥{floor}★",
+    "githubStandingOlder": "Lebih tua dari {pct}%",
+    "githubStandingYears": "{years} thn",
+    "githubStandingFootnote": "Data publik seluruh GitHub · {asOf}",
     "milestoneNext": "{gap} poin lagi menuju “{tier}”",
     "milestoneCapped": "🏆 Sudah mentok · tier tertinggi",
     "facetRankLine": "#{rank} di {facet}",
@@ -308,18 +361,26 @@
     "similarSub": "Profil terdekat, skor berdampingan",
     "impactHeading": "🏆 Kontribusi menonjol",
     "impactSub": "Repo open source populer tempat mereka berkontribusi (commit + PR)",
+    "impactDisclosure": "Kontribusi menonjol ({count})",
     "worksHeading": "🛠 Karya unggulan",
     "worksSub": "Repositori populer dan pinned milik mereka sendiri",
-    "stackHeading": "🧬 Stack & domain",
-    "stackLangLabel": "Bahasa utama",
-    "stackTopicsLabel": "Domain",
     "orgsLabel": "Organisasi",
     "commits": "commit",
     "prs": "PR",
-    "roastHeading": "🔥 Roast lengkap",
+    "verdictLabel": "Ringkasan singkat",
     "roastEmpty": "Roast ini belum diarsipkan — <a>nilai ulang dari halaman utama</a> untuk membuatnya.",
     "scoreStateStaleTitle": "Skor historis",
     "scoreStateStaleBody": "Skor ini berasal dari aturan lama. Skor tetap ditampilkan sampai pemindaian ulang terverifikasi menggantikannya.",
+    "scoreStateRescanAction": "Evaluasi ulang",
+    "scoreStateRescanRunning": "Mengevaluasi ulang dengan aturan terbaru…",
+    "scoreStateRescanReport": "Membuat roast baru…",
+    "scoreStateRescanError": "Evaluasi ulang gagal, coba lagi nanti",
+    "roastStaleLabel": "Roast versi sebelumnya",
+    "roastStaleHint": "Roast ini ditulis dengan aturan lama; hanya sebagai referensi.",
+    "roastRegenerating": "Menulis roast dengan aturan terbaru…",
+    "roastRegeneratePending": "Roast versi terbaru belum dibuat",
+    "roastRegenerateFailed": "Gagal menulis roast baru; evaluasi ulang secara manual",
+    "roastRegenerateSlow": "Roast baru masih ditulis; muat ulang sebentar lagi",
     "scoreStatePendingTitle": "Skor saat ini · laporan tertunda",
     "scoreStatePendingBody": "Skor deterministik sudah mutakhir. Laporan AI opsional belum dibuat.",
     "scoreStateReadyTitle": "Skor dan laporan saat ini",
@@ -330,6 +391,13 @@
     "liveRateLimited": "Terlalu banyak roast sekarang — coba lagi semenit lagi.",
     "liveExpired": "Pemindaian kedaluwarsa sebelum roast-nya selesai.",
     "liveGoHome": "Roast lagi dari halaman utama →",
+    "liveRetry": "Coba lagi",
+    "roastProgressTitle": "Menulis roast-mu…",
+    "roastStage1": "Membaca hasil pemindaian",
+    "roastStage2": "Memilih hal yang layak ditulis",
+    "roastStage3": "Menyusun punchline",
+    "roastStage4": "Mencocokkan angka dan nama repositori",
+    "roastStage5": "Merapikan tampilan akhir",
     "modalTitle": "🔥 Roast-mu sudah jadi",
     "modalRoastHeading": "Roast lengkap",
     "modalFirstJudged": "🥇 Kamu yang pertama dinilai — pionir sejati",
@@ -337,13 +405,20 @@
     "modalViewProfile": "Lihat profil lengkap",
     "modalBadgeCta": "Ambil badge GitHub-mu",
     "modalClose": "Tutup",
-    "battlesHeading": "⚔️ Pertarungan",
-    "battlesSub": "Duel PK yang pernah dijalani dev ini",
-    "battleWin": "Menang",
-    "battleLoss": "Kalah",
-    "battleTie": "Seri",
     "selfCta": "Nilai GitHub-mu sendiri →",
-    "reportLangNotice": "Laporan roast AI saat ini hanya tersedia dalam bahasa Inggris dan Mandarin — kamu sedang membaca versi Inggrisnya."
+    "reportLangNotice": "Laporan roast AI saat ini hanya tersedia dalam bahasa Inggris dan Mandarin — kamu sedang membaca versi Inggrisnya.",
+    "coCreatorShare": "Dipimpin / dibangun bersama ({share}%)",
+    "scoreReadyHint": "Skor sudah keluar. Roast-nya menyusul",
+    "adventurerLevel": "Level petualang",
+    "preciseScoreTitle": "Skor gabungan {score}",
+    "liveTimeout": "Roast kehabisan waktu tunggu. Coba lagi nanti; skor dan roast sebelumnya tetap ada.",
+    "scoreStateRescanTimeout": "Evaluasi ulang kehabisan waktu. Coba lagi nanti",
+    "evaluateStageFetch": "Mengambil data",
+    "evaluateStageAnalyze": "Menganalisis repo",
+    "evaluateStageRoast": "Menulis roast",
+    "evaluateError": "Kali ini belum selesai. Ketuk coba lagi untuk mencoba sekali lagi.",
+    "evaluateTimeout": "Pembuatan ini agak lama. Ketuk coba lagi untuk mencoba sekali lagi.",
+    "evaluateRetry": "Coba lagi"
   },
   "reactions": {
     "heading": "Reaksi komunitas",
@@ -360,26 +435,29 @@
     "clown": "Nggak sanggup"
   },
   "rescan": {
-    "button": "🔄 Deteksi ulang",
+    "button": "Evaluasi ulang",
     "scanning": "Memindai…",
-    "roasting": "Me-roast…",
-    "error": "Deteksi gagal, coba lagi nanti",
-    "cooldown": "Refresh tersedia dalam {hours} jam"
+    "roasting": "Membuat komentar…",
+    "error": "Evaluasi gagal, coba lagi nanti",
+    "cooldown": "Refresh tersedia dalam {hours} jam",
+    "timeout": "Roast kehabisan waktu. Coba lagi nanti"
   },
   "detailMeta": {
-    "title": "{username} — {score}/100 · {tier} | ghfind",
+    "unratedTitle": "{username} · Profil pengembang",
+    "title": "{username} — Lv.{level} · {realm} | ghfind",
     "descWithTags": "{tags} — lihat laporan skor lengkap {username} di ghfind.com.",
     "descPlain": "Laporan nilai & kepercayaan GitHub {username} — ghfind.com.",
     "notFoundTitle": "Akun tidak ditemukan · ghfind",
     "pendingTitle": "Me-roast @{username}… · ghfind"
   },
   "roaster": {
+    "modelSponsor": "Sponsor model",
     "inputPlaceholder": "Masukkan username atau URL profil GitHub",
     "judge": "Nilai",
     "judging": "Menilai…",
     "byoLink": "Pakai model / API key sendiri",
     "scanning": "Membongkar riwayat {username}… membaca commit, memeriksa PR, menghitung star, mengendus aktivitas ternakan",
-    "roastLabel": "🔥 Roast",
+    "roastLabel": "Roast",
     "roastThinking": "AI-nya lagi meracik roast pedas — sebentar lagi matang…",
     "roastPending": "Menyiapkan roast",
     "firstJudged": "🥇 Kamu yang pertama dinilai — pionir sejati",
@@ -397,8 +475,10 @@
     "errRoastFailed": "Pembuatan roast gagal — coba lagi nanti atau pakai key sendiri.",
     "errNetworkRoast": "Koneksi putus — roast-nya kepotong.",
     "errScanFailed": "Pemindaian gagal, coba lagi nanti.",
+    "largeAccountCollecting": "Mengumpulkan data akun besar…",
     "errScanPending": "Sedang mengumpulkan riwayat PR dan commit publik lengkap. Akan berlanjut otomatis saat siap.",
     "errNetworkScan": "Kesalahan jaringan — GitHub saja tak tergapai.",
+    "dataUpdating": "Data sedang diperbarui…",
     "byoReasonQuota": "Kuota gratis habis 😵 Tambahkan API key sendiri untuk terus me-roast (OpenAI / StepFun / Groq semuanya bisa).",
     "byoReasonRate": "Kamu sudah banyak me-roast hari ini 🥵 Istirahat dulu, atau tambahkan API key sendiri untuk roast tanpa batas.",
     "byoReasonDefault": "Server belum mengonfigurasi model default — tambahkan API key sendiri untuk mulai me-roast."
@@ -410,6 +490,9 @@
     "rate_limited": "Kecepatan — tarik napas dan coba lagi semenit lagi.",
     "github_rate_limited": "API GitHub lagi penuh sesak — tunggu sebentar.",
     "github_unavailable": "Data GitHub sementara tidak tersedia — coba lagi nanti.",
+    "github_collect_deadline": "Pengumpulan GitHub kehabisan waktu — coba lagi sebentar lagi.",
+    "scan_pending": "Mengumpulkan data akun besar…",
+    "scan_busy": "Pembuatan skor sedang sibuk — coba lagi sebentar lagi.",
     "scan_failed": "Pemindaiannya nge-crash — coba lagi nanti."
   },
   "share": {
@@ -476,36 +559,35 @@
     "cancel": "Batal",
     "saveContinue": "Simpan & lanjut"
   },
-  "developerCount": "<n>{count, number}</n> developer sudah masuk arena ⚔️",
   "shareCard": {
     "beatLabel": "developer terkalahkan",
     "brand": "🔥 ghfind · lihat posisimu"
   },
   "tiers": {
-    "god": {
-      "name": "GOD",
-      "blurb": "Legendaris · Hall of Fame"
-    },
-    "elite": {
-      "name": "ELITE",
-      "blurb": "Elite · Dev kelas atas"
-    },
-    "solid": {
-      "name": "SOLID",
-      "blurb": "Solid · Bisa dipercaya"
+    "trash": {
+      "name": "Kondensasi Qi",
+      "blurb": "Langkah awal · Membangun fondasi"
     },
     "npc": {
-      "name": "NPC",
-      "blurb": "Rata-rata · Biasa saja"
+      "name": "Formasi Inti",
+      "blurb": "Inti terbentuk · Mulai tajam"
     },
-    "trash": {
-      "name": "TRASH",
-      "blurb": "Bernilai rendah · Kemungkinan hasil ternakan"
+    "solid": {
+      "name": "Tempa Spasial",
+      "blurb": "Penguasaan tanpa usaha"
+    },
+    "elite": {
+      "name": "Integrasi Tubuh",
+      "blurb": "Selaras · Guru kelas atas"
+    },
+    "god": {
+      "name": "Ascensi Agung",
+      "blurb": "Hampir puncak · Balai kejayaan"
     }
   },
   "dimensions": {
     "account_maturity": "Kematangan akun",
-    "original_project_quality": "Kualitas proyek orisinal",
+    "original_project_quality": "Proyek Orisinal & Dipimpin",
     "contribution_quality": "Kualitas kontribusi",
     "ecosystem_impact": "Dampak ekosistem / pemeliharaan",
     "community_influence": "Pengaruh komunitas",
@@ -531,14 +613,16 @@
     "suggestLanguage": "Peringkat developer {value}",
     "suggestOrg": "{value} · anggota org",
     "pkHalfHint": "Ketik lawan, lalu tekan Enter untuk bertarung",
-    "lockedRemove": "Hapus"
+    "lockedRemove": "Hapus",
+    "ctaMatch": "Cocokkan",
+    "ctaMatchHint": "Laporan talenta dan posisi yang cocok"
   },
   "blog": {
     "heading": "Riset",
     "subtitle": "Catatan data dari menilai kontribusi GitHub sungguhan dalam skala besar.",
     "readingTime": "{minutes} menit baca",
     "notTranslated": "Artikel ini belum diterjemahkan — menampilkan versi asli bahasa Inggris.",
-    "backToList": "Semua riset",
+    "backToList": "Kembali ke Riset Mendalam",
     "empty": "Belum ada artikel."
   },
   "footer": {
@@ -597,8 +681,8 @@
         "body": "Potret itu dinilai lewat kematangan akun, kualitas proyek orisinal, kualitas kontribusi, dampak ekosistem, pengaruh komunitas, dan keaslian aktivitas, dengan penalti untuk PR farming, penggelembungan star, dan pola spam templat."
       },
       {
-        "title": "3. Dapatkan skor, tier, dan roast",
-        "body": "Kamu mendapat skor 0-100 yang bisa direproduksi dengan tier dari Trash sampai God, rincian per dimensi yang menunjukkan persis apa yang menahan skormu, dan — hanya kalau kamu minta — roast pedas tulisan AI."
+        "title": "3. Dapatkan level petualang, realm, dan roast",
+        "body": "Kamu mendapat level petualang yang bisa direproduksi (Lv.1–100), realm kultivasi dari Kondensasi Qi sampai Ascensi Agung, rincian per dimensi yang menunjukkan apa yang menahan skor, dan — hanya kalau kamu minta — roast pedas tulisan AI."
       }
     ],
     "numbersHeading": "ghfind dalam angka",
@@ -636,7 +720,7 @@
     "heading": "Dokumentasi API ghfind",
     "lead": "ghfind menilai akun GitHub mana pun 0-100 untuk nilai kontribusi nyata dan kepercayaan dengan mesin open source yang deterministik. Semua yang ada di situs juga tersedia secara programatik: REST API publik, server MCP untuk agen AI, dan SDK resmi. Halaman ini mendokumentasikan semuanya.",
     "restHeading": "REST API ghfind",
-    "restIntro": "Base URL: https://ghfind.com. Pembacaan skor tidak butuh autentikasi. Error berupa JSON terstruktur ({error, message, hint}), respons membawa header RateLimit-*, dan endpoint daftar mendukung paginasi limit/offset.",
+    "restIntro": "Base URL: https://ghfind.com. Pembacaan skor tidak butuh autentikasi. Error berupa JSON terstruktur (error / message / hint), respons membawa header RateLimit-*, dan endpoint daftar mendukung paginasi limit/offset.",
     "endpoints": [
       {
         "sig": "GET /api/score/{username}",
@@ -777,8 +861,16 @@
         "p": "Untuk akun yang dinilai, kami menyimpan cache skor, tier, dan metrik turunannya agar laporan yang dibagikan cepat dimuat dan papan peringkat tetap kencang. Hanya akun berskor 60 ke atas yang diindeks dan ditampilkan secara publik; halaman berskor lebih rendah tetap bisa diakses lewat tautan langsung tapi dijauhkan dari mesin pencari. Kami memakai analitik agregat yang menghormati privasi untuk memahami trafik dan tidak menjual data pribadi."
       },
       {
+        "h": "Login Google dan cookie akun",
+        "p": "Jika Anda memilih login Google, kami menerima pengenal akun Google (subject), nama, dan gambar profil untuk membuat sesi ghfind. Google juga dapat mengirimkan alamat email saat login; kami tidak menyimpannya secara permanen. Cookie sesi bertanda tangan dan HttpOnly menyimpan identitas dasar Anda hingga 30 hari. Kami tidak menyimpan token akses API Google atau token penyegaran. Keluar akan menghapus cookie sesi. Login Google tidak memberikan izin GitHub, dan kami tidak otomatis menghubungkan akun berdasarkan alamat email."
+      },
+      {
         "h": "Roast dengan key milik sendiri",
         "p": "Fitur roast opsional bisa memakai key penyedia modelmu sendiri. Saat kamu memberikannya, key itu tetap di browsermu dan diteruskan sekali lewat server kami untuk memanggil model — tidak pernah disimpan dan tidak pernah di-log, dan dibuang setelah permintaan selesai."
+      },
+      {
+        "h": "Iklan dan cookie",
+        "p": "Saat kami menampilkan iklan, vendor pihak ketiga, termasuk Google, menggunakan cookie, web beacon, dan teknologi serupa untuk menayangkan iklan berdasarkan kunjungan Anda sebelumnya ke situs ini atau situs lain. Penggunaan cookie iklan oleh Google memungkinkan Google dan mitranya menayangkan iklan kepada Anda berdasarkan kunjungan Anda ke situs ini dan/atau situs lain di Internet. Anda dapat menonaktifkan iklan yang dipersonalisasi dengan mengunjungi Setelan Iklan Google (https://adssettings.google.com). Untuk menonaktifkan penggunaan cookie iklan yang dipersonalisasi oleh sebagian vendor pihak ketiga, kunjungi www.aboutads.info/choices."
       }
     ]
   },
@@ -791,7 +883,7 @@
     "dimensionsIntro": "Setiap dimensi berkontribusi pada skor dasar 100 poin. Bersama-sama mereka menghargai kerja open source yang berkelanjutan, orisinal, dan banyak dipakai — bukan sekadar angka aktivitas mentah.",
     "dimensionDetails": {
       "account_maturity": "Seberapa mapan dan konsisten akun itu dari waktu ke waktu — usia, aktivitas berkelanjutan, dan kurva kredibilitas yang tahan terhadap penggelembungan semalam jadi.",
-      "original_project_quality": "Kualitas dan sambutan atas repositori yang benar-benar dimiliki dan ditulis akun itu, bukan fork atau proyek receh.",
+      "original_project_quality": "Kualitas dan penerimaan proyek orisinal serta proyek yang dipimpin atau dibangun bersama secara substansial, dibobot menurut porsi atribusi; tidak termasuk fork.",
       "contribution_quality": "Bobot kontribusi ke proyek lain — pull request yang di-merge dan bermakna versus spam templat.",
       "ecosystem_impact": "Seberapa besar karya akun itu diandalkan dan dirawat di ekosistem yang lebih luas.",
       "community_influence": "Jangkauan dan reputasi tulen di komunitas, dinormalisasi agar angka follower atau star mentah tidak bisa mendominasi.",
@@ -1294,8 +1386,10 @@
     }
   },
   "sponsor": {
+    "stripLabel": "Sponsor",
+    "learnMore": "Pelajari lebih lanjut",
     "metaTitle": "Sponsori ghfind · Paket & manfaat",
-    "metaDescription": "Sponsori ghfind: paket Utama, Model, Unggulan, dan Sahabat, ditagih bulanan. Sponsor tidak pernah memengaruhi peringkat atau skor apa pun.",
+    "metaDescription": "Dukung ghfind dengan empat tingkat sponsor bulanan: 夯, 顶级, 人上人, dan 友情. Sponsor tidak memengaruhi peringkat atau skor.",
     "topline": {
       "section": "Bantuan & Dokumen",
       "current": "Sponsori"
@@ -1312,11 +1406,14 @@
     "available": "Tersedia",
     "soon": "Dalam pengembangan",
     "currentHolder": "Sponsor saat ini",
+    "anonymous": "Sponsor anonim",
+    "emailTemplateSubject": "Pertanyaan sponsor ghfind · {tier}",
+    "emailTemplateBody": "Halo, saya ingin bertanya tentang sponsor tingkat {tier} untuk ghfind.\n\nTanggal mulai sponsor:\nDurasi sponsor: 1 bulan\n\nTampilkan secara anonim (ya/tidak):\nProduk atau proyek yang ingin ditampilkan (kosongkan jika anonim):\nTautan proyek (opsional):\nIkon atau logo (opsional; lampirkan file atau berikan tautan):\nDeskripsi singkat produk atau proyek (opsional):",
     "cta": "Jadi sponsor",
     "ctaSoldOut": "Habis · Nantikan",
     "tiers": {
       "title": {
-        "name": "Sponsor utama",
+        "name": "夯",
         "summary": "Slot paling mencolok di situs — merek Anda ikut di setiap kartu pamer yang dibagikan.",
         "perks": [
           {
@@ -1328,19 +1425,22 @@
         ]
       },
       "model": {
-        "name": "Sponsor model",
-        "summary": "Mendukung model untuk ulasan dan tampil setiap kali ulasan dibuat.",
+        "name": "顶级",
+        "summary": "Mendukung model untuk ulasan, tampil setiap kali ulasan dibuat, dan lowongan Anda tampil paling atas.",
         "perks": [
           {
             "text": "Kredit sponsor model saat ulasan dibuat"
           },
           {
             "text": "Info dan logo sponsor di beranda"
+          },
+          {
+            "text": "Lowongan Anda tampil paling atas di bagian rekrutmen beranda dan halaman /jobs"
           }
         ]
       },
       "featured": {
-        "name": "Sponsor unggulan",
+        "name": "人上人",
         "summary": "Eksposur stabil di beranda dan halaman detail developer.",
         "perks": [
           {
@@ -1353,7 +1453,7 @@
         ]
       },
       "friend": {
-        "name": "Sponsor sahabat",
+        "name": "友情",
         "summary": "Dukung ghfind sebagai sahabat — kami akan mencatat Anda di sini.",
         "perks": [
           {
@@ -1381,98 +1481,670 @@
     "slotOpen": "Slot tersedia"
   },
   "githubBot": {
-    "metaTitle": "ghfind Review — GitHub App yang melabeli issue dan PR berdasarkan skor penulis",
-    "metaDescription": "Pasang GitHub App ghfind Review untuk menambahkan label berwarna ke setiap issue dan pull request baru, berdasarkan skor ghfind publik penulisnya.",
+    "metaTitle": "ghfind Review | Bot GitHub untuk klasifikasi Issue dan PR",
+    "metaDescription": "ghfind Review memadukan label skor penulis dan klasifikasi konten dengan pratinjau, pembersihan, serta layanan AI milik Anda (BYOK), per repositori.",
     "topline": {
       "section": "Integrasi",
       "current": "GitHub Bot"
     },
     "hero": {
-      "eyebrow": "GitHub App · Gratis",
-      "title": "Pilah issue dan PR berdasarkan siapa pembuatnya",
-      "subtitle": "ghfind Review menambahkan label review: berwarna ke setiap issue dan pull request baru, berdasarkan skor ghfind publik penulisnya. Tanpa workflow, token, atau secret yang perlu diatur.",
-      "install": "Pasang di GitHub",
-      "status": "Buka halaman status",
-      "note": "Berjalan sebagai ghfind-review[bot]. Hanya menambahkan label — tidak pernah berkomentar, menutup, atau memblokir kiriman."
+      "eyebrow": "ghfind Review · GitHub App",
+      "title": "Issue dan PR,\nAnda yang mengatur.",
+      "subtitle": "Beri label pada Issue dan PR berdasarkan skor penulis atau konten. Kelola otomatisasi melalui konsol Bot.",
+      "admin": "Buka konsol Bot",
+      "install": "Instal di GitHub",
+      "status": "Beranda Bot"
     },
-    "preview": {
-      "label": "Contoh daftar issue dengan label review",
-      "heading": "Issues",
+    "console": {
+      "heading": "Ruang kerja Bot Anda",
+      "note": "Masuk dengan GitHub. Konsol menampilkan instalasi dan repositori yang dapat Anda akses.",
       "items": {
-        "top": "Crash saat mengurai konfigurasi bertingkat",
-        "medium": "Tambah mode gelap di pengaturan",
-        "noScore": "Salah ketik di README"
+        "overview": {
+          "title": "Dasbor",
+          "body": "Gambaran umum seluruh instalasi GitHub Anda."
+        },
+        "repositories": {
+          "title": "Repositori",
+          "body": "Atur label serta jeda atau lanjutkan pemrosesan."
+        },
+        "tasks": {
+          "title": "Tugas",
+          "body": "Pantau pemrosesan kiriman lama dan coba lagi tugas yang gagal."
+        },
+        "activity": {
+          "title": "Aktivitas",
+          "body": "Tinjau perubahan konfigurasi dan riwayat pembersihan."
+        }
+      },
+      "preview": "Konsol Bot · Data demo lokal",
+      "screenshotAlt": "Dasbor Bot yang menampilkan ringkasan instalasi, status repositori, tugas, dan aktivitas terbaru."
+    },
+    "classification": {
+      "heading": "Dua jenis label. Dua sinyal berbeda.",
+      "lead": "Pisahkan konteks profil penulis dari topik kontribusinya.",
+      "score": {
+        "mode": "Konteks profil penulis",
+        "title": "Label skor penulis",
+        "body": "Untuk Issue dan PR baru, Bot mengambil skor ghfind publik penulis lalu menerapkan label review:. Skor ini menggambarkan profil publik, bukan kualitas kontribusi.",
+        "example": "Lima rentang skor, termasuk label no-score yang jelas saat skor tidak tersedia."
+      },
+      "intent": {
+        "mode": "Opsional · Nonaktif secara bawaan",
+        "title": "Klasifikasi konten",
+        "body": "Bandingkan judul dan isi Issue atau PR dengan deskripsi label yang sudah ada dan Anda pilih. Saat diaktifkan, pengklasifikasi dapat menambahkan hingga tiga label yang cocok tanpa membuat atau mengganti nama label.",
+        "example": "Memerlukan layanan klasifikasi yang sudah dikonfigurasi. Coba saran di konsol sebelum mengaktifkannya. Klasifikasi AI terpisah dari skor penulis dan mungkin perlu dikoreksi. Hubungkan layanan AI milik Anda melalui pengaturan repositori."
       }
     },
-    "labels": {
-      "heading": "Lima label, sekali lihat",
-      "lead": "Label yang belum ada dibuat saat pemasangan. Warna atau deskripsi yang sudah Anda ubah tetap dipertahankan.",
+    "byok": {
+      "heading": "Gunakan layanan AI milik Anda",
+      "lead": "Gunakan alamat API, kunci, dan model Anda. Atur tiap repositori, lalu pilih layanan Anda atau layanan platform.",
+      "cta": "Atur layanan AI Anda",
+      "setup": "Buka repositori, lalu pilih Layanan AI. Menyimpan pengaturan memerlukan akses admin repositori.",
       "items": {
-        "low": {
-          "range": "0 – 39",
-          "desc": "Sinyal publik minim. Periksa sumbernya dulu."
+        "provider": {
+          "title": "Pilih layanan per repositori",
+          "body": "Beralih antara layanan platform dan URL dasar API HTTPS publik milik Anda. Setiap repositori menyimpan konfigurasi sendiri."
         },
-        "medium": {
-          "range": "40 – 69",
-          "desc": "Profil kontributor pada umumnya."
+        "protocol": {
+          "title": "Pilih protokol dan model",
+          "body": "Chat Completions yang kompatibel dengan OpenAI dapat mengklasifikasikan konten dan membuat sapaan. Jev Decisions hanya mengklasifikasikan konten."
         },
-        "high": {
-          "range": "70 – 89",
-          "desc": "Sinyal profil publik yang kuat."
+        "key": {
+          "title": "Jaga kerahasiaan kunci",
+          "body": "Kunci API disimpan dalam bentuk terenkripsi dan tidak pernah ditampilkan kembali. Ganti atau hapus kunci tersimpan melalui konsol."
         },
-        "top": {
-          "range": "90 – 100",
-          "desc": "Teratas di indeks ghfind."
+        "test": {
+          "title": "Uji sebelum mengaktifkan",
+          "body": "Jalankan pengujian koneksi tersimpan secara eksplisit. Pengujian tidak mengubah GitHub dan tidak menyimpan teks contoh. Klasifikasi konten tetap nonaktif secara bawaan."
+        }
+      },
+      "billing": "Penyedia Anda menagih permintaan melalui kunci Anda. Jika layanan Anda gagal, Bot tidak diam-diam beralih ke layanan platform."
+    },
+    "operations": {
+      "heading": "Lihat pratinjau. Lalu putuskan.",
+      "lead": "Kendalikan setiap repositori secara terpisah, dengan perubahan tercatat dalam log aktivitas.",
+      "items": {
+        "preview": {
+          "title": "Uji saran label",
+          "body": "Uji contoh Issue atau PR dengan definisi label yang tersimpan. Pratinjau tidak mengubah GitHub dan tidak menyimpan teks contoh. Memerlukan layanan klasifikasi yang sudah dikonfigurasi."
         },
-        "noScore": {
-          "range": "Tanpa skor",
-          "desc": "Skor tidak tersedia, bukan nol. Dicoba lagi setelah 20 dan 60 menit."
+        "backfill": {
+          "title": "Proses kiriman yang sudah ada",
+          "body": "Mulai sendiri pemrosesan 1–100 Issue dan PR terbuka terbaru. Instalasi hanya menyiapkan label skor; tidak otomatis memproses kiriman lama."
+        },
+        "cleanup": {
+          "title": "Tinjau dan batalkan perubahan Bot",
+          "body": "Lihat pratinjau penghapusan yang memenuhi syarat sebelum mengonfirmasi. Pembersihan hanya menghapus perubahan yang dapat dipastikan berasal dari Bot ini; label yang ditambahkan kembali secara manual dan perubahan yang asalnya tidak jelas tetap dipertahankan."
         }
       }
     },
-    "steps": {
-      "heading": "Cara kerja",
+    "cli": {
+      "heading": "Kendali yang sama, dari terminal Anda.",
+      "body": "CLI Go, JavaScript, dan Python mendukung status, jeda, lanjutkan, pemrosesan kiriman lama, percobaan ulang, dan pembersihan. Gunakan token dengan izin Bot yang diberikan secara eksplisit; akses repositori tetap diperlukan.",
+      "link": "Panduan CLI dan API",
+      "example": "Contoh perintah · ganti owner/repo",
+      "note": "Perintah cleanup menampilkan pratinjau penghapusan. Konfirmasi terpisah diperlukan untuk menerapkannya."
+    },
+    "reference": {
+      "heading": "Label skor penulis dan filter pencarian GitHub"
+    },
+    "labels": {
+      "heading": "Lima rentang skor penulis",
+      "lead": "Label skor yang belum ada dibuat saat instalasi. Warna dan deskripsi kustom yang sudah ada dipertahankan.",
       "items": {
-        "install": {
-          "title": "Pasang di repositori pilihan",
-          "body": "Beri izin baca & tulis untuk Issues dan Pull requests. Pilih Only select repositories untuk mulai kecil; repo organisasi mungkin perlu persetujuan owner."
+        "low": {
+          "range": "0 – 39",
+          "desc": "Lebih sedikit sinyal pada profil publik."
         },
-        "open": {
-          "title": "Seseorang membuka issue atau PR",
-          "body": "Bot mencari skor ghfind publik penulis di latar belakang. Isi issue tidak pernah dibaca atau dinilai."
+        "medium": {
+          "range": "40 – 69",
+          "desc": "Sinyal profil publik pada rentang menengah."
         },
-        "label": {
-          "title": "Label review: muncul",
-          "body": "Saat dipasang, halaman awal issue dan PR yang masih terbuka juga diberi label. Edit atau buka ulang tidak dinilai ulang."
+        "high": {
+          "range": "70 – 89",
+          "desc": "Sinyal profil publik yang lebih kuat."
+        },
+        "top": {
+          "range": "90 – 100",
+          "desc": "Rentang tertinggi dalam indeks ghfind."
+        },
+        "noScore": {
+          "range": "Tanpa skor",
+          "desc": "Tidak tersedia bukan berarti nol. Kegagalan sementara dicoba lagi setelah 20 dan 60 menit."
         }
       }
     },
     "queues": {
-      "heading": "Ubah rentang skor menjadi antrean review",
-      "lead": "Tempel filter ke pencarian issue repositori Anda dan mulai dari antrean yang sesuai waktu Anda.",
+      "heading": "Filter di GitHub",
+      "lead": "Tempel filter ke pencarian Issues repositori Anda. Ganti is:issue dengan is:pr untuk mencari pull request.",
       "items": {
-        "high": "Issue skor tinggi",
-        "top": "Issue skor teratas",
-        "low": "Issue skor rendah untuk diverifikasi",
-        "noScore": "Tanpa skor — perlu konteks"
+        "high": "Rentang skor tinggi",
+        "top": "Rentang skor tertinggi",
+        "low": "Rentang skor rendah",
+        "noScore": "Skor tidak tersedia"
       }
     },
     "notes": {
-      "rescore": {
-        "heading": "Minta penilaian ulang",
-        "body": "Setelah percobaan ulang otomatis, penulis atau admin repositori dapat berkomentar @ghfind-review di issue untuk menilai ulang."
+      "heading": "Instalasi, data, dan kendali",
+      "install": {
+        "heading": "Mulai dari repositori pilihan",
+        "body": "Instal GitHub App dengan akses baca/tulis untuk Issues dan Pull requests. Tidak perlu workflow, PAT, atau secret di repositori. Repositori organisasi mungkin memerlukan persetujuan pemilik."
       },
       "privacy": {
-        "heading": "Data yang disentuh",
-        "body": "Tidak membaca kode sumber maupun isi issue. Hanya menyimpan instalasi, repositori, nomor issue, skor, dan status job; job selesai dihapus setelah 30 hari. Penulis dengan email publik bisa menerima paling banyak satu email skor per 72 jam, dengan berhenti langganan sekali klik.",
-        "link": "Pemberitahuan privasi"
+        "heading": "Ketahui data yang diproses",
+        "body": "Penilaian menggunakan profil publik penulis. Klasifikasi opsional mengirim judul, isi, dan deskripsi label terpilih ke layanan AI yang dikonfigurasi. Komentar nonaktif secara bawaan; jika diaktifkan, komentar berisi pengantar dan ringkasan skor penulis, bukan ulasan kode.",
+        "link": "Baca pemberitahuan privasi"
       },
       "stop": {
-        "heading": "Berhenti kapan saja",
-        "body": "Hapus repositori, tangguhkan, atau copot app dari pengaturan GitHub. Label yang sudah ada tetap tersimpan."
+        "heading": "Jeda atau hapus Bot",
+        "body": "Jeda pemrosesan per repositori dari konsol, atau hapus App melalui pengaturan GitHub. Label yang sudah ada tetap tersimpan; gunakan pembersihan untuk meninjau perubahan Bot yang memenuhi syarat secara terpisah."
       }
     },
-    "disclaimer": "Skor mencerminkan profil GitHub publik penulis, bukan kualitas kontribusi ini. Kontributor baru mungkin hanya punya sedikit jejak publik.",
-    "source": "Kode sumber dan panduan self-hosting"
+    "disclaimer": "Skor mencerminkan profil GitHub publik penulis, bukan kualitas kontribusi ini. Kontributor baru mungkin hanya memiliki riwayat publik yang singkat.",
+    "source": "Kode sumber dan panduan hosting mandiri"
+  },
+  "integrations": {
+    "eyebrow": "For developers and agents",
+    "title": "CLI & API",
+    "subtitle": "Connect ghfind to your terminal, scripts, and agents. Install the CLI and Skill, create a personal API token, and explore the API docs.",
+    "install": {
+      "heading": "Install the CLI and Skill with one command",
+      "description": "Copy this into a terminal or coding agent. Node.js 18 or newer is required; no sudo needed.",
+      "copy": "Copy install command",
+      "copied": "Copied",
+      "requirement": "The script installs the official npm CLI and saves the ghfind-cli Skill to ~/.agents/skills/ghfind-cli.",
+      "cliDocs": "CLI docs",
+      "skill": "View Skill"
+    },
+    "how": {
+      "heading": "Get connected",
+      "install": "Run the command to install the ghfind CLI.",
+      "skill": "The installer also adds the ghfind-cli Skill so your agent can read the commands and guidance.",
+      "auth": "For full scans or roasts, create an API token above and set GHFIND_API_KEY."
+    },
+    "tokens": {
+      "heading": "Create API token",
+      "signedOut": "Sign in with GitHub to create separate tokens for your CLI or automation. A token is shown only once when created.",
+      "signIn": "Sign in to create token",
+      "description": "Revoke tokens individually. The full token is never shown again.",
+      "scanScope": "Pemindaian",
+      "botScope": "Pengelolaan bot",
+      "scanIncluded": "Setiap token mencakup akses pemindaian untuk CLI, API, dan MCP.",
+      "botPermission": "Kelola ghfind Review bot",
+      "botPermissionHint": "Mengizinkan token ini mengubah pengaturan bot dan menjalankan pembersihan pada repositori tempat Anda menjadi admin.",
+      "scopesUnavailableError": "Izin bot belum tersedia. Coba lagi nanti.",
+      "limit": "{count}/10 active tokens",
+      "namePlaceholder": "Name, e.g. Local CLI",
+      "defaultName": "CLI / Agent",
+      "create": "Create token",
+      "working": "Working…",
+      "copyOnce": "Copy and save it now. You cannot view the full token again after leaving this page.",
+      "copy": "Copy token",
+      "copied": "Copied",
+      "loading": "Loading tokens…",
+      "empty": "No API tokens yet.",
+      "created": "Created {date}",
+      "revoke": "Revoke {name}",
+      "revokeShort": "Revoke",
+      "loadError": "Could not load tokens. Refresh and try again.",
+      "createError": "Could not create the token. Try again.",
+      "limitError": "You have reached the active token limit. Revoke a token you no longer use.",
+      "revokeError": "Could not revoke the token. Try again."
+    },
+    "auth": {
+      "heading": "Authentication",
+      "description": "Sign in to the website with GitHub OAuth. CLI and API requests use a personal Bearer token created from your account; these credentials are separate.",
+      "publicTitle": "Public endpoints",
+      "public": "Scoring, comparisons, search, leaderboards, and developer directories work without a token.",
+      "protectedTitle": "Token required",
+      "protected": "Full scans and roasts that run a scan require GHFIND_API_KEY.",
+      "credentialNote": "Keep tokens in environment variables or a secrets manager. Do not commit them or give them to an untrusted agent.",
+      "apiDocs": "API docs"
+    }
+  },
+  "jobs": {
+    "metaTitle": "Lowongan developer: posisi terbuka di perusahaan AI · ghfind",
+    "metaDescription": "Lowongan engineering, riset, dan produk di perusahaan AI seperti DeepSeek dan ModaLeap, dengan tautan untuk melamar di situs karier masing-masing.",
+    "heading": "Lowongan developer",
+    "subtitle": "Jadikan kontribusi open source awal pekerjaan berikutnya.",
+    "postJob": "Pasang lowongan",
+    "viewAll": "Lihat semua",
+    "sponsored": "Sponsor · Disematkan",
+    "sponsorNote": "Lowongan sponsor ditampilkan lebih dulu",
+    "becomeSponsor": "Jadi sponsor",
+    "filterLabel": "Filter per perusahaan",
+    "allCompanies": "Semua perusahaan",
+    "openJobs": "{count} posisi terbuka",
+    "sponsorTag": "Sponsor",
+    "careersSite": "Situs karier",
+    "empty": "Belum ada posisi terbuka. Cek lagi nanti.",
+    "disclaimer": "Lowongan dikumpulkan dari halaman karier publik tiap perusahaan. Lamar di situs perusahaan; ghfind tidak terlibat dalam keputusan perekrutan.",
+    "type": {
+      "full_time": "Penuh waktu",
+      "intern": "Magang",
+      "part_time": "Paruh waktu"
+    },
+    "backToJobs": "Semua lowongan",
+    "apply": "Lamar",
+    "applyByEmail": "Lamar lewat email",
+    "emailNote": "Kirim CV ke {email}",
+    "detailNote": "ghfind hanya menampilkan lowongan ini; keputusan rekrutmen sepenuhnya ada di perusahaan."
+  },
+  "talentMatch": {
+    "source": {
+      "legend": "Bagaimana kamu ingin membagikan CV?",
+      "existingTitle": "Pakai CV di ghfind",
+      "existingHint": "Pilih CV yang kamu simpan di CV saya",
+      "uploadTitle": "Unggah CV sendiri",
+      "uploadHint": "PDF, maks. {max} MB",
+      "loading": "Memuat CV kamu…",
+      "loadFailed": "Gagal memuat CV yang tersimpan. Coba lagi nanti, atau unggah PDF.",
+      "listLabel": "CV kamu",
+      "profileOption": "Profil (data yang bisa dipakai ulang)",
+      "profileHint": "Data yang kamu simpan untuk dipakai ulang di berbagai CV",
+      "updated": "Diperbarui {date}",
+      "manage": "Kelola CV",
+      "emptyTitle": "Kamu belum punya CV di ghfind",
+      "emptyBody": "Buat satu dalam beberapa menit dengan pembuat CV, simpan ke cloud, lalu kembali ke sini untuk menganalisisnya.",
+      "emptyCta": "Buat CV",
+      "emptyUpload": "Unggah PDF saja"
+    },
+    "drop": {
+      "label": "Unggah CV PDF",
+      "title": "Seret dan lepas PDF kamu di sini",
+      "or": "atau",
+      "browse": "Pilih file",
+      "rules": "Hanya PDF · maks. {max} MB",
+      "dragging": "Lepaskan untuk membaca CV",
+      "reading": "Membaca {name}…",
+      "readingHint": "Diproses di browser kamu dan hanya butuh beberapa detik.",
+      "readyTitle": "CV siap",
+      "readyMeta": "{pages, plural, other {# halaman}} · {chars} karakter",
+      "replace": "Ganti",
+      "remove": "Hapus",
+      "errorTitle": "File itu tidak bisa dipakai",
+      "retry": "Pilih file lain",
+      "privacy": "PDF dibaca di browser kamu dan tidak pernah diunggah. Hanya teksnya yang dikirim (email dan nomor telepon dihapus), dan teks itu sendiri tidak pernah disimpan.",
+      "errors": {
+        "type": "Itu bukan PDF. Pilih file .pdf.",
+        "size": "Ukuran file {size} MB. Batasnya {max} MB.",
+        "empty": "File itu kosong.",
+        "multiple": "Lepaskan satu file saja.",
+        "unreadable": "Tidak ada teks yang bisa dibaca dari PDF ini (mungkin hasil pindai atau gambar). Gunakan PDF dengan teks yang bisa dipilih.",
+        "parse": "PDF ini tidak bisa dibuka; mungkin rusak atau dilindungi kata sandi."
+      }
+    },
+    "history": {
+      "title": "Analisis sebelumnya",
+      "empty": "Analisis kamu akan muncul di sini setelah kamu membuatnya.",
+      "untitled": "Laporan talenta",
+      "viewing": "Sedang dilihat",
+      "opening": "Membuka…",
+      "running": "Sedang diproses",
+      "failed": "Gagal",
+      "matches": "{count, plural, other {# posisi cocok}}",
+      "topFit": "Kecocokan tertinggi {fit}",
+      "openFailed": "Analisis itu tidak bisa dibuka. Coba lagi."
+    },
+    "company": {
+      "badge": "Segera hadir",
+      "title": "Fitur rekrutmen segera hadir",
+      "body": "Sebentar lagi kamu bisa menempelkan deskripsi pekerjaan dan melihat developer yang terbuka untuk peluang, diurutkan berdasarkan keahlian yang terverifikasi di GitHub.",
+      "cta": "Pasang lowongan"
+    },
+    "optIn": {
+      "title": "Terbuka untuk peluang",
+      "label": "Izinkan perusahaan menemukan saya di talent pool",
+      "detail": "Perusahaan akan melihat nama, akun GitHub, judul singkat, keahlian, dan skor kecocokan dari profil Anda saat ini, tidak pernah teks CV Anda. Matikan kapan saja; menghapus profil juga mengeluarkan Anda.",
+      "on": "Anda ada di talent pool.",
+      "off": "Anda tidak ada di talent pool.",
+      "notLive": "Pencocokan untuk perusahaan belum aktif, jadi saat ini tidak ada yang bisa melihat profil Anda; aktifkan sekarang agar Anda masuk pool saat dibuka.",
+      "saveFailed": "Pilihan Anda gagal disimpan. Coba lagi."
+    }
+  },
+  "discover": {
+    "metaTitle": "Jelajahi proyek · ghfind",
+    "metaDescription": "Feed ringkas proyek open source bernilai tinggi.",
+    "title": "Jelajahi",
+    "heading": "Feed proyek",
+    "beta": "Beta",
+    "modeGrid": "Kisi",
+    "modeSwipe": "Geser",
+    "filters": "Filter",
+    "filtersBody": "Simpan menandai proyek. Lewati hanya di perangkat ini dan tidak menandai tidak tertarik.",
+    "signedOutBanner": "Masuk dengan GitHub untuk feed personal. Sekarang yang tampil adalah sorotan publik.",
+    "feedUnavailable": "Feed personal tidak tersedia. Menampilkan sorotan publik.",
+    "empty": "Belum ada proyek lagi.",
+    "like": "Simpan",
+    "skip": "Lewati",
+    "superLike": "Sorot",
+    "undo": "Urungkan",
+    "viewCard": "Lihat laporan",
+    "quickPreview": "Pratinjau cepat",
+    "productScore": "Nilai produk",
+    "confidence": "Keyakinan",
+    "communityStrength": "Komunitas",
+    "language": "Bahasa",
+    "openFull": "Buka laporan lengkap",
+    "keyboard": "← lewati · → simpan · ↑ sorot · Backspace urungkan",
+    "hint": "Simpan menandai proyek. Lewati adalah sinyal lemah, bukan blokir.",
+    "audience": "Untuk",
+    "partitions": "Interest topics",
+    "partitionAll": "All",
+    "partitionAgent": "Agent",
+    "partitionSkill": "Skill",
+    "partitionMicroservice": "Microservices",
+    "partitionSandbox": "Sandbox"
+  },
+  "stream": {
+    "postTitle": "Postingan",
+    "replyPlaceholder": "Tulis balasan Anda",
+    "replySend": "Balas",
+    "metaTitle": "Untuk Anda · ghfind",
+    "metaDescription": "Kumpulan postingan X dari para pengembang.",
+    "prototype": "Prototipe",
+    "demoData": "Data demo: sumber data langsung tidak tersedia di sini.",
+    "heading": "Untuk Anda",
+    "tabForYou": "Untuk Anda",
+    "tabFollowing": "Mengikuti",
+    "channels": "Kanal",
+    "kind": {
+      "project": "Proyek",
+      "developer": "Developer",
+      "talent": "Talenta",
+      "article": "Artikel",
+      "collection": "Koleksi",
+      "job": "Lowongan",
+      "post": "Di X"
+    },
+    "kindOne": {
+      "project": "Proyek",
+      "developer": "Developer",
+      "talent": "Talenta",
+      "article": "Artikel",
+      "collection": "Koleksi",
+      "job": "Lowongan",
+      "post": "Postingan X"
+    },
+    "layoutList": "Daftar",
+    "layoutMasonry": "Kisi",
+    "sponsored": "Bersponsor",
+    "available": "Terbuka untuk kerja",
+    "score": "Skor",
+    "productScore": "Skor produk",
+    "minutesRead": "{minutes} menit baca",
+    "like": "Suka",
+    "unlike": "Batal suka",
+    "save": "Simpan",
+    "unsave": "Hapus dari simpanan",
+    "share": "Bagikan",
+    "comments": "Komentar",
+    "more": "Lainnya",
+    "notInterested": "Tidak tertarik",
+    "copyLink": "Salin tautan",
+    "openOriginal": "Buka halaman lengkap",
+    "linkCopied": "Tautan disalin",
+    "hidden": "Baik. Konten seperti ini akan dikurangi.",
+    "undo": "Urungkan",
+    "follow": "Ikuti",
+    "following": "Mengikuti",
+    "followedToast": "Mengikuti {name}",
+    "related": "Konten serupa",
+    "discussion": "Ikut berdiskusi di halaman lengkap",
+    "close": "Tutup",
+    "stats": {
+      "confidence": "Keyakinan",
+      "community": "Komunitas",
+      "language": "Bahasa",
+      "lookups": "Dilihat",
+      "delta": "Minggu ini",
+      "location": "Lokasi",
+      "project": "Proyek",
+      "stars": "Bintang",
+      "salary": "Gaji",
+      "note": "Alasan mengikuti"
+    },
+    "loadingMore": "Memuat lagi…",
+    "endTitle": "Anda sudah melihat semuanya",
+    "endBody": "Muat ulang untuk mengurutkan sesuai yang baru Anda sukai.",
+    "refresh": "Muat ulang",
+    "retuned": "Disesuaikan dengan selera Anda · muat ulang",
+    "followingEmptyTitle": "Ikuti orang untuk mengisi tab ini",
+    "followingEmptyBody": "Ikuti penulis untuk membaca postingan X mereka di sini.",
+    "feedEmpty": "Belum ada postingan X untuk ditampilkan.",
+    "savedEmpty": "Belum ada yang disimpan. Ketuk ikon penanda pada postingan mana pun.",
+    "railDailyProjects": "Proyek sumber terbuka hari ini",
+    "railDailyProjectsEmpty": "Belum ada rekomendasi proyek hari ini.",
+    "railDailyProjectsMore": "Lihat peringkat proyek",
+    "railInterests": "Minat Anda",
+    "railInterestsEmpty": "Sukai atau simpan beberapa postingan, feed akan mempelajari minat Anda.",
+    "railReset": "Atur ulang",
+    "railTopDevelopers": "Developer yang sedang naik",
+    "railCtaTitle": "Di peringkat berapa Anda?",
+    "railCtaBody": "Lihat kontribusi GitHub publik Anda dalam 30 detik.",
+    "railCtaButton": "Nilai GitHub saya",
+    "navHome": "Beranda",
+    "navDiscover": "Jelajahi",
+    "navScore": "Nilai",
+    "navSaved": "Disimpan",
+    "navLeaderboard": "Peringkat",
+    "doubleTapHint": "Ketuk dua kali untuk menyukai",
+    "backToTop": "Kembali ke atas",
+    "counter": {
+      "lookups": "Dilihat {count} kali",
+      "stars": "{count} bintang",
+      "items": "{count} pilihan"
+    },
+    "badge": {
+      "hot": "Populer",
+      "new": "Baru",
+      "editor": "Pilihan editor"
+    },
+    "pulseTotal": "{count} developer telah dinilai",
+    "pulseTrending": "Tren 24 jam",
+    "pulseLookups": "Dilihat {count} kali",
+    "aiRoast": "Komentar AI",
+    "aiNote": "Dibuat oleh model penilaian ghfind",
+    "dimsTitle": "Enam dimensi",
+    "beat": "Mengungguli {percent}% developer",
+    "rankOf": "Peringkat {rank} dari {total}",
+    "weekDelta": "{delta} minggu ini",
+    "facts": {
+      "followers": "Pengikut",
+      "totalStars": "Total bintang",
+      "mergedPrs": "PR yang di-merge",
+      "contributions": "Kontribusi (1 thn)",
+      "years": "Tahun di GitHub"
+    },
+    "topRepos": "Repositori utama",
+    "battles": "Rekor VS",
+    "battleWon": "M",
+    "battleLost": "K",
+    "battleDraw": "S",
+    "battleViews": "{count} menonton",
+    "similar": "Developer serupa",
+    "reactionsTitle": "Reaksi komunitas",
+    "reactionsCta": "Beri suara di profil",
+    "projectDims": {
+      "pain": "Masalah",
+      "effectiveness": "Efektivitas",
+      "experience": "Pengalaman",
+      "valueDensity": "Kepadatan nilai"
+    },
+    "projectScoreTitle": "Rincian skor produk",
+    "audience": "Untuk siapa",
+    "risks": "Perlu diperhatikan",
+    "talentProjects": "Proyek",
+    "ownProject": "Memimpin",
+    "prProject": "Berkontribusi",
+    "sources": "Sumber publik",
+    "picksTitle": "Pilihan dalam koleksi ini",
+    "toc": "Daftar isi",
+    "excerpt": "Kutipan",
+    "readFull": "Baca selengkapnya",
+    "jobDescription": "Tentang posisi ini",
+    "companySite": "Situs perusahaan",
+    "moreFrom": "Lainnya dari {name}",
+    "editorPicks": "Pilihan editor",
+    "commentsTitle": "Komentar",
+    "commentsEmpty": "Belum ada komentar. Jadilah yang pertama.",
+    "commentPlaceholder": "Tulis sesuatu…",
+    "commentAnonymousHint": "Tanpa login, diposting secara anonim",
+    "commentSend": "Kirim",
+    "anonymous": "Anonim",
+    "commentFailed": "Gagal mengirim. Coba lagi nanti.",
+    "commentRateLimited": "Pelan-pelan sedikit",
+    "commentLinks": "Tautan tidak diizinkan dalam komentar",
+    "commentsClosed": "Komentar belum tersedia di sini; lihat halaman lengkap.",
+    "justNow": "baru saja",
+    "quick": {
+      "developer": {
+        "a": "Skornya masuk akal",
+        "b": "Ajari saya 🙏",
+        "c": "Sudah diikuti, keren"
+      },
+      "talent": {
+        "a": "Arahnya bagus",
+        "b": "Ayo ngobrol",
+        "c": "Sudah diikuti"
+      },
+      "article": {
+        "a": "Banyak belajar",
+        "b": "Sangat insightful",
+        "c": "Mau lebih banyak"
+      },
+      "collection": {
+        "a": "Sudah disimpan",
+        "b": "Mau yang serupa",
+        "c": "Pilihan pertama mantap"
+      }
+    },
+    "loadingDetail": "Memuat…",
+    "railEditor": "Pilihan editor",
+    "xCategory": {
+      "researcher": "Peneliti",
+      "builder": "Builder",
+      "media": "Media teknologi",
+      "developer": "Developer top"
+    },
+    "viewOnX": "Lihat di X",
+    "xMetrics": {
+      "replies": "Balasan",
+      "reposts": "Repost",
+      "likes": "Suka",
+      "views": "Tayangan"
+    },
+    "xLatest": "Terbaru di X",
+    "railVoices": "Suara yang layak diikuti",
+    "railVoicesHint": "Hanya peneliti, builder, media teknologi, dan developer dengan skor ghfind 80+.",
+    "xSource": "Dari X · metrik adalah angka asli dari X",
+    "ghfindProfile": "Profil ghfind",
+    "demoX": "Untuk saat ini, postingan X adalah data demo: akun dan isinya fiktif, dan akan diganti otomatis saat postingan asli masuk.",
+    "showTranslation": "Tampilkan terjemahan",
+    "showOriginal": "Lihat aslinya",
+    "translatedBy": "Diterjemahkan oleh agen ghfind",
+    "feed": {
+      "addImage": "Tambah gambar",
+      "cancel": "Batal",
+      "capabilitiesError": "Kelayakan untuk memposting tidak dapat diperiksa. Anda tetap dapat membaca.",
+      "checking": "Memeriksa kelayakan posting…",
+      "composerPlaceholder": "Bagikan hal yang sedang Anda bangun atau pikirkan",
+      "conversationDescription": "Baca postingan dan balasan sebelumnya. Anda dapat membalas setiap postingan dalam percakapan.",
+      "copyFailed": "Tautan tidak dapat disalin. Silakan coba lagi.",
+      "deleteHint": "Hapus postingan ini? Balasan akan tetap terhubung ke penanda postingan yang dihapus.",
+      "deletePost": "Hapus postingan",
+      "deleted": "Postingan ini telah dihapus.",
+      "dislike": "Tidak suka",
+      "earlierReplies": "Lihat balasan sebelumnya",
+      "empty": "Belum ada postingan.",
+      "end": "Anda sudah melihat semua postingan terbaru.",
+      "followingEmpty": "Ikuti pengembang untuk melihat postingan dan posting ulang mereka.",
+      "imageDescription": "Deskripsi gambar (opsional)",
+      "loadMore": "Muat lagi",
+      "localInteractions": "Interaksi di ghfind",
+      "loginRequired": "Masuk untuk berinteraksi. Semua orang dapat membaca.",
+      "mediaCount": "Anda dapat melampirkan maksimal 4 gambar.",
+      "mediaInvalid": "Gunakan JPEG, PNG, WebP, atau GIF hingga 10 MB per gambar.",
+      "myBookmarks": "Simpanan saya",
+      "noReplies": "Belum ada balasan.",
+      "openConversation": "Buka percakapan {name}",
+      "openImage": "Buka gambar",
+      "privateBookmarks": "Simpanan hanya dapat dilihat oleh Anda.",
+      "publish": "Posting",
+      "publishAccessTitle": "Sebelum memposting",
+      "publishRequirement": "Untuk memposting atau membalas, diperlukan akun GitHub terverifikasi dan skor ghfind minimal 60.",
+      "published": "Diposting di ghfind.",
+      "publishing": "Memposting…",
+      "rateLimited": "Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi.",
+      "removeImage": "Hapus gambar",
+      "repost": "Posting ulang",
+      "repostedBy": "Diposting ulang oleh {name}",
+      "requestFailed": "Permintaan tidak dapat diselesaikan. Silakan coba lagi.",
+      "retry": "Coba lagi",
+      "unavailable": "Postingan ini tidak tersedia.",
+      "undoDislike": "Batalkan tidak suka",
+      "undoRepost": "Batalkan posting ulang",
+      "unfollow": "Berhenti mengikuti",
+      "viewQuotedPost": "Lihat postingan kutipan",
+      "quotedPostPreviewUnavailable": "Pratinjau tidak tersedia",
+      "viewAttachedLink": "Lihat tautan terlampir",
+      "attachedLinkPreviewUnavailable": "Buka tautan untuk melihat konten",
+      "viewOnX": "Lihat postingan asli di X",
+      "showOriginal": "Asli",
+      "showTranslated": "Terjemahan",
+      "translationToggle": "Tampilkan teks asli atau terjemahan",
+      "views": "Tayangan di ghfind",
+      "viewReplies": "Lihat balasan",
+      "scoreBelowMinimum": "Skor tersimpan Anda di bawah 60. Anda belum dapat memposting atau membalas.",
+      "scoreMissing": "Belum ada skor tersimpan. Periksa skor akun GitHub Anda terlebih dahulu.",
+      "verifyScore": "Kepemilikan skor tersimpan belum dapat diverifikasi. Silakan coba lagi.",
+      "rescanAccount": "Pindai ulang dari profil saya",
+      "authorCard": {
+        "followingAction": "Following",
+        "follow": "Follow",
+        "followsYou": "Follows you",
+        "retry": "Could not load · Retry",
+        "loading": "Loading…",
+        "score": "ghfind score",
+        "unscored": "Not scored",
+        "following": "Following",
+        "followers": "Followers",
+        "source": "Follow counts from ghfind"
+      }
+    }
+  },
+  "realms": {
+    "qi": {
+      "name": "Kondensasi Qi",
+      "blurb": "Langkah awal · Membangun fondasi"
+    },
+    "foundation": {
+      "name": "Fondasi",
+      "blurb": "Fondasi siap · Maju mantap"
+    },
+    "goldenCore": {
+      "name": "Formasi Inti",
+      "blurb": "Inti terbentuk · Mulai tajam"
+    },
+    "nascentSoul": {
+      "name": "Jiwa Nascent",
+      "blurb": "Jiwa terbangun · Gaya sendiri"
+    },
+    "deity": {
+      "name": "Transf. Dewata",
+      "blurb": "Pikiran jernih · Pengaruh nyata"
+    },
+    "voidRefining": {
+      "name": "Tempa Spasial",
+      "blurb": "Penguasaan tanpa usaha"
+    },
+    "integration": {
+      "name": "Integrasi Tubuh",
+      "blurb": "Selaras · Guru kelas atas"
+    },
+    "mahayana": {
+      "name": "Ascensi Agung",
+      "blurb": "Hampir puncak · Balai kejayaan"
+    }
   }
 }

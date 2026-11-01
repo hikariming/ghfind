@@ -37,6 +37,14 @@ func TestGitHubCollectorBuildsGoNativeScanResult(t *testing.T) {
 			_, _ = w.Write([]byte(`{"Go":2000}`))
 			return
 		}
+		if request.URL.Path == "/repos/popular/project" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		if strings.HasSuffix(request.URL.Path, "/contents") {
+			_, _ = w.Write([]byte(`[{"name":"src"},{"name":"README.md"}]`))
+			return
+		}
 		if request.URL.Path != "/graphql" {
 			t.Errorf("unexpected request %s", request.URL)
 			w.WriteHeader(http.StatusNotFound)
@@ -48,6 +56,12 @@ func TestGitHubCollectorBuildsGoNativeScanResult(t *testing.T) {
 		_ = json.NewDecoder(request.Body).Decode(&body)
 		var data string
 		switch {
+		case strings.Contains(body.Query, "query OriginalInventory"):
+			data = `{"user":{"forks":{"totalCount":0},"repositories":{"nodes":[{"name":"project","nameWithOwner":"alice/project","isFork":false,"diskUsage":250,"stargazerCount":40,"forkCount":4,"issues":{"totalCount":3},"primaryLanguage":{"name":"Go"},"description":"A useful service for testing","pushedAt":"2026-07-30T00:00:00Z"}],"pageInfo":{"hasNextPage":false}}}}`
+		case strings.Contains(body.Query, "type: ISSUE, first: $count"):
+			data = `{"search":{"issueCount":3,"nodes":[{"id":"PR_9","mergedAt":"2025-05-01T00:00:00Z","repository":{"nameWithOwner":"popular/project","stargazerCount":20000,"isPrivate":false,"isFork":false,"owner":{"login":"popular"}}}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}`
+		case strings.Contains(body.Query, "CodeSamplePr"):
+			data = `{"s0":{"nodes":[{"title":"fix scheduler","additions":30,"deletions":2,"changedFiles":1,"repository":{"nameWithOwner":"popular/project","stargazerCount":20000,"isPrivate":false},"files":{"nodes":[{"path":"internal/scheduler.go"}]}}]}}`
 		case strings.Contains(body.Query, "commitContributionsByRepository"):
 			data = `{"user":{"y0":{"commitContributionsByRepository":[]}}}`
 		case strings.Contains(body.Query, "organizations(first: 20)"):
@@ -60,12 +74,15 @@ func TestGitHubCollectorBuildsGoNativeScanResult(t *testing.T) {
 			data = `{"repository":{"stargazerCount":40,"hasIssuesEnabled":true,"isMirror":false,"watchers":{"totalCount":2},"issues":{"totalCount":3},"pullRequests":{"totalCount":4}}}`
 		case strings.Contains(body.Query, "issues(states: OPEN)"):
 			data = `{"r0":{"issues":{"totalCount":3}}}`
-		case strings.Contains(body.Query, "files(first: 50)"):
+		case strings.Contains(body.Query, "files(first: 100)"):
 			data = `{"user":{"pullRequests":{"nodes":[{"title":"fix worker","additions":20,"deletions":3,"changedFiles":2,"repository":{"nameWithOwner":"upstream/framework","stargazerCount":1000,"isPrivate":false},"files":{"nodes":[{"path":"internal/worker.go"}]}}]}}}`
 		case strings.Contains(body.Query, "pullRequests(first: $count, orderBy"):
 			data = `{"user":{"pullRequests":{"nodes":[{"title":"fix worker","repository":{"nameWithOwner":"upstream/framework"}}]}}}`
 		case strings.Contains(body.Query, "totalCommitContributions"):
-			data = `{"user":{"pinnedItems":{"nodes":[]},"mergedPRs":{"totalCount":480},"allPRs":{"totalCount":480},"closedPRs":{"totalCount":0,"nodes":[]},"issues":{"totalCount":2},"contributionYears":{"contributionYears":[2025]},"contributionsCollection":{"totalCommitContributions":1,"totalPullRequestContributions":1,"totalIssueContributions":1,"totalPullRequestReviewContributions":0,"contributionCalendar":{"totalContributions":50}}}}`
+			if !strings.Contains(body.Query, "pronouns") {
+				t.Error("overview query omits pronouns")
+			}
+			data = `{"user":{"pronouns":"she/her","pinnedItems":{"nodes":[]},"mergedPRs":{"totalCount":480},"allPRs":{"totalCount":480},"closedPRs":{"totalCount":0,"nodes":[]},"issues":{"totalCount":2},"contributionYears":{"contributionYears":[2025]},"contributionsCollection":{"totalCommitContributions":1,"totalPullRequestContributions":1,"totalIssueContributions":1,"totalPullRequestReviewContributions":0,"contributionCalendar":{"totalContributions":50}}}}`
 		default:
 			t.Errorf("unhandled GraphQL query: %s", body.Query)
 			data = `{}`
@@ -79,11 +96,23 @@ func TestGitHubCollectorBuildsGoNativeScanResult(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if scan.Metrics.Username != "alice" || scan.Metrics.MergedPRCount != 480 || scan.Metrics.RecentMergedPRSample != 1 || scan.Metrics.DaysSinceLastActivity == nil || *scan.Metrics.DaysSinceLastActivity != 2 {
+	if scan.Metrics.GitHubUserID == nil || *scan.Metrics.GitHubUserID != "1" || scan.Metrics.Username != "alice" || scan.Metrics.MergedPRCount != 480 || scan.Metrics.RecentMergedPRSample != 1 || scan.Metrics.DaysSinceLastActivity == nil || *scan.Metrics.DaysSinceLastActivity != 2 {
 		t.Fatalf("unexpected metrics: %#v", scan.Metrics)
 	}
-	if !scan.Metrics.MergedPRContributionAggregationIncomplete || scan.Metrics.ImpactPRCount != 1 {
+	// The window PR (no id) and the external search PR both land in
+	// popular/project; the external count drives the contribution split.
+	if !scan.Metrics.MergedPRContributionAggregationIncomplete || scan.Metrics.ImpactPRCount != 2 {
 		t.Fatalf("bounded merged-PR evidence was not preserved: %#v", scan.Metrics)
+	}
+	if valueOrZero(scan.Metrics.ExternalMergedPRCount) != 3 || valueOrZero(scan.Metrics.ExternalHighStarPRShare) != 1 || valueOrZero(scan.Metrics.WeightedTotalStars) != 40 {
+		t.Fatalf("external PR / weighted star facts missing: %#v", scan.Metrics)
+	}
+	if valueOrString(scan.Metrics.Pronouns, "") != "she/her" {
+		t.Fatal("collector dropped profile pronouns")
+	}
+	payload := roastPromptUserPayload(t, buildRoastPrompt(scan, roastLanguageEN))
+	if roastPayloadMap(t, payload, "metrics")["pronouns"] != "she/her" {
+		t.Fatal("collected pronouns did not reach the writer")
 	}
 	if len(scan.TopRepos) != 1 || scan.TopRepos[0].Readme == nil || scan.Scoring.FinalScore <= 0 || scan.Scoring.FinalScore != Score(scan.Metrics).FinalScore {
 		t.Fatalf("scan is not a Go-native deterministic result: %#v", scan)

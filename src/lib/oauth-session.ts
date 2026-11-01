@@ -46,7 +46,9 @@ export function oauthConfigured(): boolean {
   );
 }
 
-function signature(kind: "state" | "session", encodedPayload: string): string {
+type SignedPayloadKind = "state" | "session" | "oidc-state" | "social-session";
+
+function signature(kind: SignedPayloadKind, encodedPayload: string): string {
   const secret = authSecret();
   if (!secret) throw new Error("AUTH_SECRET is not configured");
   return createHmac("sha256", secret)
@@ -54,12 +56,13 @@ function signature(kind: "state" | "session", encodedPayload: string): string {
     .digest("base64url");
 }
 
-export function encodeSignedPayload(kind: "state" | "session", value: unknown): string {
+export function encodeSignedPayload(kind: SignedPayloadKind, value: unknown): string {
   const encoded = Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
   return `${encoded}.${signature(kind, encoded)}`;
 }
 
-export function decodeSignedPayload<T>(kind: "state" | "session", raw: string): T | null {
+export function decodeSignedPayload<T>(kind: SignedPayloadKind, raw: string): T | null {
+  if (raw.length > 8192) return null;
   const parts = raw.split(".");
   if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
   let expected: string;
@@ -89,20 +92,27 @@ export function newOAuthState(callbackTo: string): string {
 export function readOAuthState(raw: string | undefined): OAuthState | null {
   if (!raw) return null;
   const state = decodeSignedPayload<OAuthState>("state", raw);
-  if (!state || !state.nonce || !state.callback_to) return null;
-  if (state.expires_at <= Date.now()) return null;
+  if (!state || typeof state.nonce !== "string" || !state.nonce ||
+      typeof state.callback_to !== "string" || !state.callback_to) return null;
+  if (!Number.isSafeInteger(state.expires_at) || state.expires_at <= Date.now()) return null;
   return state;
 }
 
 /** Session from the request cookie, or null when absent/invalid/expired. */
 export function sessionFromRequest(request: NextRequest): OAuthSession | null {
-  const raw = request.cookies.get(OAUTH_SESSION_COOKIE)?.value;
+  return readGitHubSession(request.cookies.get(OAUTH_SESSION_COOKIE)?.value);
+}
+
+/** Legacy GitHub sessions must never accept a social-provider identity. */
+export function readGitHubSession(raw: string | undefined): OAuthSession | null {
   if (!raw) return null;
   const session = decodeSignedPayload<OAuthSession>("session", raw);
-  if (!session || session.github_id <= 0) return null;
-  const login = normalizeGitHubUsername(session.login ?? "");
+  if (!session || !Number.isSafeInteger(session.github_id) || session.github_id <= 0) return null;
+  if (typeof session.login !== "string") return null;
+  const login = normalizeGitHubUsername(session.login);
   if (!login) return null;
-  if (session.expires_at <= Date.now()) return null;
+  if (!Number.isSafeInteger(session.expires_at) || session.expires_at <= Date.now()) return null;
+  if (session.avatar_url !== undefined && typeof session.avatar_url !== "string") return null;
   return { ...session, login };
 }
 
@@ -112,7 +122,7 @@ export function sessionFromRequest(request: NextRequest): OAuthSession | null {
  * origin, relative ones must be single-slash rooted paths).
  */
 export function safeOAuthCallback(raw: string | null, publicOrigin: string): string {
-  if (!raw) return "/";
+  if (!raw || /[\\\u0000-\u0020\u007f]/.test(raw)) return "/";
   let parsed: URL;
   try {
     parsed = new URL(raw, "http://relative.invalid");
@@ -133,10 +143,13 @@ export function safeOAuthCallback(raw: string | null, publicOrigin: string): str
     ) {
       return "/";
     }
+    if (parsed.pathname.startsWith("//")) return "/";
     return parsed.search ? `${parsed.pathname}${parsed.search}` : parsed.pathname;
   }
-  if (!raw.startsWith("/") || raw.startsWith("//")) return "/";
-  return raw;
+  if (!raw.startsWith("/") || raw.startsWith("//") || parsed.origin !== "http://relative.invalid") return "/";
+  // Normalize before redirecting so a dot segment cannot become //host.
+  if (parsed.pathname.startsWith("//")) return "/";
+  return `${parsed.pathname}${parsed.search}${parsed.hash}`;
 }
 
 export function setOAuthCookie(

@@ -7,10 +7,12 @@ import "server-only";
  * from Turso via profile-presentation.server.ts.
  */
 import {
+  buildProfileCardPresentation,
   buildProfilePresentation,
   buildVsPresentation,
   getLiveProfileScan,
   getTrendingVsMatchupsLocal,
+  type ProfileCardPresentation,
 } from "@/lib/profile-presentation.server";
 import type { ProfilePresentation, VsMatchup, VsPresentation } from "@/lib/profile-presentation";
 import type { ScanResult } from "@/lib/types";
@@ -21,6 +23,17 @@ export async function getGoProfilePresentation(
 ): Promise<ProfilePresentation | null> {
   try {
     return await buildProfilePresentation(username);
+  } catch {
+    return null;
+  }
+}
+
+/** The subset the embeddable cards render; skips the discovery reads. */
+export async function getGoProfileCardPresentation(
+  username: string,
+): Promise<ProfileCardPresentation | null> {
+  try {
+    return await buildProfileCardPresentation(username);
   } catch {
     return null;
   }

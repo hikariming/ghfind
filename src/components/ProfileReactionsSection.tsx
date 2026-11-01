@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { ProfileReactions } from "@/components/ProfileReactions";
 import { auth } from "@/lib/auth";
 import { getProfileReactionState } from "@/lib/db";
@@ -22,18 +21,13 @@ export async function ProfileReactionsSection({
   const session = authAvailable ? await auth() : null;
   const reactionState = await getProfileReactionState(username, session?.user.githubId);
 
-  async function signInForReaction() {
-    "use server";
-    redirect(`/api/auth/github?callbackUrl=${encodeURIComponent(redirectTo)}`);
-  }
-
   return (
     <ProfileReactions
       authenticated={Boolean(session)}
       authAvailable={authAvailable}
       initialState={reactionState}
       profileUsername={username}
-      signInAction={signInForReaction}
+      signInCallbackUrl={redirectTo}
       flat={flat}
     />
   );

@@ -33,4 +33,36 @@ describe("readScanResponse", () => {
     });
     expect(fetch).toHaveBeenCalledWith("/api/scan/jobs/job_aaaaaaaaaaaaaaaa", { cache: "no-store" });
   });
+
+  it("polls GET /api/scan until a 200 snapshot arrives", async () => {
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(
+        Response.json(
+          { error: "scan_pending", scan_pending: true, status: { state: "running" } },
+          { status: 202, headers: { "Retry-After": "1" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ metrics: { username: "tj" }, scoring: { final_score: 88 } }),
+      );
+    vi.stubGlobal("fetch", fetch);
+    vi.useFakeTimers();
+    const pending = readScanResponse(
+      Response.json(
+        { error: "scan_pending", scan_pending: true },
+        { status: 202, headers: { Location: "/api/scan?username=tj", "Retry-After": "1" } },
+      ),
+    );
+    await vi.runAllTimersAsync();
+    await expect(pending).resolves.toMatchObject({ metrics: { username: "tj" }, scoring: { final_score: 88 } });
+    expect(fetch).toHaveBeenNthCalledWith(1, "/api/scan?username=tj", { cache: "no-store" });
+    vi.useRealTimers();
+  });
+  it("preserves a status API error for the caller instead of treating it as a network error", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: "github_collect_deadline" }, { status: 503 })));
+    await expect(readScanResponse(Response.json({ error: "scan_pending" }, {
+      status: 202, headers: { Location: "/api/scan?username=fiction-dev" },
+    }))).rejects.toMatchObject({ code: "github_collect_deadline" });
+  });
+
 });

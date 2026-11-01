@@ -23,9 +23,10 @@ describe("production rate-limit availability", () => {
     vi.stubEnv("GHFIND_DEPLOY_ENV", "development");
     unsetRedisEnv();
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    const { checkRateLimit } = await loadRedis();
+    const { checkRateLimit, checkOAuthCallbackRateLimit } = await loadRedis();
 
     await expect(checkRateLimit("198.51.100.10")).resolves.toEqual({ success: true });
+    await expect(checkOAuthCallbackRateLimit("198.51.100.10")).resolves.toEqual({ success: true });
     expect(error).not.toHaveBeenCalled();
   });
 
@@ -43,13 +44,15 @@ describe("production rate-limit availability", () => {
     vi.stubEnv("GHFIND_DEPLOY_ENV", "production");
     unsetRedisEnv();
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    const { checkRateLimit, checkScanNetworkRateLimit, rateLimitHeaders } = await loadRedis();
+    const { checkRateLimit, checkScanNetworkRateLimit, checkOAuthCallbackRateLimit, rateLimitHeaders } = await loadRedis();
 
     const result = await checkRateLimit("198.51.100.10");
     const networkResult = await checkScanNetworkRateLimit("198.51.100.10");
+    const oauthResult = await checkOAuthCallbackRateLimit("198.51.100.10");
 
     expect(result).toMatchObject({ success: false, unavailable: true, retryAfter: 15 });
     expect(networkResult).toMatchObject({ success: false, unavailable: true, retryAfter: 15 });
+    expect(oauthResult).toMatchObject({ success: false, unavailable: true, retryAfter: 15 });
     expect(rateLimitHeaders(result)).toEqual({ "Retry-After": "15" });
     expect(error).toHaveBeenCalledWith(
       "rate_limit_unavailable",

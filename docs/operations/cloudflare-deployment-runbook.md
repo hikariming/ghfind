@@ -25,7 +25,7 @@ The authoritative deployment files are:
 - [`scripts/smoke-deployment.mts`](../../scripts/smoke-deployment.mts) — read-only public smoke checks.
 
 Production ownership is fixed: `ghfind` must be deployed to
-`Beiming1201@gmail.com's Account` (`8f19bebe359e4ec1a24c68c5f49c1584`). The
+the production account pinned in `wrangler.jsonc` (`8f19bebe359e4ec1a24c68c5f49c1584`). The
 repository config and production workflow pin this account. The
 `AsperforMias` account is not a production target and must not be used for
 production Workers, D1, R2, or Secrets.
@@ -122,6 +122,9 @@ pnpm exec wrangler secret put AUTH_GITHUB_ID --env production
 pnpm exec wrangler secret put AUTH_GITHUB_SECRET --env production
 pnpm exec wrangler secret put AUTH_SECRET --env production
 pnpm exec wrangler secret put ADMIN_SECRET --env production
+# Social Feed (ghfind-api only): create R2 buckets first, then put ingest secret.
+# pnpm exec wrangler secret put SOCIAL_FEED_INGEST_SECRET --config apps/api/wrangler.jsonc --env production
+# Optional write kill switches are vars (default off): SOCIAL_FEED_PUBLISH_ENABLED / SOCIAL_FEED_INGEST_ENABLED
 ```
 
 Add the optional fallback LLM, Mosoo, CLI, Resend, and project-analysis secrets
@@ -129,10 +132,62 @@ when those features are enabled. Repeat the required set for `--env dev` only if
 the dev Worker is intended to be used; do not copy production OAuth or write-path
 credentials into dev without an explicit data-safety decision.
 
+For Google login, configure `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` on both
+`ghfind-api` and the legacy `ghfind` Worker. Follow
+[Google sign-in setup and cost boundaries](google-signin.md); this direct OAuth
+flow does not require a billing account or paid Identity Platform service.
+
 `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `PUBLIC_SITE_URL`, and
 `NEXT_PUBLIC_SITE_URL` are non-secret build/runtime variables. The first is set in
 the deployment environment; the latter two are already defined per environment in
 `wrangler.jsonc` and must remain equal to the public origin.
+
+## On-view score re-evaluation (auto rescan)
+
+A profile whose stored score predates the current scoring release shows
+历史评分 with a 重新评测 action. For real browser visitors the page also asks
+`POST /api/scan` (`trigger: "score_version_upgrade"`) to re-evaluate it in the
+background (score only, no LLM report). `GET /api/scan` never starts it. Guard
+rails, all on `ghfind-api` (see `src/lib/auto-rescan.ts`):
+
+- `GHFIND_AUTO_RESCAN_DISABLED=1` — kill switch (plain var; no deploy of code
+  needed: `wrangler deploy --var GHFIND_AUTO_RESCAN_DISABLED:1` or the dashboard).
+- `GHFIND_AUTO_RESCAN_MAX_PER_HOUR` — global fixed-window budget, default 100;
+  `0` turns it off.
+- One attempt per user per 24h (kept on failure), bot/headless/HTTP-library
+  user agents and requests without same-origin fetch metadata refused, server
+  re-checks the stored version, per-IP scan limit always applies.
+- Logs: `auto_rescan` lines with `outcome: started|deferred` and the reason.
+
+This is on demand per viewed profile; never add a batch job or backfill on top.
+
+## On-view report regeneration (auto re-roast)
+
+When the score is current but the AI report in the viewer's language is not on
+the current roast release (`ROAST_CACHE_VERSION` — after a score change cleared
+it, or after a roast release bump), the page shows the previous report labelled
+旧版锐评 (or a skeleton when none survives) instead of the "not archived" empty
+state, and asks `POST /api/roast/auto` (`trigger: "roast_version_upgrade"`) to
+regenerate it. The request only enqueues a job (202 + `Location`); the
+`ghfind-api` production cron (`*/2 * * * *`, same tick as the project-analysis
+reconcile) drains the queue — at most 5 generations and 8 minutes per tick, one
+worker at a time — and the page polls `GET /api/roast/auto`. The job is keyed by
+the target release, so a later bump (e.g. a slower, asynchronous producer)
+supersedes stale jobs automatically. Guard rails (`src/lib/auto-reroast.ts`):
+
+- `GHFIND_AUTO_REROAST_DISABLED=1` — separate kill switch (queued jobs then age
+  out after 2h).
+- `GHFIND_AUTO_REROAST_MAX_PER_HOUR` — separate global budget, default 60; `0`
+  turns admission off.
+- One attempt per user + language + roast release per 24h (kept on failure),
+  the same automated-client filter and per-IP limit as auto rescan, machine
+  callers refused, server re-checks eligibility. A failed generation is retried
+  once, then the page keeps its non-empty state with the manual 重新评测 action.
+- Logs: `auto_reroast` lines (`outcome: queued|deferred|done|retry|failed|pending|expired|superseded`)
+  and `auto_reroast_cron` tick summaries.
+- The dev Worker has no cron, so jobs queued there are never generated.
+
+Never backfill through this queue; it only takes jobs from real page views.
 
 ## Validate without changing Cloudflare
 

@@ -4,6 +4,8 @@ import {
   PROJECT_ANALYSIS_SCHEMA_VERSION,
   PROJECT_RUBRIC_VERSION,
   PROJECT_SKILL_VERSION,
+  isAcceptedArtifactSkillVersion,
+  normalizeArtifactRepoKey,
   normalizeGitHubRepository,
   parseProjectAnalysisArtifacts,
   type ProjectAnalysisPhase,
@@ -33,9 +35,11 @@ import {
   type ReusableProjectAnalysisRunInput,
 } from "./project-analysis-db";
 import {
+  archiveMosooThread,
   createMosooProjectAnalysisThread,
   getMosooProjectAgentId,
   getMosooProjectAnalysisSnapshot,
+  hasMosooProjectCredentials,
   MosooProjectAnalysisError,
   readMosooProjectAnalysisArtifacts,
   type MosooThreadSnapshot,
@@ -229,14 +233,70 @@ function isRetryableMosooCreateError(error: MosooProjectAnalysisError): boolean 
 const MAX_AUTOMATIC_MOSOO_RUN_RETRIES = 1;
 const DEFAULT_MAX_AUTOMATIC_MOSOO_CREATE_ATTEMPTS = 3;
 const DEFAULT_MOSOO_CREATE_RETRY_BASE_MS = 5_000;
+/** Provider session-capacity requeues per item before it is failed. */
+export const MAX_MOSOO_CAPACITY_REQUEUES = 8;
+const MOSOO_CAPACITY_BACKOFF_BASE_MS = 2 * 60_000;
+const MOSOO_CAPACITY_BACKOFF_MAX_MS = 30 * 60_000;
 
 function mosooRunRetryCount(run: ProjectAnalysisRun): number {
-  const match = run.idempotencyKey.match(/-retry-(\d+)$/);
+  const match = run.idempotencyKey.match(/-retry-(\d+)(?:-cap-\d+)?$/);
+  return match ? Number(match[1]) : 0;
+}
+
+function mosooCapacityRequeueCount(run: ProjectAnalysisRun): number {
+  const match = run.idempotencyKey.match(/-cap-(\d+)$/);
   return match ? Number(match[1]) : 0;
 }
 
 function isRetryableMosooRunFailure(snapshot: MosooThreadSnapshot): boolean {
   return snapshot.runStatus === "failed" && snapshot.runError?.code === "runtime.inactive";
+}
+
+/**
+ * Mosoo rejects a run when the account already holds its maximum number of
+ * active sessions ("You already have N active sessions"). That is account
+ * capacity, not an outcome of this analysis, even though Mosoo marks it
+ * non-retryable.
+ */
+export function isMosooCapacityFailure(snapshot: MosooThreadSnapshot): boolean {
+  if (snapshot.runStatus !== "failed" || !snapshot.runError) return false;
+  return (
+    snapshot.runError.code === "runtime.capacity_exhausted" ||
+    /already have \d+ active sessions/i.test(snapshot.runError.message ?? "")
+  );
+}
+
+export function mosooCapacityBackoffMs(requeue: number): number {
+  return Math.min(
+    MOSOO_CAPACITY_BACKOFF_MAX_MS,
+    MOSOO_CAPACITY_BACKOFF_BASE_MS * 2 ** Math.max(0, requeue - 1),
+  );
+}
+
+async function requeueAfterMosooCapacity(
+  run: ProjectAnalysisRun,
+): Promise<ProjectAnalysisRun | null> {
+  if (!run.mosooThreadId) return null;
+  const requeue = mosooCapacityRequeueCount(run) + 1;
+  if (requeue > MAX_MOSOO_CAPACITY_REQUEUES) return null;
+  const baseKey = run.idempotencyKey.replace(/-cap-\d+$/, "");
+  const retryAt = Date.now() + mosooCapacityBackoffMs(requeue);
+  const pending = await prepareProjectAnalysisRetry(
+    run.id,
+    run.mosooThreadId,
+    `${baseKey}-cap-${requeue}`,
+    retryAt,
+  );
+  if (pending) {
+    console.warn(JSON.stringify({
+      event: "project_analysis_capacity_requeued",
+      analysisId: run.id,
+      requeue,
+      maxRequeues: MAX_MOSOO_CAPACITY_REQUEUES,
+      nextAttemptAt: retryAt,
+    }));
+  }
+  return pending;
 }
 
 async function retryMosooRun(
@@ -257,8 +317,11 @@ function maximumConcurrentRuns(): number {
   const configured = Number(process.env.PROJECT_ANALYSIS_MAX_CONCURRENCY);
   return Number.isFinite(configured) && configured >= 1
     ? Math.min(20, Math.floor(configured))
-    : 3;
+    : DEFAULT_MAX_CONCURRENT_RUNS;
 }
+
+/** Leaves headroom under Mosoo's per-account active-session limit (5). */
+export const DEFAULT_MAX_CONCURRENT_RUNS = 2;
 
 function maximumCreateAttempts(): number {
   const configured = Number(process.env.PROJECT_ANALYSIS_CREATE_MAX_ATTEMPTS);
@@ -471,10 +534,26 @@ function artifactRepoKey(analysisJson: string): string | null {
     const repository = (value as { repository?: unknown }).repository;
     if (!repository || typeof repository !== "object") return null;
     const repoKey = (repository as { repo_key?: unknown }).repo_key;
-    return typeof repoKey === "string" ? repoKey.toLowerCase() : null;
+    return typeof repoKey === "string" ? normalizeArtifactRepoKey(repoKey) : null;
   } catch {
     return null;
   }
+}
+
+function artifactRepoKeysForLog(analysisJson: string, evidenceJson: string): unknown {
+  const pick = (raw: string, path: (value: Record<string, unknown>) => unknown) => {
+    try {
+      const value = JSON.parse(raw) as Record<string, unknown>;
+      const key = path(value);
+      return typeof key === "string" ? key.slice(0, 200) : null;
+    } catch {
+      return null;
+    }
+  };
+  return {
+    analysis: pick(analysisJson, (v) => (v.repository as Record<string, unknown> | undefined)?.repo_key),
+    evidence: pick(evidenceJson, (v) => v.repo_key),
+  };
 }
 
 async function verifiedArtifactRepoKey(
@@ -504,7 +583,11 @@ async function verifiedArtifactRepoKey(
   }
 }
 
-async function finalizeCompletedRun(run: ProjectAnalysisRun, recovery?: ProjectAnalysisRecoveryInput): Promise<ProjectAnalysisRun> {
+async function finalizeCompletedRun(
+  run: ProjectAnalysisRun,
+  recovery?: ProjectAnalysisRecoveryInput,
+  observe?: ProjectAnalysisReconcileObserver,
+): Promise<ProjectAnalysisRun> {
   let artifacts;
   try {
     artifacts = await readMosooProjectAnalysisArtifacts(run.mosooThreadId!, run.id);
@@ -533,6 +616,7 @@ async function finalizeCompletedRun(run: ProjectAnalysisRun, recovery?: ProjectA
     const code = error instanceof MosooProjectAnalysisError ? error.code : "artifact_missing";
     const message = error instanceof Error ? error.message : "Project artifacts are missing.";
     await failProjectAnalysis(run.id, code, message);
+    await releaseMosooThread(run, "failed", observe);
     const failed = await getProjectAnalysisRun(run.id);
     if (!failed) throw error;
     return failed;
@@ -558,14 +642,23 @@ async function finalizeCompletedRun(run: ProjectAnalysisRun, recovery?: ProjectA
     if (
       parsed.analysis.rubric_version !== run.rubricVersion ||
       parsed.analysis.agent_version !== run.agentVersion ||
-      parsed.analysis.skill_version !== run.skillVersion ||
+      !isAcceptedArtifactSkillVersion(parsed.analysis.skill_version, run.skillVersion) ||
       parsed.analysis.repository.requested_ref !== run.requestedRef
     ) {
       throw new Error("Artifact version or requested ref does not match the analysis run.");
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Project artifacts are invalid.";
+    if (message === "repository identity mismatch") {
+      console.warn(JSON.stringify({
+        event: "project_analysis_identity_mismatch",
+        analysisId: run.id,
+        expectedRepoKey: run.repoKey,
+        artifactRepoKeys: artifactRepoKeysForLog(artifacts.analysisJson, artifacts.evidenceJson),
+      }));
+    }
     await failProjectAnalysis(run.id, "artifact_invalid", message);
+    await releaseMosooThread(run, "failed", observe);
     const failed = await getProjectAnalysisRun(run.id);
     if (!failed) {
       throw new ProjectAnalysisServiceError("artifact_invalid", message, 502);
@@ -605,6 +698,7 @@ async function finalizeCompletedRun(run: ProjectAnalysisRun, recovery?: ProjectA
   } catch {
     console.error("project_analysis.cache_refresh_failed", { analysisId: completed.id });
   }
+  await releaseMosooThread(completed, "completed", observe);
   console.info("project_analysis.completed", {
     analysisId: completed.id,
     repoKey: completed.repoKey,
@@ -685,13 +779,68 @@ async function executionTimedOut(run: ProjectAnalysisRun): Promise<boolean> {
   return run.startedAt !== null && Date.now() > run.startedAt + analysisTimeoutMs();
 }
 
-async function expireProjectAnalysis(run: ProjectAnalysisRun): Promise<ProjectAnalysisRun> {
+export type MosooThreadArchiveReason = "completed" | "failed" | "expired";
+
+/**
+ * Releases the run's Mosoo Thread once ghfind no longer needs it. Mosoo keeps
+ * a finished Thread's sandbox counted against the account's concurrent limit
+ * until it is reclaimed, so terminal paths archive explicitly. Best-effort:
+ * a failed archive is logged and counted, never surfaced to the caller. Not
+ * used for capacity requeues or the runtime.inactive retry, which hand the
+ * run to a fresh Thread through prepareProjectAnalysisRetry.
+ */
+async function releaseMosooThread(
+  run: Pick<ProjectAnalysisRun, "id" | "mosooThreadId">,
+  reason: MosooThreadArchiveReason,
+  observe?: ProjectAnalysisReconcileObserver,
+): Promise<void> {
+  if (!run.mosooThreadId) return;
+  const outcome = await archiveMosooThread(run.mosooThreadId);
+  const line = {
+    event: "project_analysis_thread_archive",
+    analysisId: run.id,
+    mosooThreadId: run.mosooThreadId,
+    reason,
+    outcome: outcome.archived ? "archived" : "failed",
+    ...(outcome.archived ? {} : { errorCode: outcome.errorCode, message: outcome.message }),
+  };
+  if (outcome.archived) {
+    console.info(JSON.stringify(line));
+    return;
+  }
+  observe?.("mosoo_thread_archive_failed");
+  console.warn(JSON.stringify(line));
+}
+
+async function expireProjectAnalysis(
+  run: ProjectAnalysisRun,
+  observe?: ProjectAnalysisReconcileObserver,
+): Promise<ProjectAnalysisRun> {
+  // Archive first: Mosoo keeps running (and holding a sandbox) for up to two
+  // hours after ghfind gives up on a run unless the Thread is stopped.
+  await releaseMosooThread(run, "expired", observe);
   await failProjectAnalysis(run.id, "analysis_timeout", "Project analysis exceeded the configured execution timeout.", "expired", undefined, run);
   return (await getProjectAnalysisRun(run.id)) ?? run;
 }
 
+/** Error category observed while reconciling (logged; aggregated by the cron). */
+export type ProjectAnalysisReconcileObserver = (errorCode: string) => void;
+
+function logSnapshotError(run: ProjectAnalysisRun, error: unknown, timedOut: boolean | null) {
+  console.warn(JSON.stringify({
+    event: "project_analysis_snapshot_error",
+    analysisId: run.id,
+    status: run.status,
+    errorCode: error instanceof MosooProjectAnalysisError ? error.code : "mosoo_unavailable",
+    httpStatus: error instanceof MosooProjectAnalysisError ? error.status : null,
+    message: (error instanceof Error ? error.message : String(error)).slice(0, 200),
+    timedOut,
+  }));
+}
+
 export async function reconcileProjectAnalysis(
   analysisId: string,
+  observe: ProjectAnalysisReconcileObserver = () => {},
 ): Promise<ProjectAnalysisRun> {
   let run = await getProjectAnalysisRun(analysisId);
   if (!run) {
@@ -715,8 +864,22 @@ export async function reconcileProjectAnalysis(
     }
     return run;
   }
+  // A Worker without Mosoo credentials (e.g. the Astro web Worker) must never
+  // advance or fail a run: a missing token is that Worker's configuration,
+  // not an outcome of the analysis. Only token-holding Workers reconcile.
+  if (!hasMosooProjectCredentials()) {
+    observe("mosoo_credentials_absent");
+    console.warn(JSON.stringify({
+      event: "project_analysis_reconcile_skipped",
+      analysisId: run.id,
+      reason: "mosoo_credentials_absent",
+    }));
+    return run;
+  }
   if (!run.mosooThreadId) {
-    if (await executionTimedOut(run)) return expireProjectAnalysis(run);
+    // A queued row holds no Mosoo run; its execution clock restarts when a
+    // slot is granted, so only a started creation attempt can time out.
+    if (run.status !== "queued" && await executionTimedOut(run)) return expireProjectAnalysis(run, observe);
     return createOrResumeMosooThread(run);
   }
 
@@ -725,18 +888,33 @@ export async function reconcileProjectAnalysis(
     snapshot = await getMosooProjectAnalysisSnapshot(run.mosooThreadId);
   } catch (error) {
     if (error instanceof MosooProjectAnalysisError && isRetryableMosooCreateError(error)) {
-      return run;
+      observe(error.code);
+      // The deadline is enforced even when the provider is unreachable;
+      // otherwise a run whose snapshot keeps failing stays "running" forever
+      // and holds its concurrency slot.
+      const timedOut = await executionTimedOut(run);
+      logSnapshotError(run, error, timedOut);
+      return timedOut ? expireProjectAnalysis(run, observe) : run;
     }
+    logSnapshotError(run, error, null);
     const code = error instanceof MosooProjectAnalysisError ? error.code : "mosoo_unavailable";
     const message = error instanceof Error ? error.message : "Mosoo project analysis failed.";
     await failProjectAnalysis(run.id, code, message, "failed", undefined, run);
+    await releaseMosooThread(run, "failed", observe);
     return (await getProjectAnalysisRun(run.id)) ?? run;
   }
 
   // A late observer must not expire an evaluation that already completed.
   // Confirm provider state first; never grant a new retry after the deadline.
-  if (snapshot.runStatus === "completed") return finalizeCompletedRun(run);
-  if (await executionTimedOut(run)) return expireProjectAnalysis(run);
+  if (snapshot.runStatus === "completed") return finalizeCompletedRun(run, undefined, observe);
+  // Provider capacity rejections never started the evaluation: requeue with
+  // backoff instead of failing the item (bounded by MAX_MOSOO_CAPACITY_REQUEUES).
+  if (isMosooCapacityFailure(snapshot)) {
+    observe("mosoo_capacity_exhausted");
+    const requeued = await requeueAfterMosooCapacity(run);
+    if (requeued) return requeued;
+  }
+  if (await executionTimedOut(run)) return expireProjectAnalysis(run, observe);
 
   if (snapshot.runStatus === "waiting_input") {
     await failProjectAnalysis(
@@ -745,6 +923,7 @@ export async function reconcileProjectAnalysis(
       "The Cattle project Agent unexpectedly requested user input.",
       "failed", undefined, run,
     );
+    await releaseMosooThread(run, "failed", observe);
     return (await getProjectAnalysisRun(run.id)) ?? run;
   }
   if (["failed", "cancelled", "expired"].includes(snapshot.runStatus)) {
@@ -758,14 +937,30 @@ export async function reconcileProjectAnalysis(
         : snapshot.runStatus === "expired"
           ? "expired"
           : "failed";
+    // Keep Mosoo's run error category: without it a burst of failed runs is
+    // indistinguishable (provider quota, runtime crash, skill rejection, ...).
+    const runErrorCode = snapshot.runError?.code ?? null;
+    console.warn(
+      JSON.stringify({
+        event: "project_analysis_run_terminal",
+        analysisId: run.id,
+        runStatus: snapshot.runStatus,
+        runErrorCode,
+        runErrorRetryable: snapshot.runError?.retryable ?? null,
+        runErrorMessage: snapshot.runError?.message?.slice(0, 200) ?? null,
+      }),
+    );
     await failProjectAnalysis(
       run.id,
       `mosoo_run_${snapshot.runStatus}`,
-      `Mosoo project analysis ended with ${snapshot.runStatus}.`,
+      runErrorCode
+        ? `Mosoo project analysis ended with ${snapshot.runStatus} (${runErrorCode.slice(0, 80)}).`
+        : `Mosoo project analysis ended with ${snapshot.runStatus}.`,
       terminalStatus,
       snapshot.activities,
       run,
     );
+    await releaseMosooThread(run, "failed", observe);
     return (await getProjectAnalysisRun(run.id)) ?? run;
   }
   const phase = runningPhase(snapshot);
@@ -786,16 +981,28 @@ export async function reconcilePendingProjectAnalyses(limit = 20): Promise<{
   processed: number;
   completed: number;
   failed: number;
+  inFlight: number;
+  errors: Record<string, number>;
 }> {
   const runs = await listReconciliableProjectAnalysisRuns(limit);
   let completed = 0;
   let failed = 0;
+  let inFlight = 0;
+  const errors: Record<string, number> = {};
+  const observe: ProjectAnalysisReconcileObserver = (code) => {
+    errors[code] = (errors[code] ?? 0) + 1;
+  };
   for (const run of runs) {
     try {
-      const next = await reconcileProjectAnalysis(run.id);
+      const next = await reconcileProjectAnalysis(run.id, observe);
       if (next.status === "completed") completed += 1;
-      if (["failed", "cancelled", "expired"].includes(next.status)) failed += 1;
+      if (["failed", "cancelled", "expired"].includes(next.status)) {
+        failed += 1;
+        if (next.errorCode) observe(next.errorCode);
+      }
+      if (["creating_thread", "running", "finalizing"].includes(next.status)) inFlight += 1;
     } catch (error) {
+      observe(error instanceof MosooProjectAnalysisError ? error.code : "reconcile_exception");
       console.error("project analysis reconcile failed", {
         analysisId: run.id,
         repoKey: run.repoKey,
@@ -804,7 +1011,7 @@ export async function reconcilePendingProjectAnalyses(limit = 20): Promise<{
       failed += 1;
     }
   }
-  return { processed: runs.length, completed, failed };
+  return { processed: runs.length, completed, failed, inFlight, errors };
 }
 
 export async function getPublicProjectAnalysisView(
@@ -822,7 +1029,9 @@ export async function getPublicProjectAnalysisView(
     );
   }
   const assessment =
-    run.status === "completed" ? await getProjectAssessment(run.repoKey) : null;
+    run.status === "completed"
+      ? await getProjectAssessment(run.repoKey, { includeDelisted: false })
+      : null;
   const treasureHistory =
     run.status === "completed" ? await listTreasureHistory(run.repoKey) : [];
   return {

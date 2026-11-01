@@ -8,7 +8,27 @@
  * and a cache hit avoids both GitHub API calls and an LLM call.
  */
 
-import { protectedScan, ScanBusyError, scanTtl } from "./scan-protection";
+import {
+  SCAN_BACKGROUND_LEASE_MS,
+  SCAN_CONTINUE_WAIT_MS,
+  SCAN_PRODUCER_CAPACITY_KEY,
+  protectedScan,
+  ScanBusyError,
+  scanTtl,
+  SCAN_STALE_TTL_SECONDS,
+  SCAN_REFRESH_COOLDOWN_SECONDS,
+} from "./scan-protection";
+import { selectCacheStore, type CacheStore } from "./cache-store";
+import { selectAtomicStore, type AtomicStore } from "./atomic-store";
+import { admitAutoRescan, type AutoRescanAdmission } from "./auto-rescan";
+import { admitAutoRefreshOnVisit } from "./auto-refresh-on-visit";
+import { parsePayload, scanSlot, scanSlots, slotCoordinator } from "./scan-slots";
+import {
+  durableObjectLimiter,
+  getRateLimiterBinding,
+  type Limiter,
+  type LimitWindow,
+} from "./rate-limit-backend";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { deployEnv } from "@/lib/deploy-env";
@@ -19,6 +39,7 @@ import {
   VERDICT_CACHE_VERSION,
 } from "./cache-version";
 import { score } from "./score";
+import type { CollectCache } from "./github";
 import { PUBLIC_SCAN_COLLECTION_VERSION } from "./scan-run-types";
 import type {
   AccountDetail,
@@ -29,23 +50,10 @@ import type {
 } from "./db";
 import type { FacetType } from "./facets";
 import type { Lang } from "./lang";
-import type { ProfileReactionCounts } from "./reactions";
 import type { RoastJudgeResult, RoastLine, ScanResult } from "./types";
 
 let redis: Redis | null = null;
-let scanLimiter: Ratelimit | null = null;
-let scanNetworkLimiter: Ratelimit | null = null;
-let campaignLeaderboardReadLimiter: Ratelimit | null = null;
-let projectAnalysisLimiter: Ratelimit | null = null;
-let mcpLimiter: Ratelimit | null = null;
-let roastRequestLimiter: Ratelimit | null = null;
-let roastRequestNetworkLimiter: Ratelimit | null = null;
-let roastMinuteLimiter: Ratelimit | null = null;
-let roastDayLimiter: Ratelimit | null = null;
-let roastNetworkMinuteLimiter: Ratelimit | null = null;
-let roastNetworkDayLimiter: Ratelimit | null = null;
-let verdictMinuteLimiter: Ratelimit | null = null;
-let verdictDayLimiter: Ratelimit | null = null;
+const limiters = new Map<string, Limiter>();
 const localProjectAnalysisWindows = new Map<string, { count: number; reset: number }>();
 const PROJECT_ANALYSIS_LIMIT = 5;
 const PROJECT_ANALYSIS_WINDOW_MS = 60 * 60 * 1_000;
@@ -100,24 +108,149 @@ function getRedis(): Redis | null {
   return redis;
 }
 
+/**
+ * Sliding-window limiter for `prefix`, memoized per backend. The RateLimiter
+ * Durable Object (ghfind-coord) when the deployment sets
+ * GHFIND_RATELIMIT_BACKEND=do and binds RATE_LIMITER; otherwise Upstash.
+ * Both run the same algorithm over the same `<prefix>:<id>` keys. Null when
+ * neither is available (callers decide fail-open vs fail-closed).
+ */
+function rateLimiter(prefix: string, tokens: number, window: LimitWindow): Limiter | null {
+  const durableObjects =
+    process.env.GHFIND_RATELIMIT_BACKEND === "do" ? getRateLimiterBinding() : null;
+  const memoKey = `${durableObjects ? "do" : "redis"}:${prefix}`;
+  const existing = limiters.get(memoKey);
+  if (existing) return existing;
+  let limiter: Limiter;
+  if (durableObjects) {
+    limiter = durableObjectLimiter(durableObjects, prefix, tokens, window);
+  } else {
+    const r = getRedis();
+    if (!r) return null;
+    limiter = new Ratelimit({
+      redis: r,
+      limiter: Ratelimit.slidingWindow(tokens, window),
+      prefix,
+      analytics: false,
+    });
+  }
+  limiters.set(memoKey, limiter);
+  return limiter;
+}
+
+/**
+ * Backend for single-key coordination state that needs read-your-writes:
+ * roast/verdict caches and their single-flight locks, the lookup gate, and
+ * campaign revisions. The KeyValue Durable Object (ghfind-coord) when the
+ * deployment sets GHFIND_COORD_BACKEND=do and binds COORD_KV; else Redis.
+ */
+function atomicStore(): AtomicStore | null {
+  return selectAtomicStore(getRedis());
+}
+
+/** Coordination store for the auto re-roast queue (src/lib/auto-reroast*.ts). */
+export function autoReroastStore(): AtomicStore | null {
+  return atomicStore();
+}
+
+/**
+ * Backend for the public read-model caches below (KV or Redis, per deployment
+ * — see cache-store.ts). Scan/roast/verdict caches coordinate with locks and
+ * stay on Redis until they move to Durable Objects.
+ */
+function cacheStore(): CacheStore | null {
+  return selectCacheStore(getRedis());
+}
+
 export const scanKey = (username: string) =>
-  `scan:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
+  `scan:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
+export const scanStaleKey = (username: string) => `${scanKey(username)}:stale`;
+const scanRefreshKey = (username: string) =>
+  `scan-refresh:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function parseCachedScan(cached: ScanResult | null): ScanResult | null {
+  return cached ? { ...cached, scoring: score(cached.metrics) } : null;
+}
 
 export async function getCachedScan(username: string): Promise<ScanResult | null> {
   if (bypassGeneratedCaches()) return null;
+  const slots = scanSlots();
+  if (slots) {
+    try {
+      return parseCachedScan(parsePayload<ScanResult>(await scanSlot(slots, scanKey(username)).payload()));
+    } catch {
+      return null;
+    }
+  }
   const r = getRedis();
   if (!r) return null;
   try {
-    const cached = (await r.get<ScanResult>(scanKey(username))) ?? null;
-    return cached ? { ...cached, scoring: score(cached.metrics) } : null;
+    return parseCachedScan((await r.get<ScanResult>(scanKey(username))) ?? null);
   } catch {
     return null;
   }
 }
 
+/** Expired scan:v5 snapshot kept as a 7-day emergency read. Fresh success only. */
+export async function getStaleCachedScan(username: string): Promise<ScanResult | null> {
+  if (bypassGeneratedCaches()) return null;
+  const slots = scanSlots();
+  if (slots) {
+    try {
+      return parseCachedScan(
+        parsePayload<ScanResult>(await scanSlot(slots, scanKey(username)).stalePayload()),
+      );
+    } catch {
+      return null;
+    }
+  }
+  const r = getRedis();
+  if (!r) return null;
+  try {
+    return parseCachedScan((await r.get<ScanResult>(scanStaleKey(username))) ?? null);
+  } catch {
+    return null;
+  }
+}
+
+/** One background GitHub refresh per handle per cooldown. Fail closed: skip. */
+export async function tryAcquireScanRefresh(username: string): Promise<boolean> {
+  const r = atomicStore();
+  if (!r) return false;
+  try {
+    return await r.setIfAbsent(scanRefreshKey(username), "1", SCAN_REFRESH_COOLDOWN_SECONDS);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Per-user 24h slot + global hourly budget for an on-view score-version
+ * upgrade rescan (see auto-rescan.ts). Fails closed without a store.
+ */
+export async function admitVersionUpgradeRescan(
+  username: string,
+  maxPerHour: number,
+): Promise<AutoRescanAdmission> {
+  return admitAutoRescan(atomicStore(), username, { maxPerHour });
+}
+
+/** Per-user 24h slot + hourly budget for on-visit score refresh (see auto-refresh-on-visit.ts). */
+export async function admitVisitRefresh(
+  username: string,
+  maxPerHour: number,
+): Promise<AutoRescanAdmission> {
+  return admitAutoRefreshOnVisit(atomicStore(), username, { maxPerHour });
+}
+
 export async function setCachedScan(username: string, scan: ScanResult): Promise<void> {
   if (bypassGeneratedCaches()) return;
+  const slots = scanSlots();
+  if (slots) {
+    await scanSlot(slots, scanKey(username)).setPayload(JSON.stringify(scan), scanTtl()).catch(() => {});
+    return;
+  }
   const r = getRedis();
   if (!r) return;
   try {
@@ -129,51 +262,205 @@ export async function setCachedScan(username: string, scan: ScanResult): Promise
 
 /** Remove a bounded quick snapshot when it is corrupt or superseded. */
 export async function clearCachedScan(username: string): Promise<void> {
+  const slots = scanSlots();
+  if (slots) {
+    await scanSlot(slots, scanKey(username)).clearPayload().catch(() => {});
+    return;
+  }
   const r = getRedis();
   if (!r) return;
-  await r.del(scanKey(username)).catch(() => {});
+  await Promise.all([
+    r.del(scanKey(username)).catch(() => {}),
+    r.del(scanStaleKey(username)).catch(() => {}),
+  ]);
 }
 
-/** Cache-aside indexed score reads also serialize database repopulation. */
+const scoreDetailRevisionKey = (username: string) =>
+  `score-detail-revision:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
+
+async function scoreDetailRevision(
+  r: { get<T>(key: string): Promise<T | null> },
+  username: string,
+): Promise<string> {
+  try {
+    const revision = await r.get<string>(scoreDetailRevisionKey(username));
+    if (revision === null) return "initial";
+    if (typeof revision !== "string" || !/^[a-zA-Z0-9-]+$/.test(revision)) throw new ScanBusyError();
+    return revision;
+  } catch {
+    throw new ScanBusyError();
+  }
+}
+
+/** Move readers to a new namespace only after canonical publication. Old
+ * in-flight readers can fill their old key, but cannot poison the new one.
+ * Keep this pointer without a TTL: expiring it could resurrect an initial key.
+ * A configured Redis failure must fail publication rather than claim freshness.
+ */
+export async function advanceScoreDetailRevision(username: string): Promise<void> {
+  // With Durable Objects the pointer lives in the KeyValue object (no TTL).
+  if (scanSlots()) {
+    const store = atomicStore();
+    if (!store) throw new ScanBusyError();
+    await store.set(scoreDetailRevisionKey(username), crypto.randomUUID());
+    return;
+  }
+  const r = getRedis();
+  if (!r) {
+    if (isProductionDeployment()) throw new ScanBusyError();
+    return;
+  }
+  await r.set(scoreDetailRevisionKey(username), crypto.randomUUID());
+}
+
+/** Cache-aside indexed reads retry if publication races their database load. */
 export async function getCachedScoreDetail(
   username: string,
   load: () => Promise<AccountDetail | null>,
 ): Promise<AccountDetail | null> {
-  const r = getRedis();
+  const slots = scanSlots();
+  const pointers = slots ? atomicStore() : null;
   if (bypassGeneratedCaches() && !isProductionDeployment()) return load();
+  if (slots && pointers) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const revision = await scoreDetailRevision(pointers, username);
+      const key = `score-detail:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}:generation:${revision}`;
+      const slot = scanSlot(slots, key);
+      const result = await protectedScan({
+        coordinator: slotCoordinator(slot, "score-detail:active-readers:v1", false),
+        key,
+        read: async () => {
+          try { return parsePayload<{ detail: AccountDetail | null }>(await slot.payload()); }
+          catch { return null; }
+        },
+        produce: async () => ({ detail: await load() }),
+        ttl: result => result.detail ? scanTtl() : 10,
+      });
+      if (await scoreDetailRevision(pointers, username) === revision) return result.detail;
+    }
+    throw new ScanBusyError();
+  }
+  const r = getRedis();
   if (!r) {
     if (isProductionDeployment()) throw new ScanBusyError();
     return load();
   }
-  const key = `score-detail:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}`;
-  const result = await protectedScan({
-    redis: r, key,
-    read: async () => {
-      try { return await r.get<{ detail: AccountDetail | null }>(key); }
-      catch { return null; }
-    },
-    produce: async () => ({ detail: await load() }),
-    // Brief negative caching protects missing-account database reads without
-    // hiding a newly published snapshot for a full day.
-    ttl: result => result.detail ? scanTtl() : 10,
-    capacityKey: "score-detail:active-readers:v1",
-  });
-  return result.detail;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const revision = await scoreDetailRevision(r, username);
+    const key = `score-detail:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${username.toLowerCase()}:generation:${revision}`;
+    const result = await protectedScan({
+      redis: r, key,
+      read: async () => {
+        try { return await r.get<{ detail: AccountDetail | null }>(key); }
+        catch { return null; }
+      },
+      produce: async () => ({ detail: await load() }),
+      ttl: result => result.detail ? scanTtl() : 10,
+      capacityKey: "score-detail:active-readers:v1",
+    });
+    if (await scoreDetailRevision(r, username) === revision) return result.detail;
+  }
+  throw new ScanBusyError();
 }
 
-/** Cache misses must obtain distributed admission before crawling GitHub. */
+// Atomically pair the payload and publication marker. A forced caller may
+// join a scan published after arrival, but never accept its warm baseline.
+export const READ_REFRESHED_SCAN = `
+local revision = redis.call('GET', KEYS[2])
+if not revision or revision == ARGV[1] then return nil end
+return redis.call('GET', KEYS[1])`;
+
+/** Cache misses and forced refreshes retain the same distributed admission. */
 export async function coalesceScan(
   username: string,
   producer: () => Promise<ScanResult>,
+  options: { force?: boolean; background?: boolean; continueOnDeadline?: boolean; full?: boolean } = {},
 ): Promise<ScanResult> {
   if (bypassGeneratedCaches() && !isProductionDeployment()) return producer();
+  const backgroundWait = options.background ? async () => {} : undefined;
+  const backgroundAttempts = options.background ? 1 : undefined;
+  const slots = scanSlots();
+  if (slots) {
+    const slot = scanSlot(slots, scanKey(username));
+    let baseline = "";
+    if (options.force) {
+      try { baseline = (await slot.revision()) ?? ""; }
+      catch { throw new ScanBusyError(); }
+    }
+    const continueOnDeadline = options.continueOnDeadline === true;
+    return protectedScan({
+      coordinator: slotCoordinator(slot, SCAN_PRODUCER_CAPACITY_KEY, true),
+      key: scanKey(username),
+      read: options.force ? async () => {
+        try {
+          const cached = parsePayload<ScanResult>(await slot.payloadAfter(baseline));
+          return cached ? { ...cached, scoring: score(cached.metrics) } : null;
+        } catch { throw new ScanBusyError(); }
+      } : () => getCachedScan(username),
+      produce: producer,
+      staleTtl: SCAN_STALE_TTL_SECONDS,
+      wait: backgroundWait,
+      attempts: backgroundAttempts,
+      leaseMs: continueOnDeadline || options.background ? SCAN_BACKGROUND_LEASE_MS : undefined,
+      continueWaitMs: continueOnDeadline ? (options.background ? 0 : SCAN_CONTINUE_WAIT_MS) : undefined,
+      continueProduce: continueOnDeadline
+        ? async (owner) => {
+            const marked = options.full || options.force
+              ? await slot.markPending(owner, username, SCAN_BACKGROUND_LEASE_MS, { full: options.full === true, refresh: options.force === true })
+              : await slot.markPending(owner, username, SCAN_BACKGROUND_LEASE_MS);
+            if (marked === 1) return "deferred";
+            if (marked === -1) return "inline";
+            throw new ScanBusyError();
+          }
+        : undefined,
+    });
+  }
   const r = getRedis();
   if (!r) {
     if (isProductionDeployment()) throw new ScanBusyError();
     return producer();
   }
-  return protectedScan({ redis: r, key: scanKey(username),
-    read: () => getCachedScan(username), produce: producer });
+  const key = scanKey(username);
+  const revisionKey = `revision:${key}`;
+  let baseline = "";
+  if (options.force) {
+    try { baseline = (await r.get<string>(revisionKey)) ?? ""; }
+    catch { throw new ScanBusyError(); }
+  }
+  return protectedScan({ redis: r, key, revisionKey,
+    leaseMs: options.background ? SCAN_BACKGROUND_LEASE_MS : undefined,
+    read: options.force ? async () => {
+      try {
+        const value = await r.eval(READ_REFRESHED_SCAN, [key, revisionKey], [baseline]) as ScanResult | string | null;
+        if (!value) return null;
+        const cached = typeof value === "string" ? JSON.parse(value) as ScanResult : value;
+        return { ...cached, scoring: score(cached.metrics) };
+      } catch { throw new ScanBusyError(); }
+    } : () => getCachedScan(username),
+    produce: producer,
+    staleTtl: SCAN_STALE_TTL_SECONDS,
+    wait: backgroundWait,
+    attempts: backgroundAttempts,
+  });
+}
+
+/** True while a ScanSlot owner is still collecting this handle. */
+export async function isScanPending(username: string): Promise<boolean> {
+  const slots = scanSlots();
+  if (!slots) return false;
+  try {
+    return (await scanSlot(slots, scanKey(username)).pending()) != null;
+  } catch {
+    throw new ScanBusyError();
+  }
+}
+
+/** Read the terminal outcome without leaking upstream error details. */
+export async function getScanFailure(username: string): Promise<string | null> {
+  const slots = scanSlots();
+  if (!slots) return null;
+  try { return (await scanSlot(slots, scanKey(username)).failure())?.code ?? null; }
+  catch { throw new ScanBusyError(); }
 }
 
 /**
@@ -189,10 +476,10 @@ export async function tryAcquireLookupGate(
   key: string,
   windowSeconds: number,
 ): Promise<boolean> {
-  const r = getRedis();
+  const r = atomicStore();
   if (!r) return true;
   try {
-    return (await r.set(key, "1", { nx: true, ex: windowSeconds })) === "OK";
+    return await r.setIfAbsent(key, "1", windowSeconds);
   } catch {
     return true;
   }
@@ -201,7 +488,7 @@ export async function tryAcquireLookupGate(
 /** Release a lookup gate acquired by tryAcquireLookupGate, so a failed Turso
  *  write doesn't suppress the count for a whole window. Best-effort. */
 export async function releaseLookupGate(key: string): Promise<void> {
-  const r = getRedis();
+  const r = atomicStore();
   if (!r) return;
   await r.del(key).catch(() => {});
 }
@@ -243,16 +530,8 @@ export function rateLimitHeaders(result: RateLimitResult): Record<string, string
 
 /** Per-principal sliding-window limiter for scan and bounded public-read routes. */
 export async function checkRateLimit(principal: string): Promise<RateLimitResult> {
-  const r = getRedis();
-  if (!r) return unavailableRateLimitResult("scan", "missing_redis_config");
-  if (!scanLimiter) {
-    scanLimiter = new Ratelimit({
-      redis: r,
-      limiter: Ratelimit.slidingWindow(10, "60 s"),
-      prefix: "rl:scan",
-      analytics: false,
-    });
-  }
+  const scanLimiter = rateLimiter("rl:scan", 15, "60 s");
+  if (!scanLimiter) return unavailableRateLimitResult("scan", "missing_redis_config");
   try {
     const { success, limit, remaining, reset } = await scanLimiter.limit(principal);
     return { success, limit, remaining, reset };
@@ -266,16 +545,8 @@ export async function checkRateLimit(principal: string): Promise<RateLimitResult
 
 /** Wider second-line scan budget for browsers sharing one public network. */
 export async function checkScanNetworkRateLimit(ip: string): Promise<RateLimitResult> {
-  const r = getRedis();
-  if (!r) return unavailableRateLimitResult("scan_network", "missing_redis_config");
-  if (!scanNetworkLimiter) {
-    scanNetworkLimiter = new Ratelimit({
-      redis: r,
-      limiter: Ratelimit.slidingWindow(60, "60 s"),
-      prefix: "rl:scan-network",
-      analytics: false,
-    });
-  }
+  const scanNetworkLimiter = rateLimiter("rl:scan-network", 60, "60 s");
+  if (!scanNetworkLimiter) return unavailableRateLimitResult("scan_network", "missing_redis_config");
   try {
     const { success, limit, remaining, reset } = await scanNetworkLimiter.limit(ip);
     return { success, limit, remaining, reset };
@@ -287,6 +558,21 @@ export async function checkScanNetworkRateLimit(ip: string): Promise<RateLimitRe
   }
 }
 
+/** Bound Google token exchanges while leaving room for a shared office network. */
+export async function checkOAuthCallbackRateLimit(ip: string): Promise<RateLimitResult> {
+  const oauthLimiter = rateLimiter("rl:oauth-google", 30, "60 s");
+  if (!oauthLimiter) return unavailableRateLimitResult("oauth_google", "missing_redis_config");
+  try {
+    const { success, limit, remaining, reset } = await oauthLimiter.limit(ip);
+    return { success, limit, remaining, reset };
+  } catch (error) {
+    return unavailableRateLimitResult(
+      "oauth_google",
+      error instanceof Error ? error.name : "limiter_request_failed",
+    );
+  }
+}
+
 /**
  * Public event leaderboard refreshes fan out from many browsers that may share
  * one venue NAT. Keep them off the scan budget while still bounding origin reads.
@@ -294,20 +580,12 @@ export async function checkScanNetworkRateLimit(ip: string): Promise<RateLimitRe
 export async function checkCampaignLeaderboardReadRateLimit(
   ip: string,
 ): Promise<RateLimitResult> {
-  const r = getRedis();
-  if (!r) {
+  const campaignLeaderboardReadLimiter = rateLimiter("rl:campaign-leaderboard-read", 600, "60 s");
+  if (!campaignLeaderboardReadLimiter) {
     return unavailableRateLimitResult(
       "campaign_leaderboard_read",
       "missing_redis_config",
     );
-  }
-  if (!campaignLeaderboardReadLimiter) {
-    campaignLeaderboardReadLimiter = new Ratelimit({
-      redis: r,
-      limiter: Ratelimit.slidingWindow(600, "60 s"),
-      prefix: "rl:campaign-leaderboard-read",
-      analytics: false,
-    });
   }
   try {
     const { success, limit, remaining, reset } =
@@ -327,16 +605,8 @@ export async function checkCampaignLeaderboardReadRateLimit(
  * spend our model credit, but they still invoke a function and read Turso.
  */
 export async function checkRoastRequestRateLimit(principal: string): Promise<RateLimitResult> {
-  const r = getRedis();
-  if (!r) return unavailableRateLimitResult("roast_request", "missing_redis_config");
-  if (!roastRequestLimiter) {
-    roastRequestLimiter = new Ratelimit({
-      redis: r,
-      limiter: Ratelimit.slidingWindow(20, "60 s"),
-      prefix: "rl:roast-request",
-      analytics: false,
-    });
-  }
+  const roastRequestLimiter = rateLimiter("rl:roast-request", 20, "60 s");
+  if (!roastRequestLimiter) return unavailableRateLimitResult("roast_request", "missing_redis_config");
   try {
     const { success, limit, remaining, reset } = await roastRequestLimiter.limit(principal);
     return { success, limit, remaining, reset };
@@ -350,16 +620,8 @@ export async function checkRoastRequestRateLimit(principal: string): Promise<Rat
 
 /** Wider second-line request budget for browsers sharing one public network. */
 export async function checkRoastRequestNetworkRateLimit(ip: string): Promise<RateLimitResult> {
-  const r = getRedis();
-  if (!r) return unavailableRateLimitResult("roast_request_network", "missing_redis_config");
-  if (!roastRequestNetworkLimiter) {
-    roastRequestNetworkLimiter = new Ratelimit({
-      redis: r,
-      limiter: Ratelimit.slidingWindow(120, "60 s"),
-      prefix: "rl:roast-request-network",
-      analytics: false,
-    });
-  }
+  const roastRequestNetworkLimiter = rateLimiter("rl:roast-request-network", 120, "60 s");
+  if (!roastRequestNetworkLimiter) return unavailableRateLimitResult("roast_request_network", "missing_redis_config");
   try {
     const { success, limit, remaining, reset } = await roastRequestNetworkLimiter.limit(ip);
     return { success, limit, remaining, reset };
@@ -371,20 +633,25 @@ export async function checkRoastRequestNetworkRateLimit(ip: string): Promise<Rat
   }
 }
 
+/** Talent Match reports run two LLM calls; one submission a minute per account
+ * (the monthly quota and the one-in-flight rule are enforced in D1). */
+export async function checkTalentReportRateLimit(githubId: number): Promise<RateLimitResult> {
+  const limiter = rateLimiter("rl:talent-report", 1, "60 s");
+  if (!limiter) return unavailableRateLimitResult("talent-report", "missing_redis_config");
+  try {
+    const { success, limit, remaining, reset } = await limiter.limit(String(githubId));
+    return { success, limit, remaining, reset };
+  } catch (error) {
+    return unavailableRateLimitResult("talent-report", error instanceof Error ? error.name : "redis_request_failed");
+  }
+}
+
 /** Project analysis starts a long-running Cattle Agent, so it uses a separate,
  * tighter budget than account scans. Turso still deduplicates identical active
  * analyses; this protects against many distinct repository submissions. */
 export async function checkProjectAnalysisRateLimit(ip: string): Promise<RateLimitResult> {
-  const r = getRedis();
-  if (!r) return localProjectAnalysisRateLimit(ip);
-  if (!projectAnalysisLimiter) {
-    projectAnalysisLimiter = new Ratelimit({
-      redis: r,
-      limiter: Ratelimit.slidingWindow(PROJECT_ANALYSIS_LIMIT, "60 m"),
-      prefix: "rl:project-analysis",
-      analytics: false,
-    });
-  }
+  const projectAnalysisLimiter = rateLimiter("rl:project-analysis", PROJECT_ANALYSIS_LIMIT, "60 m");
+  if (!projectAnalysisLimiter) return localProjectAnalysisRateLimit(ip);
   try {
     const { success, limit, remaining, reset } = await projectAnalysisLimiter.limit(ip);
     return { success, limit, remaining, reset };
@@ -399,7 +666,7 @@ const projectAnalysisResultKey = (fingerprint: string) =>
 export async function getCachedProjectAnalysisId(
   fingerprint: string,
 ): Promise<string | null> {
-  const r = getRedis();
+  const r = cacheStore();
   if (!r) return null;
   try {
     const value = await r.get<string>(projectAnalysisResultKey(fingerprint));
@@ -413,21 +680,43 @@ export async function setCachedProjectAnalysisId(
   fingerprint: string,
   analysisId: string,
 ): Promise<void> {
-  const r = getRedis();
+  const r = cacheStore();
   if (!r) return;
   try {
-    await r.set(projectAnalysisResultKey(fingerprint), analysisId, {
-      ex: PROJECT_ANALYSIS_RESULT_TTL_SECONDS,
-    });
+    await r.set(projectAnalysisResultKey(fingerprint), analysisId, PROJECT_ANALYSIS_RESULT_TTL_SECONDS);
   } catch {
     // Best-effort index only. Durable project analysis remains the source of truth.
   }
 }
 
+const GITHUB_NAME_TTL_SECONDS = 60 * 60 * 24;
+const githubNameKey = (username: string) => `github-name:v1:${username.toLowerCase()}`;
+
+/**
+ * Cached public GitHub profile name (collections' nickname fallback).
+ * `undefined` = not cached; `null` = cached "profile has no name".
+ */
+export async function getCachedGitHubName(username: string): Promise<string | null | undefined> {
+  const r = cacheStore();
+  if (!r) return undefined;
+  try {
+    const value = await r.get<{ name: string | null }>(githubNameKey(username));
+    return value && typeof value === "object" && "name" in value ? value.name : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function setCachedGitHubName(username: string, name: string | null): Promise<void> {
+  const r = cacheStore();
+  if (!r) return;
+  await r.set(githubNameKey(username), { name }, GITHUB_NAME_TTL_SECONDS).catch(() => {});
+}
+
 export async function clearCachedProjectAnalysisId(
   fingerprint: string,
 ): Promise<void> {
-  const r = getRedis();
+  const r = cacheStore();
   if (!r) return;
   await r.del(projectAnalysisResultKey(fingerprint)).catch(() => {});
 }
@@ -459,16 +748,8 @@ function localProjectAnalysisRateLimit(ip: string): RateLimitResult {
  * cap harder to protect the GitHub token and DB.
  */
 export async function checkMcpRateLimit(ip: string): Promise<RateLimitResult> {
-  const r = getRedis();
-  if (!r) return unavailableRateLimitResult("mcp", "missing_redis_config");
-  if (!mcpLimiter) {
-    mcpLimiter = new Ratelimit({
-      redis: r,
-      limiter: Ratelimit.slidingWindow(15, "60 s"),
-      prefix: "rl:mcp",
-      analytics: false,
-    });
-  }
+  const mcpLimiter = rateLimiter("rl:mcp", 15, "60 s");
+  if (!mcpLimiter) return unavailableRateLimitResult("mcp", "missing_redis_config");
   try {
     const { success } = await mcpLimiter.limit(ip);
     return { success };
@@ -486,24 +767,9 @@ export async function checkMcpRateLimit(ip: string): Promise<RateLimitResult> {
  * daily cap. Only gates the default model; BYO keys are not limited.
  */
 export async function checkRoastRateLimit(principal: string): Promise<RateLimitResult> {
-  const r = getRedis();
-  if (!r) return unavailableRateLimitResult("roast_generation", "missing_redis_config");
-  if (!roastMinuteLimiter) {
-    roastMinuteLimiter = new Ratelimit({
-      redis: r,
-      limiter: Ratelimit.slidingWindow(8, "60 s"),
-      prefix: "rl:roast:m",
-      analytics: false,
-    });
-  }
-  if (!roastDayLimiter) {
-    roastDayLimiter = new Ratelimit({
-      redis: r,
-      limiter: Ratelimit.slidingWindow(60, "1 d"),
-      prefix: "rl:roast:d",
-      analytics: false,
-    });
-  }
+  const roastMinuteLimiter = rateLimiter("rl:roast:m", 12, "60 s");
+  const roastDayLimiter = rateLimiter("rl:roast:d", 100, "1 d");
+  if (!roastMinuteLimiter || !roastDayLimiter) return unavailableRateLimitResult("roast_generation", "missing_redis_config");
   try {
     const [minute, day] = await Promise.all([
       roastMinuteLimiter.limit(principal),
@@ -520,24 +786,9 @@ export async function checkRoastRateLimit(principal: string): Promise<RateLimitR
 
 /** Wider network-level generation budget, separate from each signed browser. */
 export async function checkRoastNetworkRateLimit(ip: string): Promise<RateLimitResult> {
-  const r = getRedis();
-  if (!r) return unavailableRateLimitResult("roast_generation_network", "missing_redis_config");
-  if (!roastNetworkMinuteLimiter) {
-    roastNetworkMinuteLimiter = new Ratelimit({
-      redis: r,
-      limiter: Ratelimit.slidingWindow(48, "60 s"),
-      prefix: "rl:roast-network:m",
-      analytics: false,
-    });
-  }
-  if (!roastNetworkDayLimiter) {
-    roastNetworkDayLimiter = new Ratelimit({
-      redis: r,
-      limiter: Ratelimit.slidingWindow(480, "1 d"),
-      prefix: "rl:roast-network:d",
-      analytics: false,
-    });
-  }
+  const roastNetworkMinuteLimiter = rateLimiter("rl:roast-network:m", 48, "60 s");
+  const roastNetworkDayLimiter = rateLimiter("rl:roast-network:d", 480, "1 d");
+  if (!roastNetworkMinuteLimiter || !roastNetworkDayLimiter) return unavailableRateLimitResult("roast_generation_network", "missing_redis_config");
   try {
     const [minute, day] = await Promise.all([
       roastNetworkMinuteLimiter.limit(ip),
@@ -547,6 +798,28 @@ export async function checkRoastNetworkRateLimit(ip: string): Promise<RateLimitR
   } catch (error) {
     return unavailableRateLimitResult(
       "roast_generation_network",
+      error instanceof Error ? error.name : "redis_request_failed",
+    );
+  }
+}
+
+/**
+ * Comment posting budget. Anonymous comments are allowed, so the cap is
+ * tight: keyed by GitHub login when signed in, otherwise by client IP.
+ */
+export async function checkCommentRateLimit(principal: string): Promise<RateLimitResult> {
+  const commentMinuteLimiter = rateLimiter("rl:comment:m", 6, "60 s");
+  const commentDayLimiter = rateLimiter("rl:comment:d", 40, "1 d");
+  if (!commentMinuteLimiter || !commentDayLimiter) return unavailableRateLimitResult("comment", "missing_redis_config");
+  try {
+    const [minute, day] = await Promise.all([
+      commentMinuteLimiter.limit(principal),
+      commentDayLimiter.limit(principal),
+    ]);
+    return { success: minute.success && day.success };
+  } catch (error) {
+    return unavailableRateLimitResult(
+      "comment",
       error instanceof Error ? error.name : "redis_request_failed",
     );
   }
@@ -577,7 +850,7 @@ export const roastKey = (username: string, lang: Lang) =>
 
 export async function getCachedRoast(username: string, lang: Lang): Promise<CachedRoast | null> {
   if (bypassGeneratedCaches()) return null;
-  const r = getRedis();
+  const r = atomicStore();
   if (!r) return null;
   try {
     return (await r.get<CachedRoast>(roastKey(username, lang))) ?? null;
@@ -592,10 +865,10 @@ export async function setCachedRoast(
   value: CachedRoast,
 ): Promise<void> {
   if (bypassGeneratedCaches()) return;
-  const r = getRedis();
+  const r = atomicStore();
   if (!r) return;
   try {
-    await r.set(roastKey(username, lang), value, { ex: ROAST_TTL_SECONDS });
+    await r.set(roastKey(username, lang), value, ROAST_TTL_SECONDS);
   } catch {
     // best-effort
   }
@@ -608,7 +881,7 @@ export async function setCachedRoast(
  */
 export async function clearCachedRoast(username: string, lang: Lang): Promise<void> {
   if (bypassGeneratedCaches()) return;
-  const r = getRedis();
+  const r = atomicStore();
   if (!r) return;
   try {
     await r.del(roastKey(username, lang));
@@ -627,7 +900,7 @@ export const roastJudgeKey = (username: string) =>
 
 export async function getCachedRoastJudge(username: string): Promise<CachedRoastJudge | null> {
   if (bypassGeneratedCaches()) return null;
-  const r = getRedis();
+  const r = atomicStore();
   if (!r) return null;
   try {
     return (await r.get<CachedRoastJudge>(roastJudgeKey(username))) ?? null;
@@ -641,10 +914,10 @@ export async function setCachedRoastJudge(
   value: CachedRoastJudge,
 ): Promise<void> {
   if (bypassGeneratedCaches()) return;
-  const r = getRedis();
+  const r = atomicStore();
   if (!r) return;
   try {
-    await r.set(roastJudgeKey(username), value, { ex: ROAST_TTL_SECONDS });
+    await r.set(roastJudgeKey(username), value, ROAST_TTL_SECONDS);
   } catch {
     // best-effort
   }
@@ -656,10 +929,9 @@ export async function setCachedRoastJudge(
 // its result via the cache. Without this, a viral account re-generates N times
 // per cold window instead of once.
 // Crash safety net only — the success/error paths release the lock explicitly.
-// Must exceed the route's 220s LLM deadline: at the old 60s the lock could expire
-// mid-generation, so under concurrency followers
-// saw "lock gone, no cache", stopped coalescing and burned a duplicate LLM call.
-const ROAST_LOCK_TTL_SECONDS = 270;
+// Must exceed the 7-minute v13 chain: a shorter TTL let the lock expire
+// mid-generation, so a second request stopped coalescing and burned another call.
+const ROAST_LOCK_TTL_SECONDS = 8 * 60;
 const roastLockKey = (username: string, lang: Lang) =>
   `lock:roast:${ROAST_CACHE_VERSION}:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:${lang}:${username.toLowerCase()}`;
 
@@ -667,15 +939,10 @@ const roastLockKey = (username: string, lang: Lang) =>
  *  Without Redis there's no coordination, so everyone leads (behavior unchanged). */
 export async function acquireRoastLock(username: string, lang: Lang): Promise<boolean> {
   if (bypassGeneratedCaches()) return true;
-  const r = getRedis();
+  const r = atomicStore();
   if (!r) return true;
   try {
-    return (
-      (await r.set(roastLockKey(username, lang), "1", {
-        nx: true,
-        ex: ROAST_LOCK_TTL_SECONDS,
-      })) === "OK"
-    );
+    return await r.setIfAbsent(roastLockKey(username, lang), "1", ROAST_LOCK_TTL_SECONDS);
   } catch {
     return true; // Redis hiccup — don't block the roast.
   }
@@ -683,7 +950,7 @@ export async function acquireRoastLock(username: string, lang: Lang): Promise<bo
 
 export async function releaseRoastLock(username: string, lang: Lang): Promise<void> {
   if (bypassGeneratedCaches()) return;
-  const r = getRedis();
+  const r = atomicStore();
   if (!r) return;
   try {
     await r.del(roastLockKey(username, lang));
@@ -707,7 +974,7 @@ export async function waitForCachedRoast(
   timeoutMs = 120000,
 ): Promise<CachedRoast | null> {
   if (bypassGeneratedCaches()) return null;
-  const r = getRedis();
+  const r = atomicStore();
   if (!r) return null;
   const steps = Math.max(1, Math.floor(timeoutMs / 500));
   for (let i = 0; i < steps; i++) {
@@ -749,7 +1016,7 @@ const verdictLockKey = (a: string, b: string) => `lock:verdict:${verdictPair(a, 
 
 export async function getCachedVerdict(a: string, b: string): Promise<CachedVerdict | null> {
   if (bypassGeneratedCaches()) return null;
-  const r = getRedis();
+  const r = atomicStore();
   if (!r) return null;
   try {
     return (await r.get<CachedVerdict>(verdictKey(a, b))) ?? null;
@@ -764,10 +1031,10 @@ export async function setCachedVerdict(
   value: CachedVerdict,
 ): Promise<void> {
   if (bypassGeneratedCaches()) return;
-  const r = getRedis();
+  const r = atomicStore();
   if (!r) return;
   try {
-    await r.set(verdictKey(a, b), value, { ex: VERDICT_TTL_SECONDS });
+    await r.set(verdictKey(a, b), value, VERDICT_TTL_SECONDS);
   } catch {
     // best-effort
   }
@@ -775,15 +1042,10 @@ export async function setCachedVerdict(
 
 export async function acquireVerdictLock(a: string, b: string): Promise<boolean> {
   if (bypassGeneratedCaches()) return true;
-  const r = getRedis();
+  const r = atomicStore();
   if (!r) return true;
   try {
-    return (
-      (await r.set(verdictLockKey(a, b), "1", {
-        nx: true,
-        ex: VERDICT_LOCK_TTL_SECONDS,
-      })) === "OK"
-    );
+    return await r.setIfAbsent(verdictLockKey(a, b), "1", VERDICT_LOCK_TTL_SECONDS);
   } catch {
     return true;
   }
@@ -791,7 +1053,7 @@ export async function acquireVerdictLock(a: string, b: string): Promise<boolean>
 
 export async function releaseVerdictLock(a: string, b: string): Promise<void> {
   if (bypassGeneratedCaches()) return;
-  const r = getRedis();
+  const r = atomicStore();
   if (!r) return;
   try {
     await r.del(verdictLockKey(a, b));
@@ -807,7 +1069,7 @@ export async function waitForCachedVerdict(
   timeoutMs = 45000,
 ): Promise<CachedVerdict | null> {
   if (bypassGeneratedCaches()) return null;
-  const r = getRedis();
+  const r = atomicStore();
   if (!r) return null;
   const steps = Math.max(1, Math.floor(timeoutMs / 500));
   for (let i = 0; i < steps; i++) {
@@ -822,24 +1084,9 @@ export async function waitForCachedVerdict(
 
 /** Per-IP limiter for the PK verdict LLM call (operator credit). Burst + daily. */
 export async function checkVerdictRateLimit(ip: string): Promise<RateLimitResult> {
-  const r = getRedis();
-  if (!r) return unavailableRateLimitResult("vs_verdict", "missing_redis_config");
-  if (!verdictMinuteLimiter) {
-    verdictMinuteLimiter = new Ratelimit({
-      redis: r,
-      limiter: Ratelimit.slidingWindow(6, "60 s"),
-      prefix: "rl:verdict:m",
-      analytics: false,
-    });
-  }
-  if (!verdictDayLimiter) {
-    verdictDayLimiter = new Ratelimit({
-      redis: r,
-      limiter: Ratelimit.slidingWindow(40, "1 d"),
-      prefix: "rl:verdict:d",
-      analytics: false,
-    });
-  }
+  const verdictMinuteLimiter = rateLimiter("rl:verdict:m", 6, "60 s");
+  const verdictDayLimiter = rateLimiter("rl:verdict:d", 40, "1 d");
+  if (!verdictMinuteLimiter || !verdictDayLimiter) return unavailableRateLimitResult("vs_verdict", "missing_redis_config");
   try {
     const [minute, day] = await Promise.all([
       verdictMinuteLimiter.limit(ip),
@@ -857,34 +1104,68 @@ export async function checkVerdictRateLimit(ip: string): Promise<RateLimitResult
 // Score histogram backing rank/percentile lookups (lib/rank.ts): one
 // whole-table aggregate per TTL serves every profile page, /api/score, share
 // card and MCP call, instead of an O(table) scan per request.
-const SCORE_HISTOGRAM_KEY = "score-hist:v1";
-const SCORE_HISTOGRAM_TTL_SECONDS = 300;
+const SCORE_HISTOGRAM_KEY = "score-hist:v2";
+// Whole-table aggregate (~59k rows_read per refresh) behind every rank and
+// percentile. Fresh for 30 min, then served stale while one isolate refreshes
+// it: with a plain TTL every isolate that read during the refresh missed at
+// once (~24 refreshes/hour at a 30 min TTL, ~36 at 5 min).
+export const SCORE_HISTOGRAM_FRESH_MS = 30 * 60_000;
+const SCORE_HISTOGRAM_TTL_SECONDS = 6 * 3600;
+/** An unchanged histogram is still rewritten this often, well before the KV
+ *  TTL could expire it. */
+export const SCORE_HISTOGRAM_REWRITE_MS = (SCORE_HISTOGRAM_TTL_SECONDS * 1000) / 2;
+const SCORE_HISTOGRAM_REFRESH_LOCK = "lock:score-hist";
+// Spans the fresh window: a refresh that finds the histogram unchanged skips
+// its KV write (leaving `at` stale), and this lease keeps the next aggregate a
+// full window away. A crashed refresher delays the next one by at most that.
+const SCORE_HISTOGRAM_REFRESH_LOCK_SECONDS = SCORE_HISTOGRAM_FRESH_MS / 1000;
 
-export async function getCachedScoreHistogram(): Promise<ScoreHistogramRow[] | null> {
-  const r = getRedis();
+export interface CachedScoreHistogram {
+  rows: ScoreHistogramRow[];
+  /** Epoch ms the aggregate was computed. */
+  at: number;
+}
+
+export async function getCachedScoreHistogram(): Promise<CachedScoreHistogram | null> {
+  const r = cacheStore();
   if (!r) return null;
   try {
-    return (await r.get<ScoreHistogramRow[]>(SCORE_HISTOGRAM_KEY)) ?? null;
+    const v = await r.get<CachedScoreHistogram>(SCORE_HISTOGRAM_KEY);
+    return v && Array.isArray(v.rows) && typeof v.at === "number" ? v : null;
   } catch {
     return null;
   }
 }
 
 export async function setCachedScoreHistogram(rows: ScoreHistogramRow[]): Promise<void> {
-  const r = getRedis();
+  const r = cacheStore();
   if (!r) return;
   try {
-    await r.set(SCORE_HISTOGRAM_KEY, rows, { ex: SCORE_HISTOGRAM_TTL_SECONDS });
+    await r.set(SCORE_HISTOGRAM_KEY, { rows, at: Date.now() }, SCORE_HISTOGRAM_TTL_SECONDS);
   } catch {
     // best-effort
   }
 }
 
+/** `true` = this caller refreshes a stale histogram; everyone else keeps
+ *  serving the stale copy. Without an atomic store everyone refreshes. */
+export async function acquireScoreHistogramRefresh(): Promise<boolean> {
+  const r = atomicStore();
+  if (!r) return true;
+  try {
+    return await r.setIfAbsent(SCORE_HISTOGRAM_REFRESH_LOCK, "1", SCORE_HISTOGRAM_REFRESH_LOCK_SECONDS);
+  } catch {
+    return true;
+  }
+}
+
 const STATS_KEY = "stats:count";
-const STATS_TTL_SECONDS = 60;
+// The homepage counter is decorative; COUNT(*) FROM scores reads every row
+// (~42k), so refresh it every 10 minutes, not every minute.
+const STATS_TTL_SECONDS = 600;
 
 export async function getCachedStats(): Promise<number | null> {
-  const r = getRedis();
+  const r = cacheStore();
   if (!r) return null;
   try {
     const v = await r.get<number>(STATS_KEY);
@@ -895,10 +1176,36 @@ export async function getCachedStats(): Promise<number | null> {
 }
 
 export async function setCachedStats(total: number): Promise<void> {
-  const r = getRedis();
+  const r = cacheStore();
   if (!r) return;
   try {
-    await r.set(STATS_KEY, total, { ex: STATS_TTL_SECONDS });
+    await r.set(STATS_KEY, total, STATS_TTL_SECONDS);
+  } catch {
+    // best-effort
+  }
+}
+
+// Stored project eligibility only drifts when the eligibility rules change in a
+// deploy (new analyses are finalized with current rules), so one isolate per
+// hour re-checks it instead of every cold isolate scanning every assessment.
+const PROJECT_ELIGIBILITY_KEY = "projects:eligibility-reconciled:v1";
+const PROJECT_ELIGIBILITY_TTL_SECONDS = 3600;
+
+export async function isProjectEligibilityReconciled(): Promise<boolean> {
+  const r = cacheStore();
+  if (!r) return false;
+  try {
+    return (await r.get<number>(PROJECT_ELIGIBILITY_KEY)) === 1;
+  } catch {
+    return false;
+  }
+}
+
+export async function markProjectEligibilityReconciled(): Promise<void> {
+  const r = cacheStore();
+  if (!r) return;
+  try {
+    await r.set(PROJECT_ELIGIBILITY_KEY, 1, PROJECT_ELIGIBILITY_TTL_SECONDS);
   } catch {
     // best-effort
   }
@@ -912,8 +1219,26 @@ const LEADERBOARD_WINDOWS: LeaderboardWindow[] = ["24h", "7d", "30d", "all"];
 // One Redis entry per (view, window) pair — 4 × 4 = 16 keys, each a slow-moving
 // 500-row payload. A hit skips the triple-LEFT-JOIN DB read entirely.
 const leaderboardKey = (view: LeaderboardCacheView, window: LeaderboardWindow) =>
-  `leaderboard:${view}:${window}`;
-const LEADERBOARD_TTL_SECONDS = 300; // 5 min — board moves slowly; fewer DB reads
+  `leaderboard:v2:${view}:${window}`;
+export const LEADERBOARD_FRESH_MS = 5 * 60_000;
+const LEADERBOARD_TTL_SECONDS = 30 * 60;
+/** An unchanged board is still rewritten this often, well before the KV TTL
+ *  could expire it. */
+export const LEADERBOARD_REWRITE_MS = (LEADERBOARD_TTL_SECONDS * 1000) / 2;
+export interface CachedLeaderboard { entries: LeaderboardEntry[]; at: number }
+
+/** Coordinate stale refreshes across isolates; retain the lease until expiry
+ * so eventually consistent KV readers cannot trigger another refresh at once.
+ * The lease spans the whole fresh window: a refresh that finds the board
+ * unchanged skips its KV write (leaving `at` stale), and the lease is what
+ * keeps the next refresh a full window away. */
+const LEADERBOARD_REFRESH_LEASE_SECONDS = LEADERBOARD_FRESH_MS / 1000;
+export async function acquireLeaderboardRefresh(view: LeaderboardCacheView, window: LeaderboardWindow): Promise<boolean> {
+  const r = atomicStore();
+  if (!r) return true;
+  try { return await r.setIfAbsent(`lock:leaderboard:v2:${view}:${window}`, "1", LEADERBOARD_REFRESH_LEASE_SECONDS); }
+  catch { return true; }
+}
 const CAMPAIGN_LEADERBOARD_REVISION_TTL_SECONDS = 7 * 24 * 60 * 60;
 const localCampaignLeaderboardRevisions = new Map<string, number>();
 const campaignLeaderboardRevisionKey = (campaign: string) =>
@@ -921,7 +1246,7 @@ const campaignLeaderboardRevisionKey = (campaign: string) =>
 
 /** Signal that a campaign board's persisted membership or score changed. */
 export async function bumpCampaignLeaderboardRevision(campaign: string): Promise<void> {
-  const r = getRedis();
+  const r = atomicStore();
   if (!r) {
     localCampaignLeaderboardRevisions.set(
       campaign,
@@ -930,9 +1255,7 @@ export async function bumpCampaignLeaderboardRevision(campaign: string): Promise
     return;
   }
   try {
-    const key = campaignLeaderboardRevisionKey(campaign);
-    await r.incr(key);
-    await r.expire(key, CAMPAIGN_LEADERBOARD_REVISION_TTL_SECONDS);
+    await r.incr(campaignLeaderboardRevisionKey(campaign), CAMPAIGN_LEADERBOARD_REVISION_TTL_SECONDS);
   } catch {
     // Best-effort live signal. The client keeps its periodic refresh fallback.
   }
@@ -940,7 +1263,7 @@ export async function bumpCampaignLeaderboardRevision(campaign: string): Promise
 
 /** Current cross-instance revision consumed by the campaign SSE endpoint. */
 export async function getCampaignLeaderboardRevision(campaign: string): Promise<number | null> {
-  const r = getRedis();
+  const r = atomicStore();
   if (!r) return localCampaignLeaderboardRevisions.get(campaign) ?? 0;
   try {
     return (await r.get<number>(campaignLeaderboardRevisionKey(campaign))) ?? 0;
@@ -952,11 +1275,12 @@ export async function getCampaignLeaderboardRevision(campaign: string): Promise<
 export async function getCachedLeaderboard(
   view: LeaderboardCacheView = "trending",
   window: LeaderboardWindow = "all",
-): Promise<LeaderboardEntry[] | null> {
-  const r = getRedis();
+): Promise<CachedLeaderboard | null> {
+  const r = cacheStore();
   if (!r) return null;
   try {
-    return (await r.get<LeaderboardEntry[]>(leaderboardKey(view, window))) ?? null;
+    const value = await r.get<CachedLeaderboard>(leaderboardKey(view, window));
+    return value && Array.isArray(value.entries) && typeof value.at === "number" ? value : null;
   } catch {
     return null;
   }
@@ -967,17 +1291,17 @@ export async function setCachedLeaderboard(
   view: LeaderboardCacheView = "trending",
   window: LeaderboardWindow = "all",
 ): Promise<void> {
-  const r = getRedis();
+  const r = cacheStore();
   if (!r) return;
   try {
-    await r.set(leaderboardKey(view, window), entries, { ex: LEADERBOARD_TTL_SECONDS });
+    await r.set(leaderboardKey(view, window), { entries, at: Date.now() }, LEADERBOARD_TTL_SECONDS);
   } catch {
     // best-effort
   }
 }
 
 export async function clearCachedLeaderboards(): Promise<void> {
-  const r = getRedis();
+  const r = cacheStore();
   if (!r) return;
   try {
     await r.del(
@@ -996,11 +1320,74 @@ export async function clearCachedLeaderboards(): Promise<void> {
 // leaderboard (5 min) is warranted. Paired with the API route's CDN cache and an
 // in-process single-flight (lib/developers.ts), the DB query runs at most once
 // per key per TTL even under a burst.
-const FACET_TTL_SECONDS = 600; // 10 min
+const FACET_TTL_SECONDS = 3600; // 1h
+// Per-bucket developer lists (the /developers/{type}/{value} boards). Crawlers
+// walk thousands of distinct buckets, so a 1h TTL still missed ~2k times an
+// hour (~12k rows_read each — the largest D1 read in production). A bucket's
+// head only moves when a member re-scans, so a day of staleness is still
+// invisible and each bucket costs one write a day instead of four. Crawler
+// renders keep writing here (unlike profile discovery): a ~12k rows_read miss
+// costs more than the KV write that prevents the next one.
+const FACET_LIST_TTL_SECONDS = 86400; // 24h
 // The repo graph only changes on scans/backfills, and each cold miss on the
 // unfiltered /projects list is a whole-graph aggregation — so discovery reads
 // tolerate hours of staleness. Matches the facet boards' 6h ISR window.
 const PROJECT_DISCOVERY_TTL_SECONDS = 21600; // 6h
+
+// One language bucket's ranked scores (the "score ladder"): every per-profile
+// rank/total/ahead is answered from it in memory, so the bucket is read once
+// per language per TTL instead of three whole-bucket scans per profile.
+const LANGUAGE_LADDER_TTL_SECONDS = 3600;
+const languageLadderKey = (facetValue: string) => `facets:ladder:v1:${facetValue}`;
+
+export async function getCachedLanguageLadder(
+  facetValue: string,
+): Promise<{ usernames: string[]; scores: number[] } | null> {
+  const r = cacheStore();
+  if (!r) return null;
+  try {
+    return (await r.get<{ usernames: string[]; scores: number[] }>(languageLadderKey(facetValue))) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setCachedLanguageLadder(
+  facetValue: string,
+  ladder: { usernames: string[]; scores: number[] },
+): Promise<void> {
+  const r = cacheStore();
+  if (!r) return;
+  try {
+    await r.set(languageLadderKey(facetValue), ladder, LANGUAGE_LADDER_TTL_SECONDS);
+  } catch {
+    // best-effort
+  }
+}
+
+// Short-lived cache for typeahead lookups whose SQL can't use an index
+// (substring/lower() matches): repeated prefixes are common while typing.
+const SEARCH_TTL_SECONDS = 900;
+
+export async function getCachedSearch<T>(key: string): Promise<T | null> {
+  const r = cacheStore();
+  if (!r) return null;
+  try {
+    return (await r.get<T>(`search:${key}`)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setCachedSearch<T>(key: string, value: T): Promise<void> {
+  const r = cacheStore();
+  if (!r) return;
+  try {
+    await r.set(`search:${key}`, value, SEARCH_TTL_SECONDS);
+  } catch {
+    // best-effort
+  }
+}
 
 // Bucket values are canonical (e.g. "Rust", "C++") and safe in a Redis key.
 const facetCategoriesKey = (type: FacetType) => `facets:cat:${type}`;
@@ -1009,7 +1396,7 @@ const facetListKey = (type: FacetType, value: string) => `facets:list:${type}:${
 export async function getCachedFacetCategories(
   type: FacetType,
 ): Promise<FacetCategory[] | null> {
-  const r = getRedis();
+  const r = cacheStore();
   if (!r) return null;
   try {
     return (await r.get<FacetCategory[]>(facetCategoriesKey(type))) ?? null;
@@ -1022,10 +1409,10 @@ export async function setCachedFacetCategories(
   type: FacetType,
   categories: FacetCategory[],
 ): Promise<void> {
-  const r = getRedis();
+  const r = cacheStore();
   if (!r) return;
   try {
-    await r.set(facetCategoriesKey(type), categories, { ex: FACET_TTL_SECONDS });
+    await r.set(facetCategoriesKey(type), categories, FACET_TTL_SECONDS);
   } catch {
     // best-effort
   }
@@ -1035,7 +1422,7 @@ export async function getCachedFacetDevelopers(
   type: FacetType,
   value: string,
 ): Promise<LeaderboardEntry[] | null> {
-  const r = getRedis();
+  const r = cacheStore();
   if (!r) return null;
   try {
     return (await r.get<LeaderboardEntry[]>(facetListKey(type, value))) ?? null;
@@ -1049,10 +1436,10 @@ export async function setCachedFacetDevelopers(
   value: string,
   entries: LeaderboardEntry[],
 ): Promise<void> {
-  const r = getRedis();
+  const r = cacheStore();
   if (!r) return;
   try {
-    await r.set(facetListKey(type, value), entries, { ex: FACET_TTL_SECONDS });
+    await r.set(facetListKey(type, value), entries, FACET_LIST_TTL_SECONDS);
   } catch {
     // best-effort
   }
@@ -1061,7 +1448,7 @@ export async function setCachedFacetDevelopers(
 /** Generic JSON cache used by the project-discovery service. Keys include their
  * own namespace and normalized filters; values are always public read models. */
 export async function getCachedProjectValue<T>(key: string): Promise<T | null> {
-  const r = getRedis();
+  const r = cacheStore();
   if (!r) return null;
   try {
     return (await r.get<T>(key)) ?? null;
@@ -1070,54 +1457,65 @@ export async function getCachedProjectValue<T>(key: string): Promise<T | null> {
   }
 }
 
-export async function setCachedProjectValue<T>(key: string, value: T): Promise<void> {
-  const r = getRedis();
+export async function setCachedProjectValue<T>(
+  key: string,
+  value: T,
+  ttlSeconds = PROJECT_DISCOVERY_TTL_SECONDS,
+): Promise<void> {
+  const r = cacheStore();
   if (!r) return;
   try {
-    await r.set(key, value, { ex: PROJECT_DISCOVERY_TTL_SECONDS });
+    await r.set(key, value, ttlSeconds);
   } catch {
     // best-effort cache
   }
 }
 
-// Reaction *counts* are global to a profile — every visitor sees the same
-// numbers — so they cache well. The per-viewer "which did I pick" is NOT cached
-// (it's user-specific and read live). Short TTL keeps counts near-real-time;
-// writes also bust the key so the actor sees their own vote immediately.
-const reactionCountsKey = (target: string) => `reactions:counts:${target}`;
-const REACTION_COUNTS_TTL_SECONDS = 60;
+/**
+ * Collector cache for slow-moving GitHub facts (own-project community: account
+ * profiles 30 days, per-repo facts 7 days, outside-PR counts 1 day). Best-effort
+ * on the public read-model store: a miss or failure only costs API calls.
+ */
+export const collectorCache: CollectCache = {
+  get: <T>(key: string) => getCachedProjectValue<T>(`collect:${key}`),
+  set: (key: string, value: unknown, ttlSeconds: number) =>
+    setCachedProjectValue(`collect:${key}`, value, ttlSeconds),
+};
 
-export async function getCachedReactionCounts(
-  target: string,
-): Promise<ProfileReactionCounts | null> {
-  const r = getRedis();
+// The rendered sitemap.xml (~9 MB, built from a full scan of public profiles
+// and judged matchups). Served by the API Worker; an hour matches the Next
+// app's ISR window for the same route.
+const SITEMAP_TTL_SECONDS = 3600;
+const SITEMAP_KEY = "sitemap:xml:v1";
+
+export async function getCachedSitemapXml(): Promise<string | null> {
+  const r = cacheStore();
   if (!r) return null;
   try {
-    return (await r.get<ProfileReactionCounts>(reactionCountsKey(target))) ?? null;
+    return (await r.get<string>(SITEMAP_KEY)) ?? null;
   } catch {
     return null;
   }
 }
 
-export async function setCachedReactionCounts(
-  target: string,
-  counts: ProfileReactionCounts,
-): Promise<void> {
-  const r = getRedis();
+export async function setCachedSitemapXml(xml: string): Promise<void> {
+  const r = cacheStore();
   if (!r) return;
   try {
-    await r.set(reactionCountsKey(target), counts, { ex: REACTION_COUNTS_TTL_SECONDS });
+    await r.set(SITEMAP_KEY, xml, SITEMAP_TTL_SECONDS);
   } catch {
     // best-effort
   }
 }
 
-export async function clearCachedReactionCounts(target: string): Promise<void> {
-  const r = getRedis();
-  if (!r) return;
+
+/** Cache profile-declared X links by immutable GitHub ID, not mutable handle. */
+export async function getCachedGitHubX(id: string): Promise<string | null | undefined> {
   try {
-    await r.del(reactionCountsKey(target));
-  } catch {
-    // best-effort
-  }
+    const value = await cacheStore()?.get<{ url: string | null }>(`github-x:v1:${id}`);
+    return value && (value.url === null || (typeof value.url === "string" && /^https:\/\/x\.com\/[A-Za-z0-9_]{1,15}$/.test(value.url))) ? value.url : undefined;
+  } catch { return undefined; }
+}
+export async function setCachedGitHubX(id: string, url: string | null): Promise<void> {
+  await cacheStore()?.set(`github-x:v1:${id}`, { url }, 86400).catch(() => {});
 }

@@ -1,6 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Redis } from "@upstash/redis";
-import { protectedScan, ScanBusyError, scanTtl } from "../scan-protection";
+import {
+  protectedScan,
+  ScanBusyError,
+  ScanPendingError,
+  scanTtl,
+  SCAN_LEASE_MS,
+  SCAN_WAIT_MS,
+  SCAN_BACKGROUND_LEASE_MS,
+  SCAN_CONTINUE_WAIT_MS,
+  BACKGROUND_COLLECT_DEADLINE_MS,
+  SCAN_STALE_TTL_SECONDS,
+  PUBLISH_SCAN,
+} from "../scan-protection";
+import { COLLECT_DEADLINE_MS } from "../github";
 
 function client(admission: number) {
   const evalMock = vi.fn<Redis["eval"]>().mockResolvedValue(admission);
@@ -101,10 +114,128 @@ describe("cold scan admission", () => {
       "failed",
     ]);
   });
+  it("uses a producer lease shorter than Cloudflare's ~100s 524", async () => {
+    const { redis, evalMock } = client(1);
+    await protectedScan({
+      redis,
+      key: "scan:test",
+      read: async () => null,
+      produce: async () => ({ score: 82 }),
+    });
+    expect(evalMock.mock.calls[0]?.[2]?.[2]).toBe(SCAN_LEASE_MS);
+    expect(SCAN_LEASE_MS).toBeLessThan(100_000);
+    expect(SCAN_WAIT_MS).toBeLessThan(SCAN_LEASE_MS);
+    expect(SCAN_WAIT_MS).toBeGreaterThan(45_000);
+  });
   it("spreads expiration over 22–24h", () => {
     const values = Array.from({ length: 100 }, scanTtl);
     expect(Math.min(...values)).toBeGreaterThanOrEqual(79200);
     expect(Math.max(...values)).toBeLessThanOrEqual(86400);
     expect(new Set(values).size).toBeGreaterThan(20);
+  });
+  it("keeps the interactive wait aligned with the GitHub collect deadline", () => {
+    expect(SCAN_CONTINUE_WAIT_MS).toBe(COLLECT_DEADLINE_MS);
+    expect(SCAN_BACKGROUND_LEASE_MS).toBeGreaterThan(BACKGROUND_COLLECT_DEADLINE_MS);
+    expect(BACKGROUND_COLLECT_DEADLINE_MS).toBeGreaterThan(SCAN_CONTINUE_WAIT_MS);
+  });
+
+  it("defers produce on continueProduce and does not release the owner", async () => {
+    const release = vi.fn();
+    const produce = vi.fn();
+    const coordinator = {
+      admit: async () => 1,
+      publish: vi.fn(),
+      release,
+      pending: async () => null,
+    };
+    await expect(
+      protectedScan({
+        coordinator,
+        key: "scan:test",
+        read: async () => null,
+        produce,
+        continueProduce: async () => "deferred",
+        continueWaitMs: 0,
+        wait: async () => {},
+      }),
+    ).rejects.toBeInstanceOf(ScanPendingError);
+    expect(produce).not.toHaveBeenCalled();
+    expect(release).not.toHaveBeenCalled();
+  });
+
+  it("returns an early deferred failure instead of waiting and claiming pending", async () => {
+    const release = vi.fn();
+    let owner = "";
+    const coordinator = {
+      admit: async (id: string) => { owner = id; return 1; },
+      publish: vi.fn(), release,
+      failure: async () => ({ owner, code: "github_collect_deadline" }),
+    };
+    await expect(protectedScan({
+      coordinator, key: "scan:fiction", read: async () => null,
+      produce: vi.fn(), continueProduce: async () => "deferred", continueWaitMs: 45_000,
+    })).rejects.toMatchObject({ code: "github_collect_deadline" });
+    expect(release).not.toHaveBeenCalled();
+  });
+
+  it("produces inline when continueProduce cannot defer", async () => {
+    const release = vi.fn(async () => {});
+    const produce = vi.fn(async () => ({ score: 82 }));
+    const coordinator = {
+      admit: async () => 1,
+      publish: vi.fn(async () => 1),
+      release,
+      pending: async () => null,
+    };
+    await expect(
+      protectedScan({
+        coordinator,
+        key: "scan:test",
+        read: async () => null,
+        produce,
+        continueProduce: async () => "inline",
+      }),
+    ).resolves.toEqual({ score: 82 });
+    expect(produce).toHaveBeenCalledOnce();
+    expect(release).toHaveBeenCalledWith(expect.any(String), false);
+  });
+
+  it("returns 202-style pending for waiters while an owner is still collecting", async () => {
+    const produce = vi.fn();
+    const admit = vi.fn(async () => 0);
+    const coordinator = {
+      admit,
+      publish: vi.fn(),
+      release: vi.fn(),
+      pending: async () => ({ owner: "a", username: "tj", startedAt: 1 }),
+    };
+    await expect(
+      protectedScan({
+        coordinator,
+        key: "scan:test",
+        read: async () => null,
+        produce,
+        continueProduce: async () => "deferred",
+        wait: async () => {},
+        attempts: 3,
+      }),
+    ).rejects.toBeInstanceOf(ScanPendingError);
+    expect(produce).not.toHaveBeenCalled();
+    expect(admit).not.toHaveBeenCalled();
+  });
+
+  it("writes the 7-day stale shadow only while the owner still holds the lock", async () => {
+    const { redis, evalMock } = client(1);
+    await protectedScan({
+      redis,
+      key: "scan:v5:demo",
+      read: async () => null,
+      produce: async () => ({ score: 82 }),
+      staleTtl: SCAN_STALE_TTL_SECONDS,
+    });
+    const publish = evalMock.mock.calls.find((call) => call[0] === PUBLISH_SCAN);
+    expect(publish?.[1]).toEqual(["lock:scan:v5:demo", "scan:v5:demo", "", "scan:v5:demo:stale"]);
+    expect(publish?.[2]?.[3]).toBe(SCAN_STALE_TTL_SECONDS);
+    expect(SCAN_STALE_TTL_SECONDS).toBe(7 * 24 * 60 * 60);
   });
 });
