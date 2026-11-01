@@ -14,9 +14,11 @@ import { assertPopulationTable, estimateAtLeast, type PopulationTable } from "..
  * Every count is a GitHub Search `total_count` (per_page=1, no paging, so the
  * 1,000-result cap does not apply). On 2026-11-01 a run took 78 requests:
  * 18 star thresholds, plus 30 creation-date windows each for the user and
- * repository totals (more when a window has to be split). GITHUB_TOKEN
- * raises the limit from 10 to 30/min. Wide queries time out and return a
- * partial count (`incomplete_results`), so population totals, and any
+ * repository totals (more when a window has to be split). A token raises
+ * the limit from 10 to 30/min: GITHUB_POPULATION_TOKEN (Search needs no
+ * scopes, so a fine-grained PAT with no permissions keeps it off the scan
+ * pool's quota), else the first PAT of the GITHUB_TOKEN pool. Wide queries
+ * time out and return a partial count (`incomplete_results`), so population totals, and any
  * threshold that comes back incomplete, are summed from creation-date windows
  * that are bisected until each window is complete. Only tables the site
  * reads are built: repo stars and account age (the age table reuses the user
@@ -58,7 +60,9 @@ export interface PopulationFile {
 
 const today = new Date().toISOString().slice(0, 10);
 
-const token = process.env.GITHUB_TOKEN;
+// GITHUB_TOKEN may be a comma-separated scan pool; one PAT is enough here.
+const token = (process.env.GITHUB_POPULATION_TOKEN || process.env.GITHUB_TOKEN || "")
+  .split(",").map((t) => t.trim()).find(Boolean);
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 interface SearchBody {
