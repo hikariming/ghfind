@@ -2,10 +2,15 @@ import { describe, expect, it } from "vitest";
 import type { ProjectAnalysisArtifact, RuntimeEvidenceArtifact } from "../project-analysis-contract";
 import {
   parseProjectAnalysisArtifacts,
+  normalizeArtifactRepoKey,
   normalizeGitHubRepository,
+  isDiscoverTemplateProse,
   LEGACY_PROJECT_ANALYSIS_SCHEMA_VERSION,
 	PREVIOUS_PROJECT_ANALYSIS_SCHEMA_VERSION,
   PROJECT_ANALYSIS_SCHEMA_VERSION,
+  PROJECT_SKILL_VERSION,
+  PREVIOUS_PROJECT_SKILL_VERSION,
+  isAcceptedArtifactSkillVersion,
 } from "../project-analysis-contract";
 
 const evidence = {
@@ -35,10 +40,11 @@ const analysis = {
   },
   rubric_version: "project-value-v1",
   agent_version: "project-evaluator-v3",
-  skill_version: "ghfind-project-evaluator-v4",
+  skill_version: "ghfind-project-evaluator-v5",
   project: {
     name: "useful-tool",
     summary: "Converts one format into another.",
+    discover_hook: "Stop hand-converting the same payload every release.",
     target_users: ["developers"],
     pain_statement: "Manual conversion is repetitive.",
     project_type: "micro_tool",
@@ -143,6 +149,31 @@ describe("project analysis contract", () => {
 
     expect(parsed.analysis.scores.product_score).toBe(87);
     expect(parsed.evidence.entries).toHaveLength(1);
+  });
+
+  it("compares repository identity case-insensitively across owner/name and URL forms", () => {
+    expect(normalizeArtifactRepoKey("Owner/Useful-Tool")).toBe("owner/useful-tool");
+    expect(normalizeArtifactRepoKey("https://github.com/Owner/Useful-Tool.git")).toBe("owner/useful-tool");
+    expect(normalizeArtifactRepoKey("github.com/Owner/Useful-Tool")).toBe("owner/useful-tool");
+    for (const repoKey of ["Owner/Useful-Tool", "https://github.com/Owner/Useful-Tool", "github.com/OWNER/useful-tool"]) {
+      const parsed = parseProjectAnalysisArtifacts({
+        analysisRaw: JSON.stringify({ ...analysis, repository: { ...analysis.repository, repo_key: repoKey } }),
+        evidenceRaw: JSON.stringify({ ...evidence, repo_key: repoKey }),
+        reportMarkdown: "# Useful Tool",
+        expectedAnalysisId: "analysis-1",
+        expectedRepoKey: "owner/useful-tool",
+      });
+      expect(parsed.analysis.analysis_id).toBe("analysis-1");
+    }
+    expect(() =>
+      parseProjectAnalysisArtifacts({
+        analysisRaw: JSON.stringify({ ...analysis, repository: { ...analysis.repository, repo_key: "Owner/Other-Tool" } }),
+        evidenceRaw: JSON.stringify(evidence),
+        reportMarkdown: "# Useful Tool",
+        expectedAnalysisId: "analysis-1",
+        expectedRepoKey: "owner/useful-tool",
+      }),
+    ).toThrow("repository identity mismatch");
   });
 
   it("keeps legacy v1 artifacts readable with an empty product-tag fallback", () => {
@@ -304,6 +335,99 @@ describe("project analysis contract", () => {
         expectedRepoKey: "owner/useful-tool",
       }),
     ).toThrow(/missing evidence/i);
+  });
+});
+
+describe("Discover copy contract", () => {
+  it("flags template leads", () => {
+    expect(isDiscoverTemplateProse("useful-tool 是一个转换工具", "useful-tool")).toBe(true);
+    expect(isDiscoverTemplateProse("Stop hand-converting the same payload every release.")).toBe(false);
+  });
+
+  it("requires discover_hook for skill v5", () => {
+    const bad = structuredClone(analysis);
+    bad.skill_version = PROJECT_SKILL_VERSION;
+    const { discover_hook: _omit, ...projectSansHook } = bad.project;
+    expect(() =>
+      parseProjectAnalysisArtifacts({
+        analysisRaw: JSON.stringify({ ...bad, project: projectSansHook }),
+        evidenceRaw: JSON.stringify(evidence),
+        reportMarkdown: "# ok",
+        expectedAnalysisId: "analysis-1",
+        expectedRepoKey: "owner/useful-tool",
+      }),
+    ).toThrow(/discover_hook/);
+  });
+});
+
+describe("skill v6 contract", () => {
+  const v6 = () => {
+    const next = structuredClone(analysis) as Record<string, unknown> & typeof analysis;
+    next.skill_version = PROJECT_SKILL_VERSION;
+    Object.assign(next.project, {
+      discover_hook: "批量转换文件不用再写一次性脚本，一条命令出结果",
+      discover_partition: "none",
+      time_to_first_value: "minutes",
+    });
+    return next;
+  };
+  const parse = (value: unknown) =>
+    parseProjectAnalysisArtifacts({
+      analysisRaw: JSON.stringify(value),
+      evidenceRaw: JSON.stringify(evidence),
+      reportMarkdown: "# ok",
+      expectedAnalysisId: "analysis-1",
+      expectedRepoKey: "owner/useful-tool",
+    });
+
+  it("records v6 for new runs and keeps v6 fields through parsing", () => {
+    expect(PROJECT_SKILL_VERSION).toBe("ghfind-project-evaluator-v6");
+    const parsed = parse(v6());
+    expect(parsed.analysis.project.discover_partition).toBe("none");
+    expect(parsed.analysis.project.time_to_first_value).toBe("minutes");
+  });
+
+  it("requires partition and time_to_first_value on v6 only", () => {
+    const missing = v6();
+    delete (missing.project as Record<string, unknown>).time_to_first_value;
+    expect(() => parse(missing)).toThrow(/time_to_first_value/);
+    const noPartition = v6();
+    delete (noPartition.project as Record<string, unknown>).discover_partition;
+    expect(() => parse(noPartition)).toThrow(/discover_partition/);
+    // v5 artifacts without v6 fields stay valid (no backfill needed).
+    expect(() => parse({ ...analysis, skill_version: PREVIOUS_PROJECT_SKILL_VERSION })).not.toThrow();
+  });
+
+  it("enforces exactly one matching canonical partition tag", () => {
+    const agent = v6();
+    (agent.project as Record<string, unknown>).discover_partition = "agent";
+    expect(() => parse(agent)).toThrow(/use_case:ai-agent/);
+    agent.project.product_tags[0] = { ...agent.project.product_tags[0], namespace: "use_case", slug: "ai-agent" };
+    expect(() => parse(agent)).not.toThrow();
+    const conflict = v6();
+    conflict.project.product_tags[0] = { ...conflict.project.product_tags[0], namespace: "artifact", slug: "sandbox" };
+    expect(() => parse(conflict)).toThrow(/none conflicts/);
+  });
+
+  it("lints the v6 hook (length, template lead, marketing, truncation)", () => {
+    for (const hook of [
+      "这是一个把文件批量转换成另一种格式的命令行工具",
+      "强大的转换工具，一条命令出结果",
+      "批量转换文件不用再写一次性脚本……",
+      "转".repeat(65),
+    ]) {
+      const bad = v6();
+      bad.project.discover_hook = hook;
+      expect(() => parse(bad), hook).toThrow(/discover_hook/);
+    }
+  });
+
+  it("accepts an older snapshot's artifact on a v6 run but never an unknown version", () => {
+    expect(isAcceptedArtifactSkillVersion("ghfind-project-evaluator-v4", PROJECT_SKILL_VERSION)).toBe(true);
+    expect(isAcceptedArtifactSkillVersion(PREVIOUS_PROJECT_SKILL_VERSION, PROJECT_SKILL_VERSION)).toBe(true);
+    expect(isAcceptedArtifactSkillVersion("ghfind-project-evaluator-v3", PROJECT_SKILL_VERSION)).toBe(false);
+    expect(isAcceptedArtifactSkillVersion("ghfind-project-evaluator-v99", PROJECT_SKILL_VERSION)).toBe(false);
+    expect(isAcceptedArtifactSkillVersion("ghfind-project-evaluator-v3", "ghfind-project-evaluator-v3")).toBe(true);
   });
 });
 

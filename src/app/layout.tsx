@@ -1,6 +1,8 @@
 import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { THEME_INIT_SCRIPT } from "@/lib/theme-init";
+import { CONSENT_INIT_SCRIPT } from "@/lib/consent-init";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,37 +18,16 @@ const geistMono = Geist_Mono({
 const GA_MEASUREMENT_ID =
   process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? "G-GHXRYBFZEN";
 
+/**
+ * Funding Choices (Google-certified CMP) tag URL, from AdSense → Privacy &
+ * messaging. Unset until the AdSense account exists; the consent defaults
+ * above keep EEA/UK/CH compliant in the meantime.
+ */
+const FUNDING_CHOICES_URL = process.env.NEXT_PUBLIC_FUNDING_CHOICES_URL;
+
 // The verdict route's human-check moved from Vercel BotID to Turnstile
 // (VsVerdictLive gates its auto-fire on a token; the route verifies it).
 
-const THEME_INIT_SCRIPT = `
-try {
-  var seg = window.location.pathname.split("/")[1];
-  var langs = { en: "en", ja: "ja", ko: "ko", es: "es", pt: "pt-BR", id: "id", vi: "vi", ar: "ar" };
-  document.documentElement.lang = langs[seg] || "zh-CN";
-  document.documentElement.dir = seg === "ar" ? "rtl" : "ltr";
-
-  var key = "github-roast-theme";
-  var stored = null;
-  try { stored = localStorage.getItem(key); } catch (_) {}
-  var isAdvx =
-    window.location.pathname.split("/").indexOf("advx") !== -1 ||
-    new URLSearchParams(window.location.search).get("campaign") === "advx";
-  if (isAdvx) {
-    stored = "dark";
-    try { localStorage.setItem(key, stored); } catch (_) {}
-  }
-  var mode = stored === "light" || stored === "dark" || stored === "auto"
-    ? stored
-    : "auto";
-  var theme = mode === "auto"
-    ? (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark")
-    : mode;
-  document.documentElement.dataset.theme = theme;
-  document.documentElement.dataset.themeMode = mode;
-  document.documentElement.style.colorScheme = theme;
-} catch (_) {}
-`;
 
 export default function RootLayout({
   children,
@@ -68,6 +49,14 @@ export default function RootLayout({
           id="theme-init"
           dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }}
         />
+        {/* Consent Mode defaults must sit in <head>, ahead of gtag.js. */}
+        <script
+          id="consent-init"
+          dangerouslySetInnerHTML={{ __html: CONSENT_INIT_SCRIPT }}
+        />
+        {FUNDING_CHOICES_URL ? (
+          <script async src={FUNDING_CHOICES_URL} />
+        ) : null}
       </head>
       <body className="min-h-full flex flex-col">
         {/* Google tag (gtag.js) - loaded on every page via the root layout */}

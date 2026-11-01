@@ -14,22 +14,39 @@ import (
 )
 
 const (
-	jobsExchange              = "ghfind.jobs.v1"
-	deadLetterExchange        = "ghfind.jobs.dlx.v1"
-	scoreSnapshotRoutingKey   = "score.snapshot.v1"
-	scoreSnapshotRetryKey     = "score.snapshot.retry.v1"
-	scoreSnapshotDeadKey      = "score.snapshot.dead.v1"
-	scoreSnapshotQueue        = "ghfind.score-snapshot.v1"
-	scoreSnapshotRetryQueue   = "ghfind.score-snapshot.retry.v1"
-	scoreSnapshotDeadQueue    = "ghfind.score-snapshot.dead.v1"
-	ScoreSnapshotJobKind      = "score_snapshot.v1"
-	scanRoutingKey            = "scan.quick.v1"
-	scanRetryKey              = "scan.quick.retry.v1"
-	scanDeadKey               = "scan.quick.dead.v1"
-	scanQueue                 = "ghfind.scan.quick.v1"
-	scanRetryQueue            = "ghfind.scan.quick.retry.v1"
-	scanDeadQueue             = "ghfind.scan.quick.dead.v1"
-	ScanJobKind               = "scan.quick.v1"
+	jobsExchange            = "ghfind.jobs.v1"
+	deadLetterExchange      = "ghfind.jobs.dlx.v1"
+	scoreSnapshotRoutingKey = "score.snapshot.v1"
+	scoreSnapshotRetryKey   = "score.snapshot.retry.v1"
+	scoreSnapshotDeadKey    = "score.snapshot.dead.v1"
+	scoreSnapshotQueue      = "ghfind.score-snapshot.v1"
+	scoreSnapshotRetryQueue = "ghfind.score-snapshot.retry.v1"
+	scoreSnapshotDeadQueue  = "ghfind.score-snapshot.dead.v1"
+	ScoreSnapshotJobKind    = "score_snapshot.v1"
+	scanRoutingKey          = "scan.quick.v1"
+	scanRetryKey            = "scan.quick.retry.v1"
+	scanDeadKey             = "scan.quick.dead.v1"
+	scanQueue               = "ghfind.scan.quick.v1"
+	scanRetryQueue          = "ghfind.scan.quick.retry.v1"
+	scanDeadQueue           = "ghfind.scan.quick.dead.v1"
+	ScanJobKind             = "scan.quick.v1"
+	// Part jobs share one queue so any scan consumer can take a different
+	// part of the same parent. Search parts stay ordered inside one scan
+	// by the planner, not by a second queue.
+	scanPartRoutingKey        = "scan.part.v1"
+	scanPartRetryKey          = "scan.part.retry.v1"
+	scanPartDeadKey           = "scan.part.dead.v1"
+	scanPartQueue             = "ghfind.scan.part.v1"
+	scanPartRetryQueue        = "ghfind.scan.part.retry.v1"
+	scanPartDeadQueue         = "ghfind.scan.part.dead.v1"
+	ScanPartJobKind           = "scan.part.v1"
+	scanAssembleKey           = "scan.assemble.v1"
+	scanAssembleRetryKey      = "scan.assemble.retry.v1"
+	scanAssembleDeadKey       = "scan.assemble.dead.v1"
+	scanAssembleQueue         = "ghfind.scan.assemble.v1"
+	scanAssembleRetryQ        = "ghfind.scan.assemble.retry.v1"
+	scanAssembleDeadQ         = "ghfind.scan.assemble.dead.v1"
+	ScanAssembleJobKind       = "scan.assemble.v1"
 	projectAnalysisKey        = "project-analysis.v1"
 	projectAnalysisRetryKey   = "project-analysis.retry.v1"
 	projectAnalysisDeadKey    = "project-analysis.dead.v1"
@@ -72,6 +89,12 @@ type ScanJobPublisher interface {
 	PublishScan(context.Context, ScanJob) error
 	PublishScanRetry(context.Context, ScanJob, time.Duration) error
 	PublishScanDead(context.Context, ScanJob, string) error
+	PublishScanPart(context.Context, ScanPartJob) error
+	PublishScanPartRetry(context.Context, ScanPartJob, time.Duration) error
+	PublishScanPartDead(context.Context, ScanPartJob, string) error
+	PublishScanAssemble(context.Context, ScanAssembleJob) error
+	PublishScanAssembleRetry(context.Context, ScanAssembleJob, time.Duration) error
+	PublishScanAssembleDead(context.Context, ScanAssembleJob, string) error
 }
 
 // ProjectAnalysisJob references one project_analysis_runs row. The durable
@@ -184,6 +207,36 @@ func (p *RabbitPublisher) PublishScanRetry(ctx context.Context, job ScanJob, del
 
 func (p *RabbitPublisher) PublishScanDead(ctx context.Context, job ScanJob, reason string) error {
 	return p.publishConfirmed(ctx, deadLetterExchange, scanDeadKey, job.ID, job, "", amqp091.Table{"x-ghfind-failure": reason})
+}
+
+func (p *RabbitPublisher) PublishScanPart(ctx context.Context, job ScanPartJob) error {
+	return p.publishConfirmed(ctx, jobsExchange, scanPartRoutingKey, job.MessageID(), job, "", nil)
+}
+
+func (p *RabbitPublisher) PublishScanPartRetry(ctx context.Context, job ScanPartJob, delay time.Duration) error {
+	if delay <= 0 {
+		return fmt.Errorf("retry delay must be positive")
+	}
+	return p.publishConfirmed(ctx, jobsExchange, scanPartRetryKey, job.MessageID(), job, strconv.FormatInt(delay.Milliseconds(), 10), nil)
+}
+
+func (p *RabbitPublisher) PublishScanPartDead(ctx context.Context, job ScanPartJob, reason string) error {
+	return p.publishConfirmed(ctx, deadLetterExchange, scanPartDeadKey, job.MessageID(), job, "", amqp091.Table{"x-ghfind-failure": reason})
+}
+
+func (p *RabbitPublisher) PublishScanAssemble(ctx context.Context, job ScanAssembleJob) error {
+	return p.publishConfirmed(ctx, jobsExchange, scanAssembleKey, job.MessageID(), job, "", nil)
+}
+
+func (p *RabbitPublisher) PublishScanAssembleRetry(ctx context.Context, job ScanAssembleJob, delay time.Duration) error {
+	if delay <= 0 {
+		return fmt.Errorf("retry delay must be positive")
+	}
+	return p.publishConfirmed(ctx, jobsExchange, scanAssembleRetryKey, job.MessageID(), job, strconv.FormatInt(delay.Milliseconds(), 10), nil)
+}
+
+func (p *RabbitPublisher) PublishScanAssembleDead(ctx context.Context, job ScanAssembleJob, reason string) error {
+	return p.publishConfirmed(ctx, deadLetterExchange, scanAssembleDeadKey, job.MessageID(), job, "", amqp091.Table{"x-ghfind-failure": reason})
 }
 
 func (p *RabbitPublisher) PublishProjectAnalysis(ctx context.Context, job ProjectAnalysisJob) error {
@@ -351,6 +404,36 @@ func declareJobTopology(channel *amqp091.Channel) error {
 	if err := channel.QueueBind(scanDeadQueue, scanDeadKey, deadLetterExchange, false, nil); err != nil {
 		return fmt.Errorf("bind scan dead queue: %w", err)
 	}
+	if err := declareBoundQueue(channel, scanPartQueue, scanPartRoutingKey, jobsExchange, amqp091.Table{
+		"x-dead-letter-exchange":    deadLetterExchange,
+		"x-dead-letter-routing-key": scanPartDeadKey,
+	}); err != nil {
+		return err
+	}
+	if err := declareBoundQueue(channel, scanPartRetryQueue, scanPartRetryKey, jobsExchange, amqp091.Table{
+		"x-dead-letter-exchange":    jobsExchange,
+		"x-dead-letter-routing-key": scanPartRoutingKey,
+	}); err != nil {
+		return err
+	}
+	if err := declareBoundQueue(channel, scanPartDeadQueue, scanPartDeadKey, deadLetterExchange, nil); err != nil {
+		return err
+	}
+	if err := declareBoundQueue(channel, scanAssembleQueue, scanAssembleKey, jobsExchange, amqp091.Table{
+		"x-dead-letter-exchange":    deadLetterExchange,
+		"x-dead-letter-routing-key": scanAssembleDeadKey,
+	}); err != nil {
+		return err
+	}
+	if err := declareBoundQueue(channel, scanAssembleRetryQ, scanAssembleRetryKey, jobsExchange, amqp091.Table{
+		"x-dead-letter-exchange":    jobsExchange,
+		"x-dead-letter-routing-key": scanAssembleKey,
+	}); err != nil {
+		return err
+	}
+	if err := declareBoundQueue(channel, scanAssembleDeadQ, scanAssembleDeadKey, deadLetterExchange, nil); err != nil {
+		return err
+	}
 	if _, err := channel.QueueDeclare(projectAnalysisQueue, true, false, false, false, amqp091.Table{
 		"x-dead-letter-exchange":    deadLetterExchange,
 		"x-dead-letter-routing-key": projectAnalysisDeadKey,
@@ -412,6 +495,16 @@ func declareJobTopology(channel *amqp091.Channel) error {
 	}
 	if err := channel.QueueBind(feedCatalogSyncDeadQueue, feedCatalogSyncDeadKey, deadLetterExchange, false, nil); err != nil {
 		return fmt.Errorf("bind Feed catalog sync dead queue: %w", err)
+	}
+	return nil
+}
+
+func declareBoundQueue(channel *amqp091.Channel, queue, routingKey, exchange string, args amqp091.Table) error {
+	if _, err := channel.QueueDeclare(queue, true, false, false, false, args); err != nil {
+		return fmt.Errorf("declare %s: %w", queue, err)
+	}
+	if err := channel.QueueBind(queue, routingKey, exchange, false, nil); err != nil {
+		return fmt.Errorf("bind %s: %w", queue, err)
 	}
 	return nil
 }

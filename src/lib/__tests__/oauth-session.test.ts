@@ -6,6 +6,7 @@ import {
   encodeSignedPayload,
   newOAuthState,
   readOAuthState,
+  readGitHubSession,
   safeOAuthCallback,
   type OAuthSession,
 } from "@/lib/oauth-session";
@@ -57,6 +58,21 @@ describe("oauth session signing (Go wire-format compatibility)", () => {
     });
     expect(readOAuthState(expired)).toBeNull();
   });
+
+  it("requires a real numeric GitHub identity and expiry", () => {
+    const valid = { github_id: 42, login: "octocat", expires_at: Date.now() + 60_000 };
+    expect(readGitHubSession(encodeSignedPayload("session", valid))?.github_id).toBe(42);
+    for (const change of [
+      { github_id: undefined }, { github_id: "42" }, { github_id: 0 },
+      { github_id: 1.5 }, { expires_at: undefined }, { expires_at: "9999999999999" },
+      { expires_at: Date.now() - 1 }, { login: {} },
+    ]) {
+      expect(readGitHubSession(encodeSignedPayload("session", { ...valid, ...change }))).toBeNull();
+    }
+    expect(readGitHubSession(encodeSignedPayload("social-session", {
+      ...valid, provider: "google", subject: "42",
+    }))).toBeNull();
+  });
 });
 
 describe("safeOAuthCallback", () => {
@@ -76,5 +92,12 @@ describe("safeOAuthCallback", () => {
 
   it("keeps rooted relative paths", () => {
     expect(safeOAuthCallback("/leaderboard?view=score", origin)).toBe("/leaderboard?view=score");
+  });
+
+  it("rejects browser-normalized cross-origin destinations", () => {
+    for (const input of ["/\\evil.example", "/\n/evil.example", "/a/..//evil.example", "https://ghfind.com/a/..//evil.example"]) {
+      expect(safeOAuthCallback(input, origin)).toBe("/");
+    }
+    expect(safeOAuthCallback("/a/../leaderboard?view=score#top", origin)).toBe("/leaderboard?view=score#top");
   });
 });

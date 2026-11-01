@@ -6,6 +6,7 @@ import {
   type UserSuggestion,
 } from "@/lib/db";
 import { getFacetCategoriesCached } from "@/lib/developers";
+import { getCachedSearch, setCachedSearch } from "@/lib/redis";
 
 export interface RepoSuggestion extends RepoDetail {
   href: string;
@@ -28,9 +29,20 @@ export interface DiscoverySearchDeps {
   getFacets: (type: "language" | "org") => Promise<FacetCategory[]>;
 }
 
+/** `lower(name) LIKE` can't use an index (~27k rows_read per call), so repeated
+ *  prefixes are served from a short-lived cache. Empty results are cached too. */
+async function searchReposCached(query: string, limit: number): Promise<RepoDetail[]> {
+  const key = `repos:${limit}:${query.toLowerCase()}`;
+  const cached = await getCachedSearch<RepoDetail[]>(key);
+  if (cached) return cached;
+  const repos = await searchRepos(query, limit);
+  await setCachedSearch(key, repos);
+  return repos;
+}
+
 const defaultDeps: DiscoverySearchDeps = {
   searchUsers: searchScoredUsers,
-  searchRepos,
+  searchRepos: searchReposCached,
   getFacets: getFacetCategoriesCached,
 };
 

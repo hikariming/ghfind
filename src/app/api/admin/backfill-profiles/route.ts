@@ -6,6 +6,7 @@ import {
   hasProfileSnapshot,
   recordProfileSnapshot,
 } from "@/lib/db";
+import { collectorCache } from "@/lib/redis";
 import { score } from "@/lib/score";
 import type { ScanResult } from "@/lib/types";
 
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest) {
     }
     if (i > 0 && delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
     try {
-      const collected = await collect(username);
+      const collected = await collect(username, { cache: collectorCache });
       const scan: ScanResult = { ...collected, scoring: score(collected.metrics) };
       await recordProfileSnapshot(scan);
       written++;

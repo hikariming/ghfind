@@ -66,10 +66,15 @@ scripts/repo-research/out/
 
 # talent-import pipeline checkpoints and generated personas (regenerable)
 scripts/talent-import/out/
+# Talent Match job-requirement backfill SQL (reviewed, then applied with wrangler)
+scripts/talent-match/out/
 
 # OpenNext / Cloudflare
 .open-next/
 .wrangler/
-.dev.vars
+.dev.vars*
 tmp/
 /platform/runtime/wrangler.web.production.generated.json
+
+# Private local development accounts, sessions and isolated databases
+/.local/

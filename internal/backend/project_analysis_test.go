@@ -32,6 +32,10 @@ func validProjectAnalysisMap() map[string]any {
 			"pain_statement": "Manual conversion is repetitive.",
 			"project_type":   "micro_tool",
 			"lifecycle":      "feature_complete",
+			// Skill v6 card fields.
+			"discover_hook":       "批量转换文件不用再写一次性脚本，一条命令出结果",
+			"discover_partition":  "none",
+			"time_to_first_value": "minutes",
 			"product_tags": []map[string]any{
 				{
 					"namespace":    "use_case",
@@ -246,7 +250,7 @@ func TestProjectAnalysisKeyParity(t *testing.T) {
 		"owner/useful-tool", nil,
 		ProjectAnalysisSchemaVersion, ProjectRubricVersion, ProjectAgentVersion, ProjectSkillVersion,
 	)
-	if fingerprint != "a04ffea7307058c5e054a019968896e1b9afd62c6629c88611757dd7c10bc569" {
+	if fingerprint != "de82c1f691cd3e840b2efdb7149e71a884dc42566e39883b4f0e6958e2b84d31" {
 		t.Fatalf("fingerprint = %q", fingerprint)
 	}
 	activeKey := ProjectAnalysisActiveKey("owner/useful-tool", nil, ProjectRubricVersion)
@@ -258,7 +262,7 @@ func TestProjectAnalysisKeyParity(t *testing.T) {
 		"OWNER/Useful-Tool", &ref,
 		ProjectAnalysisSchemaVersion, ProjectRubricVersion, ProjectAgentVersion, ProjectSkillVersion,
 	)
-	if fingerprint != "d19d587fd139a4015c30610ecc339bf9211d055ecf356ff9a50f62d47a3bdac0" {
+	if fingerprint != "4b6d7bd28f999cd3c0b78a1b38441f77f3b494b01a7caf5e4d2535dc9de5f66c" {
 		t.Fatalf("ref fingerprint = %q", fingerprint)
 	}
 	if key := ProjectAnalysisActiveKey("owner/useful-tool", &ref, ProjectRubricVersion); key != "124c6e4a3d4bcbfb39e271bdbb7ee31c0715c8ab0d83d2560b0a2530bd34e95d" {

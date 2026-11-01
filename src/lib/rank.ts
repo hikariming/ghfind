@@ -4,8 +4,9 @@
  * db.getRank / db.getPercentile aggregate the whole `scores` table per call,
  * and they sit on every profile render, /api/score hit, share card and MCP
  * call — the same "O(table) × crawler traffic" shape as the 2026-07 discovery
- * incident. Here one histogram aggregate per TTL (Redis 5 min, plus a 60s
- * in-process copy) answers every lookup from memory.
+ * incident. Here one histogram aggregate per 30 min (KV, served stale while a
+ * single isolate refreshes it, plus a 60s in-process copy) answers every
+ * lookup from memory.
  *
  * Granularity is 0.1 score points (buckets are score × 10). Scores are
  * displayed with one decimal, so bucket ties are exactly the display ties;
@@ -15,30 +16,52 @@
  */
 
 import { getScoreHistogram, type ScoreHistogramRow } from "@/lib/db";
-import { getCachedScoreHistogram, setCachedScoreHistogram } from "@/lib/redis";
+import {
+  acquireScoreHistogramRefresh,
+  getCachedScoreHistogram,
+  SCORE_HISTOGRAM_FRESH_MS,
+  SCORE_HISTOGRAM_REWRITE_MS,
+  setCachedScoreHistogram,
+} from "@/lib/redis";
 
-/** In-process staleness bound; Redis (5 min) is the cross-instance cache. */
+/** In-process staleness bound; Redis (30 min) is the cross-instance cache. */
 const LOCAL_TTL_MS = 60_000;
 
-let local: { rows: ScoreHistogramRow[]; at: number } | null = null;
+let local: { rows: ScoreHistogramRow[]; until: number } | null = null;
 let inflight: Promise<ScoreHistogramRow[] | null> | null = null;
 
 async function loadHistogram(): Promise<ScoreHistogramRow[] | null> {
-  if (local && Date.now() - local.at < LOCAL_TTL_MS) return local.rows;
+  if (local && Date.now() < local.until) return local.rows;
   if (!inflight) {
     inflight = (async () => {
       try {
         const cached = await getCachedScoreHistogram();
-        if (cached && cached.length > 0) {
-          local = { rows: cached, at: Date.now() };
-          return cached;
+        if (cached && cached.rows.length > 0) {
+          // Stale: one isolate refreshes, the rest keep serving this copy.
+          const fresh = Date.now() - cached.at < SCORE_HISTOGRAM_FRESH_MS;
+          if (fresh) {
+            local = { rows: cached.rows, until: Date.now() + LOCAL_TTL_MS };
+            return cached.rows;
+          }
+          if (!(await acquireScoreHistogramRefresh())) {
+            // The lease spans a fresh window, and an unchanged refresh leaves
+            // `at` stale: hold this copy for that window rather than asking
+            // for the lease again every minute.
+            local = { rows: cached.rows, until: Date.now() + SCORE_HISTOGRAM_FRESH_MS };
+            return cached.rows;
+          }
         }
         const rows = await getScoreHistogram();
         // [] means the DB is unconfigured/erroring or genuinely empty — don't
         // pin that for a TTL; rank degrades to null exactly like db.getRank.
-        if (rows.length === 0) return null;
-        local = { rows, at: Date.now() };
-        await setCachedScoreHistogram(rows);
+        if (rows.length === 0) return cached?.rows.length ? cached.rows : null;
+        // An identical histogram is not rewritten (the refresh lease spaces
+        // the next aggregate a full fresh window away) unless the shared copy
+        // is getting close to its KV expiry.
+        const unchanged = !!cached && Date.now() - cached.at < SCORE_HISTOGRAM_REWRITE_MS &&
+          JSON.stringify(cached.rows) === JSON.stringify(rows);
+        local = { rows, until: Date.now() + (unchanged ? SCORE_HISTOGRAM_FRESH_MS : LOCAL_TTL_MS) };
+        if (!unchanged) await setCachedScoreHistogram(rows);
         return rows;
       } catch {
         return null;

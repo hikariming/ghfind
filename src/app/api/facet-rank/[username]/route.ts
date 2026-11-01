@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getFacetRank, getScoreBrief } from "@/lib/db";
+import { getScoreBrief } from "@/lib/db";
+import { getFacetRankCached } from "@/lib/developers";
 import { checkRateLimit, rateLimitHeaders } from "@/lib/redis";
 import { decodeRouteParam } from "@/lib/route-params";
 
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 const CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=600";
 
-function clientIp(req: NextRequest): string {
+function clientIp(req: Request): string {
   return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "0.0.0.0";
 }
 
@@ -20,7 +20,7 @@ function clientIp(req: NextRequest): string {
  * hides the CTA.
  */
 export async function GET(
-  req: NextRequest,
+  req: Request,
   { params }: { params: Promise<{ username: string }> },
 ) {
   // This legacy public endpoint is no longer part of the rendered profile flow,
@@ -28,7 +28,7 @@ export async function GET(
   // direct username sweep cannot turn into unbounded Turso work.
   const limit = await checkRateLimit(clientIp(req));
   if (!limit.success) {
-    return NextResponse.json(
+    return Response.json(
       { error: limit.unavailable ? "rate_limit_unavailable" : "rate_limited" },
       {
         status: limit.unavailable ? 503 : 429,
@@ -41,8 +41,8 @@ export async function GET(
   const decoded = decodeRouteParam(username);
   const brief = await getScoreBrief(decoded);
   if (!brief) {
-    return NextResponse.json({ facetRank: null }, { headers: { "Cache-Control": CACHE_CONTROL } });
+    return Response.json({ facetRank: null }, { headers: { "Cache-Control": CACHE_CONTROL } });
   }
-  const facetRank = await getFacetRank(brief.username, brief.final_score);
-  return NextResponse.json({ facetRank }, { headers: { "Cache-Control": CACHE_CONTROL } });
+  const facetRank = await getFacetRankCached(brief.username, brief.final_score);
+  return Response.json({ facetRank }, { headers: { "Cache-Control": CACHE_CONTROL } });
 }

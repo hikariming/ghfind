@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, Cloud, ClipboardPaste, Database, Printer, RefreshCw, FileText, HardDrive, LayoutTemplate, Plus, Save, Sparkles, Trash2, Undo2 } from "lucide-react";
-import { createResume, emptyEntry, isResumeEmpty, newSection, profileFromResume, readResumeLibrary, readResumeLibraryFull, resumeStorageSnapshot, sameResumeContent, RESUME_STORAGE_KEY, sampleResume, SECTION_TYPES, sectionNames, serializeResumeLibrary, TEMPLATE_IDS, upsertResume, type Profile, type Resume, type ResumeSection, type TemplateId } from "@/lib/resume";
+import { createResume, editKey, emptyEntry, isResumeEmpty, moveItem, newSection, profileFromResume, readResumeLibrary, readResumeLibraryFull, resumeStorageSnapshot, sameResumeContent, RESUME_STORAGE_KEY, sampleResume, SECTION_TYPES, sectionNames, serializeResumeLibrary, TEMPLATE_IDS, upsertResume, type Profile, type Resume, type ResumeSection, type TemplateId } from "@/lib/resume";
 import { fetchMe, type Me } from "@/lib/me-client";
 import { signInWithGitHub } from "@/lib/oauth-client";
 import { ResumePhotoInput } from "./ResumePhotoInput";
@@ -28,6 +28,8 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
   const [view, setView] = useState<"gallery" | "editor">("gallery");
   const [tab, setTab] = useState<"basics" | "sections" | "templates">("basics");
   const [mobilePanel, setMobilePanel] = useState<"edit" | "preview">("edit");
+  const pendingEdit = useRef<{ key: string; offset: number | null } | null>(null);
+  const [editRequest, setEditRequest] = useState(0);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [undo, setUndo] = useState<Resume | null>(null);
@@ -174,11 +176,32 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
     setDraft(current => current && ({ ...current, sections: current.sections.map(section => section.id === id ? update(section) : section) })); setNotice("");
   }
   function moveSection(index: number, delta: number) {
-    if (!draft) return;
-    const sections = [...draft.sections];
-    [sections[index], sections[index + delta]] = [sections[index + delta], sections[index]];
-    setDraft({ ...draft, sections });
+    setDraft(current => current && ({ ...current, sections: moveItem(current.sections, index, delta) })); setNotice("");
   }
+  function moveEntry(sectionId: string, index: number, delta: number) {
+    updateSection(sectionId, section => ({ ...section, entries: moveItem(section.entries, index, delta) }));
+  }
+  function editFromPreview(key: string, offset: number | null) {
+    pendingEdit.current = { key, offset };
+    setTab(key.startsWith("basics:") ? "basics" : "sections"); setMobilePanel("edit"); setEditRequest(value => value + 1);
+  }
+  // Runs after the tab switch has rendered, so the target field exists.
+  useEffect(() => {
+    const request = pendingEdit.current;
+    pendingEdit.current = null;
+    if (!request) return;
+    const field = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[data-edit-target="${CSS.escape(request.key)}"]`);
+    if (!field) return;
+    const section = field.closest("details");
+    if (section) section.open = true;
+    field.scrollIntoView({ block: "center", behavior: "smooth" });
+    field.focus({ preventScroll: true });
+    // Email inputs reject setSelectionRange.
+    if (request.offset !== null && (field.type === "text" || field.type === "textarea")) {
+      const offset = Math.min(request.offset, field.value.length);
+      field.setSelectionRange(offset, offset);
+    }
+  }, [editRequest]);
   function selectTemplate(template: TemplateId) { setDraft(current => current && ({ ...current, template })); setNotice(""); }
 
   async function refreshCloud() {
@@ -309,7 +332,7 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
       {canOfferProfile && <div className="resume-fill-banner"><ClipboardPaste size={19} aria-hidden /><p>{copy(`有已存数据「${profileDataName}」，一键填入这份简历，不用从头写。`, `You have saved data “${profileDataName}” — fill this résumé with one click instead of starting from scratch.`)}</p><button className="resume-button resume-button-primary" onClick={fillProfile}><ClipboardPaste size={15} />{copy("填入已存数据", "Fill with saved data")}</button></div>}
       <div className="resume-mobile-switch"><button aria-pressed={mobilePanel === "edit"} onClick={() => setMobilePanel("edit")}>{copy("编辑内容", "Edit")}</button><button aria-pressed={mobilePanel === "preview"} onClick={() => setMobilePanel("preview")}>{copy("简历预览", "Preview")}</button></div>
       <div className="resume-studio" data-mobile-panel={mobilePanel}>
-        <section className="resume-preview-pane"><div className="resume-pane-heading"><span>{copy("实时预览", "Live preview")}</span><span>{templates[draft.template][0]}</span></div><div className="resume-paper-stage"><ResumePagedPaper resume={draft} zh={zh} /></div><p className="resume-preview-caption">{copy("预览会随输入更新 · A4 幅面，内容较长时自动分页", "Preview updates as you type · A4 pages, overflow continues on the next page")}</p></section>
+        <section className="resume-preview-pane"><div className="resume-pane-heading"><span>{copy("实时预览", "Live preview")}</span><span>{templates[draft.template][0]}</span></div><div className="resume-paper-stage"><ResumePagedPaper resume={draft} zh={zh} onEdit={editFromPreview} /></div><p className="resume-preview-caption">{copy("预览会随输入更新 · 点击文字可跳到对应输入框 · A4 幅面，内容较长时自动分页", "Preview updates as you type · Click any text to edit it · A4 pages, overflow continues on the next page")}</p></section>
         <section className="resume-editor-pane" aria-label={copy("简历编辑器", "Résumé editor")}>
           <div className="resume-editor-tabs" role="tablist" aria-label={copy("编辑分类", "Editor sections")}>
             {(["basics", "sections", "templates"] as const).map((key, index) => <button key={key} id={`resume-tab-${key}`} role="tab" aria-selected={tab === key} aria-controls={`resume-panel-${key}`} tabIndex={tab === key ? 0 : -1} onKeyDown={event => {
@@ -324,17 +347,17 @@ export function ResumeBuilder({ zh }: { zh: boolean }) {
           <div className="resume-editor-content" role="tabpanel" id={`resume-panel-${tab}`} aria-labelledby={`resume-tab-${tab}`}>
             {tab === "basics" && <><h2>{copy("基本信息", "Personal details")}</h2><p className="resume-editor-hint">{copy("填写你希望展示的信息，留空的字段不会显示。", "Only the fields you fill in will appear.")}</p>
               <ResumePhotoInput zh={zh} photo={draft.photo} onChange={photo => { setDraft(current => current && ({ ...current, photo })); setNotice(""); }} />
-              <div className="resume-fields">{(["name", "role", "email", "phone", "city", "website"] as const).map((key, index) => <label key={key}>{[copy("姓名", "Name"), copy("求职方向 / 职位", "Role / career focus"), copy("邮箱", "Email"), copy("电话", "Phone"), copy("所在城市", "Location"), copy("个人网站 / GitHub", "Website / GitHub")][index]}<input type={key === "email" ? "email" : "text"} autoComplete="off" value={draft.basics[key]} maxLength={500} placeholder={[copy("你的姓名", "Your name"), copy("例如：前端工程师", "e.g. Frontend Engineer"), "hello@example.com", copy("选填", "Optional"), copy("例如：上海", "e.g. London"), "github.com/username"][index]} onChange={event => { setDraft({ ...draft, basics: { ...draft.basics, [key]: event.target.value } }); setNotice(""); }} /></label>)}</div>
-              <label className="resume-field">{copy("个人简介", "Summary")}<textarea rows={5} maxLength={20000} value={draft.basics.summary} placeholder={copy("用两三句话介绍你的方向、擅长的领域和代表性成果。", "Introduce your focus, strengths and a meaningful achievement.")} onChange={event => setDraft({ ...draft, basics: { ...draft.basics, summary: event.target.value } })} /></label>
+              <div className="resume-fields">{(["name", "role", "email", "phone", "city", "website"] as const).map((key, index) => <label key={key}>{[copy("姓名", "Name"), copy("求职方向 / 职位", "Role / career focus"), copy("邮箱", "Email"), copy("电话", "Phone"), copy("所在城市", "Location"), copy("个人网站 / GitHub", "Website / GitHub")][index]}<input data-edit-target={editKey.basics(key)} type={key === "email" ? "email" : "text"} autoComplete="off" value={draft.basics[key]} maxLength={500} placeholder={[copy("你的姓名", "Your name"), copy("例如：前端工程师", "e.g. Frontend Engineer"), "hello@example.com", copy("选填", "Optional"), copy("例如：上海", "e.g. London"), "github.com/username"][index]} onChange={event => { setDraft({ ...draft, basics: { ...draft.basics, [key]: event.target.value } }); setNotice(""); }} /></label>)}</div>
+              <label className="resume-field">{copy("个人简介", "Summary")}<textarea data-edit-target={editKey.basics("summary")} rows={5} maxLength={20000} value={draft.basics.summary} placeholder={copy("用两三句话介绍你的方向、擅长的领域和代表性成果。", "Introduce your focus, strengths and a meaningful achievement.")} onChange={event => setDraft({ ...draft, basics: { ...draft.basics, summary: event.target.value } })} /></label>
               <button className="resume-button resume-next" onClick={() => setTab("sections")}>{copy("接下来，补充经历", "Next, add your experience")}<ArrowRight size={15} /></button>
             </>}
-            {tab === "sections" && <><div className="resume-section-heading"><h2>{copy("经历与技能", "Experience & skills")}</h2>{undo && <button className="resume-text-button" onClick={() => { setDraft({ ...undo, updatedAt: draft.updatedAt }); setUndo(null); }}><Undo2 size={14} />{copy("撤销删除", "Undo delete")}</button>}</div><p className="resume-editor-hint">{copy("展开区块编辑；用箭头调整顺序。每个区块可添加多条经历。", "Expand a section to edit it. Reorder with arrows and add multiple entries.")}</p>
+            {tab === "sections" && <><div className="resume-section-heading"><h2>{copy("经历与技能", "Experience & skills")}</h2>{undo && <button className="resume-text-button" onClick={() => { setDraft({ ...undo, updatedAt: draft.updatedAt }); setUndo(null); }}><Undo2 size={14} />{copy("撤销删除", "Undo delete")}</button>}</div><p className="resume-editor-hint">{copy("展开区块编辑；用箭头调整区块和条目的顺序。每个区块可添加多条经历。", "Expand a section to edit it. Use the arrows to reorder sections and entries, and add multiple entries.")}</p>
               {draft.sections.map((section, index) => <details className="resume-section-editor" key={section.id}>
                 <summary><span>{String(index + 1).padStart(2, "0")}</span>{section.title || copy("未命名区块", "Untitled section")}<Plus size={14} /></summary>
                 <div className="resume-section-body"><div className="resume-block-tools"><button className="shell-icon" disabled={index === 0} onClick={() => moveSection(index, -1)} aria-label={copy(`上移${section.title}`, `Move ${section.title} up`)}><ArrowUp size={15} /></button><button className="shell-icon" disabled={index === draft.sections.length - 1} onClick={() => moveSection(index, 1)} aria-label={copy(`下移${section.title}`, `Move ${section.title} down`)}><ArrowDown size={15} /></button><button className="resume-text-button" onClick={() => { setUndo(draft); setDraft({ ...draft, sections: draft.sections.filter(item => item.id !== section.id) }); }}><Trash2 size={14} />{copy("删除区块", "Remove section")}</button></div>
-                  <label className="resume-field">{copy("区块名称", "Section title")}<input maxLength={200} value={section.title} onChange={event => updateSection(section.id, value => ({ ...value, title: event.target.value }))} /></label>
-                  {section.entries.map((entry, entryIndex) => <div className="resume-entry-editor" key={entry.id}><div className="resume-entry-heading"><span>{copy("条目", "Entry")} {entryIndex + 1}</span><button className="shell-icon" aria-label={copy(`删除条目 ${entryIndex + 1}`, `Remove entry ${entryIndex + 1}`)} onClick={() => { setUndo(draft); updateSection(section.id, value => ({ ...value, entries: value.entries.filter(item => item.id !== entry.id) })); }}><Trash2 size={13} /></button></div>
-                    {(["title", "subtitle", "period", "details"] as const).map((key, fieldIndex) => <label className="resume-field" key={key}>{[copy("职位 / 项目 / 学位", "Role / project / degree"), copy("公司 / 学校 / 补充信息", "Organization / supporting details"), copy("起止时间", "Dates"), copy("详细描述", "Description")][fieldIndex]}{key === "details" ? <textarea rows={4} maxLength={20000} value={entry[key]} placeholder={copy("写下你的职责、行动与成果，可用换行分隔要点。", "Describe your contribution and outcomes. Use new lines for separate points.")} onChange={event => updateSection(section.id, value => ({ ...value, entries: value.entries.map(item => item.id === entry.id ? { ...item, [key]: event.target.value } : item) }))} /> : <input maxLength={1000} value={entry[key]} onChange={event => updateSection(section.id, value => ({ ...value, entries: value.entries.map(item => item.id === entry.id ? { ...item, [key]: event.target.value } : item) }))} />}</label>)}
+                  <label className="resume-field">{copy("区块名称", "Section title")}<input data-edit-target={editKey.section(section.id)} maxLength={200} value={section.title} onChange={event => updateSection(section.id, value => ({ ...value, title: event.target.value }))} /></label>
+                  {section.entries.map((entry, entryIndex) => <div className="resume-entry-editor" key={entry.id}><div className="resume-entry-heading"><span>{copy("条目", "Entry")} {entryIndex + 1}</span><div className="resume-entry-actions"><button className="shell-icon" disabled={entryIndex === 0} aria-label={copy(`上移条目 ${entryIndex + 1}`, `Move entry ${entryIndex + 1} up`)} onClick={() => moveEntry(section.id, entryIndex, -1)}><ArrowUp size={13} /></button><button className="shell-icon" disabled={entryIndex === section.entries.length - 1} aria-label={copy(`下移条目 ${entryIndex + 1}`, `Move entry ${entryIndex + 1} down`)} onClick={() => moveEntry(section.id, entryIndex, 1)}><ArrowDown size={13} /></button><button className="shell-icon" aria-label={copy(`删除条目 ${entryIndex + 1}`, `Remove entry ${entryIndex + 1}`)} onClick={() => { setUndo(draft); updateSection(section.id, value => ({ ...value, entries: value.entries.filter(item => item.id !== entry.id) })); }}><Trash2 size={13} /></button></div></div>
+                    {(["title", "subtitle", "period", "details"] as const).map((key, fieldIndex) => <label className="resume-field" key={key}>{[copy("职位 / 项目 / 学位", "Role / project / degree"), copy("公司 / 学校 / 补充信息", "Organization / supporting details"), copy("起止时间", "Dates"), copy("详细描述", "Description")][fieldIndex]}{key === "details" ? <textarea data-edit-target={editKey.entry(entry.id, key)} rows={4} maxLength={20000} value={entry[key]} placeholder={copy("写下你的职责、行动与成果，可用换行分隔要点。", "Describe your contribution and outcomes. Use new lines for separate points.")} onChange={event => updateSection(section.id, value => ({ ...value, entries: value.entries.map(item => item.id === entry.id ? { ...item, [key]: event.target.value } : item) }))} /> : <input data-edit-target={editKey.entry(entry.id, key)} maxLength={1000} value={entry[key]} onChange={event => updateSection(section.id, value => ({ ...value, entries: value.entries.map(item => item.id === entry.id ? { ...item, [key]: event.target.value } : item) }))} />}</label>)}
                   </div>)}
                   <button className="resume-text-button" disabled={section.entries.length >= 100} onClick={() => updateSection(section.id, value => ({ ...value, entries: [...value.entries, emptyEntry()] }))}><Plus size={14} />{copy("添加一条经历", "Add entry")}</button>
                 </div>

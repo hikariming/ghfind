@@ -8,8 +8,20 @@
  * every caller.
  */
 
+export type LoginProvider = "github" | "google" | "apple";
+export type LoginProviders = Record<LoginProvider, boolean>;
+export type SiteAccount = {
+  provider: LoginProvider;
+  subject: string;
+  name: string;
+  image: string | null;
+};
+
 export type Me = {
+  /** GitHub identity only: other providers do not grant GitHub capabilities. */
   user: { login: string; image: string | null } | null;
+  account?: SiteAccount | null;
+  providers?: LoginProviders;
   scored: boolean;
   /**
    * Runtime answer to "can this deployment offer GitHub login?", decided by the
@@ -18,24 +30,38 @@ export type Me = {
    * treat unknown as configured (the pre-flag behavior).
    */
   oauth?: boolean;
+  /** A failed probe is distinct from a deployment with no login providers. */
+  loadFailed?: boolean;
 };
 
-// Network-failure fallback assumes OAuth works, matching the era when login-UI
-// visibility was a build-time prop: better a sign-in button that errors than
-// hiding login from everyone on a transient blip.
-const SIGNED_OUT: Me = { user: null, scored: false, oauth: true };
+const UNAVAILABLE: Me = { user: null, scored: false, oauth: false, loadFailed: true };
+
+export function loginProviders(me: Me): LoginProviders {
+  if (me.loadFailed) return { github: false, google: false, apple: false };
+  return me.providers
+    ? { github: me.providers.github === true, google: me.providers.google === true, apple: me.providers.apple === true }
+    : { github: me.oauth !== false, google: false, apple: false };
+}
 
 let inflight: Promise<Me> | null = null;
 
-export function fetchMe(): Promise<Me> {
+export function fetchMe({ refresh = false }: { refresh?: boolean } = {}): Promise<Me> {
+  if (refresh) inflight = null;
   if (!inflight) {
-    inflight = fetch("/api/me")
-      .then((r) => r.json() as Promise<Me>)
+    inflight = fetch("/api/me", { credentials: "same-origin", cache: "no-store", signal: AbortSignal.timeout(10_000) })
+      .then(async (r) => {
+        if (!r.ok) throw new Error("account_probe_failed");
+        const value = await r.json() as Me;
+        if (!value || typeof value !== "object" || !("user" in value) || typeof value.scored !== "boolean") {
+          throw new Error("account_probe_invalid");
+        }
+        return value;
+      })
       .catch(() => {
         // Serve this caller the signed-out fallback but allow a later caller
         // (e.g. the menu opening after a transient network blip) to retry.
         inflight = null;
-        return SIGNED_OUT;
+        return UNAVAILABLE;
       });
   }
   return inflight;

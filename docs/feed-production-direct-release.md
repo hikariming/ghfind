@@ -61,18 +61,31 @@ receipts and actual repository protection. The workflow then:
    atomic D1 batch and never remain after commit or rollback. Legacy user/catalog
    writers cannot be fallback.
    Subsequent releases pause an already-active Go Web before replacing its runtime.
-6. Starts or resumes the one real assessment, then deploys baseline runtime with queue consumers and bounded source relay, then
+6. Deploys baseline runtime with queue consumers and bounded source relay, then
    explicitly transitions the three fixed actors while the gateway remains paused.
    The operation first matches the existing image/Go identity, sends SIGTERM,
    waits for native `running=false` (15-second limit), then starts the new env
    and strictly verifies readiness (30-second total per actor). The Actions
    orchestrator rechecks the paused Web before each actor and afterward, records
-   intent before each mutation, performs no blind retry, and has a 240-second
+   intent before each mutation, performs no blind retry, and has a 420-second
    deadline. It then runs the full ordinary baseline verification. A fixed sleep
    cannot replace this: SDK 0.3.7 does not apply new envVars to a running process.
    A Worker variable change alone cannot prove the container changed modes.
-   Requires real assessment finalization and queue projection, then bounded
-   authenticated service-contract smoke with nonempty eligible candidates.
+   Off-mode process replacement is a separate step after platform rollout
+   completion. Rollout completion is application-level and does not replace a
+   Durable Object's existing container instance. SDK 0.3.7 `stop()` only sends
+   SIGTERM; `startAndWaitForPorts` is a no-op while `running` remains true;
+   `start()` does not pass an image digest, so the same instance keeps its old
+   compiled binary. After the paused Web and detached consumers are proved,
+   off-transition destroys each fixed actor's container instance (process
+   teardown, not D1/R2 or Durable Object storage deletion) and then
+   `startAndWaitForPorts` from the current application image. Final Go `/readyz`
+   identity comparison stays fail-closed.
+   Revalidates the completed real assessment against the durable checked-in
+   checkpoint and current source/outbox/Go projection rows, then runs bounded
+   authenticated service-contract smoke with nonempty eligible candidates. This
+   read-only release check neither requests another provider run nor replenishes
+   historical recovery budgets.
 7. Publishes the same Web build in `all` mode and reads back its runtime binding,
    source SHA, production D1, outbox flag, secrets inventory and all routing vars.
    Public smoke requests the production workers.dev origin and explicitly checks
@@ -87,7 +100,10 @@ The two private runtime deployments use `--containers-rollout=immediate` after
 the existing Go gateway has been paused (or while the first-release Web still
 uses legacy Feed). This requests one 100% Container replacement step instead of
 the platform default gradual steps for a two-instance application. It does not
-make rollout transactional or prove instances finished replacing. The actual
+make rollout transactional or prove instances finished replacing. Platform
+rollout inspection retries HTTP 429, 408, 500, 502, 503 and 504 inside the
+existing 300-second, 120-request budget, honors Retry-After up to 30 seconds,
+and still fails closed on 401, 403, 404 and 400. The actual
 image and direct application version still gate admission. Each fixed Durable
 Object captures its own actor ID and native `ctx.container.running` after the
 real Go readiness response, and the Worker compares the actor with
@@ -95,6 +111,39 @@ real Go readiness response, and the Worker compares the actor with
 image receipt. No dashboard instance state/version gates admission or is
 presented as a physical placement attestation. This is a trusted build-chain
 identity check, not hardware remote attestation. See [Cloudflare rollout semantics](https://developers.cloudflare.com/containers/configuration/rollouts/).
+
+## Stale actor configuration during a release
+
+Worker deployment and an already constructed Durable Object can temporarily
+report different versions. The transition preflight shares a 180-second budget for metadata, refresh and
+its paused-state checks, with at most 90 GETs across all three actors. Only the exact preceding off
+version may wait; a different release, image, actor, epoch or unknown version
+stops the release.
+
+If an actor retains that exact off identity after the edge has proved baseline,
+the release may request one authenticated actor refresh. It rechecks the same
+paused Web anchor and records the refresh intent before sending. The actor
+independently verifies the off version and release identity before invoking
+`ctx.abort()` to reset its in-memory instance. Persistent data is not deleted,
+and this request does not explicitly start or stop a container. It is rejected
+while that actor has a lifecycle transition in progress.
+
+A reset can interrupt its own RPC response, so neither an acknowledgement nor a
+lost response proves success. The release never resends a dispatched or uncertain
+refresh; it resumes bounded, read-only configuration checks. Those checks wait
+on HTTP 503 with `container_starting`, `container_dependency_not_ready`,
+`runtime_configuration_unavailable` or `actor_reset_by_deploy`, and never
+dispatch a second refresh for a starting actor. `runtime_configuration_invalid`
+and unknown 503 responses still fail closed. Only an exact
+known-off edge rejection that proves no actor RPC was dispatched permits another
+HTTP attempt, with three attempts maximum and fresh edge, actor and paused-Web
+checks. An actor that has already adopted the exact baseline version rejects the
+reset without mutation and must still pass a subsequent configuration read.
+Allowlisted rejection codes identify the validation stage without exposing secrets. Every actor must report the exact new
+baseline version before the first existing stop/start operation. A reset that
+continues to expose old configuration still fails the release. The subsequent
+native Go readiness checks remain mandatory. See the official
+[Durable Object reset API](https://developers.cloudflare.com/durable-objects/api/state/).
 
 ## Compatibility and containment
 

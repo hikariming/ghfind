@@ -1,4 +1,3 @@
-import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { HomeSnapStrip } from "@/components/HomeSnapStrip";
 import {
@@ -7,6 +6,7 @@ import {
 } from "@/components/ProjectAssessmentCard";
 import { listProjectBoard, type ProjectAssessment } from "@/lib/project-analysis-db";
 import { HOME_MOCK_ASSESSMENTS } from "@/lib/home-mocks";
+import type { Translator } from "@/lib/translator";
 
 const PREVIEW_LIMIT = 8;
 
@@ -17,8 +17,7 @@ const PREVIEW_LIMIT = 8;
  * directly at prerender; the homepage's revalidate window bounds freshness,
  * matching the 1h ISR fetch this replaced.
  */
-export async function HomeProjectBoards({ locale }: { locale: string }) {
-  const t = await getTranslations("projectBoards");
+export async function loadHomeProjectEntries(): Promise<ProjectAssessment[]> {
   let entries: ProjectAssessment[] = [];
   for (const board of ["treasure", "all"] as const) {
     try {
@@ -33,7 +32,19 @@ export async function HomeProjectBoards({ locale }: { locale: string }) {
     if (entries.length >= 4 || board === "all") break;
   }
   if (entries.length === 0 && process.env.NODE_ENV !== "production") entries = HOME_MOCK_ASSESSMENTS;
+  return entries;
+}
 
+export function HomeProjectBoards({
+  locale,
+  t,
+  entries,
+}: {
+  locale: string;
+  /** "projectBoards" namespace. */
+  t: Translator;
+  entries: ProjectAssessment[];
+}) {
   const labels: ProjectAssessmentCardLabels = {
     productScore: t("productScore"),
     confidence: t("confidence"),
@@ -65,9 +76,10 @@ export async function HomeProjectBoards({ locale }: { locale: string }) {
         {entries.map((assessment) => (
           <div
             key={assessment.repoKey}
-            className="flex w-[20rem] shrink-0 snap-start sm:w-[22rem]"
+            className="flex w-[20rem] shrink-0 snap-start items-stretch sm:w-[22rem]"
           >
             <ProjectAssessmentCard
+              variant="compact"
               assessment={assessment}
               labels={labels}
               locale={locale}

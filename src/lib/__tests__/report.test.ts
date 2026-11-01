@@ -35,6 +35,7 @@ describe("reportMatchesLang", () => {
   it("accepts an English report with English structure", () => {
     const md = "## sample-user — 95.20/100 · GOD\n\n**TL;DR**: strong account.\n\n🔥 **Roast**: too good to roast.";
     expect(reportMatchesLang(md, "en")).toBe(true);
+    expect(reportMatchesLang("## u — 90.00/100 · GOD\n\n**Quick Verdict**: solid.\n", "en")).toBe(true);
   });
 
   it("rejects a Chinese report stored under the English cache key", () => {

@@ -84,6 +84,7 @@ browser ─▶ /api/scan ─▶ [Redis cache?] ─▶ lib/github.ts  (GitHub RES
 - **The base score is deterministic** — computed server-side by `lib/score.ts`.
 - The LLM runs in two separated passes: a factual judge may apply a bounded **±10** calibration, then a writer turns the fixed result into tags, the top roast line, and the report. The writer cannot change the score.
 - 6 dimensions (account maturity / original project quality / contribution quality / ecosystem impact / community influence / activity authenticity) + 10 farming red flags. Weights lean toward **hard-to-fake** signals (PRs merged into real repos, sustained activity) and discount **buyable** ones (stars, followers).
+- **Super newcomer bonus**: evidence-backed accounts with strong project substance, contribution quality, ecosystem depth, and activity can earn up to 4 extra maturity points, decaying to zero at age 3. Existing risk deductions stay unchanged. See [the rule and limits](docs/scoring/super-newcomer.md).
 - The site also includes share cards, README badges, profile comments, and GitHub-authenticated profile reactions.
 
 ## ghfind API, MCP server & SDKs
@@ -102,29 +103,16 @@ pnpm install
 cp .env.example .env.local
 ```
 
-Start a local HTTP libSQL server with Docker (or use a hosted Turso database):
+`pnpm dev` uses Wrangler's local D1 emulator and never connects to Cloudflare or
+requires `wrangler login`. Local D1 state persists under `.wrangler/state/v3`.
+Apply the schema locally once before using database-backed features:
 
 ```bash
-docker run -d --name ghfind-libsql -p 127.0.0.1:8080:8080 \
-  -v ghfind-libsql-data:/var/lib/sqld \
-  ghcr.io/tursodatabase/libsql-server:latest
+pnpm exec wrangler d1 migrations apply ghfind --local
+pnpm exec wrangler d1 migrations apply ghfind-feed-dev --local
 ```
 
-On Apple Silicon, use the `latest-arm` image tag; see the
-[libSQL Docker guide](https://github.com/tursodatabase/libsql/blob/main/docs/DOCKER.md).
-The named volume keeps database files outside the checkout. To restart an existing
-container, use `docker start ghfind-libsql`.
-
-Set these values in `.env.local` before starting the app:
-
-```dotenv
-GITHUB_TOKEN=<your GitHub PAT>
-TURSO_DATABASE_URL=http://127.0.0.1:8080
-TURSO_AUTH_TOKEN=
-```
-
-For hosted Turso, use its database URL and auth token instead. The app creates the
-local libSQL schema on first database use. Its web client cannot open `file:` URLs.
+Set `GITHUB_TOKEN` in `.env.local` to enable higher GitHub API rate limits.
 `LLM_API_KEY` is additionally needed for operator-funded roast text, not for
 deterministic scanning and scoring.
 
@@ -165,6 +153,14 @@ pnpm cli:build
 
 The standalone CLI is built as `./bin/ghfind`. The separately published npm SDK
 also provides a `ghfind` executable; it is not installed by the root workspace.
+
+`ghfind bot` uses a personal `ghf_` token from
+[Integrations](https://ghfind.com/integrations). Explicitly select **Manage the
+ghfind Review bot** when creating it, then set `GHFIND_API_KEY` or `--api-key`.
+Existing tokens remain scan-only. All bot commands require this permission;
+repository reads also require write access and changes require admin access.
+Same-owner repository renames and App reinstalls preserve bot settings; an
+owner transfer resets AI opt-ins, allowed intent labels and custom prompts.
 
 The default service host is `https://ghfind.com`. Override it for local dev:
 

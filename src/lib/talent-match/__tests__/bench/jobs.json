@@ -1,0 +1,1164 @@
+{
+ "note": "Job board for the role-family benchmark, modelled on the DeepSeek directions (scripts/data on codex/deepseek-job-directions). Requirements are written the way LLM #1 extracts them, including two pre-review mis-mappings seen in production (HR → technical-writing / team-leadership / prompt-engineering). family is the benchmark label only.",
+ "jobs": [
+  {
+   "id": "pretrain-algo",
+   "family": "pretraining",
+   "title": {
+    "zh": "预训练算法研究员",
+    "en": "Pretraining Researcher"
+   },
+   "requirement": {
+    "title": {
+     "zh": "预训练算法研究员",
+     "en": "Pretraining Researcher"
+    },
+    "direction": "ai",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [
+     {
+      "id": "deep-learning",
+      "level": 3
+     },
+     {
+      "id": "llm-training",
+      "level": 3
+     },
+     {
+      "id": "pytorch",
+      "level": 3
+     }
+    ],
+    "niceToHave": [
+     {
+      "id": "distributed-training",
+      "level": 2
+     },
+     {
+      "id": "nlp",
+      "level": 2
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "pretrain-data",
+   "family": "pretraining",
+   "title": {
+    "zh": "预训练数据研究员",
+    "en": "Pretraining Data Researcher"
+   },
+   "requirement": {
+    "title": {
+     "zh": "预训练数据研究员",
+     "en": "Pretraining Data Researcher"
+    },
+    "direction": "ai",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [
+     {
+      "id": "llm-training",
+      "level": 2
+     },
+     {
+      "id": "data-engineering",
+      "level": 3
+     },
+     {
+      "id": "python",
+      "level": 3
+     }
+    ],
+    "niceToHave": [
+     {
+      "id": "spark",
+      "level": 2
+     },
+     {
+      "id": "nlp",
+      "level": 2
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "data-infra",
+   "family": "data",
+   "title": {
+    "zh": "预训练数据工程师 · 数据基建",
+    "en": "Pretraining Data Infrastructure Engineer"
+   },
+   "requirement": {
+    "title": {
+     "zh": "预训练数据工程师 · 数据基建",
+     "en": "Pretraining Data Infrastructure Engineer"
+    },
+    "direction": "infra",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [
+     {
+      "id": "python",
+      "level": 3
+     },
+     {
+      "id": "data-engineering",
+      "level": 3
+     },
+     {
+      "id": "distributed-systems",
+      "level": 2
+     }
+    ],
+    "niceToHave": [
+     {
+      "id": "spark",
+      "level": 2
+     },
+     {
+      "id": "kafka",
+      "level": 2
+     },
+     {
+      "id": "storage-systems",
+      "level": 2
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "posttrain",
+   "family": "post-training",
+   "title": {
+    "zh": "后训练（数据/算法）研究员",
+    "en": "Post-training Researcher"
+   },
+   "requirement": {
+    "title": {
+     "zh": "后训练（数据/算法）研究员",
+     "en": "Post-training Researcher"
+    },
+    "direction": "ai",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [
+     {
+      "id": "rlhf",
+      "level": 3
+     },
+     {
+      "id": "llm-training",
+      "level": 2
+     },
+     {
+      "id": "python",
+      "level": 3
+     }
+    ],
+    "niceToHave": [
+     {
+      "id": "reinforcement-learning",
+      "level": 3
+     },
+     {
+      "id": "llm-evaluation",
+      "level": 2
+     },
+     {
+      "id": "pytorch",
+      "level": 2
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "frontier-rl",
+   "family": "rl",
+   "title": {
+    "zh": "Frontier 研究员（持续学习 / 自进化）",
+    "en": "Frontier Researcher (RL / self-improvement)"
+   },
+   "requirement": {
+    "title": {
+     "zh": "Frontier 研究员（持续学习 / 自进化）",
+     "en": "Frontier Researcher (RL / self-improvement)"
+    },
+    "direction": "ai",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [
+     {
+      "id": "reinforcement-learning",
+      "level": 3
+     },
+     {
+      "id": "deep-learning",
+      "level": 3
+     }
+    ],
+    "niceToHave": [
+     {
+      "id": "llm-training",
+      "level": 2
+     },
+     {
+      "id": "rlhf",
+      "level": 2
+     },
+     {
+      "id": "pytorch",
+      "level": 2
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "framework",
+   "family": "infra",
+   "title": {
+    "zh": "大模型训练/推理框架工程师",
+    "en": "LLM Training / Inference Framework Engineer"
+   },
+   "requirement": {
+    "title": {
+     "zh": "大模型训练/推理框架工程师",
+     "en": "LLM Training / Inference Framework Engineer"
+    },
+    "direction": "ai",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [
+     {
+      "id": "python",
+      "level": 3
+     },
+     {
+      "id": "cpp",
+      "level": 3
+     },
+     {
+      "id": "rust",
+      "level": 3
+     },
+     {
+      "id": "pytorch",
+      "level": 2
+     }
+    ],
+    "niceToHave": [
+     {
+      "id": "open-source-maintenance",
+      "level": 3
+     },
+     {
+      "id": "cuda",
+      "level": 2
+     },
+     {
+      "id": "triton",
+      "level": 2
+     },
+     {
+      "id": "gpu-kernels",
+      "level": 2
+     },
+     {
+      "id": "networking",
+      "level": 2
+     },
+     {
+      "id": "hpc",
+      "level": 2
+     },
+     {
+      "id": "llm-inference",
+      "level": 2
+     },
+     {
+      "id": "distributed-training",
+      "level": 2
+     },
+     {
+      "id": "reinforcement-learning",
+      "level": 1
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "inference",
+   "family": "inference",
+   "title": {
+    "zh": "推理系统工程师",
+    "en": "Inference Systems Engineer"
+   },
+   "requirement": {
+    "title": {
+     "zh": "推理系统工程师",
+     "en": "Inference Systems Engineer"
+    },
+    "direction": "ai",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [
+     {
+      "id": "llm-inference",
+      "level": 3
+     },
+     {
+      "id": "python",
+      "level": 3
+     },
+     {
+      "id": "distributed-systems",
+      "level": 2
+     }
+    ],
+    "niceToHave": [
+     {
+      "id": "cpp",
+      "level": 2
+     },
+     {
+      "id": "cuda",
+      "level": 2
+     },
+     {
+      "id": "kubernetes",
+      "level": 2
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "kernels",
+   "family": "infra",
+   "title": {
+    "zh": "高性能算子 / 通信 / 编译器工程师",
+    "en": "Kernel / Communication / Compiler Engineer"
+   },
+   "requirement": {
+    "title": {
+     "zh": "高性能算子 / 通信 / 编译器工程师",
+     "en": "Kernel / Communication / Compiler Engineer"
+    },
+    "direction": "ai",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [
+     {
+      "id": "cuda",
+      "level": 3
+     },
+     {
+      "id": "cpp",
+      "level": 3
+     },
+     {
+      "id": "gpu-kernels",
+      "level": 3
+     }
+    ],
+    "niceToHave": [
+     {
+      "id": "triton",
+      "level": 2
+     },
+     {
+      "id": "compilers",
+      "level": 2
+     },
+     {
+      "id": "networking",
+      "level": 2
+     },
+     {
+      "id": "hpc",
+      "level": 2
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "cluster",
+   "family": "infra",
+   "title": {
+    "zh": "超算集群工程师 · 集群调度",
+    "en": "Supercomputing Cluster Engineer · Scheduling"
+   },
+   "requirement": {
+    "title": {
+     "zh": "超算集群工程师 · 集群调度",
+     "en": "Supercomputing Cluster Engineer · Scheduling"
+    },
+    "direction": "infra",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [
+     {
+      "id": "kubernetes",
+      "level": 3
+     },
+     {
+      "id": "linux",
+      "level": 3
+     },
+     {
+      "id": "gpu-cluster",
+      "level": 2
+     }
+    ],
+    "niceToHave": [
+     {
+      "id": "go",
+      "level": 2
+     },
+     {
+      "id": "distributed-systems",
+      "level": 2
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "harness-research",
+   "family": "harness",
+   "title": {
+    "zh": "Agent Harness 深度学习研究员",
+    "en": "Agent Harness Researcher"
+   },
+   "requirement": {
+    "title": {
+     "zh": "Agent Harness 深度学习研究员",
+     "en": "Agent Harness Researcher"
+    },
+    "direction": "agent",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [
+     {
+      "id": "llm-agents",
+      "level": 3
+     },
+     {
+      "id": "llm-evaluation",
+      "level": 3
+     },
+     {
+      "id": "python",
+      "level": 3
+     }
+    ],
+    "niceToHave": [
+     {
+      "id": "reinforcement-learning",
+      "level": 2
+     },
+     {
+      "id": "deep-learning",
+      "level": 2
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "harness-eng",
+   "family": "harness",
+   "title": {
+    "zh": "Agent Harness 研发工程师",
+    "en": "Agent Harness Engineer"
+   },
+   "requirement": {
+    "title": {
+     "zh": "Agent Harness 研发工程师",
+     "en": "Agent Harness Engineer"
+    },
+    "direction": "agent",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [
+     {
+      "id": "llm-agents",
+      "level": 3
+     },
+     {
+      "id": "python",
+      "level": 3
+     },
+     {
+      "id": "typescript",
+      "level": 2
+     }
+    ],
+    "niceToHave": [
+     {
+      "id": "docker",
+      "level": 2
+     },
+     {
+      "id": "devtools",
+      "level": 2
+     },
+     {
+      "id": "testing",
+      "level": 2
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "harness-devrel",
+   "family": "devrel",
+   "title": {
+    "zh": "Agent Harness 开发者关系",
+    "en": "Agent Harness Developer Relations"
+   },
+   "requirement": {
+    "title": {
+     "zh": "Agent Harness 开发者关系",
+     "en": "Agent Harness Developer Relations"
+    },
+    "direction": "agent",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [
+     {
+      "id": "technical-writing",
+      "level": 3
+     }
+    ],
+    "niceToHave": [
+     {
+      "id": "llm-agents",
+      "level": 2
+     },
+     {
+      "id": "open-source-maintenance",
+      "level": 2
+     },
+     {
+      "id": "python",
+      "level": 2
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "devrel-api",
+   "family": "devrel",
+   "title": {
+    "zh": "开发者关系 · 模型 API 与开源生态",
+    "en": "Developer Relations · Model API & Open Source"
+   },
+   "requirement": {
+    "title": {
+     "zh": "开发者关系 · 模型 API 与开源生态",
+     "en": "Developer Relations · Model API & Open Source"
+    },
+    "direction": "ai",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [
+     {
+      "id": "technical-writing",
+      "level": 3
+     },
+     {
+      "id": "open-source-maintenance",
+      "level": 2
+     }
+    ],
+    "niceToHave": [
+     {
+      "id": "python",
+      "level": 2
+     },
+     {
+      "id": "llm-inference",
+      "level": 1
+     },
+     {
+      "id": "prompt-engineering",
+      "level": 2
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "harness-pm",
+   "family": "pm",
+   "title": {
+    "zh": "Agent Harness 产品经理",
+    "en": "Agent Harness Product Manager"
+   },
+   "requirement": {
+    "title": {
+     "zh": "Agent Harness 产品经理",
+     "en": "Agent Harness Product Manager"
+    },
+    "direction": "agent",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [],
+    "niceToHave": [
+     {
+      "id": "llm-agents",
+      "level": 2
+     },
+     {
+      "id": "prompt-engineering",
+      "level": 2
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "ai-pm",
+   "family": "pm",
+   "title": {
+    "zh": "AI 产品经理 · Chat / App / 开放平台",
+    "en": "AI Product Manager · Chat / App / Platform"
+   },
+   "requirement": {
+    "title": {
+     "zh": "AI 产品经理 · Chat / App / 开放平台",
+     "en": "AI Product Manager · Chat / App / Platform"
+    },
+    "direction": "ai",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [
+     {
+      "id": "prompt-engineering",
+      "level": 2
+     }
+    ],
+    "niceToHave": [
+     {
+      "id": "llm-agents",
+      "level": 1
+     },
+     {
+      "id": "llm-evaluation",
+      "level": 1
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "data-pm",
+   "family": "pm",
+   "title": {
+    "zh": "通用 Agent 数据产品经理",
+    "en": "Agent Data Product Manager"
+   },
+   "requirement": {
+    "title": {
+     "zh": "通用 Agent 数据产品经理",
+     "en": "Agent Data Product Manager"
+    },
+    "direction": "agent",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [
+     {
+      "id": "prompt-engineering",
+      "level": 3
+     },
+     {
+      "id": "llm-evaluation",
+      "level": 2
+     }
+    ],
+    "niceToHave": [
+     {
+      "id": "llm-agents",
+      "level": 2
+     },
+     {
+      "id": "python",
+      "level": 1
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "hr-recruiting",
+   "family": "hr",
+   "title": {
+    "zh": "招聘 HR",
+    "en": "Recruiting HR"
+   },
+   "requirement": {
+    "title": {
+     "zh": "招聘 HR",
+     "en": "Recruiting HR"
+    },
+    "direction": "other",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [],
+    "niceToHave": [
+     {
+      "id": "technical-writing",
+      "level": 1
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "hr-services",
+   "family": "hr",
+   "title": {
+    "zh": "综合服务 HR",
+    "en": "HR Generalist"
+   },
+   "requirement": {
+    "title": {
+     "zh": "综合服务 HR",
+     "en": "HR Generalist"
+    },
+    "direction": "other",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [
+     {
+      "id": "team-leadership",
+      "level": 1
+     }
+    ],
+    "niceToHave": [
+     {
+      "id": "prompt-engineering",
+      "level": 1
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "sales",
+   "family": "sales",
+   "title": {
+    "zh": "企业客户销售（大模型 API）",
+    "en": "Enterprise Sales (LLM API)"
+   },
+   "requirement": {
+    "title": {
+     "zh": "企业客户销售（大模型 API）",
+     "en": "Enterprise Sales (LLM API)"
+    },
+    "direction": "other",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [],
+    "niceToHave": [
+     {
+      "id": "llm-inference",
+      "level": 1
+     },
+     {
+      "id": "technical-writing",
+      "level": 1
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "trainee",
+   "family": "trainee",
+   "title": {
+    "zh": "AGI 核心业务管培生",
+    "en": "AGI Business Management Trainee"
+   },
+   "requirement": {
+    "title": {
+     "zh": "AGI 核心业务管培生",
+     "en": "AGI Business Management Trainee"
+    },
+    "direction": "other",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [],
+    "niceToHave": [
+     {
+      "id": "machine-learning",
+      "level": 1
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "product-ops",
+   "family": "ops",
+   "title": {
+    "zh": "产品运营 · DeepSeek 产品",
+    "en": "Product Operations"
+   },
+   "requirement": {
+    "title": {
+     "zh": "产品运营 · DeepSeek 产品",
+     "en": "Product Operations"
+    },
+    "direction": "other",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [],
+    "niceToHave": [
+     {
+      "id": "prompt-engineering",
+      "level": 1
+     },
+     {
+      "id": "sql",
+      "level": 1
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "tech-ops",
+   "family": "ops",
+   "title": {
+    "zh": "技术运营",
+    "en": "Technical Operations"
+   },
+   "requirement": {
+    "title": {
+     "zh": "技术运营",
+     "en": "Technical Operations"
+    },
+    "direction": "other",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [
+     {
+      "id": "python",
+      "level": 1
+     }
+    ],
+    "niceToHave": [
+     {
+      "id": "linux",
+      "level": 1
+     },
+     {
+      "id": "llm-agents",
+      "level": 1
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "finance",
+   "family": "finance",
+   "title": {
+    "zh": "出纳",
+    "en": "Cashier"
+   },
+   "requirement": {
+    "title": {
+     "zh": "出纳",
+     "en": "Cashier"
+    },
+    "direction": "other",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [],
+    "niceToHave": [],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "cross-talent",
+   "family": "generalist",
+   "title": {
+    "zh": "AI 跨界技术人才",
+    "en": "AI Cross-disciplinary Talent"
+   },
+   "requirement": {
+    "title": {
+     "zh": "AI 跨界技术人才",
+     "en": "AI Cross-disciplinary Talent"
+    },
+    "direction": "ai",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [
+     {
+      "id": "python",
+      "level": 1
+     }
+    ],
+    "niceToHave": [
+     {
+      "id": "open-source-maintenance",
+      "level": 2
+     },
+     {
+      "id": "machine-learning",
+      "level": 1
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "frontend",
+   "family": "frontend",
+   "title": {
+    "zh": "前端开发工程师",
+    "en": "Frontend Engineer"
+   },
+   "requirement": {
+    "title": {
+     "zh": "前端开发工程师",
+     "en": "Frontend Engineer"
+    },
+    "direction": "frontend",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [
+     {
+      "id": "typescript",
+      "level": 3
+     },
+     {
+      "id": "react",
+      "level": 3
+     },
+     {
+      "id": "css",
+      "level": 2
+     }
+    ],
+    "niceToHave": [
+     {
+      "id": "nextjs",
+      "level": 2
+     },
+     {
+      "id": "web-performance",
+      "level": 2
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "backend",
+   "family": "backend",
+   "title": {
+    "zh": "服务端开发工程师 · 线上服务",
+    "en": "Backend Engineer · Online Services"
+   },
+   "requirement": {
+    "title": {
+     "zh": "服务端开发工程师 · 线上服务",
+     "en": "Backend Engineer · Online Services"
+    },
+    "direction": "infra",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [
+     {
+      "id": "go",
+      "level": 3
+     },
+     {
+      "id": "distributed-systems",
+      "level": 3
+     },
+     {
+      "id": "high-concurrency",
+      "level": 2
+     }
+    ],
+    "niceToHave": [
+     {
+      "id": "kubernetes",
+      "level": 2
+     },
+     {
+      "id": "redis",
+      "level": 2
+     },
+     {
+      "id": "mysql",
+      "level": 2
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  },
+  {
+   "id": "test-dev",
+   "family": "qa",
+   "title": {
+    "zh": "测试开发工程师",
+    "en": "Test Development Engineer"
+   },
+   "requirement": {
+    "title": {
+     "zh": "测试开发工程师",
+     "en": "Test Development Engineer"
+    },
+    "direction": "tools",
+    "yearsMin": null,
+    "location": "北京",
+    "employment": [
+     "full_time"
+    ],
+    "mustHave": [
+     {
+      "id": "python",
+      "level": 2
+     },
+     {
+      "id": "testing",
+      "level": 3
+     }
+    ],
+    "niceToHave": [
+     {
+      "id": "ci-cd",
+      "level": 2
+     },
+     {
+      "id": "docker",
+      "level": 1
+     }
+    ],
+    "degree": "none",
+    "research": "none"
+   }
+  }
+ ]
+}

@@ -29,9 +29,9 @@ type Registry struct {
 // RequiredRegistry selects the current physical schema. Historical manifests use
 // RegistryForSchema so their serialized coverage and digests remain unchanged.
 func RequiredRegistry(profile string) (Registry, error) {
-	schema := int64(22)
+	schema := int64(23)
 	if profile == "cf_d1_r2" {
-		schema = 12
+		schema = 15
 	}
 	return RegistryForSchema(profile, schema)
 }
@@ -45,11 +45,11 @@ func RegistryForSchema(profile string, schema int64) (Registry, error) {
 	}
 	switch profile {
 	case "cf_d1_r2":
-		if schema != 11 && schema != 12 {
+		if schema != 11 && schema != 12 && schema != 13 && schema != 14 && schema != 15 {
 			return Registry{}, invalid("identity")
 		}
 		r.Schema = schema
-		if schema == 12 {
+		if schema >= 12 {
 			add("empty", "control", "feed_adapter_write_context")
 			// Capture/apply must initialize enabled=1 independently, never replay
 			// the source authorization state. No row mapper is implemented here.
@@ -61,10 +61,10 @@ func RegistryForSchema(profile string, schema int64) (Registry, error) {
 		add("capture", "mixed", "feed_runtime_outbox", "feed_rate_windows")
 		add("capture", "shared", "feed_cleanup_policy", "feed_delivery_heads", "feed_delivery_terminals", "feed_execution_jobs", "feed_operator_actions", "feed_project_moderation", "feed_project_source_versions", "feed_project_tags", "feed_projects", "feed_replay_deliveries", "feed_runtime_control", "feed_schema_compatibility", "feed_submission_provenance", "feed_tag_aliases", "feed_tag_definitions", "feed_tag_proposals", "feed_taxonomy_versions", "feed_governance_commands")
 	case "postgres":
-		if schema != 22 {
+		if schema != 22 && schema != 23 {
 			return Registry{}, invalid("identity")
 		}
-		r.Schema = 22
+		r.Schema = schema
 		add("capture", "actor", "feed.users", "feed.user_tag_preferences", "feed.user_project_state", "feed.user_profile_embeddings", "feed.requests", "feed.served_items", "feed.events", "feed.sessions", "feed.tag_proposal_commands", "feed.user_proposal_authors", "feed.behavior_signals")
 		add("capture", "control", "feed.user_deletion_tombstones", "feed.archive_objects")
 		add("capture", "mixed", "feed.tag_proposals", "feed.event_outbox", "feed.gorse_shadow_results")

@@ -31,8 +31,8 @@ func (s *TursoStore) GetFacetRank(ctx context.Context, username string) (*FacetR
 	var score float64
 	err := s.db.QueryRowContext(ctx, `SELECT username, final_score
 		FROM scores
-		WHERE username = ? AND hidden = 0 AND score_version = ?
-		LIMIT 1`, username, canonicalScoreVersion).Scan(&canonicalUsername, &score)
+		WHERE username = ? AND hidden = 0 AND `+publicScoreVersionClause("score_version")+`
+		LIMIT 1`, append([]any{username}, publicScoreVersionArgs()...)...).Scan(&canonicalUsername, &score)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -62,8 +62,8 @@ func (s *TursoStore) GetFacetRank(ctx context.Context, username string) (*FacetR
 		WHERE f.facet_type = 'language'
 		  AND f.facet_value = ?
 		  AND s.hidden = 0
-		  AND s.score_version = ?
-		  AND s.final_score >= ?`, score, facetValue, canonicalScoreVersion, leaderboardMinScore).Scan(&above, &total); err != nil {
+		  AND `+publicScoreVersionClause("s.score_version")+`
+		  AND s.final_score >= ?`, append([]any{score, facetValue}, append(publicScoreVersionArgs(), leaderboardMinScore)...)...).Scan(&above, &total); err != nil {
 		return nil, fmt.Errorf("count facet rank: %w", err)
 	}
 	if total <= 1 {
@@ -79,10 +79,10 @@ func (s *TursoStore) GetFacetRank(ctx context.Context, username string) (*FacetR
 		WHERE f.facet_type = 'language'
 		  AND f.facet_value = ?
 		  AND s.hidden = 0
-		  AND s.score_version = ?
+		  AND `+publicScoreVersionClause("s.score_version")+`
 		  AND s.final_score > ?
 		ORDER BY s.final_score ASC
-		LIMIT 1`, facetValue, canonicalScoreVersion, score).Scan(&ahead.Username, &ahead.FinalScore)
+		LIMIT 1`, append([]any{facetValue}, append(publicScoreVersionArgs(), score)...)...).Scan(&ahead.Username, &ahead.FinalScore)
 	if err == nil {
 		result.Ahead = &ahead
 	} else if err != sql.ErrNoRows {

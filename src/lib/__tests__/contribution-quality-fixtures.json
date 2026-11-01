@@ -1,0 +1,878 @@
+[
+  {
+    "name": "问题复现：自有组织为主",
+    "metrics": {
+      "username": "fiction-own-lab",
+      "profile_url": null,
+      "avatar_url": null,
+      "name": "Fiction Lab",
+      "bio": "developer",
+      "company": null,
+      "account_age_years": 8,
+      "created_at": "2018-01-01T00:00:00Z",
+      "followers": 70,
+      "following": 10,
+      "public_repos": 10,
+      "fetched_repo_count": 10,
+      "original_repo_count": 5,
+      "nonempty_original_repo_count": 5,
+      "fork_repo_count": 0,
+      "empty_original_repo_count": 0,
+      "total_stars": 2507,
+      "max_stars": 2507,
+      "best_original_repo_quality_score": 1,
+      "merged_pr_count": 123,
+      "external_merged_pr_count": 0,
+      "own_pr_community": 0,
+      "workflow_landed_pr_count": 0,
+      "total_pr_count": 151,
+      "issues_created": 100,
+      "last_year_contributions": 2500,
+      "activity_type_count": 4,
+      "contribution_years_active": 5,
+      "days_since_last_activity": 1,
+      "recent_merged_pr_sample": 30,
+      "recent_trivial_pr_count": 0,
+      "external_trivial_pr_count": 0,
+      "max_impact_repo_stars": 2507,
+      "impact_prestige_score": 0.6,
+      "impact_pr_count": 123,
+      "core_impact_pr_count": 5,
+      "impact_depth_raw": 4.218181818181818,
+      "star_inflation_suspect": false,
+      "closed_unmerged_pr_count": 26,
+      "maintainer_closed_unmerged_pr_count": 2,
+      "self_closed_external_pr_count": 22,
+      "self_closed_own_repo_pr_count": 2,
+      "unknown_closed_unmerged_pr_count": 0,
+      "pr_rejection_rate": 0.02,
+      "recent_pr_sample": 30,
+      "top_repo_pr_target": "fiction-lab/engine",
+      "top_repo_pr_share": 0.5,
+      "templated_pr_ratio": 0,
+      "pr_flood_suspect": false
+    },
+    "before": {
+      "sub_scores": {
+        "account_maturity": 10,
+        "original_project_quality": 17.4,
+        "contribution_quality": 27,
+        "ecosystem_impact": 11.2,
+        "community_influence": 5.8,
+        "activity_authenticity": 17
+      },
+      "base_score": 88.4,
+      "red_flags": [],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 0,
+        "level": "none",
+        "confidence": 84,
+        "applied_penalty": 0,
+        "signals": [],
+        "coverage": {
+          "repo": 1,
+          "merged_pr": 0.6,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 0,
+      "final_score": 88.4,
+      "tier": "顶级",
+      "tier_label": "顶级开发者 · 一线水准"
+    },
+    "expected": {
+      "sub_scores": {
+        "account_maturity": 10,
+        "original_project_quality": 17.4,
+        "contribution_quality": 20,
+        "ecosystem_impact": 12.6,
+        "community_influence": 5.8,
+        "activity_authenticity": 17
+      },
+      "base_score": 82.8,
+      "red_flags": [],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 0,
+        "level": "none",
+        "confidence": 84,
+        "applied_penalty": 0,
+        "signals": [],
+        "coverage": {
+          "repo": 1,
+          "merged_pr": 0.6,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 0,
+      "final_score": 82.8,
+      "tier": "顶级",
+      "tier_label": "顶级开发者 · 一线水准"
+    },
+    "cap": 20
+  },
+  {
+    "name": "真实外部贡献者",
+    "metrics": {
+      "username": "fiction-external-core",
+      "profile_url": null,
+      "avatar_url": null,
+      "name": "Fiction Lab",
+      "bio": "developer",
+      "company": null,
+      "account_age_years": 8,
+      "created_at": "2018-01-01T00:00:00Z",
+      "followers": 70,
+      "following": 10,
+      "public_repos": 10,
+      "fetched_repo_count": 10,
+      "original_repo_count": 5,
+      "nonempty_original_repo_count": 5,
+      "fork_repo_count": 0,
+      "empty_original_repo_count": 0,
+      "total_stars": 100,
+      "max_stars": 100,
+      "best_original_repo_quality_score": 1,
+      "merged_pr_count": 600,
+      "external_merged_pr_count": 600,
+      "own_pr_community": 0,
+      "workflow_landed_pr_count": 0,
+      "total_pr_count": 640,
+      "issues_created": 100,
+      "last_year_contributions": 2500,
+      "activity_type_count": 4,
+      "contribution_years_active": 5,
+      "days_since_last_activity": 1,
+      "recent_merged_pr_sample": 30,
+      "recent_trivial_pr_count": 0,
+      "external_trivial_pr_count": 0,
+      "max_impact_repo_stars": 2507,
+      "impact_prestige_score": 0.9,
+      "impact_pr_count": 123,
+      "core_impact_pr_count": 80,
+      "impact_depth_raw": 8,
+      "star_inflation_suspect": false,
+      "closed_unmerged_pr_count": 26,
+      "maintainer_closed_unmerged_pr_count": 10,
+      "self_closed_external_pr_count": 22,
+      "self_closed_own_repo_pr_count": 2,
+      "unknown_closed_unmerged_pr_count": 0,
+      "pr_rejection_rate": 0.02,
+      "recent_pr_sample": 30,
+      "top_repo_pr_target": "fiction-lab/engine",
+      "top_repo_pr_share": 0.5,
+      "templated_pr_ratio": 0,
+      "pr_flood_suspect": false
+    },
+    "before": {
+      "sub_scores": {
+        "account_maturity": 10,
+        "original_project_quality": 12.8,
+        "contribution_quality": 27,
+        "ecosystem_impact": 19.1,
+        "community_influence": 5.8,
+        "activity_authenticity": 17
+      },
+      "base_score": 91.7,
+      "red_flags": [],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 0,
+        "level": "none",
+        "confidence": 84,
+        "applied_penalty": 0,
+        "signals": [],
+        "coverage": {
+          "repo": 1,
+          "merged_pr": 0.6,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 0,
+      "final_score": 91.7,
+      "tier": "夯",
+      "tier_label": "封神 · 殿堂级标杆"
+    },
+    "expected": {
+      "sub_scores": {
+        "account_maturity": 10,
+        "original_project_quality": 12.8,
+        "contribution_quality": 26.8,
+        "ecosystem_impact": 17.6,
+        "community_influence": 5.8,
+        "activity_authenticity": 17
+      },
+      "base_score": 90,
+      "red_flags": [],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 0,
+        "level": "none",
+        "confidence": 84,
+        "applied_penalty": 0,
+        "signals": [],
+        "coverage": {
+          "repo": 1,
+          "merged_pr": 0.6,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 0,
+      "final_score": 90,
+      "tier": "夯",
+      "tier_label": "封神 · 殿堂级标杆"
+    },
+    "cap": 26.996128409408968
+  },
+  {
+    "name": "只给自己组织提 PR",
+    "metrics": {
+      "username": "fiction-solo-org",
+      "profile_url": null,
+      "avatar_url": null,
+      "name": "Fiction Lab",
+      "bio": "developer",
+      "company": null,
+      "account_age_years": 8,
+      "created_at": "2018-01-01T00:00:00Z",
+      "followers": 70,
+      "following": 10,
+      "public_repos": 10,
+      "fetched_repo_count": 10,
+      "original_repo_count": 5,
+      "nonempty_original_repo_count": 5,
+      "fork_repo_count": 0,
+      "empty_original_repo_count": 0,
+      "total_stars": 2507,
+      "max_stars": 2507,
+      "best_original_repo_quality_score": 1,
+      "merged_pr_count": 600,
+      "external_merged_pr_count": 0,
+      "own_pr_community": 0,
+      "workflow_landed_pr_count": 0,
+      "total_pr_count": 602,
+      "issues_created": 100,
+      "last_year_contributions": 2500,
+      "activity_type_count": 4,
+      "contribution_years_active": 5,
+      "days_since_last_activity": 1,
+      "recent_merged_pr_sample": 30,
+      "recent_trivial_pr_count": 0,
+      "external_trivial_pr_count": 0,
+      "max_impact_repo_stars": 2507,
+      "impact_prestige_score": 0.6,
+      "impact_pr_count": 123,
+      "core_impact_pr_count": 0,
+      "impact_depth_raw": 4.218181818181818,
+      "star_inflation_suspect": false,
+      "closed_unmerged_pr_count": 26,
+      "maintainer_closed_unmerged_pr_count": 2,
+      "self_closed_external_pr_count": 22,
+      "self_closed_own_repo_pr_count": 2,
+      "unknown_closed_unmerged_pr_count": 0,
+      "pr_rejection_rate": 0.02,
+      "recent_pr_sample": 30,
+      "top_repo_pr_target": "fiction-lab/engine",
+      "top_repo_pr_share": 0.5,
+      "templated_pr_ratio": 0,
+      "pr_flood_suspect": false
+    },
+    "before": {
+      "sub_scores": {
+        "account_maturity": 10,
+        "original_project_quality": 17.4,
+        "contribution_quality": 27,
+        "ecosystem_impact": 11.2,
+        "community_influence": 5.8,
+        "activity_authenticity": 17
+      },
+      "base_score": 88.4,
+      "red_flags": [],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 0,
+        "level": "none",
+        "confidence": 84,
+        "applied_penalty": 0,
+        "signals": [],
+        "coverage": {
+          "repo": 1,
+          "merged_pr": 0.6,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 0,
+      "final_score": 88.4,
+      "tier": "顶级",
+      "tier_label": "顶级开发者 · 一线水准"
+    },
+    "expected": {
+      "sub_scores": {
+        "account_maturity": 10,
+        "original_project_quality": 17.4,
+        "contribution_quality": 20,
+        "ecosystem_impact": 12.6,
+        "community_influence": 5.8,
+        "activity_authenticity": 17
+      },
+      "base_score": 82.8,
+      "red_flags": [],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 0,
+        "level": "none",
+        "confidence": 84,
+        "applied_penalty": 0,
+        "signals": [],
+        "coverage": {
+          "repo": 1,
+          "merged_pr": 0.6,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 0,
+      "final_score": 82.8,
+      "tier": "顶级",
+      "tier_label": "顶级开发者 · 一线水准"
+    },
+    "cap": 20
+  },
+  {
+    "name": "高拒收率",
+    "metrics": {
+      "username": "fiction-rejected",
+      "profile_url": null,
+      "avatar_url": null,
+      "name": "Fiction Lab",
+      "bio": "developer",
+      "company": null,
+      "account_age_years": 8,
+      "created_at": "2018-01-01T00:00:00Z",
+      "followers": 70,
+      "following": 10,
+      "public_repos": 10,
+      "fetched_repo_count": 10,
+      "original_repo_count": 5,
+      "nonempty_original_repo_count": 5,
+      "fork_repo_count": 0,
+      "empty_original_repo_count": 0,
+      "total_stars": 2507,
+      "max_stars": 2507,
+      "best_original_repo_quality_score": 1,
+      "merged_pr_count": 123,
+      "external_merged_pr_count": 123,
+      "own_pr_community": 0,
+      "workflow_landed_pr_count": 0,
+      "total_pr_count": 400,
+      "issues_created": 100,
+      "last_year_contributions": 2500,
+      "activity_type_count": 4,
+      "contribution_years_active": 5,
+      "days_since_last_activity": 1,
+      "recent_merged_pr_sample": 30,
+      "recent_trivial_pr_count": 0,
+      "external_trivial_pr_count": 0,
+      "max_impact_repo_stars": 2507,
+      "impact_prestige_score": 0.85,
+      "impact_pr_count": 123,
+      "core_impact_pr_count": 10,
+      "impact_depth_raw": 4.218181818181818,
+      "star_inflation_suspect": false,
+      "closed_unmerged_pr_count": 277,
+      "maintainer_closed_unmerged_pr_count": 277,
+      "self_closed_external_pr_count": 0,
+      "self_closed_own_repo_pr_count": 0,
+      "unknown_closed_unmerged_pr_count": 0,
+      "pr_rejection_rate": 0.69,
+      "recent_pr_sample": 30,
+      "top_repo_pr_target": "fiction-lab/engine",
+      "top_repo_pr_share": 0.5,
+      "templated_pr_ratio": 0,
+      "pr_flood_suspect": false
+    },
+    "before": {
+      "sub_scores": {
+        "account_maturity": 10,
+        "original_project_quality": 17.4,
+        "contribution_quality": 23.3,
+        "ecosystem_impact": 13.4,
+        "community_influence": 5.8,
+        "activity_authenticity": 17
+      },
+      "base_score": 86.9,
+      "red_flags": [
+        {
+          "flag": "high_pr_rejection",
+          "penalty": 2.46,
+          "detail": "维护者关闭未合并的 PR 的 Wilson 95% 下界达到量化阈值。"
+        }
+      ],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 9.84,
+        "level": "none",
+        "confidence": 84,
+        "applied_penalty": 2.46,
+        "signals": [
+          {
+            "flag": "high_pr_rejection",
+            "family": "contribution",
+            "disposition": "penalty",
+            "severity": 0.6141,
+            "confidence": 0.84,
+            "penalty": 2.46,
+            "detail": "维护者关闭未合并的 PR 的 Wilson 95% 下界达到量化阈值。",
+            "evidence": {
+              "observed": {
+                "maintainer_closed_unmerged_pr_count": 277,
+                "merged_pr_count": 123,
+                "decided_pr_count": 400,
+                "wilson_lower": 0.6456
+              },
+              "coverage": {
+                "repo": 1,
+                "merged_pr": 0.6,
+                "all_pr": 1
+              },
+              "window": "bounded public snapshot: up to 200 repositories, up to 50 merged PRs, up to 30 all-state PRs",
+              "sample_size": 400,
+              "threshold": {
+                "minimum_decisions": 20,
+                "wilson_lower": 0.4
+              }
+            }
+          }
+        ],
+        "coverage": {
+          "repo": 1,
+          "merged_pr": 0.6,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 2.46,
+      "final_score": 84.44,
+      "tier": "顶级",
+      "tier_label": "顶级开发者 · 一线水准"
+    },
+    "expected": {
+      "sub_scores": {
+        "account_maturity": 10,
+        "original_project_quality": 17.4,
+        "contribution_quality": 23.3,
+        "ecosystem_impact": 14.8,
+        "community_influence": 5.8,
+        "activity_authenticity": 17
+      },
+      "base_score": 88.3,
+      "red_flags": [
+        {
+          "flag": "high_pr_rejection",
+          "penalty": 2.46,
+          "detail": "维护者关闭未合并的 PR 的 Wilson 95% 下界达到量化阈值。"
+        }
+      ],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 9.84,
+        "level": "none",
+        "confidence": 84,
+        "applied_penalty": 2.46,
+        "signals": [
+          {
+            "flag": "high_pr_rejection",
+            "family": "contribution",
+            "disposition": "penalty",
+            "severity": 0.6141,
+            "confidence": 0.84,
+            "penalty": 2.46,
+            "detail": "维护者关闭未合并的 PR 的 Wilson 95% 下界达到量化阈值。",
+            "evidence": {
+              "observed": {
+                "maintainer_closed_unmerged_pr_count": 277,
+                "merged_pr_count": 123,
+                "decided_pr_count": 400,
+                "wilson_lower": 0.6456
+              },
+              "coverage": {
+                "repo": 1,
+                "merged_pr": 0.6,
+                "all_pr": 1
+              },
+              "window": "bounded public snapshot: up to 200 repositories, up to 50 merged PRs, up to 30 all-state PRs",
+              "sample_size": 400,
+              "threshold": {
+                "minimum_decisions": 20,
+                "wilson_lower": 0.4
+              }
+            }
+          }
+        ],
+        "coverage": {
+          "repo": 1,
+          "merged_pr": 0.6,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 2.46,
+      "final_score": 85.84,
+      "tier": "顶级",
+      "tier_label": "顶级开发者 · 一线水准"
+    },
+    "cap": 25.495575927239155
+  },
+  {
+    "name": "新手少量 PR",
+    "metrics": {
+      "username": "fiction-newcomer",
+      "profile_url": null,
+      "avatar_url": null,
+      "name": "Fiction Lab",
+      "bio": "developer",
+      "company": null,
+      "account_age_years": 0.5,
+      "created_at": "2018-01-01T00:00:00Z",
+      "followers": 3,
+      "following": 3,
+      "public_repos": 10,
+      "fetched_repo_count": 10,
+      "original_repo_count": 5,
+      "nonempty_original_repo_count": 5,
+      "fork_repo_count": 0,
+      "empty_original_repo_count": 0,
+      "total_stars": 0,
+      "max_stars": 0,
+      "best_original_repo_quality_score": 1,
+      "merged_pr_count": 3,
+      "external_merged_pr_count": 3,
+      "own_pr_community": 0,
+      "workflow_landed_pr_count": 0,
+      "total_pr_count": 4,
+      "issues_created": 2,
+      "last_year_contributions": 30,
+      "activity_type_count": 4,
+      "contribution_years_active": 1,
+      "days_since_last_activity": 1,
+      "recent_merged_pr_sample": 30,
+      "recent_trivial_pr_count": 0,
+      "external_trivial_pr_count": 0,
+      "max_impact_repo_stars": 2507,
+      "impact_prestige_score": 0.2,
+      "impact_pr_count": 3,
+      "core_impact_pr_count": 1,
+      "impact_depth_raw": 0.2,
+      "star_inflation_suspect": false,
+      "closed_unmerged_pr_count": 26,
+      "maintainer_closed_unmerged_pr_count": 1,
+      "self_closed_external_pr_count": 22,
+      "self_closed_own_repo_pr_count": 2,
+      "unknown_closed_unmerged_pr_count": 0,
+      "pr_rejection_rate": 0.25,
+      "recent_pr_sample": 30,
+      "top_repo_pr_target": "fiction-lab/engine",
+      "top_repo_pr_share": 0.5,
+      "templated_pr_ratio": 0,
+      "pr_flood_suspect": false
+    },
+    "before": {
+      "sub_scores": {
+        "account_maturity": 1.6,
+        "original_project_quality": 6,
+        "contribution_quality": 9.9,
+        "ecosystem_impact": 2.1,
+        "community_influence": 2.9,
+        "activity_authenticity": 12.6
+      },
+      "base_score": 35.1,
+      "red_flags": [],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 0,
+        "level": "none",
+        "confidence": 100,
+        "applied_penalty": 0,
+        "signals": [],
+        "coverage": {
+          "repo": 1,
+          "merged_pr": 1,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 0,
+      "final_score": 35.1,
+      "tier": "拉完了",
+      "tier_label": "起步阶段 · 多练多攒作品"
+    },
+    "expected": {
+      "sub_scores": {
+        "account_maturity": 1.6,
+        "original_project_quality": 6,
+        "contribution_quality": 9.9,
+        "ecosystem_impact": 0.8,
+        "community_influence": 2.9,
+        "activity_authenticity": 12.6
+      },
+      "base_score": 33.8,
+      "red_flags": [],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 0,
+        "level": "none",
+        "confidence": 100,
+        "applied_penalty": 0,
+        "signals": [],
+        "coverage": {
+          "repo": 1,
+          "merged_pr": 1,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 0,
+      "final_score": 33.8,
+      "tier": "拉完了",
+      "tier_label": "起步阶段 · 多练多攒作品"
+    },
+    "cap": 20.25763907595425
+  },
+  {
+    "name": "官方工作流有落地的头部贡献者",
+    "metrics": {
+      "username": "fiction-workflow-lead",
+      "profile_url": null,
+      "avatar_url": null,
+      "name": "Fiction Lab",
+      "bio": "developer",
+      "company": null,
+      "account_age_years": 8,
+      "created_at": "2018-01-01T00:00:00Z",
+      "followers": 70,
+      "following": 10,
+      "public_repos": 10,
+      "fetched_repo_count": 10,
+      "original_repo_count": 5,
+      "nonempty_original_repo_count": 5,
+      "fork_repo_count": 0,
+      "empty_original_repo_count": 0,
+      "total_stars": 2507,
+      "max_stars": 2507,
+      "best_original_repo_quality_score": 1,
+      "merged_pr_count": 800,
+      "external_merged_pr_count": 800,
+      "own_pr_community": 0,
+      "workflow_landed_pr_count": 50,
+      "total_pr_count": 880,
+      "issues_created": 100,
+      "last_year_contributions": 2500,
+      "activity_type_count": 4,
+      "contribution_years_active": 5,
+      "days_since_last_activity": 1,
+      "recent_merged_pr_sample": 30,
+      "recent_trivial_pr_count": 0,
+      "external_trivial_pr_count": 0,
+      "max_impact_repo_stars": 2507,
+      "impact_prestige_score": 1,
+      "impact_pr_count": 123,
+      "core_impact_pr_count": 100,
+      "impact_depth_raw": 8,
+      "star_inflation_suspect": false,
+      "closed_unmerged_pr_count": 26,
+      "maintainer_closed_unmerged_pr_count": 20,
+      "self_closed_external_pr_count": 22,
+      "self_closed_own_repo_pr_count": 2,
+      "unknown_closed_unmerged_pr_count": 0,
+      "pr_rejection_rate": 0.02,
+      "recent_pr_sample": 30,
+      "top_repo_pr_target": "fiction-lab/engine",
+      "top_repo_pr_share": 0.5,
+      "templated_pr_ratio": 0,
+      "pr_flood_suspect": false,
+      "workflow_landed_impact_pr_count": 50
+    },
+    "before": {
+      "sub_scores": {
+        "account_maturity": 10,
+        "original_project_quality": 17.4,
+        "contribution_quality": 27,
+        "ecosystem_impact": 20,
+        "community_influence": 5.8,
+        "activity_authenticity": 17
+      },
+      "base_score": 97.2,
+      "red_flags": [],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 0,
+        "level": "none",
+        "confidence": 84,
+        "applied_penalty": 0,
+        "signals": [],
+        "coverage": {
+          "repo": 1,
+          "merged_pr": 0.6,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 0,
+      "final_score": 97.2,
+      "tier": "夯",
+      "tier_label": "封神 · 殿堂级标杆"
+    },
+    "expected": {
+      "sub_scores": {
+        "account_maturity": 10,
+        "original_project_quality": 17.4,
+        "contribution_quality": 26.8,
+        "ecosystem_impact": 18.5,
+        "community_influence": 5.8,
+        "activity_authenticity": 17
+      },
+      "base_score": 95.5,
+      "red_flags": [],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 0,
+        "level": "none",
+        "confidence": 84,
+        "applied_penalty": 0,
+        "signals": [],
+        "coverage": {
+          "repo": 1,
+          "merged_pr": 0.6,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 0,
+      "final_score": 95.5,
+      "tier": "夯",
+      "tier_label": "封神 · 殿堂级标杆"
+    },
+    "cap": 26.999682200491662
+  },
+  {
+    "name": "自有项目有外部社区",
+    "metrics": {
+      "username": "fiction-community-maintainer",
+      "profile_url": null,
+      "avatar_url": null,
+      "name": "Fiction Lab",
+      "bio": "developer",
+      "company": null,
+      "account_age_years": 8,
+      "created_at": "2018-01-01T00:00:00Z",
+      "followers": 70,
+      "following": 10,
+      "public_repos": 10,
+      "fetched_repo_count": 10,
+      "original_repo_count": 5,
+      "nonempty_original_repo_count": 5,
+      "fork_repo_count": 0,
+      "empty_original_repo_count": 0,
+      "total_stars": 2507,
+      "max_stars": 2507,
+      "best_original_repo_quality_score": 1,
+      "merged_pr_count": 600,
+      "external_merged_pr_count": 0,
+      "own_pr_community": 0.9,
+      "workflow_landed_pr_count": 0,
+      "total_pr_count": 610,
+      "issues_created": 100,
+      "last_year_contributions": 2500,
+      "activity_type_count": 4,
+      "contribution_years_active": 5,
+      "days_since_last_activity": 1,
+      "recent_merged_pr_sample": 30,
+      "recent_trivial_pr_count": 0,
+      "external_trivial_pr_count": 0,
+      "max_impact_repo_stars": 2507,
+      "impact_prestige_score": 0.9,
+      "impact_pr_count": 123,
+      "core_impact_pr_count": 80,
+      "impact_depth_raw": 8,
+      "star_inflation_suspect": false,
+      "closed_unmerged_pr_count": 26,
+      "maintainer_closed_unmerged_pr_count": 2,
+      "self_closed_external_pr_count": 22,
+      "self_closed_own_repo_pr_count": 2,
+      "unknown_closed_unmerged_pr_count": 0,
+      "pr_rejection_rate": 0.02,
+      "recent_pr_sample": 30,
+      "top_repo_pr_target": "fiction-lab/engine",
+      "top_repo_pr_share": 0.5,
+      "templated_pr_ratio": 0,
+      "pr_flood_suspect": false
+    },
+    "before": {
+      "sub_scores": {
+        "account_maturity": 10,
+        "original_project_quality": 17.4,
+        "contribution_quality": 27,
+        "ecosystem_impact": 19.1,
+        "community_influence": 5.8,
+        "activity_authenticity": 17
+      },
+      "base_score": 96.3,
+      "red_flags": [],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 0,
+        "level": "none",
+        "confidence": 84,
+        "applied_penalty": 0,
+        "signals": [],
+        "coverage": {
+          "repo": 1,
+          "merged_pr": 0.6,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 0,
+      "final_score": 96.3,
+      "tier": "夯",
+      "tier_label": "封神 · 殿堂级标杆"
+    },
+    "expected": {
+      "sub_scores": {
+        "account_maturity": 10,
+        "original_project_quality": 17.4,
+        "contribution_quality": 26.8,
+        "ecosystem_impact": 17.6,
+        "community_influence": 5.8,
+        "activity_authenticity": 17
+      },
+      "base_score": 94.6,
+      "red_flags": [],
+      "risk_assessment": {
+        "version": "v10",
+        "risk_score": 0,
+        "level": "none",
+        "confidence": 84,
+        "applied_penalty": 0,
+        "signals": [],
+        "coverage": {
+          "repo": 1,
+          "merged_pr": 0.6,
+          "all_pr": 1
+        }
+      },
+      "risk_notes": [],
+      "total_penalty": 0,
+      "final_score": 94.6,
+      "tier": "夯",
+      "tier_label": "封神 · 殿堂级标杆"
+    },
+    "cap": 26.991803842654463
+  }
+]

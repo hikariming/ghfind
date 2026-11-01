@@ -1,0 +1,167 @@
+---
+/**
+ * Page chrome shared by every migrated page: <head> metadata with the same
+ * shape the Next app emits (canonical, hreflang, OG/Twitter from the `meta`
+ * namespace, site JSON-LD), the pre-paint theme script, GA, and the
+ * workspace shell.
+ */
+import "../styles/global.css";
+import { HTML_LANG, localeAlternates, localeDir, localePath, type Locale } from "@ghfind/i18n";
+import { SITE_URL } from "@/lib/site";
+import { THEME_INIT_SCRIPT } from "@/lib/theme-init";
+import { CONSENT_INIT_SCRIPT } from "@/lib/consent-init";
+import { organizationJsonLd, softwareApplicationJsonLd, websiteJsonLd } from "@/components/JsonLd";
+import { getTranslator } from "../lib/i18n";
+import Shell from "../components/Shell.astro";
+import JsonLd from "../components/JsonLd.astro";
+
+/**
+ * Per-page overrides, with Next's metadata semantics: a page that sets
+ * `openGraph`/`twitter` replaces the layout defaults wholesale (no merge).
+ * Paths may be relative; they resolve against SITE_URL like Next's metadataBase.
+ */
+interface OpenGraph {
+  title: string;
+  description: string;
+  url: string;
+  type: "article" | "website";
+  publishedTime?: string;
+  modifiedTime?: string;
+  images?: { url: string; width?: number; height?: number; alt?: string; type?: string }[];
+}
+interface Twitter {
+  card: "summary_large_image";
+  title: string;
+  description: string;
+  images?: string[];
+  /** `twitter:image:alt` for the (first) image. */
+  imageAlt?: string;
+}
+
+interface Props {
+  locale: Locale;
+  /** Locale-agnostic path of this page, e.g. `/about`. */
+  path: string;
+  /** Defaults to the layout title (meta.title), as in Next. */
+  title?: string;
+  /** Defaults to the layout description (meta.description), as in Next. */
+  description?: string;
+  /**
+   * Defaults to localeAlternates(locale, path). `"layout"` reproduces a Next
+   * page that sets no alternates: it inherits the layout's — the home page's
+   * canonical/hreflang plus the markdown and OpenAPI twins.
+   */
+  alternates?: { canonical: string; languages: Record<string, string> } | "layout";
+  /** `<link rel="alternate" type="text/markdown">` twin of this page. */
+  markdownAlternate?: string;
+  openGraph?: OpenGraph;
+  twitter?: Twitter;
+  /** `<meta name="robots">`, e.g. "noindex, nofollow" (Next's `robots` metadata). */
+  robots?: string;
+}
+
+const { locale, path, openGraph, twitter, robots } = Astro.props;
+const t = await getTranslator(locale, "meta");
+const title = Astro.props.title ?? t("title");
+const description = Astro.props.description ?? t("description");
+const given = Astro.props.alternates;
+const inherited = given === "layout";
+const alternates: { canonical: string; languages: Record<string, string> } =
+  given === undefined || given === "layout" ? localeAlternates(locale, inherited ? "/" : path) : given;
+const typedAlternates: [string, string][] = inherited
+  ? [["text/markdown", "/index.md"], ["application/openapi+json", "/openapi.json"]]
+  : Astro.props.markdownAlternate ? [["text/markdown", Astro.props.markdownAlternate]] : [];
+// Next's metadata resolver renders the root as the bare origin (no trailing
+// slash); match it so canonical/og:url stay byte-identical across stacks.
+const abs = (p: string) => (p === "/" ? new URL(SITE_URL).origin : new URL(p, SITE_URL).href);
+const ogImage = abs("/api/og/home");
+const GA_MEASUREMENT_ID = import.meta.env.PUBLIC_GA_MEASUREMENT_ID ?? "G-GHXRYBFZEN";
+// Funding Choices (Google-certified CMP) tag URL, from AdSense → Privacy &
+// messaging. Unset until the AdSense account exists; the consent defaults in
+// CONSENT_INIT_SCRIPT keep EEA/UK/CH compliant in the meantime.
+const FUNDING_CHOICES_URL = import.meta.env.PUBLIC_FUNDING_CHOICES_URL;
+---
+<!doctype html>
+<html lang={HTML_LANG[locale]} dir={localeDir(locale)} class="h-full antialiased">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script is:inline set:html={THEME_INIT_SCRIPT} />
+    {/* Consent Mode defaults must sit in <head>, ahead of gtag.js. */}
+    <script is:inline set:html={CONSENT_INIT_SCRIPT} />
+    {FUNDING_CHOICES_URL && <script is:inline async src={FUNDING_CHOICES_URL}></script>}
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {robots && <meta name="robots" content={robots} />}
+    <link rel="canonical" href={abs(alternates.canonical)} />
+    {Object.entries(alternates.languages).map(([lang, href]) => (
+      <link rel="alternate" hreflang={lang} href={abs(href)} />
+    ))}
+    {typedAlternates.map(([type, href]) => <link rel="alternate" type={type} href={abs(href)} />)}
+    {openGraph ? (
+      <>
+        <meta property="og:title" content={openGraph.title} />
+        <meta property="og:description" content={openGraph.description} />
+        <meta property="og:url" content={abs(openGraph.url)} />
+        {openGraph.images?.map((image) => (
+          <>
+            <meta property="og:image" content={abs(image.url)} />
+            {image.type && <meta property="og:image:type" content={image.type} />}
+            {image.width && <meta property="og:image:width" content={String(image.width)} />}
+            {image.height && <meta property="og:image:height" content={String(image.height)} />}
+            {image.alt && <meta property="og:image:alt" content={image.alt} />}
+          </>
+        ))}
+        <meta property="og:type" content={openGraph.type} />
+        {openGraph.publishedTime && <meta property="article:published_time" content={openGraph.publishedTime} />}
+        {openGraph.modifiedTime && <meta property="article:modified_time" content={openGraph.modifiedTime} />}
+      </>
+    ) : (
+      <>
+        {/* The Next layout defaults, for pages that don't override them. */}
+        <meta property="og:title" content={t("ogTitle")} />
+        <meta property="og:description" content={t("ogDescription")} />
+        <meta property="og:url" content={abs(localePath(locale, "/"))} />
+        <meta property="og:site_name" content={t("siteName")} />
+        <meta property="og:image" content={ogImage} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content={t("siteName")} />
+        <meta property="og:type" content="website" />
+      </>
+    )}
+    {twitter ? (
+      <>
+        <meta name="twitter:card" content={twitter.card} />
+        <meta name="twitter:title" content={twitter.title} />
+        <meta name="twitter:description" content={twitter.description} />
+        {twitter.images?.map((image) => <meta name="twitter:image" content={abs(image)} />)}
+        {twitter.imageAlt && <meta name="twitter:image:alt" content={twitter.imageAlt} />}
+      </>
+    ) : (
+      <>
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={t("title")} />
+        <meta name="twitter:description" content={t("twDescription")} />
+        <meta name="twitter:image" content={ogImage} />
+      </>
+    )}
+    <link rel="icon" href="/favicon.ico" sizes="32x32" type="image/x-icon" />
+    <link rel="icon" href="/icon.svg" sizes="any" type="image/svg+xml" />
+    {/* Fonts: DM Sans comes from globals.css (/fonts); Geist and Geist Mono
+        are self-hosted in styles/global.css, defining the --font-geist-*
+        variables next/font provides in the Next app. */}
+  </head>
+  <body class="min-h-full flex flex-col">
+    <JsonLd data={websiteJsonLd({ name: t("siteName"), description: t("description") })} />
+    <JsonLd data={organizationJsonLd(t("siteName"))} />
+    <JsonLd data={softwareApplicationJsonLd({ name: t("siteName"), description: t("description") })} />
+    <Shell locale={locale} path={path}>
+      <slot />
+    </Shell>
+    <script is:inline async src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}></script>
+    {/* navigator.webdriver flags headless automation (scraper farms were
+        inflating GA4 pageviews) — skip config so no hit is ever sent. */}
+    <script is:inline set:html={`if (!navigator.webdriver) { window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', '${GA_MEASUREMENT_ID}'); }`} />
+  </body>
+</html>

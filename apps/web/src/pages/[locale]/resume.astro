@@ -1,0 +1,12 @@
+---
+import Base from "../../layouts/Base.astro";
+import { ResumeIsland } from "../../islands/ResumeIsland";
+import { routeLocale } from "../../lib/i18n";
+
+const locale = routeLocale(Astro.params.locale);
+if (!locale) return new Response(null, { status: 404 });
+Astro.response.headers.set("Cache-Control", "private, no-cache, no-store, max-age=0, must-revalidate");
+---
+<Base locale={locale} path="/resume" title={locale === "zh" ? "我的简历 · ghfind" : "My résumé · ghfind"} alternates="layout" robots="noindex, nofollow">
+  <ResumeIsland client:load zh={locale === "zh"} intl={{ locale, pathname: "/resume", messages: {} }} />
+</Base>

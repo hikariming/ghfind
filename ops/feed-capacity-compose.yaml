@@ -16,7 +16,7 @@ services:
     command: ["postgres", "-c", "shared_buffers=256MB", "-c", "max_connections=50", "-c", "track_io_timing=on"]
 
   minio:
-    image: quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    image: docker.io/pgsty/minio@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372
     cpus: 0.5
     mem_limit: 512m
     command: server /data

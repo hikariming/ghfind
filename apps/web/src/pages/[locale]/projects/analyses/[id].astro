@@ -1,0 +1,29 @@
+---
+import Base from "../../../../layouts/Base.astro";
+import { ProjectAnalysisIsland } from "../../../../islands/ProjectAnalysisIsland";
+import { getMessages, getTranslator, pickMessages, routeLocale } from "../../../../lib/i18n";
+import { notFound } from "../../../../lib/not-found";
+import { getPublicProjectAnalysisView, type PublicProjectAnalysisView } from "@/lib/project-analysis-service";
+
+const locale = routeLocale(Astro.params.locale);
+const id = Astro.params.id ?? "";
+if (!locale) return notFound();
+let view: PublicProjectAnalysisView | null = null;
+try {
+  // Read-only: this Worker has no Mosoo credentials. The island polls
+  // /api/project-analyses/:id, which the router sends to ghfind-api, and that
+  // Worker advances the run.
+  view = await getPublicProjectAnalysisView(id, false);
+} catch {
+  view = null;
+}
+if (!view) return notFound();
+const [t, messages] = await Promise.all([getTranslator(locale, "projectAnalysis"), getMessages(locale)]);
+Astro.response.headers.set("Cache-Control", "private, no-cache, no-store, max-age=0, must-revalidate");
+const path = `/projects/analyses/${id}`;
+---
+<Base locale={locale} path={path} title={t("metaTitle")} alternates="layout" robots="noindex, nofollow">
+  <main class="mx-auto flex w-full max-w-5xl flex-1 flex-col px-5 py-14 sm:px-6 sm:py-20">
+    <ProjectAnalysisIsland client:load initial={view} intl={{ locale, pathname: path, messages: pickMessages(messages, ["projectAnalysis"]) }} />
+  </main>
+</Base>

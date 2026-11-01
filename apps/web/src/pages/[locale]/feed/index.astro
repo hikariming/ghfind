@@ -1,0 +1,18 @@
+---
+import Base from "../../../layouts/Base.astro";
+import { StreamIsland } from "../../../islands/StreamIsland";
+import { getMessages, getTranslator, pickMessages, routeLocale } from "../../../lib/i18n";
+import { loadFeedPage } from "@/lib/pages/feed";
+
+const locale = routeLocale(Astro.params.locale);
+if (!locale) return new Response(null, { status: 404 });
+const [t, messages, feed] = await Promise.all([
+  getTranslator(locale, "stream"),
+  getMessages(locale),
+  loadFeedPage(locale),
+]);
+Astro.response.headers.set("Cache-Control", "no-store");
+---
+<Base locale={locale} path="/feed" title={t("metaTitle")} description={t("metaDescription")} robots="noindex, follow">
+  <StreamIsland client:load {...feed} intl={{ locale, pathname: "/feed", search: Astro.url.search, messages: pickMessages(messages, ["stream", "loginDialog", "tiers"]) }} />
+</Base>

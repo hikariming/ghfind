@@ -8,11 +8,21 @@ const production = {
 } as const;
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   vi.unstubAllEnvs();
   vi.resetModules();
 });
 
 describe("public site origin", () => {
+  it("loads shared constants in a browser without process", async () => {
+    vi.resetModules();
+    vi.stubGlobal("process", undefined);
+
+    const site = await import("../site");
+    expect(site.SITE_URL).toBe("https://ghfind.com");
+    expect(site.PUBLIC_INDEX_MIN_SCORE).toBe(60);
+  });
+
   it("normalizes the matching production origin", () => {
     expect(
       resolveSiteUrl({

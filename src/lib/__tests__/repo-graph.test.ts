@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { extractFacets } from "../facets";
 import { extractRepoGraph } from "../repo-graph";
 import type { ImpactRepo, TopRepo } from "../types";
 
@@ -101,6 +102,21 @@ describe("extractRepoGraph — bounds", () => {
     );
     const g = extractRepoGraph({ impact_repos: many });
     expect(g.repos.length).toBeLessThanOrEqual(20);
+  });
+
+  it("keeps the same contributed repos as the repo facets (contribution first)", () => {
+    const many = [
+      ...Array.from({ length: 25 }, (_, i) =>
+        impact({ repo: `famous/r${i}`, stars: 50000 + i, commits: 2 }),
+      ),
+      impact({ repo: "org/maintained", stars: 1200, commits: 387, prs: 89 }),
+    ];
+    const g = extractRepoGraph({ impact_repos: many });
+    expect(g.links[0]).toMatchObject({ repo_key: "org/maintained", relation: "contributor" });
+    const facetRepos = extractFacets({ impact_repos: many })
+      .filter((f) => f.type === "repo")
+      .map((f) => f.value.toLowerCase());
+    expect(g.links.map((l) => l.repo_key)).toEqual(facetRepos);
   });
 
   it("returns an empty graph for no repo signal", () => {

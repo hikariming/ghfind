@@ -1,0 +1,1632 @@
+{
+  "baseline": "8b206f0d97a682f897cafe05d807a774f9aceb68",
+  "candidate_hash": "c1b9a8c2b61cb10fee90b1e8ec6a55387938108bebc662d045c6cf9dc4f26adb",
+  "fixed_clock": "2026-10-20T12:00:00Z",
+  "count": 232,
+  "rows": [
+    {
+      "username": "09ahmad",
+      "before": 31.3,
+      "after": 31.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "0xtoward",
+      "before": 53.7,
+      "after": 53.7,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "1lck",
+      "before": 87.8,
+      "after": 87.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "4pure",
+      "before": 17.7,
+      "after": 17.7,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "a-kirami",
+      "before": 83.8,
+      "after": 83.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "aadieng100",
+      "before": 62.1,
+      "after": 62.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "aayush-2825",
+      "before": 21.9,
+      "after": 21.9,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "abdelrahmandesoki",
+      "before": 43.1,
+      "after": 43.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "abha-1281",
+      "before": 32,
+      "after": 32,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "achenjin",
+      "before": 2.2,
+      "after": 2.2,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "achenjins",
+      "before": 45.1,
+      "after": 45.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "adedaved",
+      "before": 37.3,
+      "after": 37.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "adrielanders",
+      "before": 43.6,
+      "after": 43.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "ahmedzrouqui",
+      "before": 50.6,
+      "after": 50.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "akrtr",
+      "before": 6.8,
+      "after": 6.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "akrtr465",
+      "before": 45.2,
+      "after": 45.2,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "alchaincyf",
+      "before": 62.3,
+      "after": 62.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "alexandervonwu",
+      "before": 44.6,
+      "after": 44.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "anonymousomeone",
+      "before": 46.8,
+      "after": 46.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "arcspots",
+      "before": 30.9,
+      "after": 30.9,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "arldka",
+      "before": 44.5,
+      "after": 44.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "asperformias",
+      "before": 76.9,
+      "after": 76.9,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "asukaminato0721",
+      "before": 91,
+      "after": 91,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "berrysoft",
+      "before": 98.3,
+      "after": 98.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "blueglassblock",
+      "before": 84.5,
+      "after": 84.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "braun007",
+      "before": 44.4,
+      "after": 44.4,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "captain-wangrun-cn",
+      "before": 51,
+      "after": 51,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "ch-yuan-cn",
+      "before": 28.5,
+      "after": 28.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "chaojixinren",
+      "before": 77.5,
+      "after": 77.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "charlesbarnabas",
+      "before": 40.6,
+      "after": 40.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "chiba233",
+      "before": 79.2,
+      "after": 79.2,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "chinari20",
+      "before": 29.1,
+      "after": 29.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "christofa",
+      "before": 50.4,
+      "after": 50.4,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "chsilva",
+      "before": 40.4,
+      "after": 40.4,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "clounie",
+      "before": 50.1,
+      "after": 50.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "cmi23",
+      "before": 54.6,
+      "after": 54.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "codex",
+      "before": 14.9,
+      "after": 14.9,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "cosmicshreyas",
+      "before": 49.5,
+      "after": 49.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "cunicle",
+      "before": 37.2,
+      "after": 37.2,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "cyberelar",
+      "before": 41.4,
+      "after": 41.4,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "dejusdevspace",
+      "before": 59.6,
+      "after": 59.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "denniskramer-spec",
+      "before": 17.7,
+      "after": 17.7,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "dev-marshmallow",
+      "before": 35.7,
+      "after": 35.7,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "duliangkuan",
+      "before": 34.9,
+      "after": 34.9,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "ebony-vinyl",
+      "before": 62.8,
+      "after": 62.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "elmarco",
+      "before": 84.6,
+      "after": 84.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "etraut-openai",
+      "before": 68,
+      "after": 68,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "evanbrown3000",
+      "before": 14.5,
+      "after": 14.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "feathbow",
+      "before": 71,
+      "after": 71,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "felixvera",
+      "before": 13.3,
+      "after": 13.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "flowfan",
+      "before": 28.5,
+      "after": 28.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "fullstack-nick",
+      "before": 41.5,
+      "after": 41.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "gaohu1997",
+      "before": 39.6,
+      "after": 39.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "gentle-lijie",
+      "before": 60.5,
+      "after": 60.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "godblf",
+      "before": 69.2,
+      "after": 69.2,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "greyelaina",
+      "before": 79.4,
+      "after": 79.4,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "gt-610",
+      "before": 85.6,
+      "after": 85.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "guirab",
+      "before": 38.6,
+      "after": 38.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "hairyf",
+      "before": 95.3,
+      "after": 95.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "hamo-reid",
+      "before": 46,
+      "after": 46,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "hazuki-keatsu",
+      "before": 64.4,
+      "after": 64.4,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "he0119",
+      "before": 84.5,
+      "after": 84.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "hikariming",
+      "before": 91.8,
+      "after": 91.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "hilly-man",
+      "before": 41.5,
+      "after": 41.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "hotmann",
+      "before": 18.8,
+      "after": 18.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "htdxd",
+      "before": 37.7,
+      "after": 37.7,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "huanlinoto",
+      "before": 80.2,
+      "after": 80.2,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "husseinadeiza",
+      "before": 62.07,
+      "after": 62.07,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "ignasave",
+      "before": 53.7,
+      "after": 53.7,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "inorilzy",
+      "before": 58.8,
+      "after": 58.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "istoolsfox",
+      "before": 59.8,
+      "after": 59.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "ithildur",
+      "before": 31,
+      "after": 31,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "jackie-cqz",
+      "before": 81.1,
+      "after": 81.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "jackie2121",
+      "before": 6.2,
+      "after": 6.2,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "jaychoubaby",
+      "before": 51,
+      "after": 51,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "jayrogg",
+      "before": 47.1,
+      "after": 47.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "jesslynfelicia",
+      "before": 41.5,
+      "after": 41.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "jinyiwei2012",
+      "before": 58.5,
+      "after": 58.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "jubeater",
+      "before": 54.8,
+      "after": 54.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "junjiezhou1122",
+      "before": 74.1,
+      "after": 74.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "kayceehans",
+      "before": 39.5,
+      "after": 39.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "keithclinton",
+      "before": 46.1,
+      "after": 46.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "kelvinkarroy",
+      "before": 29.8,
+      "after": 29.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "knqiufan",
+      "before": 80.8,
+      "after": 80.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "koloyaaa",
+      "before": 42.2,
+      "after": 42.2,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "kriswuli006",
+      "before": 32.1,
+      "after": 32.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "kusman28",
+      "before": 48.8,
+      "after": 48.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "kyl67899",
+      "before": 56.8,
+      "after": 56.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "l2oi",
+      "before": 33.4,
+      "after": 33.4,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "lanbaoshen",
+      "before": 67.1,
+      "after": 67.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "lichenkang",
+      "before": 3.6,
+      "after": 3.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "lin-snow",
+      "before": 94.2,
+      "after": 94.2,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "lingluo17",
+      "before": 36.3,
+      "after": 36.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "linus",
+      "before": 63.2,
+      "after": 63.2,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "llwand1",
+      "before": 52.2,
+      "after": 52.2,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "lofisu",
+      "before": 54.7,
+      "after": 54.7,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "loveanneliser",
+      "before": 14.6,
+      "after": 14.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "lpirola",
+      "before": 67.9,
+      "after": 67.9,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "ltohd",
+      "before": 6.2,
+      "after": 6.2,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "lucifer1004",
+      "before": 96.8,
+      "after": 96.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "lvy010",
+      "before": 68,
+      "after": 68,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "lzcwbcgs",
+      "before": 51.3,
+      "after": 51.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "madhavkhoslaa",
+      "before": 65.5,
+      "after": 65.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "maomengww",
+      "before": 60.9,
+      "after": 60.9,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "markdimi",
+      "before": 40.8,
+      "after": 40.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "marksantos1020",
+      "before": 17.8,
+      "after": 17.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "mattpocock",
+      "before": 91.7,
+      "after": 91.7,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "mauriciofs",
+      "before": 42.4,
+      "after": 42.4,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "mcdmaster",
+      "before": 54.9,
+      "after": 54.9,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "meishild",
+      "before": 47.8,
+      "after": 47.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "meisiristhebest",
+      "before": 73.8,
+      "after": 73.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "melodyyuuka",
+      "before": 65.2,
+      "after": 65.2,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "mengxin",
+      "before": 13.5,
+      "after": 13.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "mikamikasuki",
+      "before": 74.9,
+      "after": 74.9,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "mohdwaris79",
+      "before": 22.7,
+      "after": 22.7,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "mongxinchan",
+      "before": 44.1,
+      "after": 44.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "musicminion",
+      "before": 80.5,
+      "after": 80.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "nagasakisoyo-anno",
+      "before": 23.5,
+      "after": 23.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "nanamikite",
+      "before": 59.6,
+      "after": 59.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "newkingyeah",
+      "before": 32.4,
+      "after": 32.4,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "nmaroulis",
+      "before": 62.3,
+      "after": 62.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "nwflower",
+      "before": 79.6,
+      "after": 79.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "old-guardian",
+      "before": 39.2,
+      "after": 39.2,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "omninetopensource",
+      "before": 39.5,
+      "after": 39.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "onion-l",
+      "before": 74.8,
+      "after": 74.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "padlimpagnstcdv",
+      "before": 13.3,
+      "after": 13.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "pelikanade",
+      "before": 78.4,
+      "after": 78.4,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "puohecbhad-bit",
+      "before": 35.8,
+      "after": 35.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "qexlauwasd",
+      "before": 43.7,
+      "after": 43.7,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "qiuye98",
+      "before": 49.4,
+      "after": 49.4,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "qiuyongjun",
+      "before": 37.7,
+      "after": 37.7,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "rafaelbcerri",
+      "before": 53.1,
+      "after": 53.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "ramojo",
+      "before": 42.1,
+      "after": 42.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "ranitasahaa1230",
+      "before": 42.8,
+      "after": 42.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "redestiny",
+      "before": 55.1,
+      "after": 55.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "rentz412",
+      "before": 38.8,
+      "after": 38.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "rinchao0721",
+      "before": 58.5,
+      "after": 58.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "rodanielflorea",
+      "before": 46.8,
+      "after": 46.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "rodriguezmatirp",
+      "before": 38.8,
+      "after": 38.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "rongali-commits",
+      "before": 46,
+      "after": 46,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "ruirui6946",
+      "before": 62.2,
+      "after": 62.2,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "rupeshgoud",
+      "before": 34.9,
+      "after": 34.9,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "sagg155",
+      "before": 34.5,
+      "after": 34.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "saipriya240",
+      "before": 18.3,
+      "after": 18.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "samzong",
+      "before": 95.5,
+      "after": 95.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "sandyyur",
+      "before": 48.9,
+      "after": 48.9,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "sanstoolow0513",
+      "before": 50.1,
+      "after": 50.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "saqib-devsecops",
+      "before": 48.6,
+      "after": 48.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "scrt8wonder",
+      "before": 15.5,
+      "after": 15.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "shaunpatrickj",
+      "before": 29.2,
+      "after": 29.2,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "shenyankm",
+      "before": 75.3,
+      "after": 75.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "shoyann",
+      "before": 73,
+      "after": 73,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "shua-github",
+      "before": 67.7,
+      "after": 67.7,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "shuaixinhuang",
+      "before": 58.1,
+      "after": 58.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "skrpk",
+      "before": 45.9,
+      "after": 45.9,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "small-tailqwq",
+      "before": 90.7,
+      "after": 90.7,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "someoneidk",
+      "before": 10,
+      "after": 10,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "someoneidoknow",
+      "before": 59.9,
+      "after": 59.9,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "songshikang0111",
+      "before": 49.7,
+      "after": 49.7,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "sonotommy",
+      "before": 81.3,
+      "after": 81.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "ssfdgsg",
+      "before": 44.8,
+      "after": 44.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "starhearthunt",
+      "before": 82.7,
+      "after": 82.7,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "styvirgil",
+      "before": 14.5,
+      "after": 14.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "subhra-io",
+      "before": 32.3,
+      "after": 32.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "subjadeites",
+      "before": 59,
+      "after": 59,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "sunshine-lang",
+      "before": 62,
+      "after": 62,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "sunshine",
+      "before": 18.1,
+      "after": 18.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "suzmii",
+      "before": 50.8,
+      "after": 50.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "swatigour28",
+      "before": 17.5,
+      "after": 17.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "syearn",
+      "before": 10.3,
+      "after": 10.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "syedalamshah",
+      "before": 30.9,
+      "after": 30.9,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "sylearn",
+      "before": 76,
+      "after": 76,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "t-auto",
+      "before": 83.5,
+      "after": 83.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "taekchef",
+      "before": 80.6,
+      "after": 80.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "tarunvashishth",
+      "before": 58.8,
+      "after": 58.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "tech0priyanshu",
+      "before": 51.9,
+      "after": 51.9,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "thakuraanki",
+      "before": 38.8,
+      "after": 38.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "theabdulbasitt",
+      "before": 35.4,
+      "after": 35.4,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "thesmallhancat",
+      "before": 76.3,
+      "after": 76.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "thushani",
+      "before": 29.3,
+      "after": 29.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "tiann",
+      "before": 99.3,
+      "after": 99.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "tigerspirit217",
+      "before": 44.1,
+      "after": 44.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "till3005",
+      "before": 33.5,
+      "after": 33.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "tolowu22",
+      "before": 17.6,
+      "after": 17.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "torvalds",
+      "before": 90,
+      "after": 90,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "tsubaki-01",
+      "before": 75.3,
+      "after": 75.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "twisuki",
+      "before": 63.3,
+      "after": 63.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "uchout",
+      "before": 76.6,
+      "after": 76.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "ukannaraymond",
+      "before": 40.3,
+      "after": 40.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "vansh-88",
+      "before": 21.9,
+      "after": 21.9,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "vernonthedev",
+      "before": 62.3,
+      "after": 62.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "versun",
+      "before": 76.5,
+      "after": 76.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "vin-jex",
+      "before": 58.9,
+      "after": 58.9,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "viruspc",
+      "before": 61.2,
+      "after": 61.2,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "vorteile",
+      "before": 27,
+      "after": 27,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "vyrusmax",
+      "before": 6.9,
+      "after": 6.9,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "vyshnavt",
+      "before": 23.4,
+      "after": 23.4,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "wang-auspicious",
+      "before": 56.5,
+      "after": 56.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "wapiti08",
+      "before": 57.9,
+      "after": 57.9,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "webgururobin",
+      "before": 47.8,
+      "after": 47.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "wellkilo",
+      "before": 70.1,
+      "after": 70.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "wenxianga",
+      "before": 24.6,
+      "after": 24.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "whitelonng",
+      "before": 78.6,
+      "after": 78.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "williamnharvey",
+      "before": 57.8,
+      "after": 57.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "wojusensei",
+      "before": 59.3,
+      "after": 59.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "wuyh266",
+      "before": 26.2,
+      "after": 26.2,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "wxw-gu",
+      "before": 58.8,
+      "after": 58.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "wxyhgk",
+      "before": 72.8,
+      "after": 72.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "xa2333",
+      "before": 31.4,
+      "after": 31.4,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "xiaguan",
+      "before": 89.1,
+      "after": 89.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "xiaou61",
+      "before": 77.5,
+      "after": 77.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "xiaozhedesu",
+      "before": 30.1,
+      "after": 30.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "xmanrui",
+      "before": 79.8,
+      "after": 79.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "xqliu",
+      "before": 62.4,
+      "after": 62.4,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "xunchahaha",
+      "before": 85.2,
+      "after": 85.2,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "xxynet",
+      "before": 79.1,
+      "after": 79.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "yahya-khodr",
+      "before": 42.1,
+      "after": 42.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "yashika-code",
+      "before": 30.5,
+      "after": 30.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "yashmahes",
+      "before": 21.1,
+      "after": 21.1,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "yassin-kassem",
+      "before": 39.6,
+      "after": 39.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "yifanxuaaa",
+      "before": 79.8,
+      "after": 79.8,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "yinfengwindy",
+      "before": 56,
+      "after": 56,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "youki258",
+      "before": 45.5,
+      "after": 45.5,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "yuelioi",
+      "before": 70.7,
+      "after": 70.7,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "yum-shang",
+      "before": 15.6,
+      "after": 15.6,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "yuriarcode",
+      "before": 17,
+      "after": 17,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "yushui2022",
+      "before": 70.3,
+      "after": 70.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "yuxino",
+      "before": 86.4,
+      "after": 86.4,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "zakidane",
+      "before": 22.7,
+      "after": 22.7,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "ziangni-sys",
+      "before": 49.3,
+      "after": 49.3,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "zp-home",
+      "before": 78.4,
+      "after": 78.4,
+      "metrics_identical": true,
+      "scoring_identical": true
+    },
+    {
+      "username": "zsanz3",
+      "before": 37.7,
+      "after": 37.7,
+      "metrics_identical": true,
+      "scoring_identical": true
+    }
+  ]
+}

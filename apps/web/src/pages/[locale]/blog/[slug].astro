@@ -1,0 +1,42 @@
+---
+import Base from "../../../layouts/Base.astro";
+import { BlogPost } from "../../../views";
+import { BlogCommentsIsland } from "../../../islands/BlogCommentsIsland";
+import { getTranslator, routeLocale } from "../../../lib/i18n";
+import { notFound, STATIC_PAGE_CACHE } from "../../../lib/not-found";
+import { getPost, postAlternates } from "@/lib/blog";
+import { localePath } from "@/lib/site";
+
+const locale = routeLocale(Astro.params.locale);
+const slug = Astro.params.slug ?? "";
+const post = locale ? getPost(slug, locale) : null;
+if (!locale || !post) return notFound();
+
+const t = await getTranslator(locale, "blog");
+const path = `/blog/${slug}`;
+const og = `/api/og/blog/${slug}`;
+Astro.response.headers.set("Cache-Control", STATIC_PAGE_CACHE);
+---
+<Base
+  locale={locale}
+  path={path}
+  title={`${post.title} · ghfind`}
+  description={post.description}
+  alternates={postAlternates(locale, slug, post.availableLocales)}
+  markdownAlternate={`/blog/${slug}.md`}
+  openGraph={{
+    title: post.title,
+    description: post.description,
+    type: "article",
+    url: localePath(locale, path),
+    publishedTime: post.date,
+    modifiedTime: post.updated,
+    images: [{ url: og, width: 1200, height: 630 }],
+  }}
+  twitter={{ card: "summary_large_image", title: post.title, description: post.description, images: [og] }}
+>
+  <main class="relative isolate flex w-full flex-1 justify-center px-5 py-14 sm:py-20">
+    <BlogCommentsIsland client:idle intl={{ locale, pathname: path, messages: {} }} lang={locale === "zh" ? "zh" : "en"} postSlug={slug} />
+    <BlogPost route={{ locale, path }} locale={locale} slug={slug} post={post} t={t} />
+  </main>
+</Base>

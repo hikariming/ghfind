@@ -1,0 +1,200 @@
+{
+  "provenance": "Original Oct 18 production metrics from read-only handoff. layerfs aggregates and outside-author facts reconstructed from its GitHub audit; sample dates normalized (not an archived API response). Existing radar impact is preserved verbatim in acceptance replay.",
+  "metrics": {
+    "username": "fixture-account-070",
+    "profile_url": "https://example.com/fixture-account-070",
+    "avatar_url": "https://example.com/fixture-account-070",
+    "name": null,
+    "bio": null,
+    "pronouns": null,
+    "company": null,
+    "account_age_years": 7.6,
+    "created_at": "2019-03-13T00:08:27Z",
+    "followers": 39,
+    "following": 7,
+    "public_repos": 16,
+    "fetched_repo_count": 16,
+    "original_repo_count": 9,
+    "nonempty_original_repo_count": 9,
+    "fork_repo_count": 10,
+    "empty_original_repo_count": 0,
+    "total_stars": 531,
+    "max_stars": 520,
+    "weighted_total_stars": 530.2,
+    "weighted_max_stars": 520,
+    "top_repo_engagement_ratio": 0.6788,
+    "attributed_original_repo_count": 3,
+    "attributed_original_repo_stars": 529,
+    "attributed_original_repos": [
+      "fixture-account-027/layerfs",
+      "fixture-owner-038/mobile-cocoa",
+      "fixture-account-027/layerfs-engine-lab"
+    ],
+    "best_original_repo_quality_score": 1,
+    "best_original_repo_quality_repo": "fixture-account-027/layerfs",
+    "top_starred_original_repo_quality_score": 1,
+    "top_starred_original_repo_quality_repo": "fixture-account-027/layerfs",
+    "merged_pr_count": 108,
+    "external_merged_pr_count": 108,
+    "external_high_star_pr_share": 0.7315,
+    "own_pr_community": 0,
+    "workflow_landed_pr_count": 0,
+    "total_pr_count": 136,
+    "issues_created": 251,
+    "last_year_contributions": 6999,
+    "activity_type_count": 3,
+    "contribution_years_active": 8,
+    "days_since_last_activity": 0,
+    "recent_merged_pr_sample": 50,
+    "recent_trivial_pr_count": 0,
+    "recent_doc_like_pr_count": 34,
+    "recent_doc_like_pr_ratio": 0.68,
+    "recent_external_pr_sample": 50,
+    "recent_external_doc_like_pr_count": 34,
+    "recent_external_doc_like_pr_ratio": 0.68,
+    "max_impact_repo_stars": 296,
+    "impact_prestige_score": 0.0473,
+    "impact_pr_count": 0,
+    "workflow_landed_impact_pr_count": 0,
+    "impact_depth_raw": 0.52,
+    "verified_impact_pr_count": 79,
+    "core_impact_pr_count": 28,
+    "doc_like_impact_pr_count": 51,
+    "unverified_impact_pr_count": 0,
+    "impact_repo_count": 1,
+    "impact_commit_count": 2,
+    "commit_contribution_aggregation_unavailable": false,
+    "merged_pr_contribution_aggregation_incomplete": false,
+    "external_trivial_pr_count": 0,
+    "star_inflation_suspect": false,
+    "closed_unmerged_pr_count": 25,
+    "maintainer_closed_unmerged_pr_count": 2,
+    "self_closed_external_pr_count": 21,
+    "self_closed_own_repo_pr_count": 2,
+    "unknown_closed_unmerged_pr_count": 0,
+    "pr_rejection_rate": 0.02,
+    "recent_pr_sample": 30,
+    "top_repo_pr_target": "fixture-account-027/layerfs",
+    "top_repo_pr_share": 1,
+    "templated_pr_ratio": 0.03,
+    "pr_flood_suspect": false
+  },
+  "repo": {
+    "repo": "fixture-account-027/layerfs",
+    "owner_login": "fixture-account-027",
+    "stars": 520,
+    "commits": 3235,
+    "prs": 79,
+    "active_years": 1,
+    "is_private": false,
+    "is_fork": false,
+    "attributed_original": true,
+    "attribution_evidence": [
+      "first commit author is fixture-account-070",
+      "release/tag author"
+    ],
+    "forks": 33,
+    "star_inflation_suspect": false,
+    "months": [
+      "2026-08",
+      "2026-09",
+      "2026-10"
+    ],
+    "pr_sample": 10,
+    "code_pr_sample": 3,
+    "community": 0
+  },
+  "raw": {
+    "repo": "fixture-account-027/layerfs",
+    "forks": 33,
+    "merged_total": 3,
+    "closed_unmerged_total": 0,
+    "prs_opened_total": 6,
+    "issues_total": 1,
+    "contributors": [
+      {
+        "login": "fixture-account-070",
+        "type": "User",
+        "contributions": 3235
+      },
+      {
+        "login": "fixture-account-058",
+        "type": "User",
+        "contributions": 1
+      }
+    ],
+    "merged": [
+      {
+        "author": "fixture-account-056",
+        "author_type": "User",
+        "created_at": "2026-08-13T00:00:00Z",
+        "merged_at": "2026-08-14T00:00:00Z",
+        "title": "perf(fs): optimize bytesToHex encoding",
+        "churn": 55,
+        "files": [
+          "packages/fs/src/cas/bytes.ts"
+        ]
+      },
+      {
+        "author": "fixture-account-056",
+        "author_type": "User",
+        "created_at": "2026-08-14T00:00:00Z",
+        "merged_at": "2026-08-15T00:00:00Z",
+        "title": "Keep mini-benchmark JSON artifacts Prettier-clean",
+        "churn": 176,
+        "files": [
+          "scripts/benchmark.mjs"
+        ]
+      },
+      {
+        "author": "fixture-account-058",
+        "author_type": "User",
+        "created_at": "2026-09-25T00:00:00Z",
+        "merged_at": "2026-09-26T00:00:00Z",
+        "title": "docs: add usage links",
+        "churn": 4,
+        "files": [
+          "docs/README.md"
+        ]
+      }
+    ],
+    "issues": []
+  },
+  "context": {
+    "login": "fixture-account-070",
+    "owner_orgs": [
+      "fixture-owner-001"
+    ],
+    "attributed": true,
+    "mutual_owners": [],
+    "now": "2026-10-18T05:43:44Z",
+    "profiles": {
+      "fixture-account-056": {
+        "login": "fixture-account-056",
+        "created_at": "2026-05-05T00:00:00Z",
+        "followers": 2,
+        "merged_prs": 48,
+        "orgs": []
+      },
+      "fixture-account-058": {
+        "login": "fixture-account-058",
+        "created_at": "2019-05-01T00:00:00Z",
+        "followers": 121,
+        "merged_prs": 431,
+        "orgs": []
+      }
+    }
+  },
+  "expected_facts": {
+    "weighted_contributors": 0.4981,
+    "sustained_contributors": 0,
+    "outside_demand": 4.0,
+    "merge_latency_days": 1.0,
+    "owner_response_share": 0,
+    "outside_acceptance": 1.0,
+    "forks": 33,
+    "outside_merged_prs": 3,
+    "days_since_outside_merge": 64.2387,
+    "lead_share": 1.0
+  }
+}

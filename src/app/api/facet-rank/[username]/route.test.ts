@@ -9,9 +9,10 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/db", () => ({
-  getFacetRank: mocks.getFacetRank,
   getScoreBrief: mocks.getScoreBrief,
 }));
+
+vi.mock("@/lib/developers", () => ({ getFacetRankCached: mocks.getFacetRank }));
 
 vi.mock("@/lib/redis", () => ({
   checkRateLimit: mocks.checkRateLimit,

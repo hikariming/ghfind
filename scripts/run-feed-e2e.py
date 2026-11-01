@@ -19,7 +19,7 @@ import urllib.request
 import uuid
 
 PG_IMAGE = 'pgvector/pgvector@sha256:137f044b0efe3d57f39b972b9b53641b1f2045b99d879e298bbf514a25787dcf'
-MINIO_IMAGE = 'quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e'
+MINIO_IMAGE = 'docker.io/pgsty/minio@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372'
 FORMAT = 'ghfind-complete-local-e2e-v1'
 MILESTONES = ['oauthCallback', 'assessmentOperatorRecovery', 'assessmentFinalization', 'sourceOutbox', 'executorProjection', 'governance', 'preferences', 'events', 'deletionCompleted']
 OWNER_LABEL = 'io.ghfind.fixture.owner'
@@ -196,11 +196,20 @@ class Harness:
         if not details or not owned(details, self.owner, self.sha):
             raise RuntimeError('created_resource_identity_mismatch')
 
-    def wait_http(self, url, process=None, seconds=60):
+    def log_tail(self, path, limit=800):
+        try:
+            text = pathlib.Path(path).read_text(errors='replace')
+        except OSError:
+            return ''
+        redacted = re.sub(r'(?i)(secret|token|password|authorization)[=: ]+\S+', r'\1=[redacted]', text)
+        return redacted[-limit:]
+
+    def wait_http(self, url, process=None, seconds=60, log_path=None):
         end = time.monotonic() + seconds
         while time.monotonic() < end:
             if process and process.poll() is not None:
-                raise RuntimeError('service_exited_before_readiness')
+                tail = self.log_tail(log_path) if log_path else ''
+                raise RuntimeError('service_exited_before_readiness' + ((': ' + tail.replace('\n', ' | ')) if tail else ''))
             try:
                 with urllib.request.urlopen(url, timeout=1) as response:
                     if response.status == 200:
@@ -252,13 +261,33 @@ class Harness:
             time.sleep(.25)
         if profile == 'postgres':
             self.command([str(self.out / 'feed-migrate')], profile + '-migrations', env=env)
-        api = self.start([str(self.out / 'feed-api')], {**env, 'PORT': str(ports['apiPort'])}, directory / 'api.log')
-        worker_env = {**env, 'PORT': str(ports['executorPort'])}
-        if profile == 'cf_d1_r2':
-            worker_env.pop('FEED_OPERATOR_SECRET')
-        worker = self.start([str(self.out / 'feed-worker')], worker_env, directory / 'executor.log')
-        for role, process, port in [('feed-api', api, ports['apiPort']), ('feed-worker', worker, ports['executorPort'])]:
-            ready = self.wait_http(f'http://127.0.0.1:{port}/readyz', process)
+        def launch_runtime():
+            api_log, worker_log = directory / 'api.log', directory / 'executor.log'
+            api_process = self.start([str(self.out / 'feed-api')], {**env, 'PORT': str(ports['apiPort'])}, api_log)
+            worker_env = {**env, 'PORT': str(ports['executorPort'])}
+            if profile == 'cf_d1_r2':
+                worker_env.pop('FEED_OPERATOR_SECRET', None)
+            worker_process = self.start([str(self.out / 'feed-worker')], worker_env, worker_log)
+            return [(api_process, api_log, ports['apiPort'], 'feed-api'), (worker_process, worker_log, ports['executorPort'], 'feed-worker')]
+        runtime = launch_runtime()
+        # One restart when a process dies before listen and writes no reason.
+        # A logged config error still fails closed.
+        restarted = False
+        while True:
+            try:
+                ready_rows = []
+                for process, log_path, port, role in runtime:
+                    ready = self.wait_http(f'http://127.0.0.1:{port}/readyz', process, log_path=log_path)
+                    ready_rows.append((role, ready))
+                break
+            except RuntimeError as error:
+                if restarted or 'service_exited_before_readiness:' in str(error):
+                    raise
+                restarted = True
+                for process, _, _, _ in runtime:
+                    self.stop_process(process)
+                runtime = launch_runtime()
+        for role, ready in ready_rows:
             if ready.get('ready') is not True or ready.get('version') != self.sha or ready.get('service') != role or ready.get('storeProfile') != profile:
                 raise RuntimeError('runtime_readiness_version_mismatch')
         result = self.command(['node', str(self.root / 'scripts/feed-e2e/journey.mjs'), str(config_path)], profile + '-browser', env=env, timeout=300, check=False)

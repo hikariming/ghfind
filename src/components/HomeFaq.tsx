@@ -1,4 +1,4 @@
-import { getTranslations } from "next-intl/server";
+import type { Translator } from "@/lib/translator";
 
 export type FaqItem = {
   q: string;
@@ -8,10 +8,10 @@ export type FaqItem = {
   afterRepo?: string;
 };
 
-/** Load the FAQ items once so the same array feeds the rendered section and the
- *  FAQPage JSON-LD (no drift between what users read and what agents parse). */
-export async function getFaqItems(): Promise<FaqItem[]> {
-  const t = await getTranslations("faq");
+/** The FAQ items ("faq" namespace), read once so the same array feeds the
+ *  rendered section and the FAQPage JSON-LD (no drift between what users read
+ *  and what agents parse). */
+export function faqItems(t: Translator): FaqItem[] {
   return t.raw("items") as FaqItem[];
 }
 
@@ -20,8 +20,7 @@ export async function getFaqItems(): Promise<FaqItem[]> {
  * homepage's crawlable content density and gives LLMs clean, extractable Q&A
  * passages. The `home-faq` class is the speakable selector in the JSON-LD.
  */
-export async function HomeFaq({ items }: { items: FaqItem[] }) {
-  const t = await getTranslations("faq");
+export function HomeFaq({ items, t }: { items: FaqItem[]; /** "faq" namespace. */ t: Translator }) {
   return (
     <section className="home-faq mt-20 w-full max-w-5xl">
       <h2 className="text-center text-2xl font-black tracking-tight text-[var(--foreground)] sm:text-3xl">

@@ -1,24 +1,50 @@
 {
+  "loginDialog": {
+    "entry": "Sign in",
+    "title": "Sign in to ghfind",
+    "description": "Choose an account to continue.",
+    "close": "Close",
+    "google": "Continue with Google",
+    "github": "Continue with GitHub",
+    "apple": "Continue with Apple",
+    "redirecting": "Opening {provider}…",
+    "loading": "Checking sign-in options…",
+    "retry": "Try again",
+    "loadFailed": "Could not load sign-in options. Check your connection and try again.",
+    "unavailable": "Sign-in is temporarily unavailable. You can continue browsing and try again later.",
+    "githubFeatures": "Following, cloud résumés and API tokens currently require a GitHub account.",
+    "providerAccount": "{provider} account",
+    "switchToGitHub": "Switch to GitHub sign-in",
+    "errors": {
+      "denied": "Sign-in was cancelled. Choose an account to try again.",
+      "expired": "This sign-in request has expired. Please start again.",
+      "failed": "Sign-in did not finish. Please try again.",
+      "unavailable": "This sign-in method is unavailable. Choose another option or try again later."
+    },
+    "signingOut": "Signing out…",
+    "signOutFailed": "Could not sign out. Check your connection and try again."
+  },
   "meta": {
-    "title": "ghfind | Savage GitHub Score, Self-Test & Discover Top Devs",
-    "description": "ghfind: a 0-100 GitHub value & trust score plus a savage roast in 30s. See your gaps, self-test and grow, then discover top developers and get found.",
-    "ogTitle": "ghfind | Savage GitHub Score, Self-Test & Discover Top Devs",
-    "ogDescription": "ghfind: score any GitHub account and discover top developers. 0-100 value & trust score + a savage roast in 30 seconds, plus a ranked developer board.",
-    "twDescription": "Score any GitHub dev + discover the best on ghfind. 0-100 score & savage roast in 30s.",
+    "title": "ghfind | Witty GitHub Score, Self-Test & Discover Top Devs",
+    "description": "ghfind: enter a GitHub handle, get a 0–100 trust/value score and a witty, fair roast in ~30s. Spot gaps, grow, and discover strong developers.",
+    "ogTitle": "ghfind | Witty GitHub Score, Self-Test & Discover Top Devs",
+    "ogDescription": "ghfind: enter a GitHub handle, get a 0–100 trust/value score and a witty, fair roast in ~30s. Spot gaps, grow, and discover strong developers.",
+    "twDescription": "Score a GitHub account in ~30s with a witty roast. Discover top developers on ghfind.",
     "siteName": "ghfind"
   },
   "nav": {
-    "brand": "ghfind",
+    "brand": "Roast",
     "roast": "GitHub Roast",
     "leaderboard": "Developer Board",
     "discover": "Discover",
     "developers": "Developers",
     "projectBoards": "Project Boards",
     "projects": "Projects",
-    "collections": "Editor's Picks",
+    "collections": "Deep Research",
     "languages": "Languages",
     "organizations": "Organizations",
     "versus": "Dev Versus",
+    "mfcp": "MFCP Open Source",
     "blog": "Research",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
@@ -27,19 +53,30 @@
     "githubBot": "GitHub Bot",
     "groupDiscover": "Discover",
     "groupCareer": "Career",
-    "groupTools": "Tools",
+    "groupTools": "Integrations",
     "beta": "Beta",
+    "event": "Event",
     "hint": {
-      "roast": "Score any GitHub account in 30 seconds, with a savage one-liner",
+      "roast": "Score any GitHub account in 30 seconds, with a witty one-liner",
       "versus": "Put two developers head to head",
+      "mfcp": "MFCP open source mentorship program, now enrolling",
       "leaderboard": "Browse top developers by score",
       "projectBoards": "Find notable open-source projects by field",
-      "collections": "Projects and developers hand-picked by the editor",
+      "collections": "Developer stories, curated open-source projects, and research on the GitHub ecosystem.",
       "blog": "Data and insights on the developer ecosystem",
       "resume": "Build a developer résumé from your GitHub data",
       "talent": "Find developers worth knowing",
-      "githubBot": "Auto-label issues and PRs by author score"
-    }
+      "githubBot": "Auto-label issues and PRs by author score",
+      "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens",
+      "jobs": "Open roles at AI and open-source companies",
+      "talentMatch": "AI talent report, role matching and growth advice",
+      "discover": "Swipe or scroll a compact feed of high-value repos",
+      "feed": "Read developers’ posts and X updates"
+    },
+    "cliApi": "CLI & API",
+    "jobs": "Jobs",
+    "talentMatch": "Talent Match",
+    "feed": "For you"
   },
   "globalSearch": {
     "open": "Open global search",
@@ -57,7 +94,7 @@
     }
   },
   "header": {
-    "signIn": "Sign in with GitHub",
+    "signIn": "Sign in to create token",
     "signOut": "Sign out",
     "myProfile": "My profile",
     "judgeSelf": "Judge myself"
@@ -65,7 +102,7 @@
   "loginNudge": {
     "title": "🔥 Sign in to unlock more",
     "body": "Sign in with GitHub to keep your votes and reactions — and get a smoother experience.",
-    "signIn": "Sign in with GitHub",
+    "signIn": "Sign in to create token",
     "dismiss": "Maybe later",
     "close": "Close"
   },
@@ -92,7 +129,7 @@
     "title": "Source code & scoring algorithm are open source · View on GitHub"
   },
   "home": {
-    "brand": "Savage",
+    "brand": "Witty",
     "headline": "Discover the best developers — and become one.",
     "subtitle": "Start with a brutally honest 0–100 score. See where you stand, learn where to go.",
     "boardHeading": "🏆 Best developers",
@@ -114,18 +151,18 @@
     "pageJumpLabel": "Go to page",
     "collapse": "Collapse",
     "trendView": "🚀 Trending",
-    "scoreView": "💯 Top Scores",
+    "scoreView": "⚔ Level board",
     "trendLabel": "Trend",
     "trendTitle": "Trend score: 80% score + 15% unique 7-day visitor heat + 5% recent lookup decay",
-    "scoreLabel": "Score",
-    "scoreTitle": "0-100 value and trust score based on public GitHub data",
+    "scoreLabel": "Level",
+    "scoreTitle": "Adventurer level (Lv.1–100) derived from public GitHub signals",
     "heatView": "🔥 Most Roasted",
     "heatLabel": "Heat",
     "heatTitle": "Successful roast count",
     "vsButton": "Challenge",
     "viewDetail": "View @{username}'s score detail",
     "trendSubtitle": "Trend blends score, unique 7-day visitor heat, and recent lookup recency; heat is normalized so raw attention cannot overwhelm quality.",
-    "scoreSubtitle": "Ranked by the 0-100 value and trust score.",
+    "scoreSubtitle": "Sorted by underlying composite score; shown as adventurer level.",
     "heatSubtitle": "Ranked by total successful roast lookups.",
     "windowAria": "Time range",
     "window24h": "24h",
@@ -157,7 +194,11 @@
     "apiCtaLink": "API docs →",
     "repoAuthoredBy": "Maintained by",
     "repoContributors": "ranked contributors",
-    "repoAvgScore": "avg score"
+    "repoAvgScore": "avg score",
+    "repoGlobalRank": "#{rank} of {total} on GitHub",
+    "repoGlobalRankApprox": "~#{rank} of {total} on GitHub",
+    "repoTopAmong": "Top {pct}% of repos with ≥{floor}★",
+    "repoRankNote": "By stars among all public non-fork repositories · {asOf}"
   },
   "projects": {
     "metaTitle": "Discover high-quality GitHub projects · ghfind",
@@ -200,11 +241,11 @@
     }
   },
   "collections": {
-    "metaTitle": "Founder's picks: projects & developers · ghfind",
-    "metaDescription": "Hand-curated collections of standout GitHub projects and developers, backed by ghfind's contributor-quality engine.",
+    "metaTitle": "Deep Research · ghfind",
+    "metaDescription": "Developer stories, curated open-source projects, and research on the GitHub ecosystem.",
     "eyebrow": "Founder's picks",
-    "heading": "Curated projects & developers",
-    "subtitle": "Not another star list — every pick ships with engine data on who builds it and how good they are.",
+    "heading": "Deep Research",
+    "subtitle": "Developer stories, curated open-source projects, and research on the GitHub ecosystem.",
     "empty": "No collections yet — check back soon.",
     "itemCount": "{count} picks",
     "publishedOn": "Published {date}",
@@ -222,7 +263,7 @@
     "avgScoreLabel": "avg contributor score",
     "followersLabel": "followers",
     "totalStarsLabel": "total stars",
-    "backToCollections": "All collections",
+    "backToCollections": "Back to Deep Research",
     "dataNote": "Scores and tiers come from the ghfind scoring engine and refresh with every new scan."
   },
   "discoveryNext": {
@@ -267,15 +308,27 @@
     "pageSubtitle": "score moves this week",
     "signInTitle": "Sign in to see who you follow",
     "signInBody": "Sign in with GitHub, follow developers, then come back here to watch their scores move.",
-    "signIn": "Sign in with GitHub"
+    "signIn": "Sign in to create token"
   },
   "detail": {
+    "unratedMessage": "This developer has a saved profile, but a public score is not available right now. You can view their GitHub profile or return to the analysis form to request a new result.",
+    "unratedAction": "Open analysis form",
+    "unratedGithub": "View on GitHub",
     "back": "← Back to Hall of Fame",
     "backfilling": "🔍 Fetching their open-source footprint (repos / languages / contributions)…",
     "rankTitle": "Your standing",
     "rankUnit": "/ of {total}",
     "rankUnranked": "Unranked (not enough data)",
     "beatInline": "Beat {beat}% of developers",
+    "githubStandingTitle": "Across all of GitHub",
+    "githubStandingAccountAge": "Account age",
+    "githubStandingTopRepo": "Best repo stars",
+    "githubStandingRank": "#{rank} of {total}",
+    "githubStandingRankApprox": "~#{rank} of {total}",
+    "githubStandingTopAmong": "Top {pct}% of repos with ≥{floor}★",
+    "githubStandingOlder": "Older than {pct}%",
+    "githubStandingYears": "{years} yrs",
+    "githubStandingFootnote": "Public data across all of GitHub · {asOf}",
     "milestoneNext": "{gap} pts to “{tier}”",
     "milestoneCapped": "🏆 Maxed out · top tier",
     "facetRankLine": "#{rank} on {facet}",
@@ -308,18 +361,26 @@
     "similarSub": "Closest profile, nearby score",
     "impactHeading": "🏆 Notable contributions",
     "impactSub": "Popular open-source repos they've shipped to (commits + PRs)",
+    "impactDisclosure": "Notable contributions ({count})",
     "worksHeading": "🛠 Featured work",
     "worksSub": "Representative repos ranked by concrete contribution first, stars second",
-    "stackHeading": "🧬 Stack & domains",
-    "stackLangLabel": "Top languages",
-    "stackTopicsLabel": "Domains",
     "orgsLabel": "Organizations",
     "commits": "commits",
     "prs": "PRs",
-    "roastHeading": "🔥 Full roast",
+    "verdictLabel": "Quick Verdict",
     "roastEmpty": "This roast hasn't been archived yet — <a>judge again from the home page</a> to generate it.",
     "scoreStateStaleTitle": "Historical score",
     "scoreStateStaleBody": "This score predates the current scoring release. It remains visible until a verified rescan replaces it.",
+    "scoreStateRescanAction": "Re-evaluate",
+    "scoreStateRescanRunning": "Re-evaluating under the current rules…",
+    "scoreStateRescanReport": "Writing the new roast…",
+    "scoreStateRescanError": "Re-evaluation failed, try again later",
+    "roastStaleLabel": "Previous-release roast",
+    "roastStaleHint": "This roast was written under the previous rules; for reference only.",
+    "roastRegenerating": "Writing the roast under the current rules…",
+    "roastRegeneratePending": "The current-release roast hasn't been written yet",
+    "roastRegenerateFailed": "Couldn't write the new roast — try Re-evaluate",
+    "roastRegenerateSlow": "Still writing the new roast — refresh in a bit",
     "scoreStatePendingTitle": "Current score · report pending",
     "scoreStatePendingBody": "The deterministic score is current. The optional AI report has not been generated yet.",
     "scoreStateReadyTitle": "Current score and report",
@@ -337,13 +398,27 @@
     "modalViewProfile": "View full profile",
     "modalBadgeCta": "Get your GitHub badge",
     "modalClose": "Close",
-    "battlesHeading": "⚔️ Battles",
-    "battlesSub": "PK duels this dev has fought",
-    "battleWin": "Win",
-    "battleLoss": "Loss",
-    "battleTie": "Tie",
     "selfCta": "Rate your own GitHub →",
-    "reportLangNotice": "The AI roast report is currently written in English and Chinese only — you're reading the English version."
+    "reportLangNotice": "The AI roast report is currently written in English and Chinese only — you're reading the English version.",
+    "coCreatorShare": "Led / co-built ({share}% credited share)",
+    "roastProgressTitle": "Writing your roast…",
+    "roastStage1": "Reading the scan",
+    "roastStage2": "Picking what is worth writing",
+    "roastStage3": "Drafting the punchlines",
+    "roastStage4": "Checking numbers and repo names",
+    "roastStage5": "Laying out the finish",
+    "liveRetry": "Try again",
+    "scoreReadyHint": "Level is ready — roast incoming",
+    "adventurerLevel": "Adventurer Level",
+    "preciseScoreTitle": "Composite {score}",
+    "liveTimeout": "The roast timed out — stopped waiting. Retry later; any existing score and prior roast stay on the page.",
+    "scoreStateRescanTimeout": "Re-evaluation timed out — stopped waiting. Try again later",
+    "evaluateStageFetch": "Fetching data",
+    "evaluateStageAnalyze": "Analyzing repos",
+    "evaluateStageRoast": "Writing the roast",
+    "evaluateError": "That run did not finish. Tap retry to try again.",
+    "evaluateTimeout": "That took a bit long. Tap retry to try again.",
+    "evaluateRetry": "Retry"
   },
   "reactions": {
     "heading": "Community reactions",
@@ -360,27 +435,30 @@
     "clown": "Can't even"
   },
   "rescan": {
-    "button": "🔄 Re-detect",
+    "button": "Re-evaluate",
     "scanning": "Scanning…",
     "roasting": "Roasting…",
-    "error": "Detection failed, try again later",
-    "cooldown": "Refresh available in {hours}h"
+    "error": "Evaluation failed, try again later",
+    "cooldown": "Available again in {hours}h",
+    "timeout": "Roast timed out — stopped waiting. Try again later"
   },
   "detailMeta": {
-    "title": "{username} — {score}/100 · {tier} | ghfind",
+    "unratedTitle": "{username} · Developer profile",
+    "title": "{username} — Lv.{level} · {realm} | ghfind",
     "descWithTags": "{tags} — see {username}'s full score report on ghfind.com.",
     "descPlain": "{username}'s GitHub value & trust report — ghfind.com.",
     "notFoundTitle": "Account not found · ghfind",
     "pendingTitle": "Roasting @{username}… · ghfind"
   },
   "roaster": {
+    "modelSponsor": "Model sponsor",
     "inputPlaceholder": "Enter a GitHub username or profile URL",
     "judge": "Judge",
     "judging": "Judging…",
     "byoLink": "Use your own model / API key",
     "scanning": "Digging up {username}'s history… reading commits, checking PRs, counting stars, sniffing out farmed activity",
     "roastLabel": "🔥 Roast",
-    "roastThinking": "The AI is cooking up a savage roast — coming right up…",
+    "roastThinking": "AI is crafting a witty, fair roast…",
     "roastPending": "Preparing the roast",
     "firstJudged": "🥇 You're the first to be judged — a true pioneer",
     "rankLine": "<hl>📊 Ranked #{rank}</hl><muted> of {total} developers</muted>",
@@ -390,15 +468,17 @@
     "pasteGithub": "📌 Pin to GitHub",
     "copied": "Copied ✓",
     "privateNote": "Note: the score uses public signals only — private contributions don't count, so active members of private orgs may be underrated.",
-    "shareText": "My GitHub just got judged: {score}/100 · {tier} ({tierLabel}){beat}. Rate yours 👉 ghfind.com",
+    "shareText": "My GitHub just got judged: {score} · {tier} ({tierLabel}){beat}. Rate yours 👉 ghfind.com",
     "shareBeat": ", beating {beat}% of developers",
     "errEmpty": "Enter a GitHub username or profile URL first.",
     "errNeedTurnstile": "Please complete the verification below first.",
     "errRoastFailed": "Roast generation failed — try again later or use your own key.",
     "errNetworkRoast": "Connection dropped — the roast got cut off.",
     "errScanFailed": "Scan failed, try again later.",
+    "largeAccountCollecting": "Collecting data for a large account…",
     "errScanPending": "Collecting the account's full public PR and commit history. This will continue automatically when ready.",
     "errNetworkScan": "Network error — couldn't even reach GitHub.",
+    "dataUpdating": "Score data is updating…",
     "byoReasonQuota": "Free quota's used up 😵 Add your own API key to keep roasting (OpenAI / StepFun / Groq all work).",
     "byoReasonRate": "You've roasted a lot today 🥵 Take a breather, or add your own API key for unlimited roasts.",
     "byoReasonDefault": "No default model is configured on the server — add your own API key to start roasting."
@@ -410,6 +490,9 @@
     "rate_limited": "Too fast — take a breath and try again in a minute.",
     "github_rate_limited": "GitHub's API is maxed out right now — give it a moment.",
     "github_unavailable": "GitHub data is temporarily unavailable — try again later.",
+    "github_collect_deadline": "GitHub collection timed out — retry shortly.",
+    "scan_pending": "Collecting data for a large account…",
+    "scan_busy": "Score generation is busy — retry shortly.",
     "scan_failed": "The scan crashed — try again later."
   },
   "share": {
@@ -476,36 +559,35 @@
     "cancel": "Cancel",
     "saveContinue": "Save & continue"
   },
-  "developerCount": "<n>{count, number}</n> developers have entered the arena ⚔️",
   "shareCard": {
     "beatLabel": "developers beaten",
     "brand": "🔥 ghfind · see how you stack up"
   },
   "tiers": {
-    "god": {
-      "name": "GOD",
-      "blurb": "Legendary · Hall of Fame"
-    },
-    "elite": {
-      "name": "ELITE",
-      "blurb": "Elite · Top-tier dev"
-    },
-    "solid": {
-      "name": "SOLID",
-      "blurb": "Solid · Trustworthy"
+    "trash": {
+      "name": "Qi Condensation",
+      "blurb": "First steps · Building the base"
     },
     "npc": {
-      "name": "NPC",
-      "blurb": "Average · Unremarkable"
+      "name": "Core Formation",
+      "blurb": "Core formed · Showing an edge"
     },
-    "trash": {
-      "name": "TRASH",
-      "blurb": "Low-value · Likely farmed"
+    "solid": {
+      "name": "Spatial Tempering",
+      "blurb": "Effortless mastery"
+    },
+    "elite": {
+      "name": "Body Integration",
+      "blurb": "In harmony · Top-tier master"
+    },
+    "god": {
+      "name": "Grand Ascension",
+      "blurb": "Near the summit · Hall of fame"
     }
   },
   "dimensions": {
     "account_maturity": "Account maturity",
-    "original_project_quality": "Original project quality",
+    "original_project_quality": "Original & Led Projects",
     "contribution_quality": "Contribution quality",
     "ecosystem_impact": "Ecosystem / maintenance impact",
     "community_influence": "Community influence",
@@ -531,14 +613,16 @@
     "suggestLanguage": "{value} developer leaderboard",
     "suggestOrg": "{value} · org members",
     "pkHalfHint": "Type an opponent, then hit Enter to fight",
-    "lockedRemove": "Remove"
+    "lockedRemove": "Remove",
+    "ctaMatch": "Match",
+    "ctaMatchHint": "Talent report + matching roles"
   },
   "blog": {
     "heading": "Research",
     "subtitle": "Data notes from scoring real GitHub contribution at scale.",
     "readingTime": "{minutes} min read",
     "notTranslated": "This article hasn't been translated yet — showing the English original.",
-    "backToList": "All research",
+    "backToList": "Back to Deep Research",
     "empty": "No articles yet."
   },
   "footer": {
@@ -563,7 +647,7 @@
       },
       {
         "q": "How is the score calculated?",
-        "a": "The engine scores six weighted dimensions that sum to 100 — account maturity, original project quality, contribution quality, ecosystem impact, community influence, and activity authenticity — and subtracts penalties for red flags such as PR farming or star inflation. It runs only on public GitHub data."
+        "a": "The engine scores six weighted dimensions that sum to 100 — account maturity, original and led project quality, contribution quality, ecosystem impact, community influence, and activity authenticity — and subtracts penalties for red flags such as PR farming or star inflation. It runs only on public GitHub data."
       },
       {
         "q": "Is the score deterministic and reproducible?",
@@ -585,7 +669,7 @@
   },
   "homeIntro": {
     "whatHeading": "What is ghfind?",
-    "whatBody": "ghfind is a developer-scoring and discovery tool for GitHub. It rates any account from 0 to 100 across six weighted dimensions — account maturity, original project quality, contribution quality, ecosystem impact, community influence, and activity authenticity — using a fully deterministic engine (the open-source github-account-value skill, AGPL). The same inputs always produce the same score; no LLM touches the number. On top of the score it adds an optional AI-written roast, developer-vs-developer battles, language and organization leaderboards, and README score badges.",
+    "whatBody": "ghfind is a developer-scoring and discovery tool for GitHub. It rates any account from 0 to 100 across six weighted dimensions — account maturity, original and led project quality, contribution quality, ecosystem impact, community influence, and activity authenticity — using a fully deterministic engine (the open-source github-account-value skill, AGPL). The same inputs always produce the same score; no LLM touches the number. On top of the score it adds an optional AI-written roast, developer-vs-developer battles, language and organization leaderboards, and README score badges.",
     "howHeading": "How ghfind works",
     "steps": [
       {
@@ -594,11 +678,11 @@
       },
       {
         "title": "2. Score six deterministic dimensions",
-        "body": "The snapshot is scored across account maturity, original project quality, contribution quality, ecosystem impact, community influence, and activity authenticity, with penalties for PR-farming, star inflation, and template-spam patterns."
+        "body": "The snapshot is scored across account maturity, original and led project quality, contribution quality, ecosystem impact, community influence, and activity authenticity, with penalties for PR-farming, star inflation, and template-spam patterns."
       },
       {
-        "title": "3. Get a score, tier, and roast",
-        "body": "You get a reproducible 0-100 score with a tier from Trash to God, a per-dimension breakdown showing exactly what holds the score down, and — only if you ask for it — a savage AI-written roast."
+        "title": "3. Get your adventurer level, realm, and roast",
+        "body": "You get a reproducible adventurer level (Lv.1–100), a cultivation realm from Qi Condensation to Grand Ascension, a per-dimension breakdown showing exactly what holds the score down, and — only if you ask for it — a witty, fair AI-written roast."
       }
     ],
     "numbersHeading": "ghfind by the numbers",
@@ -636,7 +720,7 @@
     "heading": "ghfind API documentation",
     "lead": "ghfind scores any GitHub account 0-100 for real contribution value and trustworthiness with a deterministic, open-source engine. Everything on the site is also available programmatically: a public REST API, an MCP server for AI agents, and official SDKs. This page documents all of them.",
     "restHeading": "ghfind REST API",
-    "restIntro": "Base URL: https://ghfind.com. Scoring reads need no authentication. Errors are structured JSON ({error, message, hint}), responses carry RateLimit-* headers, and list endpoints support limit/offset pagination.",
+    "restIntro": "Base URL: https://ghfind.com. Scoring reads need no authentication. Errors are structured JSON (error / message / hint), responses carry RateLimit-* headers, and list endpoints support limit/offset pagination.",
     "endpoints": [
       {
         "sig": "GET /api/score/{username}",
@@ -742,7 +826,7 @@
     "heading": "About ghfind",
     "paragraphs": [
       "ghfind is a developer-scoring and discovery tool for GitHub. It rates any account from 0 to 100 for real contribution value and trustworthiness, using a fully deterministic engine that runs only on public GitHub data. The same inputs always produce the same score — no large language model is involved in the number itself — so results are reproducible and auditable rather than opaque.",
-      "The score is built from six weighted dimensions that sum to 100: account maturity, original project quality, contribution quality, ecosystem impact, community influence, and activity authenticity. On top of that factual core, ghfind adds an optional AI-written roast, developer-versus-developer battles, leaderboards by programming language, organization, and project, and README score badges you can embed on your own profile.",
+      "The score is built from six weighted dimensions that sum to 100: account maturity, original and led project quality, contribution quality, ecosystem impact, community influence, and activity authenticity. On top of that factual core, ghfind adds an optional AI-written roast, developer-versus-developer battles, leaderboards by programming language, organization, and project, and README score badges you can embed on your own profile.",
       "The scoring engine is open source under the AGPL license as the github-account-value skill, and the same code paths power the website, the official npm and PyPI packages, the command-line tool, and the Model Context Protocol server. ghfind exists to make GitHub contribution legible: to reward genuine open-source work, surface developers worth following, and make farmed or faked activity easy to spot by looking at patterns instead of raw counts."
     ]
   },
@@ -777,8 +861,16 @@
         "p": "For accounts that are scored, we cache the computed score, tier, and derived metrics so shared reports load quickly and the leaderboard stays fast. Only accounts scoring 60 or above are indexed and listed publicly; lower-scoring pages are reachable by direct link but kept out of search engines. We use privacy-respecting, aggregate analytics to understand traffic and do not sell personal data."
       },
       {
+        "h": "Google sign-in and account cookies",
+        "p": "If you choose Google sign-in, we receive your Google account identifier (subject), name and profile image to establish your ghfind session. Google may also return your email address during sign-in; we do not persist it. A signed, HttpOnly session cookie stores your basic identity for up to 30 days. We do not retain Google API access tokens or refresh tokens. Signing out clears the session cookie. Google sign-in does not grant GitHub permissions, and we do not automatically link accounts by email address."
+      },
+      {
         "h": "Bring-your-own-key roasts",
         "p": "The optional roast feature can use your own model provider key. When you supply one, it stays in your browser and is relayed once through our server to call the model — it is never stored and never logged, and is discarded after the request completes."
+      },
+      {
+        "h": "Advertising and cookies",
+        "p": "When we show ads, third-party vendors, including Google, use cookies, web beacons, and similar technologies to serve ads based on your prior visits to this site or other sites. Google's use of advertising cookies enables it and its partners to serve ads to you based on your visit to this site and/or other sites on the Internet. You can opt out of personalized advertising by visiting Google Ads Settings (https://adssettings.google.com). To opt out of some third-party vendors' uses of cookies for personalized advertising, visit www.aboutads.info/choices."
       }
     ]
   },
@@ -791,7 +883,7 @@
     "dimensionsIntro": "Each dimension contributes to the 100-point base score. Together they reward sustained, original, widely-used open-source work over raw activity counts.",
     "dimensionDetails": {
       "account_maturity": "How established and consistent the account is over time — age, sustained activity, and a credibility curve that resists overnight inflation.",
-      "original_project_quality": "The quality and reception of repositories the account actually owns and authored, not forks or trivial projects.",
+      "original_project_quality": "Quality and reception of personally authored projects and substantially led or co-built projects, weighted by attribution share; excludes forks.",
       "contribution_quality": "The substance of contributions to other projects — merged, meaningful pull requests versus template spam.",
       "ecosystem_impact": "How much the account's work is depended on and maintained across the wider ecosystem.",
       "community_influence": "Genuine reach and standing in the community, normalized so raw follower or star counts cannot dominate.",
@@ -831,7 +923,7 @@
     "summonRoasting": "Roasting…",
     "summonError": "Summon failed, try again later",
     "bothMissing": "Neither has been judged yet — summon them first, then duel.",
-    "verdictGenerating": "🤖 The AI is cooking up a savage verdict…",
+    "verdictGenerating": "🤖 The AI is cooking up a witty verdict…",
     "adviceHeading": "💡 How to level up",
     "saveImage": "📸 Save battle image",
     "saving": "Rendering…",
@@ -839,7 +931,7 @@
     "embedCopied": "✅ Copied — paste it into your README",
     "shareText": "{a} vs {b} — who's more hardcore? Watch this GitHub duel on ghfind.com ⚔️",
     "trendingHeading": "🔥 Trending battles",
-    "trendingSub": "The most-watched GitHub developer PKs — tap in for the savage verdict",
+    "trendingSub": "The most-watched GitHub developer PKs — tap in for the witty verdict",
     "trendingEmpty": "No battles on the board yet. Type \"a vs b\" on the home page to fire the first shot.",
     "notRated": "Unjudged",
     "verdictMissing": "Hold your verdict — summon them to the ring first.",
@@ -1294,8 +1386,10 @@
     }
   },
   "sponsor": {
+    "stripLabel": "Sponsor",
+    "learnMore": "Learn more",
     "metaTitle": "Sponsor ghfind · Plans & perks",
-    "metaDescription": "Sponsor ghfind: Title, Model, Featured and Friend sponsor plans, billed monthly. Sponsorship never affects any ranking or score.",
+    "metaDescription": "Sponsor ghfind with four monthly tiers: 夯, 顶级, 人上人 and 友情. Sponsorship never affects rankings or scores.",
     "topline": {
       "section": "Help & Docs",
       "current": "Sponsor"
@@ -1312,11 +1406,14 @@
     "available": "Available",
     "soon": "In development",
     "currentHolder": "Current sponsor",
+    "anonymous": "Anonymous sponsor",
+    "emailTemplateSubject": "ghfind sponsorship inquiry · {tier}",
+    "emailTemplateBody": "Hello, I'd like to ask about sponsoring ghfind's {tier} tier.\n\nSponsorship start date:\nSponsorship term: 1 month\n\nShow anonymously (yes/no):\nProduct or project to feature (leave blank if anonymous):\nProject link (optional):\nIcon or logo (optional; attach a file or provide a link):\nShort project description (optional):",
     "cta": "Become a sponsor",
     "ctaSoldOut": "Sold out · Stay tuned",
     "tiers": {
       "title": {
-        "name": "Title Sponsor",
+        "name": "夯",
         "summary": "The most prominent slot on the site — your brand travels with every brag card shared.",
         "perks": [
           {
@@ -1328,19 +1425,22 @@
         ]
       },
       "model": {
-        "name": "Model Sponsor",
-        "summary": "Power the roasts and get seen every time one is generated.",
+        "name": "顶级",
+        "summary": "Power the roasts, get seen every time one is generated, and put your open roles first.",
         "perks": [
           {
             "text": "Model sponsor credit shown while a roast is generated"
           },
           {
             "text": "Sponsor info and logo on the homepage"
+          },
+          {
+            "text": "Your job listings shown first on the homepage hiring section and the /jobs page"
           }
         ]
       },
       "featured": {
-        "name": "Featured Sponsor",
+        "name": "人上人",
         "summary": "Steady exposure on the homepage and developer detail pages.",
         "perks": [
           {
@@ -1353,7 +1453,7 @@
         ]
       },
       "friend": {
-        "name": "Friend Sponsor",
+        "name": "友情",
         "summary": "Back ghfind as a friend — we'll remember you here.",
         "perks": [
           {
@@ -1381,98 +1481,670 @@
     "slotOpen": "Your logo here"
   },
   "githubBot": {
-    "metaTitle": "ghfind Review — GitHub App that labels issues and PRs by author score",
-    "metaDescription": "Install the ghfind Review GitHub App to add a colour-coded review label to every new issue and pull request, based on the author's public ghfind score.",
+    "metaTitle": "ghfind Review | GitHub Bot for Issue and PR triage",
+    "metaDescription": "ghfind Review combines author-score labels and content classification with previews, cleanup and your own AI service (BYOK), managed per repository.",
     "topline": {
       "section": "Integrations",
       "current": "GitHub Bot"
     },
     "hero": {
-      "eyebrow": "GitHub App · Free",
-      "title": "Triage issues and PRs by who opened them",
-      "subtitle": "ghfind Review adds a colour-coded review: label to every new issue and pull request, based on the author's public ghfind score. No workflow, no token, no secret to configure.",
+      "eyebrow": "ghfind Review · GitHub App",
+      "title": "Issue and PR triage,\nunder your control.",
+      "subtitle": "Label Issues and PRs by author score or content. Control automation, previews and cleanup from one Bot console.",
+      "admin": "Open Bot console",
       "install": "Install on GitHub",
-      "status": "Open status page",
-      "note": "Runs as ghfind-review[bot]. It only adds labels — it never comments on, closes or blocks a submission."
+      "status": "Bot home"
     },
-    "preview": {
-      "label": "Example issue list with review labels",
-      "heading": "Issues",
+    "console": {
+      "heading": "Your Bot workspace",
+      "note": "Sign in with GitHub. The console shows installations and repositories you can access.",
       "items": {
-        "top": "Crash when parsing nested config",
-        "medium": "Add dark mode to settings",
-        "noScore": "Typo in README"
+        "overview": {
+          "title": "Dashboard",
+          "body": "An overview across your GitHub installations."
+        },
+        "repositories": {
+          "title": "Repositories",
+          "body": "Configure labels and pause or resume processing."
+        },
+        "tasks": {
+          "title": "Tasks",
+          "body": "Follow backfills and retry failed jobs."
+        },
+        "activity": {
+          "title": "Activity",
+          "body": "Review configuration changes and cleanup history."
+        }
+      },
+      "preview": "Bot console · Local demo data",
+      "screenshotAlt": "Bot Dashboard showing installation overview, repository status, tasks and recent activity."
+    },
+    "classification": {
+      "heading": "Two kinds of labels. Two different signals.",
+      "lead": "Keep author-profile context separate from the topic of a contribution.",
+      "score": {
+        "mode": "Author-profile context",
+        "title": "Author-score labels",
+        "body": "For new Issues and PRs, the Bot looks up the author’s public ghfind score and applies a review: label. The score describes a public profile, not the quality of the contribution.",
+        "example": "Five score bands, including an explicit no-score label when a score is unavailable."
+      },
+      "intent": {
+        "mode": "Optional · Off by default",
+        "title": "Content classification",
+        "body": "Compare the Issue or PR title and body with descriptions of existing labels you select. When enabled, the classifier can add up to three matching labels without creating or renaming any labels.",
+        "example": "Requires a configured classification service. Try a suggestion in the console before enabling it. AI classification is separate from the author score and may need correction. Connect your own AI service in repository settings."
       }
     },
-    "labels": {
-      "heading": "Five labels, one glance",
-      "lead": "Missing labels are created on install. Colours or descriptions you have customised are kept.",
+    "byok": {
+      "heading": "Use your own AI service",
+      "lead": "Bring your endpoint, API key and model. Configure each repository separately, then choose your service or the platform service.",
+      "cta": "Configure your AI service",
+      "setup": "Open a repository, then choose AI service. Saving requires repository admin access.",
       "items": {
-        "low": {
-          "range": "0 – 39",
-          "desc": "Little public signal. Verify the source first."
+        "provider": {
+          "title": "Choose the service per repository",
+          "body": "Switch between the platform service and your own public HTTPS API base URL. Each repository keeps its own configuration."
         },
-        "medium": {
-          "range": "40 – 69",
-          "desc": "A typical contributor profile."
+        "protocol": {
+          "title": "Choose the protocol and model",
+          "body": "OpenAI-compatible Chat Completions can classify content and generate greetings. Jev Decisions classifies content only."
         },
-        "high": {
-          "range": "70 – 89",
-          "desc": "Strong public profile signals."
+        "key": {
+          "title": "Keep your key private",
+          "body": "API keys are encrypted at rest and never shown again. Replace or remove a saved key from the console."
         },
-        "top": {
-          "range": "90 – 100",
-          "desc": "Top of the ghfind index."
+        "test": {
+          "title": "Test before enabling",
+          "body": "Explicitly test the saved connection. The test makes no GitHub changes and stores no sample text. Content classification remains off by default."
+        }
+      },
+      "billing": "Your provider bills requests to your key. If your own service fails, the Bot does not silently switch to the platform service."
+    },
+    "operations": {
+      "heading": "Preview first. Then decide.",
+      "lead": "Control each repository individually, with changes recorded in the activity log.",
+      "items": {
+        "preview": {
+          "title": "Test a label suggestion",
+          "body": "Try an Issue or PR sample against saved label definitions. The preview makes no GitHub changes and does not save your sample text. Requires a configured classification service."
         },
-        "noScore": {
-          "range": "No score",
-          "desc": "Score unavailable — not zero. Retried after 20 and 60 minutes."
+        "backfill": {
+          "title": "Process existing submissions",
+          "body": "Start a backfill yourself for the latest 1–100 open Issues and PRs. Installation only initializes score labels; it does not start a historical backfill."
+        },
+        "cleanup": {
+          "title": "Review and undo Bot changes",
+          "body": "Preview eligible removals before confirming. Cleanup only removes changes attributable to this Bot; manually re-added labels and changes with unclear ownership are kept."
         }
       }
     },
-    "steps": {
-      "heading": "How it works",
+    "cli": {
+      "heading": "The same controls, from your terminal.",
+      "body": "Go, JavaScript and Python CLIs support status, pause, resume, backfill, retry and cleanup. Use a token with explicit Bot scopes; repository access is still required.",
+      "link": "CLI and API guide",
+      "example": "Example commands · replace owner/repo",
+      "note": "The cleanup command previews removals. A separate confirmation is required to apply them."
+    },
+    "reference": {
+      "heading": "Author-score labels and GitHub search filters"
+    },
+    "labels": {
+      "heading": "Five author-score bands",
+      "lead": "Missing score labels are created on install. Existing custom colors and descriptions are preserved.",
       "items": {
-        "install": {
-          "title": "Install on selected repositories",
-          "body": "Grant Issues and Pull requests read & write. Choose Only select repositories to start small; org repos may need owner approval."
+        "low": {
+          "range": "0 – 39",
+          "desc": "Fewer public profile signals."
         },
-        "open": {
-          "title": "Someone opens an issue or PR",
-          "body": "The bot looks up the author's public ghfind score in the background. The issue body is never read or scored."
+        "medium": {
+          "range": "40 – 69",
+          "desc": "Mid-range public profile signals."
         },
-        "label": {
-          "title": "A review: label appears",
-          "body": "On install, the first pages of open issues and PRs are labelled too. Edits and reopens are not rescored."
+        "high": {
+          "range": "70 – 89",
+          "desc": "Stronger public profile signals."
+        },
+        "top": {
+          "range": "90 – 100",
+          "desc": "Highest band of the ghfind index."
+        },
+        "noScore": {
+          "range": "No score",
+          "desc": "Unavailable is not zero. Transient failures are retried after 20 and 60 minutes."
         }
       }
     },
     "queues": {
-      "heading": "Turn score ranges into review queues",
-      "lead": "Paste a filter into your repository's issue search and start with the queue that fits your time.",
+      "heading": "Filter in GitHub",
+      "lead": "Paste a filter into your repository’s Issues search. Replace is:issue with is:pr to find pull requests.",
       "items": {
-        "high": "High-score issues",
-        "top": "Top-score issues",
-        "low": "Low-score issues to verify",
-        "noScore": "No score — needs context"
+        "high": "High-score band",
+        "top": "Top-score band",
+        "low": "Low-score band",
+        "noScore": "Score unavailable"
       }
     },
     "notes": {
-      "rescore": {
-        "heading": "Asking for a rescore",
-        "body": "After the automatic retries, the author or a repository admin can comment @ghfind-review on the issue to score it again."
+      "heading": "Installation, data and controls",
+      "install": {
+        "heading": "Start with selected repositories",
+        "body": "Install the GitHub App with Issues and Pull requests read/write access. No repository workflow, PAT or secret is needed. Organization repositories may require owner approval."
       },
       "privacy": {
-        "heading": "What it touches",
-        "body": "No source files, no issue bodies. It keeps only the installation, repository, issue number, score and job state; finished jobs are purged after 30 days. Authors with a public email may get one score email per 72 hours, with one-click unsubscribe.",
-        "link": "Privacy notice"
+        "heading": "Know what is processed",
+        "body": "Scoring uses the author’s public profile. Optional classification sends the title, body and selected label descriptions to the configured AI service. Comments are off by default; if enabled, they include an introduction and author-score summary, not a code review.",
+        "link": "Read the privacy notice"
       },
       "stop": {
-        "heading": "Stop anytime",
-        "body": "Remove repositories, suspend or uninstall the app from your GitHub settings. Existing labels stay where they are."
+        "heading": "Pause or remove the Bot",
+        "body": "Pause processing per repository from the console, or remove the App in GitHub settings. Existing labels stay; use cleanup to review eligible Bot changes separately."
       }
     },
-    "disclaimer": "The score reflects the author's public GitHub profile, not the quality of this contribution. New contributors may simply have a short public record.",
+    "disclaimer": "The score reflects the author’s public GitHub profile, not the quality of this contribution. New contributors may simply have a short public record.",
     "source": "Source code and self-hosting guide"
+  },
+  "integrations": {
+    "eyebrow": "For developers and agents",
+    "title": "CLI & API",
+    "subtitle": "Connect ghfind to your terminal, scripts, and agents. Install the CLI and Skill, create a personal API token, and explore the API docs.",
+    "install": {
+      "heading": "Install the CLI and Skill with one command",
+      "description": "Copy this into a terminal or coding agent. Node.js 18 or newer is required; no sudo needed.",
+      "copy": "Copy install command",
+      "copied": "Copied",
+      "requirement": "The script installs the official npm CLI and saves the ghfind-cli Skill to ~/.agents/skills/ghfind-cli.",
+      "cliDocs": "CLI docs",
+      "skill": "View Skill"
+    },
+    "how": {
+      "heading": "Get connected",
+      "install": "Run the command to install the ghfind CLI.",
+      "skill": "The installer also adds the ghfind-cli Skill so your agent can read the commands and guidance.",
+      "auth": "For full scans or roasts, create an API token above and set GHFIND_API_KEY."
+    },
+    "tokens": {
+      "heading": "Create API token",
+      "signedOut": "Sign in with GitHub to create separate tokens for your CLI or automation. A token is shown only once when created.",
+      "signIn": "Sign in to create token",
+      "description": "Revoke tokens individually. The full token is never shown again.",
+      "scanScope": "Scan",
+      "botScope": "Bot management",
+      "scanIncluded": "Every token includes scan access for the CLI, API, and MCP.",
+      "botPermission": "Manage the ghfind Review bot",
+      "botPermissionHint": "Lets this token change bot settings and run cleanups on repositories where you are an admin.",
+      "scopesUnavailableError": "Bot permissions are not available yet. Try again later.",
+      "limit": "{count}/10 active tokens",
+      "namePlaceholder": "Name, e.g. Local CLI",
+      "defaultName": "CLI / Agent",
+      "create": "Create token",
+      "working": "Working…",
+      "copyOnce": "Copy and save it now. You cannot view the full token again after leaving this page.",
+      "copy": "Copy token",
+      "copied": "Copied",
+      "loading": "Loading tokens…",
+      "empty": "No API tokens yet.",
+      "created": "Created {date}",
+      "revoke": "Revoke {name}",
+      "revokeShort": "Revoke",
+      "loadError": "Could not load tokens. Refresh and try again.",
+      "createError": "Could not create the token. Try again.",
+      "limitError": "You have reached the active token limit. Revoke a token you no longer use.",
+      "revokeError": "Could not revoke the token. Try again."
+    },
+    "auth": {
+      "heading": "Authentication",
+      "description": "Sign in to the website with GitHub OAuth. CLI and API requests use a personal Bearer token created from your account; these credentials are separate.",
+      "publicTitle": "Public endpoints",
+      "public": "Scoring, comparisons, search, leaderboards, and developer directories work without a token.",
+      "protectedTitle": "Token required",
+      "protected": "Full scans and roasts that run a scan require GHFIND_API_KEY.",
+      "credentialNote": "Keep tokens in environment variables or a secrets manager. Do not commit them or give them to an untrusted agent.",
+      "apiDocs": "API docs"
+    }
+  },
+  "jobs": {
+    "metaTitle": "Developer jobs: open roles at AI companies · ghfind",
+    "metaDescription": "Open engineering, research and product roles at AI companies like DeepSeek and ModaLeap, with links to apply on each company's careers site.",
+    "heading": "Developer hiring",
+    "subtitle": "Turn open-source work into your next job.",
+    "postJob": "Post a job",
+    "viewAll": "View all",
+    "sponsored": "Sponsor · Pinned",
+    "sponsorNote": "Sponsor listings are shown first",
+    "becomeSponsor": "Become a sponsor",
+    "filterLabel": "Filter by company",
+    "allCompanies": "All companies",
+    "openJobs": "Open roles: {count}",
+    "sponsorTag": "Sponsor",
+    "careersSite": "Careers site",
+    "empty": "No open roles right now — check back soon.",
+    "disclaimer": "Listings are collected from each company's public careers page. Apply on the company's site; ghfind is not involved in hiring decisions.",
+    "type": {
+      "full_time": "Full-time",
+      "intern": "Intern",
+      "part_time": "Part-time"
+    },
+    "backToJobs": "All jobs",
+    "apply": "Apply",
+    "applyByEmail": "Apply by email",
+    "emailNote": "Send your résumé to {email}",
+    "detailNote": "ghfind only displays this listing; the company makes all hiring decisions."
+  },
+  "talentMatch": {
+    "source": {
+      "legend": "How should we read your résumé?",
+      "existingTitle": "Use a résumé on ghfind",
+      "existingHint": "Pick one you saved in My résumé",
+      "uploadTitle": "Upload your own",
+      "uploadHint": "PDF, up to {max} MB",
+      "loading": "Loading your résumés…",
+      "loadFailed": "Couldn't load your saved résumés. Try again later, or upload a PDF.",
+      "listLabel": "Your résumés",
+      "profileOption": "Profile (reusable details)",
+      "profileHint": "Details you saved for reuse across résumés",
+      "updated": "Updated {date}",
+      "manage": "Manage résumés",
+      "emptyTitle": "You don't have a résumé on ghfind yet",
+      "emptyBody": "Build one in a few minutes with the résumé builder and save it to the cloud, then come back to analyze it.",
+      "emptyCta": "Create a résumé",
+      "emptyUpload": "Upload a PDF instead"
+    },
+    "drop": {
+      "label": "Upload a PDF résumé",
+      "title": "Drag and drop your PDF here",
+      "or": "or",
+      "browse": "Browse files",
+      "rules": "PDF only · up to {max} MB",
+      "dragging": "Drop it to read your résumé",
+      "reading": "Reading {name}…",
+      "readingHint": "This happens in your browser and takes a few seconds.",
+      "readyTitle": "Résumé ready",
+      "readyMeta": "{pages, plural, one {# page} other {# pages}} · {chars} characters",
+      "replace": "Replace",
+      "remove": "Remove",
+      "errorTitle": "That file didn't work",
+      "retry": "Choose another file",
+      "privacy": "The PDF is read in your browser and never uploaded. Only its text is sent (email and phone removed), and the text itself is never stored.",
+      "errors": {
+        "type": "That's not a PDF. Choose a .pdf file.",
+        "size": "That file is {size} MB. The limit is {max} MB.",
+        "empty": "That file is empty.",
+        "multiple": "Drop one file at a time.",
+        "unreadable": "No text could be read from this PDF (it may be a scan or an image). Use a PDF with selectable text.",
+        "parse": "This PDF couldn't be opened; it may be damaged or password-protected."
+      }
+    },
+    "history": {
+      "title": "Past analyses",
+      "empty": "Your analyses will show up here after you generate one.",
+      "untitled": "Talent report",
+      "viewing": "Viewing",
+      "opening": "Opening…",
+      "running": "In progress",
+      "failed": "Failed",
+      "matches": "{count, plural, one {# matching role} other {# matching roles}}",
+      "topFit": "Best fit {fit}",
+      "openFailed": "Couldn't open that analysis. Please try again."
+    },
+    "company": {
+      "badge": "Coming soon",
+      "title": "Hiring tools are coming soon",
+      "body": "Soon you'll be able to paste a job description and see developers who are open to opportunities, ranked by GitHub-verified skills.",
+      "cta": "Post a job"
+    },
+    "optIn": {
+      "title": "Open to opportunities",
+      "label": "Let companies find me in the talent pool",
+      "detail": "Companies would see your name, GitHub login, headline, skills and match score from your current profile — never your résumé text. Turn it off any time; deleting your profile also removes you.",
+      "on": "You're in the talent pool.",
+      "off": "You're not in the talent pool.",
+      "notLive": "Company matching isn't live yet, so nobody can see your profile today; opting in now puts you in the pool when it opens.",
+      "saveFailed": "Couldn't save your choice. Please try again."
+    }
+  },
+  "discover": {
+    "metaTitle": "Discover projects · ghfind",
+    "metaDescription": "A compact feed of high-value open-source projects.",
+    "title": "Discover",
+    "heading": "Project feed",
+    "beta": "Beta",
+    "modeGrid": "Grid",
+    "modeSwipe": "Swipe",
+    "filters": "Filters",
+    "filtersBody": "Likes save a project. Skips stay local and do not mark not-interested.",
+    "signedOutBanner": "Sign in with GitHub to personalize this feed. Showing public highlights.",
+    "feedUnavailable": "Personalized feed is unavailable. Showing public highlights.",
+    "empty": "No more projects right now.",
+    "like": "Save",
+    "skip": "Skip",
+    "superLike": "Highlight",
+    "undo": "Undo",
+    "viewCard": "View report",
+    "quickPreview": "Quick preview",
+    "productScore": "Product value",
+    "confidence": "Confidence",
+    "communityStrength": "Community",
+    "language": "Language",
+    "openFull": "Open full report",
+    "keyboard": "← skip · → save · ↑ highlight · Backspace undo",
+    "hint": "Save bookmarks a project. Skip is a weak signal, not a block.",
+    "audience": "For",
+    "partitions": "Interest topics",
+    "partitionAll": "All",
+    "partitionAgent": "Agent",
+    "partitionSkill": "Skill",
+    "partitionMicroservice": "Microservices",
+    "partitionSandbox": "Sandbox"
+  },
+  "stream": {
+    "postTitle": "Post",
+    "replyPlaceholder": "Post your reply",
+    "replySend": "Reply",
+    "metaTitle": "For you · ghfind",
+    "metaDescription": "Read developers’ ideas and share your open-source work.",
+    "prototype": "Prototype",
+    "demoData": "Demo data: live sources are unavailable here.",
+    "heading": "For you",
+    "tabForYou": "For you",
+    "tabFollowing": "Following",
+    "channels": "Channels",
+    "kind": {
+      "project": "Projects",
+      "developer": "Developers",
+      "talent": "Talent",
+      "article": "Articles",
+      "collection": "Collections",
+      "job": "Jobs",
+      "post": "On X"
+    },
+    "kindOne": {
+      "project": "Project",
+      "developer": "Developer",
+      "talent": "Talent",
+      "article": "Article",
+      "collection": "Collection",
+      "job": "Job",
+      "post": "X post"
+    },
+    "layoutList": "List",
+    "layoutMasonry": "Grid",
+    "sponsored": "Sponsored",
+    "available": "Open to work",
+    "score": "Score",
+    "productScore": "Product score",
+    "minutesRead": "{minutes} min read",
+    "like": "Like",
+    "unlike": "Unlike",
+    "save": "Save",
+    "unsave": "Remove from saved",
+    "share": "Share",
+    "comments": "Comments",
+    "more": "More",
+    "notInterested": "Not interested",
+    "copyLink": "Copy link",
+    "openOriginal": "Open full page",
+    "linkCopied": "Link copied",
+    "hidden": "Got it. You'll see less like this.",
+    "undo": "Undo",
+    "follow": "Follow",
+    "following": "Following",
+    "followedToast": "Following {name}",
+    "related": "More like this",
+    "discussion": "Join the discussion on the full page",
+    "close": "Close",
+    "stats": {
+      "confidence": "Confidence",
+      "community": "Community",
+      "language": "Language",
+      "lookups": "Lookups",
+      "delta": "This week",
+      "location": "Location",
+      "project": "Project",
+      "stars": "Stars",
+      "salary": "Salary",
+      "note": "Why follow"
+    },
+    "loadingMore": "Loading more…",
+    "endTitle": "You're all caught up",
+    "endBody": "Refresh to re-rank with what you just liked.",
+    "refresh": "Refresh",
+    "retuned": "Tuned to your taste · refresh",
+    "followingEmptyTitle": "Follow people to fill this tab",
+    "followingEmptyBody": "Follow authors to read their X posts here.",
+    "feedEmpty": "No X posts to show yet.",
+    "savedEmpty": "Nothing saved yet. Tap the bookmark on any post.",
+    "railDailyProjects": "Today’s open-source projects",
+    "railDailyProjectsEmpty": "No project picks available today.",
+    "railDailyProjectsMore": "Browse project rankings",
+    "railInterests": "Your interests",
+    "railInterestsEmpty": "Like or save a few posts and the stream learns what you're into.",
+    "railReset": "Reset",
+    "railTopDevelopers": "Rising developers",
+    "railCtaTitle": "Where do you rank?",
+    "railCtaBody": "Explore your public GitHub contributions in 30 seconds.",
+    "railCtaButton": "Score my GitHub",
+    "navHome": "Home",
+    "navDiscover": "Discover",
+    "navScore": "Score",
+    "navSaved": "Saved",
+    "navLeaderboard": "Ranks",
+    "doubleTapHint": "Double-tap to like",
+    "backToTop": "Back to top",
+    "counter": {
+      "lookups": "{count} lookups",
+      "stars": "{count} stars",
+      "items": "{count} picks"
+    },
+    "badge": {
+      "hot": "Hot",
+      "new": "New",
+      "editor": "Editor's pick"
+    },
+    "pulseTotal": "{count} developers scored so far",
+    "pulseTrending": "Trending 24h",
+    "pulseLookups": "{count} views",
+    "aiRoast": "AI take",
+    "aiNote": "Generated by the ghfind scoring model",
+    "dimsTitle": "Six dimensions",
+    "beat": "Beats {percent}% of developers",
+    "rankOf": "#{rank} of {total}",
+    "weekDelta": "{delta} this week",
+    "facts": {
+      "followers": "Followers",
+      "totalStars": "Total stars",
+      "mergedPrs": "Merged PRs",
+      "contributions": "Contributions (1y)",
+      "years": "Years on GitHub"
+    },
+    "topRepos": "Top repositories",
+    "battles": "VS record",
+    "battleWon": "W",
+    "battleLost": "L",
+    "battleDraw": "D",
+    "battleViews": "{count} watched",
+    "similar": "Similar developers",
+    "reactionsTitle": "Community reactions",
+    "reactionsCta": "Vote on the profile",
+    "projectDims": {
+      "pain": "Pain",
+      "effectiveness": "Effectiveness",
+      "experience": "Experience",
+      "valueDensity": "Value density"
+    },
+    "projectScoreTitle": "Product score breakdown",
+    "audience": "Who it's for",
+    "risks": "Watch out for",
+    "talentProjects": "Projects",
+    "ownProject": "Led",
+    "prProject": "Contributed",
+    "sources": "Public sources",
+    "picksTitle": "Picks in this collection",
+    "toc": "Contents",
+    "excerpt": "Excerpt",
+    "readFull": "Read the full piece",
+    "jobDescription": "About the role",
+    "companySite": "Company site",
+    "moreFrom": "More from {name}",
+    "editorPicks": "Editor's picks",
+    "commentsTitle": "Comments",
+    "commentsEmpty": "No comments yet. Be the first.",
+    "commentPlaceholder": "Say something…",
+    "commentAnonymousHint": "No login needed, posted anonymously",
+    "commentSend": "Send",
+    "anonymous": "Anonymous",
+    "commentFailed": "Couldn't send. Try again later.",
+    "commentRateLimited": "Slow down a little",
+    "commentLinks": "Links aren't allowed in comments",
+    "commentsClosed": "Comments aren't available here yet; see the full page.",
+    "justNow": "just now",
+    "quick": {
+      "developer": {
+        "a": "Fair score",
+        "b": "Teach me 🙏",
+        "c": "Followed, great work"
+      },
+      "talent": {
+        "a": "Great direction",
+        "b": "Let's talk",
+        "c": "Followed"
+      },
+      "article": {
+        "a": "Learned a lot",
+        "b": "Very insightful",
+        "c": "Want more of this"
+      },
+      "collection": {
+        "a": "Saved",
+        "b": "More like this please",
+        "c": "Great first pick"
+      }
+    },
+    "loadingDetail": "Loading…",
+    "railEditor": "Editor's picks",
+    "xCategory": {
+      "researcher": "Researcher",
+      "builder": "Builder",
+      "media": "Tech media",
+      "developer": "Top developer"
+    },
+    "viewOnX": "View on X",
+    "xMetrics": {
+      "replies": "Replies",
+      "reposts": "Reposts",
+      "likes": "Likes",
+      "views": "Views"
+    },
+    "xLatest": "Lately on X",
+    "railVoices": "Voices worth following",
+    "railVoicesHint": "Researchers, builders, tech media, and developers scoring 80+ on ghfind only.",
+    "xSource": "From X · metrics are live X numbers",
+    "ghfindProfile": "ghfind profile",
+    "demoX": "X posts are demo data for now: accounts and posts are fictional and are replaced once real posts are pushed.",
+    "showTranslation": "Show translation",
+    "showOriginal": "Show original",
+    "translatedBy": "Translated by the ghfind agent",
+    "feed": {
+      "addImage": "Add images",
+      "cancel": "Cancel",
+      "capabilitiesError": "Publishing eligibility could not be checked. You can still browse.",
+      "checking": "Checking publishing eligibility…",
+      "composerPlaceholder": "What’s happening?",
+      "conversationDescription": "Read the post, its earlier replies, and reply to any post in the conversation.",
+      "copyFailed": "Could not copy the link. Please try again.",
+      "deleteHint": "Delete this post? Replies will remain connected to a deleted-post placeholder.",
+      "deletePost": "Delete post",
+      "deleted": "This post has been deleted.",
+      "dislike": "Dislike",
+      "earlierReplies": "View earlier replies",
+      "empty": "No posts yet.",
+      "end": "You are all caught up.",
+      "followingEmpty": "Follow developers to see their posts and reposts here.",
+      "imageDescription": "Image description (optional)",
+      "loadMore": "Load more",
+      "localInteractions": "Interactions on ghfind",
+      "loginRequired": "Sign in to interact. Reading is open to everyone.",
+      "mediaCount": "You can attach up to 4 images.",
+      "mediaInvalid": "Use JPEG, PNG, WebP or GIF images, up to 10 MB each.",
+      "myBookmarks": "My bookmarks",
+      "noReplies": "No replies yet.",
+      "openConversation": "Open the conversation by {name}",
+      "openImage": "Open image",
+      "privateBookmarks": "Your bookmarks are private.",
+      "publish": "Post",
+      "publishAccessTitle": "Before you post",
+      "publishRequirement": "A verified GitHub account with a ghfind score of 60 or higher is required to post or reply.",
+      "published": "Published on ghfind.",
+      "publishing": "Publishing…",
+      "rateLimited": "Too many requests. Please wait a moment and try again.",
+      "removeImage": "Remove image",
+      "repost": "Repost",
+      "repostedBy": "Reposted by {name}",
+      "requestFailed": "Could not complete the request. Please try again.",
+      "retry": "Retry",
+      "unavailable": "This post is unavailable.",
+      "undoDislike": "Undo dislike",
+      "undoRepost": "Undo repost",
+      "unfollow": "Unfollow",
+      "viewQuotedPost": "View quoted post",
+      "quotedPostPreviewUnavailable": "Preview unavailable",
+      "viewAttachedLink": "View attached link",
+      "attachedLinkPreviewUnavailable": "Open the link to view its content",
+      "viewOnX": "View original post on X",
+      "showOriginal": "Original",
+      "showTranslated": "Translated",
+      "translationToggle": "Show original or translated text",
+      "views": "Views on ghfind",
+      "viewReplies": "View replies",
+      "scoreBelowMinimum": "Your saved score is below 60. Posting and replying are unavailable.",
+      "scoreMissing": "No saved score was found. Check your GitHub account score first.",
+      "verifyScore": "We could not verify ownership of your saved score. Please retry.",
+      "rescanAccount": "Rescan from my profile",
+      "authorCard": {
+        "followingAction": "Following",
+        "follow": "Follow",
+        "followsYou": "Follows you",
+        "retry": "Could not load · Retry",
+        "loading": "Loading…",
+        "score": "ghfind score",
+        "unscored": "Not scored",
+        "following": "Following",
+        "followers": "Followers",
+        "source": "Follow counts from ghfind"
+      }
+    }
+  },
+  "realms": {
+    "qi": {
+      "name": "Qi Condensation",
+      "blurb": "First steps · Building the base"
+    },
+    "foundation": {
+      "name": "Foundation Establishment",
+      "blurb": "Foundation laid · Steady progress"
+    },
+    "goldenCore": {
+      "name": "Core Formation",
+      "blurb": "Core formed · Showing an edge"
+    },
+    "nascentSoul": {
+      "name": "Nascent Soul",
+      "blurb": "Soul awakened · Own style"
+    },
+    "deity": {
+      "name": "Deity Transformation",
+      "blurb": "Clear-minded · Real influence"
+    },
+    "voidRefining": {
+      "name": "Spatial Tempering",
+      "blurb": "Effortless mastery"
+    },
+    "integration": {
+      "name": "Body Integration",
+      "blurb": "In harmony · Top-tier master"
+    },
+    "mahayana": {
+      "name": "Grand Ascension",
+      "blurb": "Near the summit · Hall of fame"
+    }
   }
 }

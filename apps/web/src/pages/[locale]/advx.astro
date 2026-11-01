@@ -1,0 +1,17 @@
+---
+import Base from "../../layouts/Base.astro";
+import { AdvxIsland } from "../../islands/AdvxIsland";
+import { getMessages, pickMessages, routeLocale } from "../../lib/i18n";
+import { pageCopy } from "@/components/pages/AdvxView";
+import { getGoCampaignLeaderboard } from "@/lib/go-developers.server";
+
+const locale = routeLocale(Astro.params.locale);
+if (!locale) return new Response(null, { status: 404 });
+const [messages, entries] = await Promise.all([getMessages(locale), getGoCampaignLeaderboard("advx")]);
+const copy = pageCopy(locale);
+// Next: force-static with revalidate = 60.
+Astro.response.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=31536000");
+---
+<Base locale={locale} path="/advx" title={`${copy.title} · ghfind`} description={copy.description}>
+  <AdvxIsland client:load locale={locale} entries={entries} intl={{ locale, pathname: "/advx", messages: pickMessages(messages, ["badge", "byok", "detail", "dimensions", "omnibox", "roaster", "scanErrors", "share", "shareCard", "tiers"]) }} />
+</Base>

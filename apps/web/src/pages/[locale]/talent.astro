@@ -1,0 +1,20 @@
+---
+import Base from "../../layouts/Base.astro";
+import { TalentIsland } from "../../islands/TalentIsland";
+import { getMessages, pickMessages, routeLocale } from "../../lib/i18n";
+import { searchParamsRecord } from "../../lib/search-params";
+import { loadTalentPage } from "@/lib/pages/talent";
+
+const locale = routeLocale(Astro.params.locale);
+if (!locale) return new Response(null, { status: 404 });
+
+const [props, messages] = await Promise.all([
+  loadTalentPage(locale, searchParamsRecord(Astro.url.searchParams)),
+  getMessages(locale),
+]);
+// Dynamic and filterable: render per request, never edge-cached (Next: force-dynamic).
+Astro.response.headers.set("Cache-Control", "private, no-cache, no-store, max-age=0, must-revalidate");
+---
+<Base locale={locale} path="/talent" title="人才库 · ghfind" description="从开源作品出发，发现值得认识的开发者。" alternates="layout" robots="noindex, nofollow">
+  <TalentIsland client:load {...props} intl={{ locale, pathname: "/talent", search: Astro.url.search, messages: pickMessages(messages, ["talent"]) }} />
+</Base>

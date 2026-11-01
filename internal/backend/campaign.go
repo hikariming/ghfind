@@ -39,9 +39,9 @@ func (s *TursoStore) GetCampaignLeaderboard(ctx context.Context, campaign string
 		) AS recent ON recent.username = s.username
 		WHERE participant.campaign = ?
 		  AND s.hidden = 0
-		  AND s.score_version = ?
+		  AND `+publicScoreVersionClause("s.score_version")+`
 		ORDER BY s.final_score DESC, s.scanned_at DESC
-		LIMIT ?`, minimumRecordedLookups, recentCutoff, campaign, canonicalScoreVersion, campaignLeaderboardLimit)
+		LIMIT ?`, append([]any{minimumRecordedLookups, recentCutoff, campaign}, append(publicScoreVersionArgs(), campaignLeaderboardLimit)...)...)
 	if err != nil {
 		return nil, fmt.Errorf("query campaign leaderboard: %w", err)
 	}

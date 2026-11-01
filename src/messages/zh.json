@@ -1,10 +1,35 @@
 {
+  "loginDialog": {
+    "entry": "登录",
+    "title": "登录 ghfind",
+    "description": "选择一个账号，继续使用 ghfind。",
+    "close": "关闭",
+    "google": "使用 Google 登录",
+    "github": "使用 GitHub 登录",
+    "apple": "使用 Apple 登录",
+    "redirecting": "正在前往 {provider}…",
+    "loading": "正在检查登录方式…",
+    "retry": "重试",
+    "loadFailed": "无法加载登录方式，请检查网络后重试。",
+    "unavailable": "登录暂时不可用，你可以继续浏览，稍后再试。",
+    "githubFeatures": "关注、云端简历和 API 令牌目前需要使用 GitHub 账号。",
+    "providerAccount": "{provider} 账号",
+    "switchToGitHub": "改用 GitHub 登录",
+    "errors": {
+      "denied": "登录已取消，请选择账号重试。",
+      "expired": "此次登录请求已过期，请重新登录。",
+      "failed": "未能完成登录，请重试。",
+      "unavailable": "此登录方式暂时不可用，请选择其他方式或稍后重试。"
+    },
+    "signingOut": "正在退出…",
+    "signOutFailed": "未能退出登录，请检查网络后重试。"
+  },
   "meta": {
-    "title": "ghfind | 毒舌 GitHub 评分 · 开发者自测成长 · 发现最佳开发者",
-    "description": "ghfind（毒舌 GitHub 评分）：输入 GitHub 账号，30 秒得到 0-100 分价值与信任评分和一句扎心毒舌点评，看清差距、知道往哪努力，自测并持续成长；再逛发现榜找到值得关注的优质开发者，也让世界发现你。专治刷量号、AI 机器人、收藏夹开发者。",
-    "ogTitle": "ghfind | 毒舌 GitHub 评分 · 开发者自测成长 · 发现最佳开发者",
-    "ogDescription": "ghfind：给 GitHub 账号打分，发现最佳开发者。30 秒出 0-100 分含金量评分 + 一句毒舌点评，还能逛开发者榜单。",
-    "twDescription": "30 秒给 GitHub 账号打分 + 毒舌点评，在 ghfind 发现最佳开发者。",
+    "title": "ghfind | GitHub 锐评评分 · 开发者自测成长 · 发现最佳开发者",
+    "description": "ghfind（GitHub 锐评评分）：输入 GitHub 账号，30 秒得到 0-100 分价值与信任评分和一句客观调笑的锐评，看清差距、知道往哪努力；再逛发现榜找到值得关注的优质开发者。",
+    "ogTitle": "ghfind | GitHub 锐评评分 · 开发者自测成长 · 发现最佳开发者",
+    "ogDescription": "ghfind（GitHub 锐评评分）：输入 GitHub 账号，30 秒得到 0-100 分价值与信任评分和一句客观调笑的锐评，看清差距、知道往哪努力；再逛发现榜找到值得关注的优质开发者。",
+    "twDescription": "30 秒给 GitHub 账号打分 + 客观调笑锐评，在 ghfind 发现最佳开发者。",
     "siteName": "ghfind"
   },
   "nav": {
@@ -15,10 +40,11 @@
     "developers": "开发者",
     "projectBoards": "项目榜",
     "projects": "项目",
-    "collections": "站长精选",
+    "collections": "深度研究",
     "languages": "语言",
     "organizations": "组织",
     "versus": "开发者 PK",
+    "mfcp": "MFCP 开源培养",
     "blog": "研究报告",
     "openMenu": "打开菜单",
     "closeMenu": "关闭菜单",
@@ -27,19 +53,30 @@
     "githubBot": "GitHub Bot",
     "groupDiscover": "发现",
     "groupCareer": "职业",
-    "groupTools": "工具",
+    "groupTools": "集成",
     "beta": "Beta",
+    "event": "活动中",
     "hint": {
-      "roast": "30 秒给 GitHub 账号打分，附一句毒舌点评",
+      "roast": "30 秒给 GitHub 账号打分，附一句客观调笑锐评",
       "versus": "两位开发者正面 PK，看谁更强",
-      "leaderboard": "按评分浏览优质开发者",
+      "mfcp": "MFCP 开源人才培养计划，正在招募",
+      "leaderboard": "按等级浏览优质开发者",
       "projectBoards": "按领域发现值得关注的开源项目",
-      "collections": "站长亲自挑选的项目与开发者",
+      "collections": "开发者故事、开源项目精选与 GitHub 生态研究。",
       "blog": "开发者生态的数据与洞察",
       "resume": "用 GitHub 数据生成开发者简历",
       "talent": "发现值得认识的开发者",
-      "githubBot": "按作者评分给 issue 和 PR 自动打标签"
-    }
+      "githubBot": "按作者评分给 issue 和 PR 自动打标签",
+      "cliApi": "安装 ghfind CLI、配置 Agent Skill 并管理 API Token",
+      "jobs": "AI 与开源公司的在招职位",
+      "talentMatch": "AI 人才画像、岗位匹配与成长建议",
+      "discover": "瀑布流或滑卡浏览高产品价值开源项目",
+      "feed": "阅读开发者的原创帖子与 X 推文"
+    },
+    "cliApi": "CLI & API",
+    "jobs": "招聘",
+    "talentMatch": "人才匹配",
+    "feed": "社区动态"
   },
   "globalSearch": {
     "open": "打开全局搜索",
@@ -92,9 +129,9 @@
     "title": "源码与评分算法均开源 · 在 GitHub 查看"
   },
   "home": {
-    "brand": "毒舌",
-    "headline": "发现开发者，也发现你。",
-    "subtitle": "输入 GitHub 账号，看看代码背后的实力。",
+    "brand": "锐评",
+    "headline": "在 AI 时代，发现「人」的价值。",
+    "subtitle": "输入 GitHub 账号，发现每一次 PR 背后的含金量。",
     "boardHeading": "🏆 发现最佳开发者",
     "openBoard": "打开完整榜单 →",
     "disclaimer1": "本站仅基于 GitHub <b>公开数据</b>自动生成评分与点评，吐槽的是账号的公开行为与数据，非针对个人。结果不构成对任何人的事实认定，请勿用于骚扰。",
@@ -103,7 +140,7 @@
   },
   "leaderboard": {
     "heading": "🏆 名人堂",
-    "subtitle": "名人堂收录评分 60 分以上的账号，默认展示趋势榜。",
+    "subtitle": "名人堂收录化神境以上的账号，默认展示趋势榜。",
     "judgeCta": "← 去审判一个账号",
     "footerNote": "仅收录基于 GitHub 公开数据的高分账号。",
     "loadError": "榜单暂时加载不出来，稍后再试。",
@@ -114,18 +151,18 @@
     "pageJumpLabel": "跳转到页码",
     "collapse": "收起",
     "trendView": "🚀 趋势榜",
-    "scoreView": "💯 评分榜",
+    "scoreView": "⚔ 等级榜",
     "trendLabel": "趋势",
     "trendTitle": "趋势分：评分 80% + 近 7 天唯一访客热度 15% + 最近查询时间衰减 5%",
-    "scoreLabel": "评分",
-    "scoreTitle": "基于 GitHub 公开数据计算的 0-100 分价值与信任评分",
+    "scoreLabel": "等级",
+    "scoreTitle": "基于 GitHub 公开数据换算的冒险者等级（Lv.1–100）",
     "heatView": "🔥 热度榜",
     "heatLabel": "热度",
     "heatTitle": "被成功查询的次数",
     "vsButton": "和 TA 对线",
-    "viewDetail": "查看 @{username} 的评分详情",
-    "trendSubtitle": "趋势分综合评分、近 7 天唯一访客热度和最近查询时间；热度会先归一化，避免刷量压过高质量账号。",
-    "scoreSubtitle": "按 0-100 分价值与信任评分排序。",
+    "viewDetail": "查看 @{username} 的等级详情",
+    "trendSubtitle": "趋势分综合评分、近 7 天唯一访客热度和最近查询时间。",
+    "scoreSubtitle": "按底层综合分排序，展示冒险者等级。",
     "heatSubtitle": "按被成功查询审判的累计次数排序。",
     "windowAria": "时间范围",
     "window24h": "24 小时",
@@ -157,7 +194,11 @@
     "apiCtaLink": "API 文档 →",
     "repoAuthoredBy": "作者",
     "repoContributors": "位上榜贡献者",
-    "repoAvgScore": "平均分"
+    "repoAvgScore": "平均分",
+    "repoGlobalRank": "全 GitHub 第 {rank} 名 / {total}",
+    "repoGlobalRankApprox": "全 GitHub 约第 {rank} 名 / {total}",
+    "repoTopAmong": "≥{floor}★ 的仓库中前 {pct}%",
+    "repoRankNote": "按 star 对比全部公开非 fork 仓库 · {asOf}"
   },
   "projects": {
     "metaTitle": "发现高质量 GitHub 项目 · ghfind",
@@ -200,11 +241,11 @@
     }
   },
   "collections": {
-    "metaTitle": "站长推荐：优质项目与开发者 · ghfind",
-    "metaDescription": "人工精选的 GitHub 优质项目与开发者合集，每个推荐都附带 ghfind 引擎的贡献者质量数据。",
+    "metaTitle": "深度研究 · ghfind",
+    "metaDescription": "开发者故事、开源项目精选与 GitHub 生态研究。",
     "eyebrow": "站长推荐",
-    "heading": "优质项目与开发者精选",
-    "subtitle": "不是又一个 star 榜——每个推荐都附带引擎数据：是谁在做、成色如何。",
+    "heading": "深度研究",
+    "subtitle": "开发者故事、开源项目精选与 GitHub 生态研究。",
     "empty": "还没有合集，敬请期待。",
     "itemCount": "{count} 个推荐",
     "publishedOn": "发布于 {date}",
@@ -222,8 +263,8 @@
     "avgScoreLabel": "贡献者平均分",
     "followersLabel": "关注者",
     "totalStarsLabel": "累计 star",
-    "backToCollections": "全部合集",
-    "dataNote": "评分与段位来自 ghfind 评分引擎，随每次新扫描持续刷新。"
+    "backToCollections": "返回深度研究",
+    "dataNote": "冒险者等级与境界来自 ghfind 评分引擎，随每次新扫描持续刷新。"
   },
   "discoveryNext": {
     "relatedTitle": "继续探索",
@@ -270,12 +311,24 @@
     "signIn": "用 GitHub 登录"
   },
   "detail": {
+    "unratedMessage": "这位开发者已有档案，但当前没有可展示的评分。你可以查看 GitHub 资料，或返回分析表单，手动获取新的结果。",
+    "unratedAction": "前往分析表单",
+    "unratedGithub": "查看 GitHub",
     "back": "← 返回名人堂",
     "backfilling": "🔍 正在补全 TA 的开源足迹（仓库 / 语言 / 贡献）…",
     "rankTitle": "我的位置",
     "rankUnit": "/ 共 {total} 人",
     "rankUnranked": "暂无排名（样本不足）",
     "beatInline": "击败了 {beat}% 的开发者",
+    "githubStandingTitle": "在全 GitHub 中的位置",
+    "githubStandingAccountAge": "账号年龄",
+    "githubStandingTopRepo": "最高 Star 仓库",
+    "githubStandingRank": "第 {rank} 名 / {total}",
+    "githubStandingRankApprox": "约第 {rank} 名 / {total}",
+    "githubStandingTopAmong": "≥{floor}★ 的仓库中前 {pct}%",
+    "githubStandingOlder": "早于 {pct}% 的账号",
+    "githubStandingYears": "{years} 年",
+    "githubStandingFootnote": "对比全 GitHub 公开数据 · {asOf}",
     "milestoneNext": "距「{tier}」还差 {gap} 分",
     "milestoneCapped": "🏆 已封顶 · 殿堂级标杆",
     "facetRankLine": "{facet} 榜 #{rank}",
@@ -308,18 +361,26 @@
     "similarSub": "画像最接近、分数相近的账号",
     "impactHeading": "🏆 贡献过的明星项目",
     "impactSub": "TA 参与过的高星开源仓库（提交 + PR）",
+    "impactDisclosure": "贡献过的明星项目 ({count})",
     "worksHeading": "🛠 代表作",
     "worksSub": "按实质贡献优先、高星影响辅助排序的代表项目",
-    "stackHeading": "🧬 技术栈 & 领域",
-    "stackLangLabel": "主要语言",
-    "stackTopicsLabel": "领域标签",
     "orgsLabel": "组织",
     "commits": "提交",
     "prs": "PR",
-    "roastHeading": "🔥 毒舌点评全文",
-    "roastEmpty": "这份锐评还没存档 —— <a>去首页重新审判一次</a> 即可生成。",
+    "verdictLabel": "小总评",
+    "roastEmpty": "这份锐评还没存档 —— <a>去首页重新评测一次</a> 即可生成。",
     "scoreStateStaleTitle": "历史评分",
     "scoreStateStaleBody": "这份评分来自旧版规则；在可信重扫完成前继续展示，但不会冒充当前评分。",
+    "scoreStateRescanAction": "重新评测",
+    "scoreStateRescanRunning": "正在按新版规则重新评测…",
+    "scoreStateRescanReport": "正在生成新版锐评…",
+    "scoreStateRescanError": "重新评测失败，请稍后重试",
+    "roastStaleLabel": "旧版锐评",
+    "roastStaleHint": "以下锐评由旧版规则生成，仅供参考。",
+    "roastRegenerating": "正在按新版规则生成锐评…",
+    "roastRegeneratePending": "新版锐评尚未生成",
+    "roastRegenerateFailed": "新版锐评生成失败，可手动重新评测",
+    "roastRegenerateSlow": "新版锐评仍在生成，稍后刷新查看",
     "scoreStatePendingTitle": "当前评分 · 报告待生成",
     "scoreStatePendingBody": "确定性评分已经是当前版本，可选的 AI 锐评尚未生成。",
     "scoreStateReadyTitle": "当前评分与报告",
@@ -337,13 +398,27 @@
     "modalViewProfile": "查看完整主页",
     "modalBadgeCta": "生成 GitHub 炫耀卡",
     "modalClose": "关闭",
-    "battlesHeading": "⚔️ 对战记录",
-    "battlesSub": "TA 参加过的 PK 对决",
-    "battleWin": "胜",
-    "battleLoss": "负",
-    "battleTie": "平",
     "selfCta": "测测你自己的 GitHub 含金量 →",
-    "reportLangNotice": "AI 锐评目前仅提供中英文版本，当前显示英文版。"
+    "reportLangNotice": "AI 锐评目前仅提供中英文版本，当前显示英文版。",
+    "coCreatorShare": "主导/共建（计分份额 {share}%）",
+    "roastProgressTitle": "正在写你的锐评…",
+    "roastStage1": "读取扫描结果",
+    "roastStage2": "挑出值得写的事",
+    "roastStage3": "起草笑点",
+    "roastStage4": "核对数字和仓库名",
+    "roastStage5": "排版收尾",
+    "liveRetry": "再试一次",
+    "scoreReadyHint": "等级已出炉，锐评马上就到",
+    "adventurerLevel": "冒险者等级",
+    "preciseScoreTitle": "综合分 {score}",
+    "liveTimeout": "锐评等待超时，已停止。可稍后重试，页面会保留已有评分与旧版锐评。",
+    "scoreStateRescanTimeout": "重新评测超时，已停止等待。可稍后重试",
+    "evaluateStageFetch": "抓取数据",
+    "evaluateStageAnalyze": "分析仓库",
+    "evaluateStageRoast": "生成锐评",
+    "evaluateError": "这次没跑通，点重试再试一次",
+    "evaluateTimeout": "这次生成花的时间有点长，点重试再试一次",
+    "evaluateRetry": "重试"
   },
   "reactions": {
     "heading": "社区反应",
@@ -360,27 +435,30 @@
     "clown": "绷不住"
   },
   "rescan": {
-    "button": "🔄 重新检测",
-    "scanning": "检测中…",
+    "button": "重新评测",
+    "scanning": "评测中…",
     "roasting": "生成点评中…",
-    "error": "检测失败，请稍后重试",
-    "cooldown": "{hours} 小时后可重新检测"
+    "error": "评测失败，请稍后重试",
+    "cooldown": "{hours} 小时后可重新评测",
+    "timeout": "锐评超时，已停止等待。可稍后重试"
   },
   "detailMeta": {
-    "title": "{username} — {score}/100 · {tier} | ghfind",
+    "unratedTitle": "{username} · 开发者档案",
+    "title": "{username} — Lv.{level} · {realm} | ghfind",
     "descWithTags": "{tags} —— 在 ghfind.com 查看 {username} 的完整评分报告。",
     "descPlain": "{username} 的 GitHub 价值评分报告 —— ghfind.com。",
     "notFoundTitle": "查无此号 · ghfind",
     "pendingTitle": "正在锐评 @{username}… · ghfind"
   },
   "roaster": {
+    "modelSponsor": "模型赞助商",
     "inputPlaceholder": "输入 GitHub 用户名或主页链接",
     "judge": "开始审判",
     "judging": "审判中…",
     "byoLink": "用自己的模型 / API Key",
     "scanning": "正在扒 {username} 的老底…读 commit、查 PR、数 star、抓刷量痕迹",
-    "roastLabel": "🔥 毒舌点评",
-    "roastThinking": "AI 正在憋一段毒舌点评，马上端上来…",
+    "roastLabel": "🔥 锐评",
+    "roastThinking": "AI 正在打磨一句客观又好笑的锐评…",
     "roastPending": "准备生成点评",
     "firstJudged": "🥇 你是第一个被审判的，前无古人",
     "rankLine": "<hl>📊 全站第 {rank} 名</hl><muted> / 共 {total} 人</muted>",
@@ -390,16 +468,18 @@
     "pasteGithub": "📌 贴到 GitHub",
     "copied": "已复制 ✓",
     "privateNote": "注：评分仅基于公开信号，私有贡献不计入，可能低估私有组织的活跃员工。",
-    "shareText": "我的 GitHub 含金量被审判了：{score}/100 · {tier}（{tierLabel}）{beat}。来测测你的 👉 ghfind.com",
+    "shareText": "我的 GitHub 含金量被审判了：{score} · {tier}（{tierLabel}）{beat}。来测测你的 👉 ghfind.com",
     "shareBeat": "，超越了 {beat}% 的开发者",
     "errEmpty": "请先输入 GitHub 用户名或主页链接。",
     "errNeedTurnstile": "请先完成下方的人机校验。",
-    "errRoastFailed": "毒舌生成失败，稍后再试或换用自己的 Key。",
-    "errNetworkRoast": "网络中断，毒舌没说完。",
+    "errRoastFailed": "锐评生成失败，稍后再试或换用自己的 Key。",
+    "errNetworkRoast": "网络中断，锐评没说完。",
     "errScanFailed": "扫描失败，稍后再试。",
+    "largeAccountCollecting": "大号数据采集中",
     "errScanPending": "正在补全该账号的全部公开 PR 与 commit，完成后会自动继续。",
     "errNetworkScan": "网络出错，连 GitHub 都连不上。",
-    "byoReasonQuota": "免费额度用完了 😵 填入你自己的 API Key 继续毒舌（OpenAI / StepFun / Groq 都行）。",
+    "dataUpdating": "数据更新中…",
+    "byoReasonQuota": "免费额度用完了 😵 填入你自己的 API Key 继续锐评（OpenAI / StepFun / Groq 都行）。",
     "byoReasonRate": "你今天点评得有点多啦 🥵 歇会儿，或填入自己的 API Key 不限量继续。",
     "byoReasonDefault": "服务端还没配默认模型，填入你自己的 API Key 即可开评。"
   },
@@ -410,6 +490,9 @@
     "rate_limited": "手速太快了，喘口气，一分钟后再来。",
     "github_rate_limited": "GitHub 接口暂时被打满了，缓一会儿再试。",
     "github_unavailable": "GitHub 数据暂时不可用，稍后再试。",
+    "github_collect_deadline": "GitHub 采集超时，请稍后再试。",
+    "scan_pending": "大号数据采集中",
+    "scan_busy": "评分通道正忙，请稍后再试。",
     "scan_failed": "扫描翻车了，稍后再试。"
   },
   "share": {
@@ -476,36 +559,35 @@
     "cancel": "取消",
     "saveContinue": "保存并继续"
   },
-  "developerCount": "已经有 <n>{count, number}</n> 名开发者惨遭锐评。",
   "shareCard": {
     "beatLabel": "超越的开发者",
     "brand": "🔥 ghfind · 来测测你的含金量"
   },
   "tiers": {
-    "god": {
-      "name": "夯",
-      "blurb": "封神 · 殿堂级标杆"
-    },
-    "elite": {
-      "name": "顶级",
-      "blurb": "顶级开发者 · 一线水准"
-    },
-    "solid": {
-      "name": "人上人",
-      "blurb": "优质贡献者 · 值得信任"
+    "trash": {
+      "name": "练气",
+      "blurb": "初入仙途 · 打牢根基"
     },
     "npc": {
-      "name": "NPC",
-      "blurb": "普通账号 · 特征平庸存疑"
+      "name": "金丹",
+      "blurb": "丹成一品 · 渐露锋芒"
     },
-    "trash": {
-      "name": "拉完了",
-      "blurb": "低价值 · 疑似刷量 / AI 机器人"
+    "solid": {
+      "name": "炼虚",
+      "blurb": "返璞归真 · 举重若轻"
+    },
+    "elite": {
+      "name": "合体",
+      "blurb": "天人合一 · 一线宗师"
+    },
+    "god": {
+      "name": "大乘",
+      "blurb": "大道将成 · 殿堂标杆"
     }
   },
   "dimensions": {
     "account_maturity": "账号成熟度",
-    "original_project_quality": "原创项目质量",
+    "original_project_quality": "原创与主导项目",
     "contribution_quality": "贡献质量",
     "ecosystem_impact": "生态/维护影响力",
     "community_influence": "社区影响力",
@@ -516,7 +598,7 @@
     "placeholder1": "输 a vs b，拉人对线",
     "placeholder2": "搜 rust，看看谁最卷",
     "placeholder3": "搜 字节跳动，围观大厂含金量",
-    "ctaJudge": "审判",
+    "ctaJudge": "发现",
     "ctaPk": "开战",
     "ctaDiscover": "看榜单",
     "ctaBusy": "评分中…",
@@ -531,14 +613,16 @@
     "suggestLanguage": "{value} 开发者含金量榜",
     "suggestOrg": "{value} · 组织成员榜",
     "pkHalfHint": "再输一个对手，回车开战",
-    "lockedRemove": "移除"
+    "lockedRemove": "移除",
+    "ctaMatch": "人才匹配",
+    "ctaMatchHint": "生成人才画像并匹配岗位"
   },
   "blog": {
     "heading": "研究",
     "subtitle": "来自大规模真实贡献评分的数据笔记。",
     "readingTime": "阅读约 {minutes} 分钟",
     "notTranslated": "这篇文章还没有中文版，以下为英文原文。",
-    "backToList": "全部研究",
+    "backToList": "返回深度研究",
     "empty": "还没有文章。"
   },
   "footer": {
@@ -558,8 +642,8 @@
     "heading": "常见问题",
     "items": [
       {
-        "q": "什么是毒舌 GitHub 评分？",
-        "a": "ghfind 提供毒舌 GitHub 评分：基于账号的公开贡献给出评分和点评，帮助你了解自己的开源表现，也找到值得关注的开发者。它从账号成熟度、原创项目质量、贡献质量、生态影响力、社区影响力、活跃真实性六个加权维度，为任意账号打出 0–100 分。还会给出辛辣的吐槽、开源排行榜和可以挂到 GitHub 的徽章。"
+        "q": "什么是锐评 GitHub 评分？",
+        "a": "ghfind 提供锐评 GitHub 评分：基于账号的公开贡献给出评分和点评，帮助你了解自己的开源表现，也找到值得关注的开发者。它从账号成熟度、原创与主导项目质量、贡献质量、生态影响力、社区影响力、活跃真实性六个加权维度，为任意账号打出 0–100 分。还会给出辛辣的吐槽、开源排行榜和可以挂到 GitHub 的徽章。"
       },
       {
         "q": "如何联系我们？",
@@ -570,7 +654,7 @@
       },
       {
         "q": "分数是怎么算出来的？",
-        "a": "引擎对六个加权维度（账号成熟度、原创项目质量、贡献质量、生态影响力、社区影响力、活动真实性）打分，满分 100，再对刷 PR、刷 star 等风险行为扣分。全部只基于公开的 GitHub 数据。"
+        "a": "引擎对六个加权维度（账号成熟度、原创与主导项目质量、贡献质量、生态影响力、社区影响力、活动真实性）打分，满分 100，再对刷 PR、刷 star 等风险行为扣分。全部只基于公开的 GitHub 数据。"
       },
       {
         "q": "分数是确定性、可复现的吗？",
@@ -592,7 +676,7 @@
   },
   "homeIntro": {
     "whatHeading": "ghfind 是什么？",
-    "whatBody": "ghfind 提供毒舌 GitHub 评分：基于账号的公开贡献给出评分和点评，帮助你了解自己的开源表现，也找到值得关注的开发者。它从账号成熟度、原创项目质量、贡献质量、生态影响力、社区影响力、活跃真实性六个加权维度，为任意账号打出 0–100 分。还会给出辛辣的吐槽、开源排行榜和可以挂到 GitHub 的徽章。",
+    "whatBody": "ghfind 提供锐评 GitHub 评分：基于账号的公开贡献给出评分和点评，帮助你了解自己的开源表现，也找到值得关注的开发者。它从账号成熟度、原创与主导项目质量、贡献质量、生态影响力、社区影响力、活跃真实性六个加权维度，为任意账号打出 0–100 分。还会给出辛辣的吐槽、开源排行榜和可以挂到 GitHub 的徽章。",
     "howHeading": "ghfind 如何工作",
     "steps": [
       {
@@ -601,11 +685,11 @@
       },
       {
         "title": "2. 六个确定性维度打分",
-        "body": "快照按账号成熟度、原创项目质量、贡献质量、生态影响力、社区影响力、活跃真实性打分，并对刷 PR、刷 star、模板灌水等行为扣分。"
+        "body": "快照按账号成熟度、原创与主导项目质量、贡献质量、生态影响力、社区影响力、活跃真实性打分，并对刷 PR、刷 star、模板灌水等行为扣分。"
       },
       {
-        "title": "3. 得到分数、段位和吐槽",
-        "body": "你会得到一个可复现的 0–100 分、从「拉完了」到「夯」的段位、一份指出短板的分维度报告，以及（只在你主动要求时）一段毒舌 AI 吐槽。"
+        "title": "3. 得到冒险者等级、境界和吐槽",
+        "body": "你会得到可复现的冒险者等级（Lv.1–100）、从「练气」到「大乘」的八境界、一份指出短板的分维度报告，以及（只在你主动要求时）一段锐评 AI 吐槽。"
       }
     ],
     "numbersHeading": "用数字看 ghfind",
@@ -643,11 +727,11 @@
     "heading": "ghfind API 文档",
     "lead": "ghfind 用确定性的开源引擎为任意 GitHub 账号打出 0–100 的真实贡献含金量与可信度评分。站点的全部能力都可以编程调用：公开 REST API、面向 AI Agent 的 MCP 服务器，以及官方 SDK。本页是它们的完整文档。",
     "restHeading": "ghfind REST API",
-    "restIntro": "Base URL：https://ghfind.com。评分读取接口无需认证。错误为结构化 JSON（{error, message, hint}），响应携带 RateLimit-* 头，列表接口支持 limit/offset 分页。",
+    "restIntro": "Base URL：https://ghfind.com。评分读取接口无需认证。错误为结构化 JSON（error / message / hint），响应携带 RateLimit-* 头，列表接口支持 limit/offset 分页。",
     "endpoints": [
       {
         "sig": "GET /api/score/{username}",
-        "desc": "确定性 0–100 分、段位和六维拆解。未见过的账号也能实时评分；无需认证，不经过 LLM。"
+        "desc": "确定性冒险者等级（Lv.1–100）、境界和六维拆解。未见过的账号也能实时评分；无需认证，不经过 LLM。"
       },
       {
         "sig": "POST /api/scan",
@@ -687,7 +771,7 @@
     "tools": [
       {
         "name": "score_user",
-        "desc": "任意 GitHub 账号的 0–100 分、段位和六维拆解。"
+        "desc": "任意 GitHub 账号的冒险者等级、境界和六维拆解。"
       },
       {
         "name": "scan_user",
@@ -748,8 +832,8 @@
     "metaDescription": "ghfind 用开源、确定性的引擎为任意 GitHub 账号打出 0–100 的真实贡献含金量与可信度评分，并帮助你发现顶尖开发者。",
     "heading": "关于 ghfind",
     "paragraphs": [
-      "ghfind 提供毒舌 GitHub 评分：基于账号的公开贡献给出评分和点评，帮助你了解自己的开源表现，也找到值得关注的开发者。它为任意账号打出 0–100 的真实贡献含金量与可信度评分，使用一套只基于公开 GitHub 数据的完全确定性引擎。相同输入永远得到相同分数——分数本身不涉及任何大语言模型——因此结果可复现、可审计，而非黑箱。",
-      "分数由六个加权维度构成，合计 100 分：账号成熟度、原创项目质量、贡献质量、生态影响力、社区影响力、活动真实性。在这一事实内核之上，ghfind 还提供可选的 AI 吐槽、开发者对战、按语言 / 组织 / 项目划分的排行榜，以及可嵌入自己主页的 README 评分徽章。",
+      "ghfind 提供锐评 GitHub 评分：基于账号的公开贡献给出评分和点评，帮助你了解自己的开源表现，也找到值得关注的开发者。它为任意账号打出 0–100 的真实贡献含金量与可信度评分，使用一套只基于公开 GitHub 数据的完全确定性引擎。相同输入永远得到相同分数——分数本身不涉及任何大语言模型——因此结果可复现、可审计，而非黑箱。",
+      "分数由六个加权维度构成，合计 100 分：账号成熟度、原创与主导项目质量、贡献质量、生态影响力、社区影响力、活动真实性。在这一事实内核之上，ghfind 还提供可选的 AI 吐槽、开发者对战、按语言 / 组织 / 项目划分的排行榜，以及可嵌入自己主页的 README 评分徽章。",
       "评分引擎以 github-account-value skill 的形式按 AGPL 开源，网站、官方 npm 与 PyPI 包、命令行工具、Model Context Protocol 服务器都跑在同一套代码路径上。ghfind 的目标是让 GitHub 贡献变得可读：奖励真实的开源工作，让值得关注的开发者浮出水面，并通过看模式而非看原始数量，让刷出来的账号一眼可辨。"
     ]
   },
@@ -781,11 +865,19 @@
       },
       {
         "h": "我们存储什么",
-        "p": "对于被评分的账号，我们会缓存计算出的分数、段位和派生指标，以便分享的报告快速加载、排行榜保持流畅。只有 60 分及以上的账号会被索引并公开收录；更低分的页面可通过直链访问，但不进入搜索引擎。我们使用尊重隐私的聚合分析来了解流量，且不出售个人数据。"
+        "p": "对于被评分的账号，我们会缓存计算出的分数、冒险者等级/境界和派生指标，以便分享的报告快速加载、排行榜保持流畅。只有 60 分及以上的账号会被索引并公开收录；更低分的页面可通过直链访问，但不进入搜索引擎。我们使用尊重隐私的聚合分析来了解流量，且不出售个人数据。"
+      },
+      {
+        "h": "Google 登录与账号 Cookie",
+        "p": "选择 Google 登录时，我们会接收你的 Google 账号标识（subject）、姓名和头像，用于建立 ghfind 登录会话。Google 在登录过程中也可能返回邮箱地址，我们不会持久保存邮箱。经过签名的 HttpOnly 会话 Cookie 会保存基本身份信息，最长有效期为 30 天。我们不保留 Google API 访问令牌或刷新令牌，退出登录会清除会话 Cookie。Google 登录不会授予 GitHub 权限，我们也不会根据邮箱地址自动关联账号。"
       },
       {
         "h": "自带 Key 的吐槽",
         "p": "可选的吐槽功能可以使用你自己的模型服务商 Key。当你提供时，它只留在你的浏览器中，并仅经我们的服务器中转一次以调用模型——绝不存储、绝不记录，请求完成后即丢弃。"
+      },
+      {
+        "h": "广告与 Cookie",
+        "p": "当我们在本站展示广告时，包括 Google 在内的第三方供应商会使用 Cookie、网络信标（web beacon）及类似技术，根据您此前对本站或其他网站的访问记录投放广告。Google 对广告 Cookie 的使用使其及其合作伙伴能够根据您对本站和/或互联网上其他网站的访问向您投放广告。您可以访问 Google 广告设置（https://adssettings.google.com）退出个性化广告；如需退出部分第三方供应商用于个性化广告的 Cookie，请访问 www.aboutads.info/choices。"
       }
     ]
   },
@@ -798,7 +890,7 @@
     "dimensionsIntro": "每个维度都贡献于 100 分的基础分。它们合在一起，奖励持续、原创、被广泛使用的开源工作，而非原始活动数量。",
     "dimensionDetails": {
       "account_maturity": "账号随时间的稳固与一致程度——账号年龄、持续活跃度，以及一条抗一夜膨胀的可信度曲线。",
-      "original_project_quality": "账号真正拥有并原创的仓库的质量与口碑，而非 fork 或无关紧要的项目。",
+      "original_project_quality": "原创与主导项目",
       "contribution_quality": "对他人项目贡献的实质——被合并的、有意义的 PR，而非模板灌水。",
       "ecosystem_impact": "账号的工作在更广生态中被依赖和维护的程度。",
       "community_influence": "在社区中真实的影响力与地位，经过归一化，使原始关注者或 star 数量无法主导。",
@@ -817,7 +909,7 @@
     "back": "← 返回名人堂",
     "heading": "开发者对决",
     "pkHeading": "⚔️ 发起对战",
-    "pkSub": "输入两个 GitHub 用户名,看看谁更硬核",
+    "pkSub": "输入两个 GitHub 用户名，比比谁才是更硬核的开发者！",
     "pkPlaceholderA": "如 torvalds",
     "pkPlaceholderB": "如 gaearon",
     "pkButton": "🔥 开打!",
@@ -838,7 +930,7 @@
     "summonRoasting": "生成中…",
     "summonError": "召唤失败，稍后再试",
     "bothMissing": "这两位都还没被审判，先召唤上场再对决。",
-    "verdictGenerating": "🤖 AI 正在憋一段毒舌裁决…",
+    "verdictGenerating": "🤖 AI 正在写风趣裁决…",
     "adviceHeading": "💡 进步建议",
     "saveImage": "📸 保存对战图",
     "saving": "生成中…",
@@ -846,7 +938,7 @@
     "embedCopied": "✅ 已复制,去贴到 README",
     "shareText": "{a} vs {b} —— 谁更硬核？来 ghfind.com 围观这场 GitHub 对决 ⚔️",
     "trendingHeading": "🔥 热门对战",
-    "trendingSub": "被围观最多的 GitHub 开发者 PK,点进去看毒舌裁决",
+    "trendingSub": "最受关注的开发者 PK 组合。",
     "trendingEmpty": "还没有对战上榜。去首页输入「a vs b」,打响第一枪。",
     "notRated": "未审判",
     "verdictMissing": "让子弹先飞一会儿 —— 召唤 TA 上场再下结论。",
@@ -953,7 +1045,7 @@
     "metaDescription": "发现真正解决问题、值得更多关注的开源项目。",
     "eyebrow": "开源项目评估",
     "heading": "发现值得被看到的项目",
-    "subtitle": "不只看 Star、公司背景或代码量，而是从实际需求、解决效果、上手体验和价值密度评估公开 GitHub 项目。",
+    "subtitle": "从真实需求与实际效果出发，评估 GitHub 项目价值。",
     "boardLabel": "项目榜单",
     "boards": {
       "treasure": "宝藏项目",
@@ -1036,7 +1128,7 @@
       "titleVerb": "发现",
       "titleAccent": "值得认识的人。",
       "subtitleLead": "不止是一份简历。透过开源项目、技术实践与真实作品，",
-      "subtitleTail": "认识开发者，也找到下一位同行者。",
+      "subtitleTail": "认识开发者，也找到潜在的合作者。",
       "people": "以 GitHub 为起点，连接更多可能",
       "add": "收录人才",
       "code": "built by humans."
@@ -1301,8 +1393,10 @@
     }
   },
   "sponsor": {
+    "stripLabel": "赞助商",
+    "learnMore": "了解更多",
     "metaTitle": "赞助 ghfind · 赞助方案与权益",
-    "metaDescription": "赞助 ghfind：顶级赞助商、模型赞助商、头部赞助商与友情赞助商方案，按月计费。赞助不影响任何排名与打分。",
+    "metaDescription": "赞助 ghfind：夯、顶级、人上人、友情四档方案，按月计费。赞助不影响任何排名与打分。",
     "topline": {
       "section": "帮助与文档",
       "current": "赞助本站"
@@ -1319,11 +1413,14 @@
     "available": "可预订",
     "soon": "开发中",
     "currentHolder": "当前赞助商",
+    "anonymous": "匿名赞助商",
+    "emailTemplateSubject": "ghfind 赞助咨询 · *{tier}",
+    "emailTemplateBody": "你好，我想咨询 ghfind【{tier}】赞助。\n\n赞助开始时间：\n赞助时长：1个月\n\n是否匿名展示（是/否）：\n想曝光哪个产品/项目（匿名时可留空）：\n项目链接（可选）：\n图标或 Logo（可附文件或提供链接）：\n产品/项目简介（可选）：",
     "cta": "联系赞助",
     "ctaSoldOut": "已售罄 · 敬请期待",
     "tiers": {
       "title": {
-        "name": "顶级赞助商",
+        "name": "夯",
         "summary": "全站最醒目的赞助位，品牌跟随每一张分享出去的炫耀卡。",
         "perks": [
           {
@@ -1335,19 +1432,22 @@
         ]
       },
       "model": {
-        "name": "模型赞助商",
-        "summary": "为锐评提供模型能力，在每一次生成时被看见。",
+        "name": "顶级",
+        "summary": "为锐评提供模型能力，在每一次生成时被看见，招聘职位优先展示。",
         "perks": [
           {
             "text": "锐评生成时展示模型赞助商署名"
           },
           {
             "text": "首页展示赞助商信息与 Logo"
+          },
+          {
+            "text": "招聘职位在首页招聘区与 /jobs 页面优先展示"
           }
         ]
       },
       "featured": {
-        "name": "头部赞助商",
+        "name": "人上人",
         "summary": "在首页和开发者详情页获得稳定曝光。",
         "perks": [
           {
@@ -1360,7 +1460,7 @@
         ]
       },
       "friend": {
-        "name": "友情赞助商",
+        "name": "友情",
         "summary": "以朋友的身份支持 ghfind，我们会把你记在这里。",
         "perks": [
           {
@@ -1388,98 +1488,670 @@
     "slotOpen": "虚位以待"
   },
   "githubBot": {
-    "metaTitle": "ghfind Review — 按作者评分给 issue 和 PR 打标签的 GitHub App",
-    "metaDescription": "安装 ghfind Review GitHub App，按作者的公开 ghfind 评分，为每条新 issue 和 pull request 自动添加彩色等级标签。",
+    "metaTitle": "ghfind Review | Issue 和 PR 分类与管理 Bot",
+    "metaDescription": "ghfind Review 提供作者评分、内容语义打标、预览与清理，并支持按仓库接入自己的 AI 服务（BYOK）。",
     "topline": {
       "section": "集成",
       "current": "GitHub Bot"
     },
     "hero": {
-      "eyebrow": "GitHub App · 免费",
-      "title": "先看是谁提的，再决定先处理哪条",
-      "subtitle": "ghfind Review 根据作者的公开 ghfind 评分，为每条新 issue 和 pull request 添加彩色 review: 标签。不用加 workflow，不用配置令牌或 secret。",
+      "eyebrow": "ghfind Review · GitHub App",
+      "title": "Issue 和 PR 分类，\n由你掌控",
+      "subtitle": "作者评分、内容语义打标与仓库自动化，统一在 Bot 后台管理。",
+      "admin": "打开 Bot 后台",
       "install": "在 GitHub 安装",
-      "status": "打开状态页",
-      "note": "以 ghfind-review[bot] 身份运行。只打标签，不评论、不关闭、不拦截任何提交。"
+      "status": "Bot 主页"
     },
-    "preview": {
-      "label": "带 review 标签的 issue 列表示例",
-      "heading": "Issues",
+    "console": {
+      "heading": "你的 Bot 工作台",
+      "note": "使用 GitHub 登录，查看你有权访问的安装账号和仓库。",
       "items": {
-        "top": "解析嵌套配置时崩溃",
-        "medium": "设置页支持深色模式",
-        "noScore": "README 有错别字"
+        "overview": {
+          "title": "全局概览 Dashboard",
+          "body": "汇总你有权访问的多个 GitHub 安装账号。"
+        },
+        "repositories": {
+          "title": "仓库管理",
+          "body": "配置打标规则，暂停或恢复仓库处理。"
+        },
+        "tasks": {
+          "title": "任务队列",
+          "body": "查看回填进度，重试失败的任务。"
+        },
+        "activity": {
+          "title": "活动记录",
+          "body": "追踪配置变更与 Bot 清理记录。"
+        }
+      },
+      "preview": "Bot 后台界面 · 本地演示数据",
+      "screenshotAlt": "Bot 全局概览界面，包含安装账号、仓库状态、任务与最近活动。"
+    },
+    "classification": {
+      "heading": "两种标签，各自回答不同的问题",
+      "lead": "作者的公开画像与提交内容的主题，分别判断。",
+      "score": {
+        "mode": "作者公开画像",
+        "title": "作者评分标签",
+        "body": "新建 Issue 或 PR 后，Bot 查询作者的公开 ghfind 评分并添加 review: 分段标签。它描述作者的公开画像，不代表这次提交的质量。",
+        "example": "包含五个分段。暂时拿不到评分时，明确使用 no-score 标签。"
+      },
+      "intent": {
+        "mode": "可选功能 · 默认关闭",
+        "title": "内容语义打标",
+        "body": "将 Issue 或 PR 的标题、正文与管理员选择的现有 label description 比较。开启后，分类器最多添加三个匹配标签，不创建或重命名标签。",
+        "example": "需要已配置分类服务。先在后台试跑打标建议，再决定是否启用。AI 分类与作者评分独立，结果可能需要人工修正。 在仓库设置中接入自己的 AI 服务。"
       }
     },
-    "labels": {
-      "heading": "五个标签，一眼分层",
-      "lead": "安装时自动补齐缺失标签，你自定义过的颜色或描述会保留。",
+    "byok": {
+      "heading": "接入自己的 AI 服务",
+      "lead": "使用自己的 API 地址、密钥和模型。按仓库独立配置，自行选择平台服务或自有服务。",
+      "cta": "配置自己的 AI 服务",
+      "setup": "先打开仓库，再进入 AI 服务。保存配置需要仓库管理员权限。",
       "items": {
-        "low": {
-          "range": "0 – 39",
-          "desc": "公开信号较少，建议先核实来源。"
+        "provider": {
+          "title": "按仓库选择服务",
+          "body": "在平台服务与自己的公开 HTTPS API 地址之间切换，每个仓库分别保存配置。"
         },
-        "medium": {
-          "range": "40 – 69",
-          "desc": "常见的贡献者画像。"
+        "protocol": {
+          "title": "选择协议与模型",
+          "body": "OpenAI 兼容的 Chat Completions 支持内容分类和开场白生成；Jev Decisions 仅用于内容分类。"
         },
-        "high": {
-          "range": "70 – 89",
-          "desc": "公开 profile 信号较强。"
+        "key": {
+          "title": "安全保存密钥",
+          "body": "API Key 加密存储，保存后不会再次显示。可在后台替换或移除已保存的密钥。"
         },
-        "top": {
-          "range": "90 – 100",
-          "desc": "位于 ghfind 评分前列。"
+        "test": {
+          "title": "开启前先测试",
+          "body": "主动测试已保存的连接，不修改 GitHub，也不保存样本文本。内容分类仍默认关闭。"
+        }
+      },
+      "billing": "调用费用由自己的服务商按密钥计费。自有服务失败时，Bot 不会悄悄切换到平台服务。"
+    },
+    "operations": {
+      "heading": "先看建议，再决定如何执行",
+      "lead": "按仓库分别控制，操作变化有记录可查。",
+      "items": {
+        "preview": {
+          "title": "试跑打标建议",
+          "body": "用 Issue 或 PR 样本对比已保存的标签定义。预览不修改 GitHub，也不保存样本文本；需要已配置分类服务。"
         },
-        "noScore": {
-          "range": "无评分",
-          "desc": "暂时拿不到分数，不等于零分。20 分钟和 60 分钟后会自动重试。"
+        "backfill": {
+          "title": "手动回填历史提交",
+          "body": "由你主动扫描最近 1–100 个开放 Issue 和 PR。安装时只初始化评分标签，不会自动触发历史回填。"
+        },
+        "cleanup": {
+          "title": "预览并撤回 Bot 变更",
+          "body": "先查看可移除的内容，再确认执行。只清理能归属于 Bot 的变更，保留人工重新添加和归属不明的标签。"
         }
       }
     },
-    "steps": {
-      "heading": "工作方式",
+    "cli": {
+      "heading": "同样的控制，也能在终端完成",
+      "body": "Go、JavaScript 和 Python CLI 支持查看状态、暂停、恢复、回填、重试和清理。Token 需显式授予 Bot 权限，同时仍需具备对应仓库的访问权限。",
+      "link": "CLI 与 API 使用指南",
+      "example": "命令示例 · 请替换 owner/repo",
+      "note": "cleanup 命令只预览移除范围，实际执行需要另行确认。"
+    },
+    "reference": {
+      "heading": "查看作者评分标签与 GitHub 搜索条件"
+    },
+    "labels": {
+      "heading": "五个作者评分分段",
+      "lead": "安装时补齐缺失的评分标签，保留已有的自定义颜色和描述。",
       "items": {
-        "install": {
-          "title": "选择仓库安装",
-          "body": "授权 Issues 和 Pull requests 读写权限。建议选 Only select repositories 先小范围试用；组织仓库可能需要 owner 批准。"
+        "low": {
+          "range": "0 – 39",
+          "desc": "公开画像信号较少。"
         },
-        "open": {
-          "title": "有人新建 issue 或 PR",
-          "body": "bot 在后台查询作者的公开 ghfind 评分，不读取也不评估 issue 正文。"
+        "medium": {
+          "range": "40 – 69",
+          "desc": "公开画像信号处于中间分段。"
         },
-        "label": {
-          "title": "出现 review: 标签",
-          "body": "安装时也会给现有 Open issue 和 PR 的前几页打标。编辑或重新打开不会重新评分。"
+        "high": {
+          "range": "70 – 89",
+          "desc": "公开画像信号较强。"
+        },
+        "top": {
+          "range": "90 – 100",
+          "desc": "ghfind 指数的最高分段。"
+        },
+        "noScore": {
+          "range": "无评分",
+          "desc": "暂时不可用，不等于零分。临时失败会在 20 分钟和 60 分钟后重试。"
         }
       }
     },
     "queues": {
-      "heading": "把分数区间变成审查队列",
-      "lead": "把筛选条件粘贴到仓库的 Issues 搜索框，从适合当前精力的队列开始。",
+      "heading": "在 GitHub 中筛选",
+      "lead": "粘贴到仓库的 Issues 搜索框。将 is:issue 替换为 is:pr，可查找 Pull Request。",
       "items": {
-        "high": "高分段 issue",
-        "top": "最高分段 issue",
-        "low": "需要核实来源的低分段 issue",
-        "noScore": "无评分，需要补充背景"
+        "high": "高分段",
+        "top": "最高分段",
+        "low": "低分段",
+        "noScore": "暂无评分"
       }
     },
     "notes": {
-      "rescore": {
-        "heading": "请求重新评分",
-        "body": "自动重试结束后，作者或仓库管理员可以在该 issue 下评论 @ghfind-review 重新评分。"
+      "heading": "安装、数据与控制",
+      "install": {
+        "heading": "从选定的仓库开始",
+        "body": "安装 GitHub App 并授予 Issues 和 Pull requests 读写权限，无需在仓库添加 workflow、PAT 或 secret。组织仓库可能需要 owner 批准。"
       },
       "privacy": {
-        "heading": "会接触哪些数据",
-        "body": "不读源码，不读 issue 正文。只保留安装、仓库、issue 编号、评分和任务状态；已完成任务 30 天后清理。有公开邮箱的作者每 72 小时最多收到一封评分邮件，可一键退订。",
-        "link": "隐私说明"
+        "heading": "了解处理哪些数据",
+        "body": "评分使用作者的公开画像。可选语义分类会将标题、正文及选定标签的描述发送给已配置的 AI 服务。评论默认关闭；开启后包含开场白与作者评分摘要，不是代码评审。",
+        "link": "阅读隐私说明"
       },
       "stop": {
-        "heading": "随时停用",
-        "body": "在 GitHub 设置中移除仓库、暂停或卸载 App 即可。已有标签会保留。"
+        "heading": "随时暂停或移除",
+        "body": "在后台按仓库暂停处理，或在 GitHub 设置中移除 App。已有标签会保留；需要撤回时，可另行预览并清理符合条件的 Bot 变更。"
       }
     },
     "disclaimer": "评分反映的是作者的公开 GitHub profile，不代表这次提交的质量。新贡献者可能只是公开记录较少。",
     "source": "源代码与自部署指南"
+  },
+  "integrations": {
+    "eyebrow": "面向开发者与 Agent",
+    "title": "CLI & API",
+    "subtitle": "把 ghfind 接入终端、脚本和 Agent。安装 CLI 与 Skill，创建个人 API Token，并查看接口文档。",
+    "install": {
+      "heading": "一条命令，安装 CLI 和 Skill",
+      "description": "复制给终端或 coding agent。需要 Node.js 18 或更高版本；安装过程不需要 sudo。",
+      "copy": "复制安装命令",
+      "copied": "已复制",
+      "requirement": "脚本会安装官方 npm CLI，并将 ghfind-cli Skill 写入 ~/.agents/skills/ghfind-cli。",
+      "cliDocs": "CLI 文档",
+      "skill": "查看 Skill"
+    },
+    "how": {
+      "heading": "接入步骤",
+      "install": "运行安装命令，安装 ghfind CLI。",
+      "skill": "安装脚本同时配置 ghfind-cli Skill，Agent 可读取命令和使用说明。",
+      "auth": "需要完整扫描或 roast 时，在上方创建 API Token，并设置 GHFIND_API_KEY。"
+    },
+    "tokens": {
+      "heading": "创建 API Token",
+      "signedOut": "使用 GitHub 登录后，可为 CLI 或自动化流程创建独立 Token。Token 只在创建时显示一次。",
+      "signIn": "登录并创建 Token",
+      "description": "每个 Token 可单独撤销。页面不会再次显示完整 Token。",
+      "scanScope": "扫描",
+      "botScope": "Bot 管理",
+      "scanIncluded": "每个令牌都包含 CLI、API 和 MCP 的扫描权限。",
+      "botPermission": "管理 ghfind Review bot",
+      "botPermissionHint": "允许此令牌修改你拥有管理员权限的仓库的 Bot 设置并执行清理。",
+      "scopesUnavailableError": "Bot 权限暂不可用，请稍后重试。",
+      "limit": "{count}/10 个有效 Token",
+      "namePlaceholder": "名称，例如：本地 CLI",
+      "defaultName": "CLI / Agent",
+      "create": "创建 Token",
+      "working": "处理中…",
+      "copyOnce": "请现在复制并保存。离开此页后无法再次查看完整 Token。",
+      "copy": "复制 Token",
+      "copied": "已复制",
+      "loading": "正在读取 Token…",
+      "empty": "还没有 API Token。",
+      "created": "创建于 {date}",
+      "revoke": "撤销 {name}",
+      "revokeShort": "撤销",
+      "loadError": "无法读取 Token，请刷新后重试。",
+      "createError": "创建失败，请稍后重试。",
+      "limitError": "有效 Token 已达上限，请先撤销不再使用的 Token。",
+      "revokeError": "撤销失败，请稍后重试。"
+    },
+    "auth": {
+      "heading": "鉴权方式",
+      "description": "网站账号使用 GitHub OAuth 登录。CLI 和 API 请求使用从账户页面创建的个人 Bearer Token，两种凭证各自独立。",
+      "publicTitle": "公开接口",
+      "public": "评分、对比、搜索、排行榜和开发者目录可直接使用，无需 Token。",
+      "protectedTitle": "需要 Token",
+      "protected": "完整扫描及依赖扫描能力的 roast 请求需要 GHFIND_API_KEY。",
+      "credentialNote": "将 Token 保存在环境变量或密钥管理器中。不要把它提交到代码仓库或交给不可信的 Agent。",
+      "apiDocs": "API 文档"
+    }
+  },
+  "jobs": {
+    "metaTitle": "开发者招聘：AI 公司在招职位 · ghfind",
+    "metaDescription": "DeepSeek、模态跃迁（ModaLeap）等 AI 公司在招的工程、研究与产品岗位，直达各公司官方招聘页投递。",
+    "heading": "开发者招聘",
+    "subtitle": "让开源贡献，成为下一份工作的起点",
+    "postJob": "发布职位",
+    "viewAll": "查看全部",
+    "sponsored": "赞助商 · 置顶",
+    "sponsorNote": "赞助商职位优先展示",
+    "becomeSponsor": "成为赞助商",
+    "filterLabel": "按公司筛选",
+    "allCompanies": "全部公司",
+    "openJobs": "{count} 个在招职位",
+    "sponsorTag": "赞助商",
+    "careersSite": "官方招聘页",
+    "empty": "暂时没有在招职位，稍后再来看看。",
+    "disclaimer": "职位信息整理自各公司公开的招聘页面，请前往公司官网投递；ghfind 不参与招聘决策。",
+    "type": {
+      "full_time": "全职",
+      "intern": "实习",
+      "part_time": "兼职"
+    },
+    "backToJobs": "全部职位",
+    "apply": "申请职位",
+    "applyByEmail": "邮件投递简历",
+    "emailNote": "简历请发送至 {email}",
+    "detailNote": "ghfind 仅展示该职位信息，招聘决定由企业自行做出。"
+  },
+  "talentMatch": {
+    "source": {
+      "legend": "选择简历来源",
+      "existingTitle": "使用平台上的简历",
+      "existingHint": "从「我的简历」里选一份",
+      "uploadTitle": "上传自己的简历",
+      "uploadHint": "PDF，不超过 {max} MB",
+      "loading": "正在读取你的简历…",
+      "loadFailed": "读取云端简历失败，请稍后再试，或直接上传 PDF。",
+      "listLabel": "你的简历",
+      "profileOption": "资料库（可复用的个人资料）",
+      "profileHint": "跨简历复用的个人资料",
+      "updated": "更新于 {date}",
+      "manage": "管理简历",
+      "emptyTitle": "你在 ghfind 上还没有简历",
+      "emptyBody": "用简历编辑器几分钟就能做好一份，保存到云端后回到这里分析。",
+      "emptyCta": "去创建简历",
+      "emptyUpload": "改为上传 PDF"
+    },
+    "drop": {
+      "label": "上传 PDF 简历",
+      "title": "把 PDF 拖到这里",
+      "or": "或",
+      "browse": "选择文件",
+      "rules": "仅支持 PDF · 不超过 {max} MB",
+      "dragging": "松开即可读取简历",
+      "reading": "正在读取 {name}…",
+      "readingHint": "在你的浏览器里解析，只需几秒。",
+      "readyTitle": "简历已就绪",
+      "readyMeta": "{pages, plural, other {# 页}} · {chars} 字",
+      "replace": "更换",
+      "remove": "移除",
+      "errorTitle": "这个文件无法使用",
+      "retry": "换一个文件",
+      "privacy": "PDF 只在你的浏览器里解析，文件不会上传；只发送文字（已去掉邮箱和电话），且不会保存原文。",
+      "errors": {
+        "type": "这不是 PDF 文件，请选择 .pdf 文件。",
+        "size": "文件大小为 {size} MB，上限是 {max} MB。",
+        "empty": "这个文件是空的。",
+        "multiple": "一次只能拖入一个文件。",
+        "unreadable": "这个 PDF 里读不到文字（可能是扫描件或图片），请换一份可复制文字的 PDF。",
+        "parse": "无法打开这个 PDF，文件可能已损坏或加密。"
+      }
+    },
+    "history": {
+      "title": "历史分析",
+      "empty": "生成报告后，历史分析会显示在这里。",
+      "untitled": "人才报告",
+      "viewing": "正在查看",
+      "opening": "正在打开…",
+      "running": "生成中",
+      "failed": "失败",
+      "matches": "{count, plural, other {# 个匹配岗位}}",
+      "topFit": "最高匹配 {fit}",
+      "openFailed": "无法打开这份分析，请重试。"
+    },
+    "company": {
+      "badge": "即将上线",
+      "title": "招聘功能即将上线",
+      "body": "很快你就可以粘贴岗位描述，查看开放机会的开发者，并按 GitHub 已验证的能力排序。",
+      "cta": "发布职位"
+    },
+    "optIn": {
+      "title": "开放机会",
+      "label": "允许企业在人才池中找到我",
+      "detail": "企业将看到你当前画像中的姓名、GitHub 账号、一句话介绍、技能和匹配度，永远看不到简历原文。可随时关闭；删除画像也会把你移出人才池。",
+      "on": "你已加入人才池。",
+      "off": "你未加入人才池。",
+      "notLive": "企业端匹配尚未上线，目前没有人能看到你的画像；现在开启，上线后你会直接出现在人才池中。",
+      "saveFailed": "保存失败，请重试。"
+    }
+  },
+  "discover": {
+    "metaTitle": "发现项目 · ghfind",
+    "metaDescription": "高产品价值开源项目的紧凑推荐流。",
+    "title": "发现",
+    "heading": "项目推荐",
+    "beta": "Beta",
+    "modeGrid": "网格",
+    "modeSwipe": "滑卡",
+    "filters": "筛选",
+    "filtersBody": "喜欢会收藏项目。跳过只留在本地，不会标记为不感兴趣。",
+    "signedOutBanner": "用 GitHub 登录后可个性化推荐。当前展示公开精选。",
+    "feedUnavailable": "个性化推荐暂不可用。当前展示公开精选。",
+    "empty": "暂时没有更多项目。",
+    "like": "收藏",
+    "skip": "跳过",
+    "superLike": "高亮",
+    "undo": "撤销",
+    "viewCard": "查看评估",
+    "quickPreview": "快速预览",
+    "productScore": "产品价值",
+    "confidence": "置信度",
+    "communityStrength": "社区强度",
+    "language": "语言",
+    "openFull": "查看完整评估",
+    "keyboard": "← 跳过 · → 收藏 · ↑ 高亮 · Backspace 撤销",
+    "hint": "收藏会保存项目。跳过是弱信号，不是拉黑。",
+    "audience": "给",
+    "partitions": "兴趣分区",
+    "partitionAll": "全部",
+    "partitionAgent": "Agent",
+    "partitionSkill": "Skill",
+    "partitionMicroservice": "微服务",
+    "partitionSandbox": "沙盒"
+  },
+  "stream": {
+    "postTitle": "帖子",
+    "replyPlaceholder": "发布你的回复",
+    "replySend": "回复",
+    "metaTitle": "推荐 · ghfind",
+    "metaDescription": "阅读开发者的想法，分享你的开源实践。",
+    "prototype": "原型",
+    "demoData": "演示数据：当前环境无法连接线上数据源。",
+    "heading": "推荐",
+    "tabForYou": "推荐",
+    "tabFollowing": "关注",
+    "channels": "频道",
+    "kind": {
+      "project": "项目",
+      "developer": "开发者",
+      "talent": "人才",
+      "article": "文章",
+      "collection": "合集",
+      "job": "招聘",
+      "post": "X 动态"
+    },
+    "kindOne": {
+      "project": "项目",
+      "developer": "开发者",
+      "talent": "人才",
+      "article": "文章",
+      "collection": "合集",
+      "job": "职位",
+      "post": "X 动态"
+    },
+    "layoutList": "列表",
+    "layoutMasonry": "双列",
+    "sponsored": "赞助",
+    "available": "开放机会",
+    "score": "评分",
+    "productScore": "产品分",
+    "minutesRead": "{minutes} 分钟读完",
+    "like": "点赞",
+    "unlike": "取消点赞",
+    "save": "收藏",
+    "unsave": "取消收藏",
+    "share": "分享",
+    "comments": "评论",
+    "more": "更多",
+    "notInterested": "不感兴趣",
+    "copyLink": "复制链接",
+    "openOriginal": "查看完整页面",
+    "linkCopied": "链接已复制",
+    "hidden": "收到，将减少此类推荐",
+    "undo": "撤销",
+    "follow": "关注",
+    "following": "已关注",
+    "followedToast": "已关注 {name}",
+    "related": "相关推荐",
+    "discussion": "去完整页面参与讨论",
+    "close": "关闭",
+    "stats": {
+      "confidence": "置信度",
+      "community": "社区强度",
+      "language": "语言",
+      "lookups": "被查次数",
+      "delta": "本周变化",
+      "location": "地点",
+      "project": "代表项目",
+      "stars": "Star",
+      "salary": "薪资",
+      "note": "推荐理由"
+    },
+    "loadingMore": "加载中…",
+    "endTitle": "你已经看完了",
+    "endBody": "刷新一下，按你刚才的喜好重新排序。",
+    "refresh": "刷新",
+    "retuned": "已根据你的喜好调整 · 刷新",
+    "followingEmptyTitle": "关注一些人，这里就热闹了",
+    "followingEmptyBody": "关注作者后，在这里阅读他们的 X 推文。",
+    "feedEmpty": "暂时没有可展示的 X 推文。",
+    "savedEmpty": "还没有收藏。点任意内容上的书签即可收藏。",
+    "railDailyProjects": "今日开源项目",
+    "railDailyProjectsEmpty": "今日暂无推荐项目。",
+    "railDailyProjectsMore": "浏览项目榜",
+    "railInterests": "你的兴趣",
+    "railInterestsEmpty": "点赞或收藏几条内容，推荐流就会学会你的口味。",
+    "railReset": "重置",
+    "railTopDevelopers": "上升最快的开发者",
+    "railCtaTitle": "你排第几？",
+    "railCtaBody": "30 秒了解你的 GitHub 公开贡献表现。",
+    "railCtaButton": "测测我的 GitHub",
+    "navHome": "首页",
+    "navDiscover": "发现",
+    "navScore": "测评",
+    "navSaved": "收藏",
+    "navLeaderboard": "榜单",
+    "doubleTapHint": "双击点赞",
+    "backToTop": "回到顶部",
+    "counter": {
+      "lookups": "被查 {count} 次",
+      "stars": "{count} Star",
+      "items": "{count} 个精选"
+    },
+    "badge": {
+      "hot": "热门",
+      "new": "新",
+      "editor": "编辑推荐"
+    },
+    "pulseTotal": "已有 {count} 位开发者被评分",
+    "pulseTrending": "24h 热议",
+    "pulseLookups": "{count} 次查看",
+    "aiRoast": "AI 锐评",
+    "aiNote": "由 ghfind 评分模型生成",
+    "dimsTitle": "六维评分",
+    "beat": "超过 {percent}% 的开发者",
+    "rankOf": "第 {rank} / {total} 名",
+    "weekDelta": "本周 {delta}",
+    "facts": {
+      "followers": "关注者",
+      "totalStars": "总 Star",
+      "mergedPrs": "合并 PR",
+      "contributions": "年度贡献",
+      "years": "账号年限"
+    },
+    "topRepos": "代表仓库",
+    "battles": "VS 战绩",
+    "battleWon": "胜",
+    "battleLost": "负",
+    "battleDraw": "平",
+    "battleViews": "{count} 次围观",
+    "similar": "相似开发者",
+    "reactionsTitle": "社区反应",
+    "reactionsCta": "去主页投一票",
+    "projectDims": {
+      "pain": "需求痛点",
+      "effectiveness": "解决效果",
+      "experience": "上手体验",
+      "valueDensity": "价值密度"
+    },
+    "projectScoreTitle": "产品评分拆解",
+    "audience": "适合谁",
+    "risks": "需要注意",
+    "talentProjects": "代表项目",
+    "ownProject": "主导",
+    "prProject": "贡献",
+    "sources": "公开资料",
+    "picksTitle": "合集里的精选",
+    "toc": "目录",
+    "excerpt": "摘录",
+    "readFull": "阅读全文",
+    "jobDescription": "职位描述",
+    "companySite": "公司官网",
+    "moreFrom": "更多来自 {name}",
+    "editorPicks": "编辑推荐",
+    "commentsTitle": "评论",
+    "commentsEmpty": "还没有人评论，来抢沙发吧",
+    "commentPlaceholder": "说点什么…",
+    "commentAnonymousHint": "无需登录，匿名发布",
+    "commentSend": "发送",
+    "anonymous": "匿名用户",
+    "commentFailed": "发送失败，请稍后再试",
+    "commentRateLimited": "发得太快了，休息一下",
+    "commentLinks": "评论里不能带链接",
+    "commentsClosed": "这类内容暂不支持评论，可以去完整页面看看",
+    "justNow": "刚刚",
+    "quick": {
+      "developer": {
+        "a": "这个分数合理",
+        "b": "求带 🙏",
+        "c": "已关注，学习了"
+      },
+      "talent": {
+        "a": "方向很棒",
+        "b": "欢迎来聊聊",
+        "c": "已关注"
+      },
+      "article": {
+        "a": "学到了",
+        "b": "很有启发",
+        "c": "求更新"
+      },
+      "collection": {
+        "a": "已收藏",
+        "b": "求更多同类",
+        "c": "第一个就很赞"
+      }
+    },
+    "loadingDetail": "加载中…",
+    "railEditor": "编辑推荐",
+    "xCategory": {
+      "researcher": "研究员",
+      "builder": "构建者",
+      "media": "科技媒体",
+      "developer": "高分开发者"
+    },
+    "viewOnX": "在 X 上查看",
+    "xMetrics": {
+      "replies": "回复",
+      "reposts": "转发",
+      "likes": "喜欢",
+      "views": "浏览"
+    },
+    "xLatest": "最近在 X 上",
+    "railVoices": "技术声音",
+    "railVoicesHint": "只收录研究员、构建者、科技媒体，以及 ghfind 评分 80+ 的开发者。",
+    "xSource": "来自 X · 指标为 X 上的真实数据",
+    "ghfindProfile": "ghfind 主页",
+    "demoX": "X 动态目前为演示数据：账号与内容均为虚构，接入真实数据后自动替换。",
+    "showTranslation": "显示翻译",
+    "showOriginal": "显示原文",
+    "translatedBy": "由 ghfind 智能体翻译",
+    "feed": {
+      "addImage": "添加图片",
+      "cancel": "取消",
+      "capabilitiesError": "暂时无法检查发布资格，你仍可继续浏览。",
+      "checking": "正在检查发布资格…",
+      "composerPlaceholder": "有什么新鲜事？",
+      "conversationDescription": "查看帖子、上文和回复，回复串中的每条帖子都可以继续回复。",
+      "copyFailed": "链接复制失败，请重试。",
+      "deleteHint": "删除这条帖子？已有回复会保留，并连接到删除占位。",
+      "deletePost": "删除帖子",
+      "deleted": "这条帖子已删除。",
+      "dislike": "不喜欢",
+      "earlierReplies": "查看更早的回复",
+      "empty": "还没有帖子。",
+      "end": "已经看到最新内容了。",
+      "followingEmpty": "关注开发者后，在这里查看他们发布和转发的帖子。",
+      "imageDescription": "图片描述（选填）",
+      "loadMore": "加载更多",
+      "localInteractions": "ghfind 站内互动",
+      "loginRequired": "登录后即可互动，浏览无需登录或评分。",
+      "mediaCount": "最多添加 4 张图片。",
+      "mediaInvalid": "支持 JPEG、PNG、WebP 和 GIF，每张不超过 10 MB。",
+      "myBookmarks": "我的收藏",
+      "noReplies": "还没有回复。",
+      "openConversation": "打开 {name} 的回复串",
+      "openImage": "打开图片",
+      "privateBookmarks": "收藏仅自己可见。",
+      "publish": "发布",
+      "publishAccessTitle": "发帖要求",
+      "publishRequirement": "发布主帖和回复需要绑定本人 GitHub，且 ghfind 评分达到 60 分。",
+      "published": "已发布到 ghfind。",
+      "publishing": "发布中…",
+      "rateLimited": "操作过于频繁，请稍后再试。",
+      "removeImage": "移除图片",
+      "repost": "转发",
+      "repostedBy": "{name} 转发了",
+      "requestFailed": "操作未完成，请重试。",
+      "retry": "重试",
+      "unavailable": "这条帖子暂不可用。",
+      "undoDislike": "取消不喜欢",
+      "undoRepost": "取消转发",
+      "unfollow": "取消关注",
+      "viewQuotedPost": "查看引用推文",
+      "quotedPostPreviewUnavailable": "引用内容暂不可预览",
+      "viewAttachedLink": "查看附带链接",
+      "attachedLinkPreviewUnavailable": "打开链接查看内容",
+      "viewOnX": "在 X 查看原帖",
+      "showOriginal": "原文",
+      "showTranslated": "译文",
+      "translationToggle": "切换原文或译文",
+      "views": "ghfind 浏览量",
+      "viewReplies": "查看回复",
+      "scoreBelowMinimum": "你的已保存评分未达到 60 分，暂时无法发布主帖或回复。",
+      "scoreMissing": "还没有你的评分记录，请先查询本人 GitHub 账号的评分。",
+      "verifyScore": "暂时无法核验已保存评分的账号归属，请重试。",
+      "rescanAccount": "前往本人主页重新扫描",
+      "authorCard": {
+        "followingAction": "已关注",
+        "follow": "关注",
+        "followsYou": "关注了你",
+        "retry": "加载失败，点击重试",
+        "loading": "加载中…",
+        "score": "ghfind 评分",
+        "unscored": "暂无评分",
+        "following": "关注",
+        "followers": "粉丝",
+        "source": "关注数据来自 ghfind"
+      }
+    }
+  },
+  "realms": {
+    "qi": {
+      "name": "练气",
+      "blurb": "初入仙途 · 打牢根基"
+    },
+    "foundation": {
+      "name": "筑基",
+      "blurb": "根基已成 · 稳步精进"
+    },
+    "goldenCore": {
+      "name": "金丹",
+      "blurb": "丹成一品 · 渐露锋芒"
+    },
+    "nascentSoul": {
+      "name": "元婴",
+      "blurb": "元婴初成 · 自成一派"
+    },
+    "deity": {
+      "name": "化神",
+      "blurb": "神识通达 · 影响一方"
+    },
+    "voidRefining": {
+      "name": "炼虚",
+      "blurb": "返璞归真 · 举重若轻"
+    },
+    "integration": {
+      "name": "合体",
+      "blurb": "天人合一 · 一线宗师"
+    },
+    "mahayana": {
+      "name": "大乘",
+      "blurb": "大道将成 · 殿堂标杆"
+    }
   }
 }

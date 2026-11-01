@@ -3,9 +3,38 @@
   "workspaces": {
     ".": {
       "vitest": {
-        "entry": ["src/**/*.test.{ts,tsx}", "packages/**/*.test.{ts,tsx}"]
+        "entry": [
+          "src/**/*.test.{ts,tsx}",
+          "packages/**/*.test.{ts,tsx}"
+        ]
       },
-      "ignore": ["packages/ghfind-js/**"]
+      "ignore": [
+        "packages/ghfind-js/**"
+      ]
+    },
+    "apps/web": {
+      "entry": [
+        "src/pages/**/*.astro",
+        "src/shims/*.{ts,tsx}"
+      ],
+      "ignoreDependencies": [
+        "tailwindcss"
+      ]
+    },
+    "apps/api": {
+      "entry": [
+        "src/shims/*.ts",
+        "scripts/*.mjs"
+      ],
+      "ignoreDependencies": [
+        "cloudflare",
+        "vercel-og-edge"
+      ]
+    },
+    "apps/coord": {
+      "ignoreDependencies": [
+        "cloudflare"
+      ]
     }
   }
 }

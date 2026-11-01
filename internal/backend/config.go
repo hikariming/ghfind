@@ -22,9 +22,12 @@ const (
 	defaultMosooRequestTimeout     = 15 * time.Second
 	defaultProjectAnalysisTimeout  = 15 * time.Minute
 	// Project analysis runs are concurrency-capped because each one holds a
-	// long-lived Cattle Agent thread.
-	defaultProjectAnalysisConcurrency       = 20
-	maxProjectAnalysisConcurrency           = 100
+	// Mosoo sandbox, and Mosoo admits at most 5 concurrent sandboxes per
+	// account (ACCOUNT_CONCURRENT_SANDBOX_LIMIT); finished Threads keep
+	// counting until archived or reclaimed. The cap mirrors the TypeScript
+	// maximumConcurrentRuns clamp.
+	defaultProjectAnalysisConcurrency       = 3
+	maxProjectAnalysisConcurrency           = 20
 	defaultProjectAnalysisCreateMaxAttempts = 3
 	maxProjectAnalysisCreateMaxAttempts     = 10
 	defaultProjectAnalysisCreateRetryBase   = 5 * time.Second
@@ -104,6 +107,16 @@ type Config struct {
 	GorseBaseURL            string
 	GorseServerAPIKey       string
 	GorseAdminAPIKey        string
+	// ScanFanoutEnabled splits a heavy scan into RabbitMQ part jobs after the
+	// seed. Default off: the worker keeps the in-process Collect path from
+	// collection v7. Rollback is unsetting the flag; collection and score
+	// versions stay put.
+	ScanFanoutEnabled bool
+	// ScanIncrementalEnabled stores per-user per-source cursors and merges
+	// later scans into the saved snapshot. Default off: collection stays the
+	// Phase 2 full pull, including that phase's fan-out flag. Rollback is
+	// unsetting the flag. Score and collection versions stay put.
+	ScanIncrementalEnabled bool
 }
 
 // LoadConfigFromEnv reads the existing Turso/Upstash names plus the new broker
@@ -155,6 +168,8 @@ func LoadConfigFromEnv() Config {
 		FeedSigningSecret:                strings.TrimSpace(os.Getenv("FEED_SIGNING_SECRET")),
 		FeedCanaryBPS:                    clampIntValueAllowZero(os.Getenv("FEED_CANARY_BPS"), 0, 0, 10_000),
 		FeedGorseLiveBPS:                 clampIntValueAllowZero(os.Getenv("FEED_GORSE_LIVE_BPS"), 0, 0, 10_000),
+		ScanFanoutEnabled:                envFlagEnabled("GHFIND_SCAN_FANOUT_ENABLED"),
+		ScanIncrementalEnabled:           envFlagEnabled("GHFIND_SCAN_INCREMENTAL_ENABLED"),
 		FeedShadowOutcomeWindow:          boundedDurationValue(os.Getenv("FEED_SHADOW_OUTCOME_WINDOW"), defaultFeedShadowOutcomeWindow, minFeedShadowOutcomeWindow, maxFeedShadowOutcomeWindow),
 		FeedInternalAllowlist:            int64ListFromEnv(os.Getenv("FEED_INTERNAL_GITHUB_IDS")),
 		EmbeddingBaseURL:                 strings.TrimRight(strings.TrimSpace(os.Getenv("FEED_EMBEDDING_BASE_URL")), "/"),
@@ -312,6 +327,17 @@ func scanConcurrencyFromEnv(rawTokens string) int {
 		return maxScanConcurrency
 	}
 	return concurrency
+}
+
+// envFlagEnabled accepts 1, true, and on. Anything else, including an empty
+// value, stays off so a missing deploy variable cannot turn fan-out on.
+func envFlagEnabled(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(name))) {
+	case "1", "true", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func envOr(name, fallback string) string {

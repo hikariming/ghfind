@@ -1,0 +1,20 @@
+---
+import Base from "../../layouts/Base.astro";
+import { LeaderboardIsland } from "../../islands/LeaderboardIsland";
+import { getMessages, getTranslator, pickMessages, routeLocale } from "../../lib/i18n";
+import { loadLeaderboardPage } from "@/lib/pages/leaderboard";
+
+const locale = routeLocale(Astro.params.locale);
+if (!locale) return new Response(null, { status: 404 });
+const query = { view: Astro.url.searchParams.get("view") ?? undefined, window: Astro.url.searchParams.get("window") ?? undefined };
+const [t, tMeta, messages, data] = await Promise.all([
+  getTranslator(locale, "leaderboard"),
+  getTranslator(locale, "meta"),
+  getMessages(locale),
+  loadLeaderboardPage(query),
+]);
+Astro.response.headers.set("Cache-Control", "private, no-cache, no-store, max-age=0, must-revalidate");
+---
+<Base locale={locale} path="/leaderboard" title={`${t("heading")} · ${tMeta("siteName")}`} description={t("subtitle")}>
+  <LeaderboardIsland client:load locale={locale} {...data} intl={{ locale, pathname: "/leaderboard", search: Astro.url.search, messages: pickMessages(messages, ["leaderboard", "discoveryNext", "tiers"]) }} />
+</Base>

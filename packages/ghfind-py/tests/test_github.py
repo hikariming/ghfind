@@ -1,10 +1,14 @@
 """Offline tests for GitHub contribution classification."""
 
+from datetime import datetime, timezone
+
 from ghfind._github import (
     compute_impact_from_contrib_map,
+    compute_impact_quality_signals,
     compute_org_repo_attribution,
     first_commit_history_after,
     is_doc_like_impact_pr,
+    original_repo_quality_score,
     parse_github_noreply_login,
     resolve_first_commit_github_login,
 )
@@ -76,8 +80,8 @@ def test_first_commit_history_cursor():
 
 
 def test_github_noreply_login_parsing():
-    assert parse_github_noreply_login("48499089+yifanxuaaa@users.noreply.github.com") == "yifanxuaaa"
-    assert parse_github_noreply_login("samzong@users.noreply.github.com") == "samzong"
+    assert parse_github_noreply_login("48499089+fixture-account-070@users.noreply.github.com") == "fixture-account-070"
+    assert parse_github_noreply_login("fixture-account-057@users.noreply.github.com") == "fixture-account-057"
     assert parse_github_noreply_login("person@example.com") is None
 
 
@@ -92,9 +96,9 @@ def test_first_commit_login_resolution_order():
         "source": "committer.user",
     }
     assert resolve_first_commit_github_login(
-        author_email="12+carol@users.noreply.github.com",
-    ) == {"login": "carol", "source": "noreply-email"}
-    assert resolve_first_commit_github_login(author_email="carol@example.com") == {
+        author_email="12+fixture-account-017@users.noreply.github.com",
+    ) == {"login": "fixture-account-017", "source": "noreply-email"}
+    assert resolve_first_commit_github_login(author_email="fixture-account-017@example.com") == {
         "login": None,
         "source": "none",
     }
@@ -158,3 +162,37 @@ def test_sustained_registry_maintenance_still_counts():
 
     assert impact["impact_repo_count"] == 1
     assert impact["impact_repos"][0]["repo"] == "is-a-dev/register"
+
+
+def test_notes_discount_softens_with_organic_traction():
+    now = datetime(2026, 8, 1, tzinfo=timezone.utc)
+
+    def notes(stars, forks):
+        return {
+            "name": "project",
+            "stars": stars,
+            "forks": forks,
+            "size": 1800,
+            "language": "Go",
+            "description": "My learning notes for ML systems",
+            "readme_excerpt": "Install usage examples architecture test. " * 20,
+            "pushed_at": "2026-07-01T00:00:00Z",
+        }
+
+    assert original_repo_quality_score(notes(40, 5), "alice", now) == 0.55
+    assert original_repo_quality_score(notes(7000, 50), "alice", now) == 0.55
+    assert original_repo_quality_score(notes(7000, 500), "alice", now) == 0.75
+
+
+def test_impact_cap_requires_representative_repository_coverage():
+    def docs(repo):
+        return _pr(repo=repo, repo_stars=2000, title="docs: update guide", files=["README.md"])
+    single = [docs("org/benchmark") for _ in range(11)]
+    signals = compute_impact_quality_signals(single, 38, "alice")
+    assert signals["doc_like_impact_pr_count"] == 11
+    assert signals["impact_quality_cap"] is None
+    broad = [docs(f"org/project-{i % 3}") for i in range(12)]
+    assert compute_impact_quality_signals(broad, 12, "alice")["impact_quality_cap"] == 4
+    assert compute_impact_quality_signals(broad, 100, "alice")["impact_quality_cap"] is None
+    concentrated = [docs(f"org/project-{0 if i < 10 else i}") for i in range(12)]
+    assert compute_impact_quality_signals(concentrated, 12, "alice")["impact_quality_cap"] is None

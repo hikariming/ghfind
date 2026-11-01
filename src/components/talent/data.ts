@@ -4,6 +4,8 @@ export type Talent = {
   sources?: { url?: string; title: string; publisher: string; kind: 'github' | 'article' | 'website'; description: string }[];
   publicFields?: Partial<Record<import('./intake').Field, string>>; pending?: boolean;
   id: string; name: string; handle: string; initials: string; color: string;
+  /** Operator-supplied avatar (https); wins over the GitHub avatar. */
+  avatarUrl?: string;
   role: string; location: string; direction: string; bio: string;
   skills: string[]; stars: number | null; contributions: number | null; source: string;
   score: number | null;

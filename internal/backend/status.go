@@ -371,11 +371,11 @@ func decodeRedisJSON(raw json.RawMessage, target any) error {
 func statusKey(id string) string { return "ghfind:backend:job-status:v1:" + id }
 
 func scanCacheKey(username string) string {
-	return "scan:v4:" + strings.ToLower(strings.TrimSpace(username))
+	return "scan:" + goCanonicalScoreVersion + ":" + goCanonicalCollectionVersion + ":" + strings.ToLower(strings.TrimSpace(username))
 }
 
 func scanFlightKey(username string) string {
-	return "lock:scan:v4:" + strings.ToLower(strings.TrimSpace(username))
+	return "lock:scan:" + goCanonicalScoreVersion + ":" + goCanonicalCollectionVersion + ":" + strings.ToLower(strings.TrimSpace(username))
 }
 
 // projectAnalysisResultKey matches projectAnalysisResultKey in src/lib/redis.ts

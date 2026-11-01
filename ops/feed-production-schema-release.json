@@ -36,6 +36,62 @@
     {
       "name": "0009_project_analysis_final_recovery.sql",
       "sha256": "2f545699a971dbced96edea7e59cbf3610742f71625f30a8624eab3922f6660b"
+    },
+    {
+      "name": "0015_ghfind_api_tokens.sql",
+      "sha256": "7bbd3f5fb28176b794c703aa03c9cb813d3aff48c14d420db853c9513900c95d"
+    },
+    {
+      "name": "0017_discovery_read_indexes.sql",
+      "sha256": "d78785236d8e43f253561425b75a837c4d8d90b4562f09f3be7acfdc6521d63e"
+    },
+    {
+      "name": "0018_ghfind_api_token_scopes.sql",
+      "sha256": "e0ae26fbf0b597d755e3297284a0cdeb9b4d50db7037752297a2b2ca9f863ca8"
+    },
+    {
+      "name": "0020_jobs.sql",
+      "sha256": "7ac1712ec54a736a33ba9141d47839c7938a23bde2275a189a4d0e94632cd484"
+    },
+    {
+      "name": "0021_sponsorship_translations.sql",
+      "sha256": "00c9b0e999725ae5a4b35fcfe0d31d69b687ebb7b50e17d08b973b9df3ac2d18"
+    },
+    {
+      "name": "0022_collections.sql",
+      "sha256": "6dbb2163279d4f4a5f672312b5deb24fd6ba1925c4a4d478db1eb974fdcfe489"
+    },
+    {
+      "name": "0023_megatron_hiring_sponsor.sql",
+      "sha256": "302d3dfa6f8389182de092570edc0dd5e3393dc01d1fad7557daa52c13aef523"
+    },
+    {
+      "name": "0024_job_descriptions.sql",
+      "sha256": "aa27f9d484d51a09a932005a7cec048a8561fe095087554289db06b653d7476f"
+    },
+    {
+      "name": "0025_talent_match.sql",
+      "sha256": "959bce48f9cb647ae2933b0ad03bede9d5471778bd4d3e796cf834671746cc2c"
+    },
+    {
+      "name": "0029_vibe42_replaces_mosoo.sql",
+      "sha256": "bc966c2be47b4818c8a0799232a3663a1407ec067c5fe6b2e17919374179facd"
+    },
+    {
+      "name": "0030_vibe42_aff_url.sql",
+      "sha256": "008fa6dac568bd9be9788920ac2c27f25bdc8d470035a3b8b13728c43ea4c1eb"
+    },
+    {
+      "name": "0031_vibe42_copy.sql",
+      "sha256": "a6408cd6226dd136bdc9412a16575943e50bf1bbeaae09a8a7b337c7a27cf863"
+    },
+    {
+      "name": "0032_vibe42_title_logo.sql",
+      "sha256": "7771e85cd8941d3b970418757e57c1f08d31d3108eb59277ce72f66d2cf85cf6"
+    },
+    {
+      "name": "0033_vibe42_retitle_icon.sql",
+      "sha256": "4b163b19220a176f2a1947c7f1fb059a2d27d4778b0f8203b5bc8fb8d9945ac5"
     }
   ],
   "feed": [
@@ -86,6 +142,26 @@
     {
       "name": "0012_feed_legacy_writer_fence.sql",
       "sha256": "26bd945ec52baab00e4307f81258aa39dfef9dea75d979deefbe286c5cda0182"
+    },
+    {
+      "name": "0013_feed_discover_copy_fields.sql",
+      "sha256": "0cc320d75fa2b0023724c7835ba56c1d8371e536514cdd7a905f815e646294cb"
+    },
+    {
+      "name": "0014_feed_discover_score_shadow.sql",
+      "sha256": "a192a650f2d8ba481ed1854051e94d976a2c36eda311b2d69db2d97e57c727d5"
+    },
+    {
+      "name": "0015_feed_discover_partition_tags.sql",
+      "sha256": "5cc682e79cea8e481a0eef953a7b397b17101818be72fba4d6bd15223bd4ac10"
+    },
+    {
+      "name": "0016_social_posts.sql",
+      "sha256": "77eb033b7644848798da23bb4c27247ae347e8ce475bd0ed479e40178cf512c4"
+    },
+    {
+      "name": "0017_social_post_translations.sql",
+      "sha256": "b386f026d599b773feca4e56bcdf8011224ce84f6977a76b8af91387690762aa"
     }
   ]
 }

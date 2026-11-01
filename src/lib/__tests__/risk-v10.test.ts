@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { score } from "../score";
+import { assessRisk as score } from "../risk";
 import type { RawMetrics } from "../types";
 
 const BASE: RawMetrics = {

@@ -65,20 +65,37 @@ describe("chatStreamEvents request options", () => {
     expect(new Headers(request.headers).get("HTTP-Referer")).toBe("https://ghfind.com");
   });
 
-  it("does not send StepFun-only fields to other compatible providers", async () => {
+  it("requests low reasoning effort from DeepSeek, whose flash model thinks at high by default", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response('data: {"choices":[{"delta":{"content":"done"}}]}\n\ndata: [DONE]\n\n'),
     );
     vi.stubGlobal("fetch", fetchMock);
 
     for await (const _event of chatStreamEvents(
-      { baseURL: "https://api.deepseek.com", apiKey: "secret", model: "deepseek-chat" },
+      { baseURL: "https://api.deepseek.com", apiKey: "secret", model: "deepseek-flash" },
       [{ role: "user", content: "hello" }],
     )) {
       // Drain the stream.
     }
 
-    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
-    expect(JSON.parse(String(request.body))).not.toHaveProperty("reasoning_effort");
+    const body = JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body));
+    expect(body).toMatchObject({ reasoning_effort: "low" });
+    expect(body).not.toHaveProperty("thinking");
+  });
+
+  it("does not send reasoning_effort to other compatible providers or lookalike hosts", async () => {
+    for (const baseURL of ["https://openrouter.ai/api/v1", "https://deepseek.com.example.org/v1"]) {
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response('data: {"choices":[{"delta":{"content":"done"}}]}\n\ndata: [DONE]\n\n'),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      for await (const _event of chatStreamEvents(
+        { baseURL, apiKey: "secret", model: "some-model" },
+        [{ role: "user", content: "hello" }],
+      )) {
+        // Drain the stream.
+      }
+      expect(JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body))).not.toHaveProperty("reasoning_effort");
+    }
   });
 });

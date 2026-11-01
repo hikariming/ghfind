@@ -1,0 +1,8 @@
+---
+import { routeLocale } from "../../../lib/i18n";
+import { localePath } from "@/lib/site";
+
+const locale = routeLocale(Astro.params.locale);
+if (!locale) return new Response(null, { status: 404 });
+return Astro.redirect(localePath(locale, "/collections"), 308);
+---

@@ -1,3 +1,4 @@
+import publicReadHistory from "../../config/public-read-history.json";
 import manifestJson from "../../config/release-versions.json";
 import { ROAST_CACHE_VERSION, SCORE_CACHE_VERSION } from "./cache-version";
 import { PUBLIC_SCAN_COLLECTION_VERSION } from "./scan-run-types";
@@ -15,12 +16,21 @@ export interface ReleaseVersionManifest {
   schemaVersion: number;
   previousRelease: ReleaseVersionSet;
   targetRelease: ReleaseVersionSet;
+  /**
+   * Score labels that were shipped and then rolled back. An advance may skip
+   * these so a restored previous (v10) can become v13 without reusing the
+   * contaminated v11/v12 rows.
+   */
+  skippedScoreVersions?: string[];
   runtimeEnforcement: {
     state: "source_changes_only" | "canonical";
     trackingIssue: number | null;
   };
   compatibility: {
     publicScoreReadOrder: string[];
+    /** Previously public score labels retained as reads across release boundaries. */
+    retainedPublicScoreVersions?: string[];
+    retainedCollectionVersions?: string[];
     roastReplay: { score: string; roast: string }[];
     collectionReadOrder: string[];
   };
@@ -40,7 +50,7 @@ export interface ReleaseVersionManifest {
 export const RELEASE_VERSION_MANIFEST = manifestJson as ReleaseVersionManifest;
 
 /**
- * The immediately previous formal artifact tuple permitted for emergency reads.
+ * The explicitly retained formal artifact tuple permitted for emergency reads.
  * Keep this separate from `compatibility`: normal public score reads serve the
  * target release only.
  */
@@ -52,6 +62,47 @@ export const RUNTIME_RELEASE_VERSIONS: ReleaseVersionSet = {
   roast: ROAST_CACHE_VERSION,
   collection: PUBLIC_SCAN_COLLECTION_VERSION,
 };
+
+export const PUBLIC_SCORE_READ_ORDER: readonly string[] =
+  RELEASE_VERSION_MANIFEST.compatibility.publicScoreReadOrder;
+
+export function isPublicScoreVersion(version: unknown): version is string {
+  return typeof version === "string" && PUBLIC_SCORE_READ_ORDER.includes(version);
+}
+
+/** Read-only prior-collection artifacts retain their original labels and hash.
+ * This never grants canonical scan, replay, or write eligibility. */
+export function isRetainedPublicScoreArtifact(
+  scoreVersion: unknown, collectionVersion: unknown, snapshotHash: unknown,
+): boolean {
+  return isPublicScoreVersion(scoreVersion) && typeof collectionVersion === "string" &&
+    collectionVersion !== PUBLIC_SCAN_COLLECTION_VERSION &&
+    RELEASE_VERSION_MANIFEST.compatibility.collectionReadOrder.includes(collectionVersion) &&
+    typeof snapshotHash === "string" && /^[a-f0-9]{64}$/.test(snapshotHash);
+}
+
+/** SQL fragment `alias.score_version IN ('v13', 'v10')` from the read order. */
+export function publicScoreVersionSql(alias?: string): string {
+  const column = alias ? `${alias}.score_version` : "score_version";
+  const list = PUBLIC_SCORE_READ_ORDER.map((version) => `'${version}'`).join(", ");
+  return `${column} IN (${list})`;
+}
+
+function versionNumber(version: string): number {
+  return Number(version.slice(1));
+}
+
+function expectedPublicScoreReadOrder(
+  previousRelease: ReleaseVersionSet,
+  targetRelease: ReleaseVersionSet,
+  retained: string[] = [],
+): string[] {
+  if (targetRelease.score === previousRelease.score) return [targetRelease.score, ...retained];
+  if (versionNumber(targetRelease.score) > versionNumber(previousRelease.score)) {
+    return [...new Set([targetRelease.score, previousRelease.score, ...retained])];
+  }
+  return [targetRelease.score];
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -119,6 +170,14 @@ export function releaseTransitionErrors(input: {
   ) {
     errors.push("changed runtime constants must exactly match the formal target release");
   }
+  const retained = input.afterManifest.compatibility.retainedPublicScoreVersions ?? [];
+  if (retained.some((v) => !input.beforeManifest.compatibility.publicScoreReadOrder.includes(v) && !publicReadHistory.scoreVersions.includes(v))) {
+    errors.push("retained public score versions must already be readable before this release");
+  }
+  const retainedCollections = input.afterManifest.compatibility.retainedCollectionVersions ?? [];
+  if (retainedCollections.some(v => !input.beforeManifest.compatibility.collectionReadOrder.includes(v) && !publicReadHistory.collectionVersions.includes(v))) {
+    errors.push("retained collection versions must already be publicly readable");
+  }
   if (targetChanges.length > 1) {
     errors.push(
       `formal release changes ${targetChanges.join(", ")}; multi-component bumps are forbidden`,
@@ -140,6 +199,12 @@ export function releaseTransitionErrors(input: {
     !sameVersions(input.afterManifest.previousRelease, input.beforeManifest.targetRelease)
   ) {
     errors.push("a new release must carry the prior target forward as previousRelease");
+  }
+  if (
+    targetChanges.length === 1 && targetChanges[0] === "roast" &&
+    !sameVersions(input.afterManifest.legacyReadFallback, input.beforeManifest.legacyReadFallback)
+  ) {
+    errors.push("roast-only releases must preserve the existing read-only fallback");
   }
   return errors;
 }
@@ -164,9 +229,33 @@ export function releaseVersionErrors(
   const typed = manifest as unknown as ReleaseVersionManifest;
   const { previousRelease, targetRelease } = typed;
 
+  const skippedScoreVersions = Array.isArray(typed.skippedScoreVersions)
+    ? typed.skippedScoreVersions
+    : [];
+  if (skippedScoreVersions.some((value) => !isVersion(value))) {
+    errors.push("skippedScoreVersions must be formal vN labels");
+  }
+
   for (const component of RELEASE_COMPONENTS) {
-    const previous = Number(previousRelease[component].slice(1));
-    const target = Number(targetRelease[component].slice(1));
+    const previous = versionNumber(previousRelease[component]);
+    const target = versionNumber(targetRelease[component]);
+    if (component === "score") {
+      if (target > previous) {
+        const skippedBetween = skippedScoreVersions.filter((value) => {
+          const n = versionNumber(value);
+          return n > previous && n < target;
+        });
+        if (skippedBetween.length !== skippedScoreVersions.length) {
+          errors.push("skippedScoreVersions must sit strictly between previous and target score");
+        }
+        if (target - previous - skippedBetween.length > 1) {
+          errors.push(
+            `${component} target must stay put, advance by exactly one formal version, skip only retired labels, or roll back to a previously shipped version`,
+          );
+        }
+      }
+      continue;
+    }
     if (target < previous || target - previous > 1) {
       errors.push(`${component} target must stay put or advance by exactly one formal version`);
     }
@@ -195,13 +284,29 @@ export function releaseVersionErrors(
   if (!isRecord(typed.compatibility)) {
     errors.push("compatibility matrix is missing");
   } else {
-    if (!exactList(typed.compatibility.publicScoreReadOrder, [targetRelease.score])) {
-      errors.push("public score reads must only serve the canonical target release");
+    if (
+      !exactList(
+        typed.compatibility.publicScoreReadOrder,
+        expectedPublicScoreReadOrder(previousRelease, targetRelease, typed.compatibility.retainedPublicScoreVersions),
+      )
+    ) {
+      errors.push(
+        "public score reads must prefer the canonical target and keep the previous score only after a score-version advance",
+      );
     }
-    const collectionReadOrder =
-      targetRelease.collection === previousRelease.collection
-        ? [targetRelease.collection]
-        : [targetRelease.collection, previousRelease.collection];
+    const retained = typed.compatibility.retainedPublicScoreVersions ?? [];
+    if (!Array.isArray(retained) || retained.some((v) => !isVersion(v) || versionNumber(v) >= versionNumber(targetRelease.score)) || new Set(retained).size !== retained.length) {
+      errors.push("retained public score versions must be distinct older labels");
+    }
+    const retainedCollections = typed.compatibility.retainedCollectionVersions ?? [];
+    if (!Array.isArray(retainedCollections) || retainedCollections.some(v => !isVersion(v) || versionNumber(v) >= versionNumber(targetRelease.collection)) || new Set(retainedCollections).size !== retainedCollections.length) {
+      errors.push("retained collection versions must be distinct older labels");
+    }
+    const collectionReadOrder = [...new Set([
+      targetRelease.collection,
+      ...(targetRelease.collection === previousRelease.collection ? [] : [previousRelease.collection]),
+      ...retainedCollections,
+    ])];
     if (!exactList(typed.compatibility.collectionReadOrder, collectionReadOrder)) {
       errors.push(
         "collection reads must prefer target and include the previous release only after a collection-version change",
@@ -218,11 +323,19 @@ export function releaseVersionErrors(
     }
   }
 
-  if (
-    !isVersionSet(typed.legacyReadFallback) ||
-    !sameVersions(typed.legacyReadFallback, previousRelease)
-  ) {
-    errors.push("legacy read fallback must equal the immediately previous release tuple");
+  // A writer-only release must not retire the previous score's labeled history.
+  // Transitions additionally require this tuple to be retained byte-for-byte;
+  // this is not an alias, canonical read, or permission to choose older scores.
+  const fallback = typed.legacyReadFallback;
+  const retainedScoreFallback = isVersionSet(fallback) &&
+    previousRelease.score === targetRelease.score &&
+    previousRelease.collection === targetRelease.collection &&
+    fallback.score === `v${Number(targetRelease.score.slice(1)) - 1}` &&
+    fallback.collection === previousRelease.collection &&
+    Number(fallback.roast.slice(1)) <= Number(previousRelease.roast.slice(1));
+  if (!isVersionSet(fallback) ||
+      (!sameVersions(fallback, previousRelease) && !retainedScoreFallback)) {
+    errors.push("legacy read fallback must be the previous release or its retained previous-score tuple");
   }
 
   if (!Array.isArray(typed.aliases) || typed.aliases.length !== 0) {

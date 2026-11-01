@@ -2,12 +2,11 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
-import { Link } from "@/i18n/navigation";
-import { JsonLd, articleJsonLd, datasetJsonLd } from "@/components/JsonLd";
 import { BlogCommentBubbles } from "@/components/BlogCommentBubbles";
-import { PostBody } from "@/components/blog/PostBody";
 import { getPost, getPostSlugs, postAlternates } from "@/lib/blog";
-import { bcp47, localePath } from "@/lib/site";
+import { localePath } from "@/lib/site";
+import { BlogPostView } from "@/components/pages/BlogViews";
+import { asTranslator } from "@/lib/translator";
 
 // Fully static: pure fs reads, prerendered per slug × locale at build time —
 // an article on the HN front page never touches a function invocation.
@@ -65,67 +64,10 @@ export default async function BlogPostPage({
   const post = getPost(slug, locale);
   if (!post) notFound();
   const t = await getTranslations("blog");
-  const dateFmt = new Intl.DateTimeFormat(bcp47(locale), {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-
   return (
     <main className="relative isolate flex w-full flex-1 justify-center px-5 py-14 sm:py-20">
       <BlogCommentBubbles lang={locale === "zh" ? "zh" : "en"} postSlug={slug} />
-      <div className="relative z-10 w-full max-w-3xl">
-        <JsonLd data={articleJsonLd(post)} />
-        {post.tags.includes("data") && (
-          <JsonLd
-            data={datasetJsonLd({
-              slug,
-              locale,
-              name: post.title,
-              description: post.description,
-              date: post.date,
-              updated: post.updated,
-            })}
-          />
-        )}
-        <article>
-        <header>
-          <Link
-            href="/blog"
-            className="text-sm text-zinc-500 transition-colors hover:text-[var(--primary)]"
-          >
-            ← {t("backToList")}
-          </Link>
-          <h1 className="mt-4 text-3xl font-black leading-tight tracking-tight text-[var(--foreground)] sm:text-4xl">
-            {post.title}
-          </h1>
-          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-zinc-500">
-            <time dateTime={post.date}>{dateFmt.format(new Date(post.date))}</time>
-            <span aria-hidden>·</span>
-            <span>{t("readingTime", { minutes: post.readingMinutes })}</span>
-            {post.tags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full border border-[var(--border)] px-2 py-0.5 text-xs"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        </header>
-
-        {post.isFallback && (
-          <p className="mt-6 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-2.5 text-sm text-zinc-400">
-            {t("notTranslated")}
-          </p>
-        )}
-
-        {/* A fallback body is English — keep it LTR even under an RTL locale. */}
-        <div className="mt-8" dir={post.isFallback ? "ltr" : undefined}>
-          <PostBody body={post.body} />
-        </div>
-        </article>
-      </div>
+      <BlogPostView locale={locale} slug={slug} post={post} t={asTranslator(t)} />
     </main>
   );
 }

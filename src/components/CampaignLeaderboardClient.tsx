@@ -144,7 +144,7 @@ export function CampaignLeaderboardClient({
                 {entry.final_score.toFixed(2)}
               </div>
               <div className={`text-xs font-bold sm:text-sm ${style.text}`}>
-                {style.emoji} {tTier(`${TIER_KEY[entry.tier]}.name`)}
+                {tTier(`${TIER_KEY[entry.tier]}.name`)}
               </div>
             </div>
           </li>

@@ -1,0 +1,14 @@
+---
+import Base from "../../../layouts/Base.astro";
+import { DevelopersIndex } from "../../../views";
+import { getTranslator, routeLocale } from "../../../lib/i18n";
+import { loadDevelopersIndex } from "@/lib/pages/developers";
+
+const locale = routeLocale(Astro.params.locale);
+if (!locale) return new Response(null, { status: 404 });
+const [t, tMeta, data] = await Promise.all([getTranslator(locale, "developers"), getTranslator(locale, "meta"), loadDevelopersIndex()]);
+Astro.response.headers.set("Cache-Control", "private, no-cache, no-store, max-age=0, must-revalidate");
+---
+<Base locale={locale} path="/developers" title={`${t("metaTitle")} · ${tMeta("siteName")}`} description={t("metaDescription")}>
+  <DevelopersIndex route={{ locale, path: "/developers" }} t={t} {...data} />
+</Base>

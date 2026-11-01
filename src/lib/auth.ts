@@ -1,10 +1,8 @@
 import { cookies } from "next/headers";
-import { normalizeGitHubUsername } from "@/lib/comments";
 import {
   OAUTH_SESSION_COOKIE,
-  decodeSignedPayload,
+  readGitHubSession,
   oauthConfigured,
-  type OAuthSession,
 } from "@/lib/oauth-session";
 
 /**
@@ -25,12 +23,9 @@ export async function auth(): Promise<AppSession | null> {
   const jar = await cookies();
   const raw = jar.get(OAUTH_SESSION_COOKIE)?.value;
   if (!raw) return null;
-  const session = decodeSignedPayload<OAuthSession>("session", raw);
-  if (!session || session.github_id <= 0) return null;
-  const login = normalizeGitHubUsername(session.login ?? "");
-  if (!login) return null;
-  if (session.expires_at <= Date.now()) return null;
+  const session = readGitHubSession(raw);
+  if (!session) return null;
   return {
-    user: { githubId: session.github_id, login, image: session.avatar_url ?? null },
+    user: { githubId: session.github_id, login: session.login, image: session.avatar_url ?? null },
   };
 }

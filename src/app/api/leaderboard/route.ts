@@ -1,4 +1,3 @@
-import { NextRequest, NextResponse } from "next/server";
 import type { LeaderboardWindow } from "@/lib/db";
 import { getLeaderboardCached, LEADERBOARD_LIMIT } from "@/lib/leaderboard";
 import { paginate, parsePagination } from "@/lib/pagination";
@@ -12,23 +11,23 @@ export const dynamic = "force-dynamic";
 // stale-while-revalidate keeps it instant while one background request refreshes.
 const CDN_CACHE = "public, s-maxage=120, stale-while-revalidate=600";
 
-function leaderboardView(req: NextRequest): LeaderboardCacheView {
-  const view = req.nextUrl.searchParams.get("view");
+function leaderboardView(req: Request): LeaderboardCacheView {
+  const view = new URL(req.url).searchParams.get("view");
   if (view === "score") return "score";
   if (view === "heat") return "heat";
   if (view === "progress") return "progress";
   return "trending";
 }
 
-function leaderboardWindow(req: NextRequest): LeaderboardWindow {
-  const window = req.nextUrl.searchParams.get("window");
+function leaderboardWindow(req: Request): LeaderboardWindow {
+  const window = new URL(req.url).searchParams.get("window");
   if (window === "24h") return "24h";
   if (window === "7d") return "7d";
   if (window === "30d") return "30d";
   return "all";
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(req: Request) {
   const view = leaderboardView(req);
   const window = leaderboardWindow(req);
   // Default limit = the full board, so callers that never send limit/offset
@@ -38,7 +37,7 @@ export async function GET(req: NextRequest) {
     maxLimit: LEADERBOARD_LIMIT,
   });
   const { entries, cached } = await getLeaderboardCached(view, window);
-  return NextResponse.json(
+  return Response.json(
     { ...paginate(entries, page), cached, view, window },
     { headers: { "Cache-Control": CDN_CACHE } },
   );

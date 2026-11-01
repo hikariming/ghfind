@@ -86,7 +86,33 @@ read-only failure may be classified only with exact historical evidence; unknown
 missing receipts remain a hard failure. Do not present local archived evidence
 as a newly downloaded and verified GitHub artifact.
 
+Recovery inventories every page of the pinned release interval. GitHub returns
+at most 100 runs per page; the 101st release must not hide the original paid
+assessment. Each page must retain the same total, contain the expected number
+of unique run IDs, and pass the existing repository, timestamp and anchor checks.
+The bounds are 250 runs, three pages per inventory and 600 total read requests,
+including attempts, jobs, logs and artifacts. Truncation, changing totals, an
+exhausted budget or GitHub's 1,000-result filtered-search ceiling stops recovery.
+Pagination does not waive receipt verification, extend artifact retention or
+authorize another provider request. A larger or expired history requires a
+reviewed durable recovery checkpoint, not a larger unchecked search.
+See GitHub's [workflow runs API](https://docs.github.com/en/rest/actions/workflow-runs#list-workflow-runs-for-a-workflow).
+
 Once retry-2 begins, the pre-0009 application is not a valid recovery target: it
 reads only the first attempt deadline. Use a compatible new paused Web/runtime
 as the rollback anchor; do not remove schema or replay an earlier program that
 can expire or modify the new attempt incorrectly.
+
+## Completed assessment checkpoint (2026-10-16)
+
+Normal releases now use `ops/feed-production-assessment-checkpoint.json` instead
+of rediscovering the completed recovery through expiring Actions artifacts. The
+checkpoint preserves the complete historical journal, provenance and canonical
+hash. Before mutation, the release checks the current core assessment and outbox;
+after baseline verification it also checks the current Go projection and completed
+executor job. All checks are read-only and accept only the pinned completed
+assessment. No provider invocation, recovery retry or budget reset occurs.
+
+A superseding assessment or incompatible projection remains a release failure:
+review and update the checkpoint from genuine durable evidence rather than
+weakening identity checks or reconstructing a successful result.

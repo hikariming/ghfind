@@ -103,3 +103,24 @@ export function normalizeCommentText(input: unknown): string | null {
   const text = Array.from(compact).slice(0, COMMENT_MAX_LENGTH).join("");
   return text.length > 0 ? maskSensitiveCommentText(text) : null;
 }
+
+/**
+ * Links in an 80-char bubble are almost always ad/spam drops (UGC ad policy):
+ * reject URLs and bare domains outright instead of trying to sanitize them.
+ */
+const COMMENT_LINK_PATTERN =
+  /(https?:\/\/|www\.|(?:[a-z0-9-]+\.)+(?:com|net|org|io|dev|app|cn|xyz|top|shop|site|link|me|cc|vip|win|bet|gg|fun|icu|sex|porn|co|ai|tv|sh|tech|online|store|club|live|pro))/iu;
+
+export function commentContainsLink(text: string): boolean {
+  return COMMENT_LINK_PATTERN.test(text);
+}
+
+/** Client IP for rate-limit keying, same header precedence as the roast route. */
+export function commentClientIp(headers: Headers): string {
+  return (
+    headers.get("cf-connecting-ip")?.trim() ||
+    headers.get("x-vercel-forwarded-for")?.split(",").at(-1)?.trim() ||
+    headers.get("x-forwarded-for")?.split(",").at(-1)?.trim() ||
+    "0.0.0.0"
+  );
+}

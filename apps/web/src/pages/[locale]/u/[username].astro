@@ -1,0 +1,98 @@
+---
+import { UnratedProfile } from "@/components/pages/UnratedProfile";
+import Base from "../../../layouts/Base.astro";
+import { PendingProfileIsland } from "../../../islands/PendingProfileIsland";
+import { ProfileIsland } from "../../../islands/ProfileIsland";
+import { getMessages, getTranslator, pickMessages, routeLocale } from "../../../lib/i18n";
+import { notFound } from "../../../lib/not-found";
+import { getAsViewer, getViewer, hasSessionCookie } from "../../../lib/session";
+import { getProfileComments, getProfileReactionState, getRetiredAccountIdentity } from "@/lib/db";
+import { getGoLiveProfileScan, getGoProfilePresentation } from "@/lib/go-profile.server";
+import { loadProfileRoastState, profileMetadata } from "@/lib/pages/profile";
+import type { ProfileReactionState } from "@/lib/reactions";
+import { decodeRouteParam } from "@/lib/route-params";
+import { localePath } from "@/lib/site";
+
+const locale = routeLocale(Astro.params.locale);
+if (!locale) return notFound();
+// Raw segment, like Next's params (Astro's is already decoded once).
+const rawUsername = Astro.url.pathname.match(/\/u\/([^/]+)$/)?.[1] ?? "";
+const decoded = decodeRouteParam(rawUsername);
+const sp = Astro.url.searchParams;
+const isAdvxCampaign = sp.get("campaign") === "advx";
+const fromHome = sp.get("roasting") === "1";
+const [presentation, messages, tMeta, tDetail] = await Promise.all([
+  getGoProfilePresentation(decoded),
+  getMessages(locale),
+  getTranslator(locale, "detailMeta"),
+  getTranslator(locale, "detail"),
+]);
+const d = presentation?.detail ?? null;
+const noStore = "private, no-cache, no-store, max-age=0, must-revalidate";
+Astro.response.headers.set("Cache-Control", noStore);
+
+// First-time username being roasted right now (no `scores` row yet): the live
+// pending shell when there is a scan to show; otherwise a genuine unknown
+// handle → legacy's 404.
+const pendingScan = d ? null : await getGoLiveProfileScan(decoded);
+const retiredIdentity = !d && !pendingScan && !fromHome ? await getRetiredAccountIdentity(decoded) : null;
+if (!d && !pendingScan && !fromHome && !retiredIdentity) return notFound();
+
+let page: Omit<Parameters<typeof ProfileIsland>[0], "intl"> | null = null;
+let meta: ReturnType<typeof profileMetadata> | null = null;
+if (presentation && d) {
+  const tTiers = await getTranslator(locale, "tiers");
+  meta = profileMetadata(locale, d, tMeta, tTiers);
+  const [roastState, comments, viewer] = await Promise.all([
+    loadProfileRoastState(d, locale, fromHome, getGoLiveProfileScan),
+    getProfileComments(d.username),
+    getViewer(Astro.request),
+  ]);
+  // Only a session needs the API Worker (it holds the auth secrets); anonymous
+  // visitors get the same public counts straight from D1.
+  const reactionState = hasSessionCookie(Astro.request)
+    ? await getAsViewer<ProfileReactionState>(Astro.request, `/api/profile-reactions/${encodeURIComponent(d.username)}`)
+    : await getProfileReactionState(d.username);
+  page = {
+    locale,
+    presentation,
+    isAdvxCampaign,
+    fromHome,
+    refParam: sp.get("ref") ?? undefined,
+    referer: Astro.request.headers.get("referer"),
+    viewerLogin: viewer.login,
+    comments,
+    ...roastState,
+    reactions: {
+      authenticated: viewer.login !== null,
+      authAvailable: viewer.oauth,
+      initialState: reactionState ?? { counts: { like: 0, poop: 0, kick: 0, fire: 0, salute: 0, clown: 0 }, viewerReaction: null },
+      signInCallbackUrl: localePath(locale, `/u/${d.username}`),
+    },
+  };
+}
+const path = meta ? meta.path : `/u/${decoded}`;
+const pendingTitle = tMeta("pendingTitle", { username: pendingScan?.metrics.username ?? decoded });
+const intl = { locale, pathname: path, search: Astro.url.search, messages: pickMessages(messages, ["badge", "challenge", "detail", "dimensions", "discoveryNext", "follow", "reactions", "rescan", "roaster", "share", "shareCard", "tiers", "realms"]) };
+---
+{meta && page ? (
+  <Base
+    locale={locale}
+    path={meta.path}
+    title={meta.title}
+    description={meta.description}
+    robots={meta.indexable ? undefined : "noindex, follow"}
+    openGraph={{ title: meta.title, description: meta.description, url: localePath(locale, meta.path), type: "website", images: [{ url: meta.image, width: 1200, height: 630, alt: meta.imageAlt, type: "image/png" }] }}
+    twitter={{ card: "summary_large_image", title: meta.title, description: meta.description, images: [meta.image], imageAlt: meta.imageAlt }}
+  >
+    <ProfileIsland client:load {...page} intl={intl} />
+  </Base>
+) : retiredIdentity ? (
+  <Base locale={locale} path={path} title={tMeta("unratedTitle", { username: retiredIdentity.username })} alternates="layout" robots="noindex, follow">
+    <UnratedProfile {...retiredIdentity} locale={locale} message={tDetail("unratedMessage")} action={tDetail("unratedAction")} github={tDetail("unratedGithub")} />
+  </Base>
+) : (
+  <Base locale={locale} path={path} title={pendingTitle} alternates="layout" robots="noindex, follow">
+    <PendingProfileIsland client:load username={decoded} initialScan={pendingScan ?? null} fromHome={fromHome} advx={isAdvxCampaign} intl={intl} />
+  </Base>
+)}

@@ -1,3 +1,4 @@
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import {
   getHeatLeaderboard,
   getLeaderboard,
@@ -7,6 +8,9 @@ import {
   type LeaderboardWindow,
 } from "@/lib/db";
 import {
+  acquireLeaderboardRefresh,
+  LEADERBOARD_FRESH_MS,
+  LEADERBOARD_REWRITE_MS,
   getCachedLeaderboard,
   setCachedLeaderboard,
   type LeaderboardCacheView,
@@ -34,6 +38,18 @@ const fetchers: Record<
 // instances across concurrent requests, so this absorbs most of the herd.
 const inflight = new Map<string, Promise<{ entries: LeaderboardEntry[]; cached: boolean }>>();
 
+// A refresh that finds the board unchanged skips its KV write, so the shared
+// copy keeps its old `at` and looks stale to everyone. Without a local hold,
+// every read would then ask for the refresh lease. An isolate serves its copy
+// for one fresh window after verifying it or after losing the lease (which
+// spans that window), so lease calls stay at one per isolate per window. Cost:
+// an isolate that lost the lease may lag a changed board by one more window.
+const holdUntil = new Map<string, number>();
+
+function sameEntries(left: LeaderboardEntry[], right: LeaderboardEntry[]): boolean {
+  return left.length === right.length && JSON.stringify(left) === JSON.stringify(right);
+}
+
 /**
  * Cache-aside leaderboard read shared by /leaderboard (SSR) and the
  * /api/leaderboard route (which the homepage rail fetches client-side). A hit
@@ -45,24 +61,56 @@ export async function getLeaderboardCached(
   view: LeaderboardCacheView = "trending",
   window: LeaderboardWindow = "all",
 ): Promise<{ entries: LeaderboardEntry[]; cached: boolean }> {
-  const cached = await getCachedLeaderboard(view, window);
-  if (cached) return { entries: cached, cached: true };
-
   const key = `${view}:${window}`;
-  const existing = inflight.get(key);
-  if (existing) return existing;
-
-  const run = (async () => {
-    const entries = await fetchers[view](LEADERBOARD_LIMIT, window);
-    // The db fetchers degrade to [] on error — never cache that, or one Turso
-    // hiccup blanks every board for a full TTL (developers/rank do the same).
-    if (entries.length > 0) await setCachedLeaderboard(entries, view, window);
-    return { entries, cached: false };
-  })();
-  inflight.set(key, run);
-  try {
-    return await run;
-  } finally {
-    inflight.delete(key);
+  const cached = await getCachedLeaderboard(view, window);
+  if (cached && (Date.now() - cached.at < LEADERBOARD_FRESH_MS || (holdUntil.get(key) ?? 0) > Date.now())) {
+    return { entries: cached.entries, cached: true };
   }
+
+  const refresh = () => {
+    const existing = inflight.get(key);
+    if (existing) return existing;
+    const run = (async () => {
+      try {
+        if (cached && !(await acquireLeaderboardRefresh(view, window))) {
+          holdUntil.set(key, Date.now() + LEADERBOARD_FRESH_MS);
+          return { entries: cached.entries, cached: true };
+        }
+        const entries = await fetchers[view](LEADERBOARD_LIMIT, window);
+        if (entries.length > 0) {
+          // Skip rewriting an identical board unless the shared copy is
+          // getting close to its KV expiry; the lease spaces the next refresh.
+          const unchanged = cached && Date.now() - cached.at < LEADERBOARD_REWRITE_MS &&
+            sameEntries(cached.entries, entries);
+          if (unchanged) holdUntil.set(key, Date.now() + LEADERBOARD_FRESH_MS);
+          else {
+            holdUntil.delete(key);
+            await setCachedLeaderboard(entries, view, window);
+          }
+        }
+        return entries.length || !cached
+          ? { entries, cached: false }
+          : { entries: cached.entries, cached: true };
+      } catch (error) {
+        if (cached) return { entries: cached.entries, cached: true };
+        throw error;
+      }
+    })();
+    inflight.set(key, run);
+    void run.finally(() => inflight.delete(key)).catch(() => {});
+    return run;
+  };
+
+  if (cached) {
+    // Keep background work alive on Workers. Outside a Worker request (tests,
+    // scripts, other hosts), await it rather than starting an untracked task.
+    try {
+      const ctx = getCloudflareContext().ctx;
+      if (ctx) {
+        ctx.waitUntil(refresh());
+        return { entries: cached.entries, cached: true };
+      }
+    } catch { /* no Worker request context */ }
+  }
+  return refresh();
 }

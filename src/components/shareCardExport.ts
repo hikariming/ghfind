@@ -37,7 +37,7 @@ async function waitForImages(node: HTMLElement) {
   );
 }
 
-export async function createShareCardBlob(node: HTMLElement): Promise<Blob | null> {
+export async function createShareCardBlob(node: HTMLElement, backgroundColor = "#0a0a0b"): Promise<Blob | null> {
   await waitForShareCardReady(node);
   await document.fonts?.ready.catch(() => undefined);
   await waitForImages(node);
@@ -49,6 +49,6 @@ export async function createShareCardBlob(node: HTMLElement): Promise<Blob | nul
   return toBlob(node, {
     pixelRatio: 2,
     cacheBust: true,
-    backgroundColor: "#0a0a0b",
+    backgroundColor,
   });
 }

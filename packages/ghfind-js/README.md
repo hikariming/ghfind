@@ -104,6 +104,24 @@ ghfind update pip   # python3 -m pip install --upgrade ghfind
 ghfind update brew  # brew upgrade ghfind
 ```
 
+### Managing the ghfind Review bot
+
+`ghfind bot` manages the [ghfind Review GitHub App](https://bot.ghfind.com) on
+repositories you administer. Create a personal API token at
+[ghfind.com/integrations](https://ghfind.com/integrations), explicitly select
+**Manage the ghfind Review bot**, and set it as `GHFIND_API_KEY` or `--api-key`.
+Existing tokens remain scan-only; create a new token to opt into bot access.
+Reading needs write access to the repository and every change needs admin.
+Cleanup is two-step: the first command only previews, the second executes.
+
+```bash
+ghfind bot status owner/repo
+ghfind bot pause owner/repo
+ghfind bot cleanup owner/repo --labels all --comments     # preview, prints a confirm token
+ghfind bot cleanup confirm owner/repo <token> --wait      # execute that preview
+ghfind bot resume owner/repo
+```
+
 ---
 
 ## Library

@@ -1,8 +1,12 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { tagsForLocale } from "@/lib/roast-tags";
 import { forwardRef, useEffect, useState } from "react";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
+import { realmCssVars, realmForScore } from "@/lib/realm";
+import { RealmChip } from "@/components/realm/RealmGlyph";
+import { AdventurerLevel } from "@/components/realm/AdventurerLevel";
 import type { Tags, Tier } from "@/lib/types";
 import { TierAvatarFrame } from "./TierAvatarFrame";
 
@@ -28,8 +32,13 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
 ) {
   const t = useTranslations("shareCard");
   const tTier = useTranslations("tiers");
+  const tRealm = useTranslations("realms");
+  const tDetail = useTranslations("detail");
+  const locale = useLocale();
   const style = tierStyle(tier);
-  const shownTags = [...(tags?.zh ?? []), ...(tags?.en ?? [])].slice(0, 4);
+  const realm = realmForScore(score);
+  const realmVars = realmCssVars(realm);
+  const shownTags = tagsForLocale(tags, locale);
   const [avatarData, setAvatarData] = useState<string | null>(null);
   const [avatarReady, setAvatarReady] = useState(!avatarUrl);
 
@@ -90,6 +99,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
         <TierAvatarFrame
           username={username}
           avatarUrl={avatarData}
+          score={score}
           tier={tier}
           size="md"
           className="mt-3"
@@ -100,17 +110,17 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
       <div className="flex items-end justify-between gap-4">
         <div className="min-w-0">
           <div className={`text-6xl font-black tabular-nums ${style.text}`}>
-            {score.toFixed(2)}
-            <span className="text-3xl text-zinc-600">/100</span>
+            {/* score→level */}
+            <AdventurerLevel score={score} caption={tDetail("adventurerLevel")} size="xl" />
           </div>
           <div className={`mt-1 text-3xl font-bold ${style.text}`}>
-            {style.emoji} {tTier(`${TIER_KEY[tier]}.name`)}
+            <RealmChip realm={realm} name={tRealm(`${realm.id}.name`)} />
           </div>
           <div className="text-sm text-zinc-400">{tierLabel}</div>
         </div>
         {beat !== null && (
           <div className="mb-1 text-right">
-            <div className={`text-4xl font-black ${style.text}`}>{beat.toFixed(1)}%</div>
+            <div className="text-4xl font-black" style={{ color: "var(--realm-fg)" }}>{beat.toFixed(1)}%</div>
             <div className="text-xs text-zinc-400">{t("beatLabel")}</div>
           </div>
         )}
@@ -122,7 +132,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
           {shownTags.map((t, i) => (
             <span
               key={`${t}-${i}`}
-              className="rounded-full border border-orange-400/30 bg-orange-500/10 px-3 py-1 text-sm font-medium text-orange-200"
+              className="rounded-full border border-zinc-500/25 bg-zinc-500/[0.08] px-2.5 py-0.5 text-xs font-medium text-zinc-400"
             >
               #{t}
             </span>

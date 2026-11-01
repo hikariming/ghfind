@@ -338,6 +338,12 @@ export class FeedStore {
         name: r.name,
         canonicalUrl: r.canonical_url,
         summary: r.summary,
+        discoverHook: typeof r.discover_hook === "string" ? r.discover_hook : "",
+        painStatement: typeof r.pain_statement === "string" ? r.pain_statement : "",
+        audiencePrimary:
+          typeof r.audience_primary === "string" && r.audience_primary
+            ? r.audience_primary
+            : null,
         language: r.language,
         topics: JSON.parse(String(r.topics_json)),
         projectType: r.project_type,

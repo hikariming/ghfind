@@ -49,6 +49,7 @@ deterministic, no LLM). It's the cheapest path for you *and* for ghfind.
 | `card <user>` | OG share-card PNG URL. | — | no |
 | `commands [show <c>]` | Self-describing capability catalog (for agents). | — | no |
 | `auth status` | Show host + which credentials are configured. | — | no |
+| `bot <command> <owner/repo>` | Manage the ghfind Review GitHub App on repos you administer (see below). | `bot.ghfind.com/api/v1` | no |
 
 `*` `roast`/`vs` prose is the only LLM part. Pass `--byo-base-url --byo-api-key
 --byo-model` (or `GHFIND_BYO_*` env vars) to run `roast` through your own model
@@ -79,6 +80,30 @@ plain `score`** (ghfind scores it for you). Output is identical.
 --json | -o json|pretty|markdown
 --lang zh|en
 ```
+
+### Managing the ghfind Review bot
+
+`ghfind bot` manages the [ghfind Review GitHub App](https://bot.ghfind.com) on
+repositories you administer. It needs a personal API token (`ghf_...`, from
+[ghfind.com/integrations](https://ghfind.com/integrations)) in `GHFIND_API_KEY`
+or `--api-key`. Explicitly select **Manage the ghfind Review bot** when creating
+the token. Existing tokens remain scan-only; create a new token to opt into bot
+access. Reading needs write access to the repository and every change
+needs admin. `GHFIND_BOT_HOST` or `--bot-host` overrides `https://bot.ghfind.com`.
+Cleanup is two-step: the first command only previews, the second executes.
+
+```bash
+ghfind bot status owner/repo
+ghfind bot settings set owner/repo --triage on --allowed-labels bug,feature
+ghfind bot pause owner/repo
+ghfind bot cleanup owner/repo --labels all --comments     # preview, prints a confirm token
+ghfind bot cleanup confirm owner/repo <token> --wait      # execute that preview
+ghfind bot resume owner/repo
+```
+
+Also: `bot whoami`, `bot settings get`, `bot backfill <repo> [-n 25]`,
+`bot retry <repo> [job-id]`, `bot cleanup status|cancel <repo> <cleanup-id>`.
+API errors exit 1 with the server's code, e.g. `(admin_required)`.
 
 ---
 

@@ -4,6 +4,7 @@ import { useLocale, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { useRef, useState } from "react";
 import { TIER_KEY } from "@/lib/tier";
+import { formatAdventurerLevel, realmForScore } from "@/lib/realm";
 import type { Tags, Tier } from "@/lib/types";
 import { SITE_URL, localePath } from "@/lib/site";
 import { ShareCard } from "./ShareCard";
@@ -43,15 +44,17 @@ export function ProfileShare({
 }) {
   const t = useTranslations("roaster");
   const tTier = useTranslations("tiers");
+  const tRealm = useTranslations("realms");
   const locale = useLocale();
   const cardRef = useRef<HTMLDivElement>(null);
   const [savingImg, setSavingImg] = useState(false);
 
   const link = `${SITE_URL}${localePath(locale, `/u/${username}`)}`;
   const beatText = beat == null ? "" : t("shareBeat", { beat: beat.toFixed(1) });
+  const realm = realmForScore(score);
   const shareText = t("shareText", {
-    score: score.toFixed(2),
-    tier: tTier(`${TIER_KEY[tier]}.name`),
+    score: formatAdventurerLevel(score),
+    tier: tRealm(`${realm.id}.name`),
     tierLabel,
     beat: beatText,
   });

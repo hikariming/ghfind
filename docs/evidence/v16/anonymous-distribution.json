@@ -1,0 +1,291 @@
+{
+  "mode": "paired-collector",
+  "count": 223,
+  "median": 0,
+  "gate": true,
+  "unexpected": [],
+  "controls": [
+    {
+      "id": "sample-107",
+      "control": true,
+      "pattern": false,
+      "before": 91.7,
+      "after": 90.8,
+      "delta": -0.9,
+      "original_before": 12,
+      "original_after": 11.7,
+      "share": 0.7931214983938685
+    },
+    {
+      "id": "sample-152",
+      "control": true,
+      "pattern": false,
+      "before": 73,
+      "after": 71.9,
+      "delta": -1.1,
+      "original_before": 12.9,
+      "original_after": 11.9,
+      "share": 0.23871993864701513
+    },
+    {
+      "id": "sample-208",
+      "control": true,
+      "pattern": false,
+      "before": 72.8,
+      "after": 72.6,
+      "delta": -0.2,
+      "original_before": 17.5,
+      "original_after": 17.4,
+      "share": 0.10420450837617806
+    },
+    {
+      "id": "sample-227",
+      "control": true,
+      "pattern": false,
+      "before": 70.3,
+      "after": 70.2,
+      "delta": -0.1,
+      "original_before": 15.3,
+      "original_after": 15.2,
+      "share": 0.10333103931188917
+    }
+  ],
+  "patterns": [
+    {
+      "id": "sample-017",
+      "control": false,
+      "pattern": true,
+      "before": 62.3,
+      "after": 49.6,
+      "delta": -12.7,
+      "original_before": 12,
+      "original_after": 7.9,
+      "share": 0.7824969183692556
+    }
+  ],
+  "risers": [
+    {
+      "id": "sample-001",
+      "control": false,
+      "pattern": false,
+      "before": 31.3,
+      "after": 31.3,
+      "delta": 0,
+      "original_before": 5.4,
+      "original_after": 5.4,
+      "share": 0
+    },
+    {
+      "id": "sample-002",
+      "control": false,
+      "pattern": false,
+      "before": 53.7,
+      "after": 53.7,
+      "delta": 0,
+      "original_before": 5.4,
+      "original_after": 5.4,
+      "share": 0.6673947594812945
+    },
+    {
+      "id": "sample-003",
+      "control": false,
+      "pattern": false,
+      "before": 87.8,
+      "after": 87.8,
+      "delta": 0,
+      "original_before": 17.4,
+      "original_after": 17.4,
+      "share": 0.017431592260047094
+    },
+    {
+      "id": "sample-004",
+      "control": false,
+      "pattern": false,
+      "before": 17.7,
+      "after": 17.7,
+      "delta": 0,
+      "original_before": 0,
+      "original_after": 0,
+      "share": 0
+    },
+    {
+      "id": "sample-007",
+      "control": false,
+      "pattern": false,
+      "before": 21.9,
+      "after": 21.9,
+      "delta": 0,
+      "original_before": 5.1,
+      "original_after": 5.1,
+      "share": 0
+    },
+    {
+      "id": "sample-010",
+      "control": false,
+      "pattern": false,
+      "before": 2.2,
+      "after": 2.2,
+      "delta": 0,
+      "original_before": 0,
+      "original_after": 0,
+      "share": 0
+    },
+    {
+      "id": "sample-011",
+      "control": false,
+      "pattern": false,
+      "before": 45.1,
+      "after": 45.1,
+      "delta": 0,
+      "original_before": 8,
+      "original_after": 8,
+      "share": 0.07463058828456348
+    },
+    {
+      "id": "sample-012",
+      "control": false,
+      "pattern": false,
+      "before": 37.3,
+      "after": 37.3,
+      "delta": 0,
+      "original_before": 5.8,
+      "original_after": 5.8,
+      "share": 0.09375
+    },
+    {
+      "id": "sample-015",
+      "control": false,
+      "pattern": false,
+      "before": 6.8,
+      "after": 6.8,
+      "delta": 0,
+      "original_before": 0,
+      "original_after": 0,
+      "share": 0
+    },
+    {
+      "id": "sample-018",
+      "control": false,
+      "pattern": false,
+      "before": 44.6,
+      "after": 44.6,
+      "delta": 0,
+      "original_before": 7,
+      "original_after": 7,
+      "share": 0
+    }
+  ],
+  "decliners": [
+    {
+      "id": "sample-017",
+      "control": false,
+      "pattern": true,
+      "before": 62.3,
+      "after": 49.6,
+      "delta": -12.7,
+      "original_before": 12,
+      "original_after": 7.9,
+      "share": 0.7824969183692556
+    },
+    {
+      "id": "sample-210",
+      "control": false,
+      "pattern": false,
+      "before": 89.1,
+      "after": 87.2,
+      "delta": -1.9,
+      "original_before": 15.8,
+      "original_after": 14.9,
+      "share": 0.4721918801397175
+    },
+    {
+      "id": "sample-016",
+      "control": false,
+      "pattern": false,
+      "before": 45.2,
+      "after": 43.5,
+      "delta": -1.7,
+      "original_before": 10.3,
+      "original_after": 8.6,
+      "share": 0.8582500000000001
+    },
+    {
+      "id": "sample-159",
+      "control": false,
+      "pattern": false,
+      "before": 49.7,
+      "after": 48.1,
+      "delta": -1.6,
+      "original_before": 14.4,
+      "original_after": 13,
+      "share": 0.6691153091502834
+    },
+    {
+      "id": "sample-199",
+      "control": false,
+      "pattern": false,
+      "before": 57.9,
+      "after": 56.4,
+      "delta": -1.5,
+      "original_before": 11.1,
+      "original_after": 9.6,
+      "share": 0.5925380138085943
+    },
+    {
+      "id": "sample-049",
+      "control": false,
+      "pattern": false,
+      "before": 71,
+      "after": 69.6,
+      "delta": -1.4,
+      "original_before": 11,
+      "original_after": 9.8,
+      "share": 0.6090755180891488
+    },
+    {
+      "id": "sample-166",
+      "control": false,
+      "pattern": false,
+      "before": 62,
+      "after": 60.7,
+      "delta": -1.3,
+      "original_before": 12.4,
+      "original_after": 11.2,
+      "share": 0.471085194978289
+    },
+    {
+      "id": "sample-152",
+      "control": true,
+      "pattern": false,
+      "before": 73,
+      "after": 71.9,
+      "delta": -1.1,
+      "original_before": 12.9,
+      "original_after": 11.9,
+      "share": 0.23871993864701513
+    },
+    {
+      "id": "sample-084",
+      "control": false,
+      "pattern": false,
+      "before": 80.8,
+      "after": 79.9,
+      "delta": -0.9,
+      "original_before": 11.6,
+      "original_after": 10.7,
+      "share": 0.21412128443481582
+    },
+    {
+      "id": "sample-107",
+      "control": true,
+      "pattern": false,
+      "before": 91.7,
+      "after": 90.8,
+      "delta": -0.9,
+      "original_before": 12,
+      "original_after": 11.7,
+      "share": 0.7931214983938685
+    }
+  ],
+  "excluded_incomplete_samples": 9
+}

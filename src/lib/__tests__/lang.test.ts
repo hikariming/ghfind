@@ -21,9 +21,9 @@ describe("normLang", () => {
 });
 
 describe("roastKey", () => {
-  it("namespaces factual scan keys only by collection version", () => {
+  it("isolates derived-impact scan caches by score and collection", () => {
     expect(scanKey("SampleUser")).toBe(
-      `scan:${PUBLIC_SCAN_COLLECTION_VERSION}:sampleuser`,
+      `scan:${SCORE_CACHE_VERSION}:${PUBLIC_SCAN_COLLECTION_VERSION}:sampleuser`,
     );
   });
 

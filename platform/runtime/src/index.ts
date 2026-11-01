@@ -1,7 +1,10 @@
-import { ModeTransition, type TransitionRequest } from "./transition";
+import { refreshActor, type RefreshRequest } from "./refresh";
+import { ModeTransition, transitionTeardown, type TransitionRequest } from "./transition";
+import { captureTransitionResult, readTransitionResult } from "./transition-rpc";
+import { assertDeploymentIdentity } from "./deployment-identity";
 import { containerEnvironment } from "./environment";
 import { Container, getContainer } from "@cloudflare/containers";
-import { captureNativeProbe, handleRequest, type Dispatch, type NativeProbe, type Target } from "./router";
+import { actorConfiguration, captureNativeProbe, handleRequest, type Dispatch, type NativeProbe, type Target } from "./router";
 import { runScheduled } from "./scheduled";
 import { handleAdminRequest } from "./admin";
 import { handleGovernanceRequest } from "./governance";
@@ -25,18 +28,30 @@ export class FeedAPI extends Container<RuntimeEnv> {
     ctx: ConstructorParameters<typeof Container>[0],
     env: RuntimeEnv,
   ) {
+    assertDeploymentIdentity(env);
     super(ctx, env);
     this.envVars = containerEnvironment(env, "api");
   }
   // Accessible only through this namespace binding, not a public HTTP route.
   private readonly modeTransition = new ModeTransition();
+  runtimeRefresh(target: Target, input: RefreshRequest) {
+    return refreshActor(input, this.env, target, this.ctx.id.toString(),
+      this.env.FEED_API.idFromName(target).toString(), "api", this.modeTransition.inProgress,
+      () => this.ctx.abort("feed_runtime_phase_refresh"));
+  }
+  runtimeConfiguration(target: Target) {
+    return actorConfiguration(this.env, target, this.ctx.id.toString());
+  }
   runtimeRestart(target: Target, input: TransitionRequest) {
-    return this.modeTransition.run(target, this.env, input, {
+    return captureTransitionResult(() => this.modeTransition.run(target, this.env, input, {
       state: () => ({ actorId: this.ctx.id.toString(), running: this.ctx.container?.running === true }),
       fetch: (request) => super.fetch(request),
-      stop: () => super.stop("SIGTERM"),
+      stop: () => transitionTeardown(input.mode, {
+        destroy: () => super.destroy(),
+        stop: (signal) => super.stop(signal),
+      }),
       start: (abort) => this.startAndWaitForPorts(this.defaultPort, { abort }),
-    });
+    }));
   }
   runtimeProbe(): Promise<NativeProbe> {
     return captureNativeProbe((request) => super.fetch(request), () => ({
@@ -54,17 +69,29 @@ export class FeedExecutor extends Container<RuntimeEnv> {
     ctx: ConstructorParameters<typeof Container>[0],
     env: RuntimeEnv,
   ) {
+    assertDeploymentIdentity(env);
     super(ctx, env);
     this.envVars = containerEnvironment(env, "executor");
   }
   private readonly modeTransition = new ModeTransition();
+  runtimeRefresh(target: Target, input: RefreshRequest) {
+    return refreshActor(input, this.env, target, this.ctx.id.toString(),
+      this.env.FEED_EXECUTOR.idFromName(target).toString(), "executor", this.modeTransition.inProgress,
+      () => this.ctx.abort("feed_runtime_phase_refresh"));
+  }
+  runtimeConfiguration(target: Target) {
+    return actorConfiguration(this.env, target, this.ctx.id.toString());
+  }
   runtimeRestart(target: Target, input: TransitionRequest) {
-    return this.modeTransition.run(target, this.env, input, {
+    return captureTransitionResult(() => this.modeTransition.run(target, this.env, input, {
       state: () => ({ actorId: this.ctx.id.toString(), running: this.ctx.container?.running === true }),
       fetch: (request) => super.fetch(request),
-      stop: () => super.stop("SIGTERM"),
+      stop: () => transitionTeardown(input.mode, {
+        destroy: () => super.destroy(),
+        stop: (signal) => super.stop(signal),
+      }),
       start: (abort) => this.startAndWaitForPorts(this.defaultPort, { abort }),
-    });
+    }));
   }
   runtimeProbe(): Promise<NativeProbe> {
     return captureNativeProbe((request) => super.fetch(request), () => ({
@@ -91,8 +118,10 @@ function dispatcher(env: RuntimeEnv): Dispatch {
   return {
     fetch: (target, request) => instance(target).fetch(request),
     stop: (target) => instance(target).stop("SIGTERM"),
-    restart: (target, input) => instance(target).runtimeRestart(target, input),
+    restart: async (target, input) => readTransitionResult(await instance(target).runtimeRestart(target, input)),
     probe: (target) => instance(target).runtimeProbe(),
+    refresh: (target, input) => instance(target).runtimeRefresh(target, input),
+    configuration: (target) => instance(target).runtimeConfiguration(target),
     actorId: (target) => (target === "executor-0" ? env.FEED_EXECUTOR : env.FEED_API)
       .idFromName(target).toString(),
   };

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ArrowUpRight, ChevronsUpDown, FileUser, LogOut, UserRound, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
@@ -10,11 +11,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { signOutOfGitHub } from "@/lib/oauth-client";
+import { signInWithGitHub, signOut } from "@/lib/oauth-client";
+import type { SiteAccount } from "@/lib/me-client";
 
 type WorkspaceUserMenuProps = {
   image: string | null;
   login: string;
+  account?: SiteAccount | null;
+  githubAvailable?: boolean;
   scored: boolean;
   repoHref: string;
   repoLabel: string;
@@ -44,6 +48,8 @@ function GitHubMark() {
 export function WorkspaceUserMenu({
   image,
   login,
+  account,
+  githubAvailable = true,
   scored,
   repoHref,
   repoLabel,
@@ -52,6 +58,10 @@ export function WorkspaceUserMenu({
   const tHeader = useTranslations("header");
   const tFollow = useTranslations("follow");
   const tSidebar = useTranslations("sidebar");
+  const tLogin = useTranslations("loginDialog");
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutFailed, setSignOutFailed] = useState(false);
+  const githubIdentity = !account || account.provider === "github";
   const targetHref = scored
     ? `/u/${login}`
     : `/?username=${encodeURIComponent(`https://github.com/${login}`)}`;
@@ -62,6 +72,7 @@ export function WorkspaceUserMenu({
         <button
           type="button"
           aria-label={login}
+          title={login}
           className="sidebar-account-user"
         >
           <span className="sidebar-account-avatar">
@@ -73,8 +84,8 @@ export function WorkspaceUserMenu({
             )}
           </span>
           <span className="sidebar-account-name sidebar-label">
-            <span>@{login}</span>
-            <small>github.com/{login}</small>
+            <span>{githubIdentity ? `@${login}` : login}</span>
+            <small>{githubIdentity ? `github.com/${login}` : tLogin("providerAccount", { provider: account.provider === "google" ? "Google" : "Apple" })}</small>
           </span>
           <ChevronsUpDown size={14} className="sidebar-label sidebar-account-chevron" aria-hidden />
         </button>
@@ -86,6 +97,7 @@ export function WorkspaceUserMenu({
         sideOffset={10}
         className="w-[16.5rem] rounded-2xl border-white/10 bg-popover/98 p-1.5 shadow-2xl backdrop-blur-xl"
       >
+        {githubIdentity ? <>
         <DropdownMenuItem asChild>
           <Link
             href={targetHref}
@@ -126,6 +138,13 @@ export function WorkspaceUserMenu({
         </DropdownMenuItem>
 
         <DropdownMenuSeparator className="mx-1 bg-white/10" />
+        </> : <>
+          <p className="login-account-note">{tLogin("githubFeatures")}</p>
+          {githubAvailable && <DropdownMenuItem onSelect={() => signInWithGitHub()} className="min-h-11 gap-2.5 rounded-xl px-3 py-2.5">
+            <GitHubMark /><span>{tLogin("switchToGitHub")}</span>
+          </DropdownMenuItem>}
+          <DropdownMenuSeparator className="mx-1 bg-white/10" />
+        </>}
 
         <DropdownMenuItem asChild>
           <a
@@ -146,17 +165,26 @@ export function WorkspaceUserMenu({
         <DropdownMenuSeparator className="mx-1 bg-white/10" />
 
         <DropdownMenuItem
+          disabled={signingOut}
           onSelect={(event) => {
             event.preventDefault();
-            void signOutOfGitHub();
+            setSigningOut(true);
+            setSignOutFailed(false);
+            void signOut().then((success) => {
+              if (!success) {
+                setSigningOut(false);
+                setSignOutFailed(true);
+              }
+            });
           }}
-          className="rounded-xl px-3 py-2.5"
+          className="min-h-11 rounded-xl px-3 py-2.5"
         >
           <span className="flex items-center gap-2.5">
             <LogOut className="h-4 w-4 text-zinc-300" />
-            <span>{tHeader("signOut")}</span>
+            <span>{signingOut ? tLogin("signingOut") : tHeader("signOut")}</span>
           </span>
         </DropdownMenuItem>
+        {signOutFailed && <p className="login-account-note" role="alert">{tLogin("signOutFailed")}</p>}
       </DropdownMenuContent>
     </DropdownMenu>
   );

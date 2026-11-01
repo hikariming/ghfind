@@ -1,0 +1,975 @@
+{
+  "groups": {
+    "8d40c764-d2b2-49b1-826c-e3f2adb75c01": {
+      "commonParagraphs": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        6
+      ],
+      "roles": [
+        {
+          "slug": "research",
+          "title": {
+            "zh": "Agent Harness 深度学习研究员",
+            "en": "Agent Harness Researcher"
+          },
+          "ranges": [
+            [
+              7,
+              28
+            ]
+          ]
+        },
+        {
+          "slug": "engineering",
+          "title": {
+            "zh": "Agent Harness 研发工程师",
+            "en": "Agent Harness Engineer"
+          },
+          "ranges": [
+            [
+              28,
+              54
+            ]
+          ]
+        },
+        {
+          "slug": "devrel",
+          "title": {
+            "zh": "Agent Harness 开发者关系",
+            "en": "Agent Harness Developer Relations"
+          },
+          "ranges": [
+            [
+              54,
+              74
+            ]
+          ]
+        },
+        {
+          "slug": "product",
+          "title": {
+            "zh": "Agent Harness 产品经理",
+            "en": "Agent Harness Product Manager"
+          },
+          "ranges": [
+            [
+              74,
+              99
+            ]
+          ]
+        },
+        {
+          "slug": "design",
+          "title": {
+            "zh": "Agent Harness 产品设计师",
+            "en": "Agent Harness Product Designer"
+          },
+          "ranges": [
+            [
+              99,
+              119
+            ]
+          ]
+        },
+        {
+          "slug": "project",
+          "title": {
+            "zh": "Agent Harness 项目经理",
+            "en": "Agent Harness Project Manager"
+          },
+          "ranges": [
+            [
+              119,
+              141
+            ]
+          ]
+        },
+        {
+          "slug": "operations",
+          "title": {
+            "zh": "Agent Harness 产品运营",
+            "en": "Agent Harness Product Operations"
+          },
+          "ranges": [
+            [
+              141,
+              null
+            ]
+          ]
+        }
+      ]
+    },
+    "2eb2e75d-29f3-47b5-bb10-39f12547d398": {
+      "commonParagraphs": [
+        0,
+        1,
+        2,
+        3,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "roles": [
+        {
+          "slug": "research-platform",
+          "title": {
+            "zh": "服务端开发工程师 · 大模型研究平台",
+            "en": "Backend Engineer · LLM Research Platform"
+          },
+          "ranges": [
+            [
+              20,
+              40
+            ]
+          ]
+        },
+        {
+          "slug": "agent-framework",
+          "title": {
+            "zh": "服务端开发工程师 · Agent 框架组件",
+            "en": "Backend Engineer · Agent Framework"
+          },
+          "ranges": [
+            [
+              40,
+              58
+            ]
+          ]
+        },
+        {
+          "slug": "developer-platform",
+          "title": {
+            "zh": "服务端开发工程师 · 研发效率基建",
+            "en": "Backend Engineer · Developer Infrastructure"
+          },
+          "ranges": [
+            [
+              58,
+              81
+            ]
+          ]
+        },
+        {
+          "slug": "api",
+          "title": {
+            "zh": "服务端开发工程师 · DeepSeek API",
+            "en": "Backend Engineer · DeepSeek API"
+          },
+          "ranges": [
+            [
+              81,
+              97
+            ]
+          ]
+        },
+        {
+          "slug": "online-services",
+          "title": {
+            "zh": "服务端开发工程师 · 线上服务",
+            "en": "Backend Engineer · Online Services"
+          },
+          "ranges": [
+            [
+              97,
+              null
+            ]
+          ]
+        }
+      ]
+    },
+    "8a4c2868-599d-40db-be4d-ab58eec5d7e1": {
+      "commonParagraphs": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "roles": [
+        {
+          "slug": "collection",
+          "title": {
+            "zh": "预训练数据工程师 · 数据采集 Pipeline",
+            "en": "Pretraining Data Engineer · Data Collection Pipeline"
+          },
+          "ranges": [
+            [
+              5,
+              20
+            ]
+          ]
+        },
+        {
+          "slug": "language",
+          "title": {
+            "zh": "预训练数据工程师 · 语言数据处理",
+            "en": "Pretraining Data Engineer · Language Data Processing"
+          },
+          "ranges": [
+            [
+              20,
+              34
+            ]
+          ]
+        },
+        {
+          "slug": "multimodal",
+          "title": {
+            "zh": "预训练数据工程师 · 多模态数据",
+            "en": "Pretraining Data Engineer · Multimodal Data"
+          },
+          "ranges": [
+            [
+              34,
+              51
+            ]
+          ]
+        },
+        {
+          "slug": "infrastructure",
+          "title": {
+            "zh": "预训练数据工程师 · 数据基建",
+            "en": "Pretraining Data Engineer · Data Infrastructure"
+          },
+          "ranges": [
+            [
+              51,
+              null
+            ]
+          ]
+        }
+      ]
+    },
+    "1df4597d-6039-4392-9954-0df72510f415": {
+      "commonParagraphs": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "roles": [
+        {
+          "slug": "algorithm",
+          "title": {
+            "zh": "AI 搜索算法工程师",
+            "en": "AI Search Algorithm Engineer"
+          },
+          "ranges": [
+            [
+              6,
+              19
+            ]
+          ]
+        },
+        {
+          "slug": "architecture",
+          "title": {
+            "zh": "AI 搜索架构工程师",
+            "en": "AI Search Infrastructure Engineer"
+          },
+          "ranges": [
+            [
+              19,
+              null
+            ]
+          ]
+        }
+      ]
+    },
+    "08d2d307-61f9-4465-ba5f-f8eeb20d675b": {
+      "commonParagraphs": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "roles": [
+        {
+          "slug": "recruiting",
+          "title": {
+            "zh": "招聘 HR",
+            "en": "Recruiting HR"
+          },
+          "ranges": [
+            [
+              5,
+              15
+            ]
+          ]
+        },
+        {
+          "slug": "services",
+          "title": {
+            "zh": "综合服务 HR",
+            "en": "HR Services"
+          },
+          "ranges": [
+            [
+              15,
+              null
+            ]
+          ]
+        }
+      ]
+    },
+    "2f6838b7-f9ef-457c-8e54-cde45de1f883": {
+      "commonParagraphs": [
+        0,
+        1
+      ],
+      "roles": [
+        {
+          "slug": "accounting",
+          "title": {
+            "zh": "CFO / 财务总监 / 会计",
+            "en": "CFO / Finance Director / Accounting"
+          },
+          "ranges": [
+            [
+              3,
+              14
+            ]
+          ]
+        },
+        {
+          "slug": "cashier",
+          "title": {
+            "zh": "出纳",
+            "en": "Cashier"
+          },
+          "ranges": [
+            [
+              14,
+              null
+            ]
+          ]
+        }
+      ]
+    },
+    "97ecb322-fa87-47f3-8c1e-e66edfbd34fc": {
+      "commonParagraphs": [
+        0,
+        1
+      ],
+      "roles": [
+        {
+          "slug": "hardware",
+          "title": {
+            "zh": "硬件采购",
+            "en": "Hardware Procurement"
+          },
+          "ranges": [
+            [
+              3,
+              9
+            ]
+          ]
+        },
+        {
+          "slug": "cloud",
+          "title": {
+            "zh": "云服务采购",
+            "en": "Cloud Services Procurement"
+          },
+          "ranges": [
+            [
+              9,
+              16
+            ]
+          ]
+        },
+        {
+          "slug": "idc",
+          "title": {
+            "zh": "IDC 采购",
+            "en": "IDC Procurement"
+          },
+          "ranges": [
+            [
+              16,
+              23
+            ]
+          ]
+        },
+        {
+          "slug": "assets",
+          "title": {
+            "zh": "数据中心资产管理",
+            "en": "Data Center Asset Management"
+          },
+          "ranges": [
+            [
+              23,
+              32
+            ]
+          ]
+        },
+        {
+          "slug": "trainee",
+          "title": {
+            "zh": "采购管培生",
+            "en": "Procurement Trainee"
+          },
+          "ranges": [
+            [
+              32,
+              null
+            ]
+          ]
+        }
+      ]
+    },
+    "b48bdca9-742f-44f1-bde8-5c4e9b953f31": {
+      "commonParagraphs": [
+        0,
+        1
+      ],
+      "roles": [
+        {
+          "slug": "cluster",
+          "title": {
+            "zh": "AI 平台运维工程师 · 集群运维",
+            "en": "AI Platform Operations · Cluster Operations"
+          },
+          "ranges": [
+            [
+              3,
+              54
+            ]
+          ]
+        },
+        {
+          "slug": "development",
+          "title": {
+            "zh": "AI 平台运维工程师 · 运维开发",
+            "en": "AI Platform Operations · Operations Development"
+          },
+          "ranges": [
+            [
+              54,
+              null
+            ]
+          ]
+        }
+      ]
+    },
+    "27f0675d-5ffd-48d9-a36c-f340a443dc8b": {
+      "commonParagraphs": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "roles": [
+        {
+          "slug": "hardware-network",
+          "title": {
+            "zh": "IT 系统硬件与网络工程师",
+            "en": "IT Hardware and Network Engineer"
+          },
+          "ranges": [
+            [
+              7,
+              31
+            ]
+          ]
+        },
+        {
+          "slug": "desktop",
+          "title": {
+            "zh": "IT 桌面与信息化工程师",
+            "en": "IT Desktop and Information Systems Engineer"
+          },
+          "ranges": [
+            [
+              31,
+              null
+            ]
+          ]
+        }
+      ]
+    },
+    "bae809fb-1978-4401-b209-34067b26569d": {
+      "commonParagraphs": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        6
+      ],
+      "roles": [
+        {
+          "slug": "platform",
+          "title": {
+            "zh": "Agent 弹性计算工程师 · 平台开发",
+            "en": "Agent Elastic Computing · Platform Engineering"
+          },
+          "ranges": [
+            [
+              7,
+              33
+            ]
+          ]
+        },
+        {
+          "slug": "systems",
+          "title": {
+            "zh": "Agent 弹性计算工程师 · 底层系统",
+            "en": "Agent Elastic Computing · Systems Engineering"
+          },
+          "ranges": [
+            [
+              33,
+              56
+            ]
+          ]
+        }
+      ]
+    },
+    "0a317cbb-df30-4770-b0d6-c51bf4e2133b": {
+      "commonParagraphs": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "roles": [
+        {
+          "slug": "frontend",
+          "title": {
+            "zh": "前端开发工程师",
+            "en": "Frontend Engineer"
+          },
+          "ranges": [
+            [
+              5,
+              15
+            ]
+          ]
+        },
+        {
+          "slug": "client",
+          "title": {
+            "zh": "客户端开发工程师",
+            "en": "Client Application Engineer"
+          },
+          "ranges": [
+            [
+              15,
+              null
+            ]
+          ]
+        }
+      ]
+    },
+    "d6cff61d-f03f-4440-8a69-900cb407af5b": {
+      "commonParagraphs": [
+        0,
+        1,
+        2,
+        3,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "roles": [
+        {
+          "slug": "technical",
+          "title": {
+            "zh": "技术运营",
+            "en": "Technical Operations"
+          },
+          "ranges": [
+            [
+              16,
+              37
+            ]
+          ]
+        },
+        {
+          "slug": "devrel",
+          "title": {
+            "zh": "开发者关系 · 模型 API 与开源生态",
+            "en": "Developer Relations · Model API and Open Source"
+          },
+          "ranges": [
+            [
+              37,
+              61
+            ]
+          ]
+        },
+        {
+          "slug": "product",
+          "title": {
+            "zh": "产品运营 · DeepSeek 产品",
+            "en": "Product Operations · DeepSeek Products"
+          },
+          "ranges": [
+            [
+              61,
+              null
+            ]
+          ]
+        }
+      ]
+    },
+    "e8f2004c-6599-42cd-b587-176ffc3ff1a3": {
+      "commonParagraphs": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "roles": [
+        {
+          "slug": "product",
+          "title": {
+            "zh": "AI 产品经理 · Chat / App / 开放平台",
+            "en": "AI Product Manager · Chat, App and API"
+          },
+          "ranges": [
+            [
+              6,
+              21
+            ]
+          ]
+        }
+      ],
+      "aliases": [
+        {
+          "heading": "Agent Harness 产品方向",
+          "targetId": "deepseek-8d40c764-product"
+        }
+      ]
+    },
+    "25dcb4d9-d250-43ce-8f56-159ddba47c10": {
+      "commonParagraphs": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        22,
+        23,
+        24,
+        25,
+        26,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40
+      ],
+      "roles": [
+        {
+          "slug": "algorithm",
+          "title": {
+            "zh": "预训练算法研究员",
+            "en": "Pretraining Algorithm Researcher"
+          },
+          "ranges": [
+            [
+              7,
+              14
+            ],
+            [
+              27,
+              31
+            ]
+          ]
+        },
+        {
+          "slug": "data",
+          "title": {
+            "zh": "预训练数据研究员",
+            "en": "Pretraining Data Researcher"
+          },
+          "ranges": [
+            [
+              14,
+              22
+            ],
+            [
+              31,
+              35
+            ]
+          ]
+        }
+      ]
+    },
+    "a4ad8628-286e-4395-ac3e-b8117ac695c6": {
+      "commonParagraphs": [
+        0,
+        1,
+        2,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "roles": [
+        {
+          "slug": "frontend",
+          "title": {
+            "zh": "Code Agent 数据工程师 · 前端",
+            "en": "Code Agent Data Engineer · Frontend"
+          },
+          "ranges": [
+            [
+              12,
+              18
+            ]
+          ]
+        },
+        {
+          "slug": "mobile",
+          "title": {
+            "zh": "Code Agent 数据工程师 · 移动端",
+            "en": "Code Agent Data Engineer · Mobile"
+          },
+          "ranges": [
+            [
+              18,
+              24
+            ]
+          ]
+        },
+        {
+          "slug": "backend",
+          "title": {
+            "zh": "Code Agent 数据工程师 · 后端",
+            "en": "Code Agent Data Engineer · Backend"
+          },
+          "ranges": [
+            [
+              24,
+              30
+            ]
+          ]
+        },
+        {
+          "slug": "web3d",
+          "title": {
+            "zh": "Code Agent 数据工程师 · Web 3D 与渲染",
+            "en": "Code Agent Data Engineer · Web 3D and Rendering"
+          },
+          "ranges": [
+            [
+              30,
+              36
+            ]
+          ]
+        },
+        {
+          "slug": "games",
+          "title": {
+            "zh": "Code Agent 数据工程师 · 游戏开发",
+            "en": "Code Agent Data Engineer · Game Development"
+          },
+          "ranges": [
+            [
+              36,
+              42
+            ]
+          ]
+        },
+        {
+          "slug": "security",
+          "title": {
+            "zh": "Code Agent 数据工程师 · 网络安全",
+            "en": "Code Agent Data Engineer · Security"
+          },
+          "ranges": [
+            [
+              42,
+              null
+            ]
+          ]
+        }
+      ]
+    },
+    "cdccf456-207f-4ea0-9fdd-c30a5ce42d5b": {
+      "commonParagraphs": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38
+      ],
+      "roles": [
+        {
+          "slug": "scheduling",
+          "title": {
+            "zh": "超算集群工程师 · 集群调度",
+            "en": "Supercomputing Cluster Engineer · Scheduling"
+          },
+          "ranges": [
+            [
+              7,
+              10
+            ]
+          ]
+        },
+        {
+          "slug": "network",
+          "title": {
+            "zh": "超算集群工程师 · 高性能网络",
+            "en": "Supercomputing Cluster Engineer · High-performance Networking"
+          },
+          "ranges": [
+            [
+              10,
+              15
+            ]
+          ]
+        },
+        {
+          "slug": "codesign",
+          "title": {
+            "zh": "超算集群工程师 · 集群与模型协同设计",
+            "en": "Supercomputing Cluster Engineer · Cluster-model Co-design"
+          },
+          "ranges": [
+            [
+              15,
+              18
+            ]
+          ]
+        }
+      ]
+    },
+    "1c7e328d-3da9-4129-a938-21edfd77d38c": {
+      "commonParagraphs": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "roles": [
+        {
+          "slug": "operations",
+          "title": {
+            "zh": "IDC 数据中心基础设施运营",
+            "en": "IDC Infrastructure Operations"
+          },
+          "ranges": [
+            [
+              13,
+              18
+            ],
+            [
+              28,
+              40
+            ]
+          ]
+        },
+        {
+          "slug": "design",
+          "title": {
+            "zh": "IDC 数据中心规划设计",
+            "en": "IDC Planning and Design"
+          },
+          "ranges": [
+            [
+              18,
+              23
+            ],
+            [
+              28,
+              40
+            ]
+          ]
+        },
+        {
+          "slug": "onsite",
+          "title": {
+            "zh": "IDC 数据中心现场工程师",
+            "en": "IDC On-site Engineer"
+          },
+          "ranges": [
+            [
+              23,
+              28
+            ],
+            [
+              28,
+              30
+            ],
+            [
+              40,
+              null
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "redirects": {
+    "40447266-bdbb-4728-8db4-ed1435408026": "deepseek-8d40c764-research",
+    "54f386a9-913b-4626-9bf4-e1709b62fcda": "deepseek-8d40c764-product",
+    "ec402ff5-47fe-4e32-820c-b04884fca585": "deepseek-8d40c764-engineering"
+  }
+}

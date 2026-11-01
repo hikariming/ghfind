@@ -1,0 +1,16 @@
+---
+import Base from "../../layouts/Base.astro";
+import { IntegrationsPageIsland } from "../../islands/IntegrationsPageIsland";
+import { getMessages, getTranslator, pickMessages, routeLocale } from "../../lib/i18n";
+import { isSignedIn } from "../../lib/session";
+import { installCommand } from "@/lib/integration-install";
+
+const locale = routeLocale(Astro.params.locale);
+if (!locale) return new Response(null, { status: 404 });
+const [t, messages, signedIn] = await Promise.all([getTranslator(locale, "integrations"), getMessages(locale), isSignedIn(Astro.request)]);
+// Per-viewer (signed-in state): never shared through a cache.
+Astro.response.headers.set("Cache-Control", "private, no-cache, no-store, max-age=0, must-revalidate");
+---
+<Base locale={locale} path="/integrations" title={t("title")} description={t("subtitle")}>
+  <IntegrationsPageIsland client:load locale={locale} signedIn={signedIn} command={installCommand()} intl={{ locale, pathname: "/integrations", messages: pickMessages(messages, ["integrations"]) }} />
+</Base>

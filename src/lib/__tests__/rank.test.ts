@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   getScoreHistogram: vi.fn(),
   getCachedScoreHistogram: vi.fn(),
   setCachedScoreHistogram: vi.fn(),
+  acquireScoreHistogramRefresh: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -14,6 +15,9 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/redis", () => ({
   getCachedScoreHistogram: mocks.getCachedScoreHistogram,
   setCachedScoreHistogram: mocks.setCachedScoreHistogram,
+  acquireScoreHistogramRefresh: mocks.acquireScoreHistogramRefresh,
+  SCORE_HISTOGRAM_FRESH_MS: 30 * 60_000,
+  SCORE_HISTOGRAM_REWRITE_MS: 3 * 3600_000,
 }));
 
 /** rank.ts holds an in-process histogram cache; re-import per test for isolation. */
@@ -42,7 +46,11 @@ beforeEach(() => {
   mocks.getCachedScoreHistogram.mockResolvedValue(null);
   mocks.getScoreHistogram.mockResolvedValue(HISTOGRAM);
   mocks.setCachedScoreHistogram.mockResolvedValue(undefined);
+  mocks.acquireScoreHistogramRefresh.mockResolvedValue(true);
 });
+
+const fresh = (rows: ScoreHistogramRow[]) => ({ rows, at: Date.now() });
+const stale = (rows: ScoreHistogramRow[]) => ({ rows, at: Date.now() - 31 * 60_000 });
 
 describe("getRankCached", () => {
   it("matches db.getRank semantics: visible only, ties share, strict above/below", async () => {
@@ -71,11 +79,63 @@ describe("getPercentileCached", () => {
 
 describe("histogram loading", () => {
   it("serves from Redis without touching the database", async () => {
-    mocks.getCachedScoreHistogram.mockResolvedValue(HISTOGRAM);
+    mocks.getCachedScoreHistogram.mockResolvedValue(fresh(HISTOGRAM));
     const { getRankCached } = await loadRank();
     await expect(getRankCached(90.0)).resolves.toEqual({ rank: 2, total: 7, below: 4 });
     expect(mocks.getScoreHistogram).not.toHaveBeenCalled();
     expect(mocks.setCachedScoreHistogram).not.toHaveBeenCalled();
+    expect(mocks.acquireScoreHistogramRefresh).not.toHaveBeenCalled();
+  });
+
+  it("serves a stale copy while another isolate holds the refresh", async () => {
+    mocks.getCachedScoreHistogram.mockResolvedValue(stale(HISTOGRAM));
+    mocks.acquireScoreHistogramRefresh.mockResolvedValue(false);
+    const { getRankCached } = await loadRank();
+    await expect(getRankCached(90.0)).resolves.toEqual({ rank: 2, total: 7, below: 4 });
+    expect(mocks.getScoreHistogram).not.toHaveBeenCalled();
+  });
+
+  it("refreshes a stale copy when it wins the refresh, and keeps it if the refresh fails", async () => {
+    mocks.getCachedScoreHistogram.mockResolvedValue(stale([row(0, 90.0, 1), row(0, 50.0, 1)]));
+    let ranks = await loadRank();
+    await expect(ranks.getRankCached(90.0)).resolves.toEqual({ rank: 2, total: 7, below: 4 });
+    expect(mocks.setCachedScoreHistogram).toHaveBeenCalledWith(HISTOGRAM);
+
+    mocks.getScoreHistogram.mockResolvedValue([]);
+    ranks = await loadRank();
+    await expect(ranks.getRankCached(90.0)).resolves.toEqual({ rank: 1, total: 2, below: 1 });
+  });
+
+  it("does not rewrite an unchanged histogram, and holds it for the lease window", async () => {
+    mocks.getCachedScoreHistogram.mockResolvedValue(stale(HISTOGRAM));
+    const { getRankCached } = await loadRank();
+    await getRankCached(90.0);
+    expect(mocks.getScoreHistogram).toHaveBeenCalledOnce();
+    expect(mocks.setCachedScoreHistogram).not.toHaveBeenCalled();
+    // The shared copy still looks stale; this isolate must not ask again.
+    vi.spyOn(Date, "now").mockReturnValue(Date.now() + 10 * 60_000);
+    await getRankCached(72.0);
+    vi.mocked(Date.now).mockRestore();
+    expect(mocks.getCachedScoreHistogram).toHaveBeenCalledOnce();
+    expect(mocks.acquireScoreHistogramRefresh).toHaveBeenCalledOnce();
+  });
+
+  it("rewrites an unchanged histogram before its KV entry could expire", async () => {
+    mocks.getCachedScoreHistogram.mockResolvedValue({ rows: HISTOGRAM, at: Date.now() - 4 * 3600_000 });
+    const { getRankCached } = await loadRank();
+    await getRankCached(90.0);
+    expect(mocks.setCachedScoreHistogram).toHaveBeenCalledWith(HISTOGRAM);
+  });
+
+  it("holds a stale copy for the lease window after losing the refresh", async () => {
+    mocks.getCachedScoreHistogram.mockResolvedValue(stale(HISTOGRAM));
+    mocks.acquireScoreHistogramRefresh.mockResolvedValue(false);
+    const { getRankCached } = await loadRank();
+    await getRankCached(90.0);
+    vi.spyOn(Date, "now").mockReturnValue(Date.now() + 10 * 60_000);
+    await getRankCached(90.0);
+    vi.mocked(Date.now).mockRestore();
+    expect(mocks.acquireScoreHistogramRefresh).toHaveBeenCalledOnce();
   });
 
   it("writes the Redis cache on a miss and memoizes in-process", async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createResume, isResumeEmpty, profileFromResume, readResumeLibrary, readResumeLibraryFull, resumeStorageSnapshot, sampleResume, serializeResumeLibrary, TEMPLATE_IDS, upsertResume } from "../resume";
+import { createResume, isResumeEmpty, moveItem, profileFromResume, readResumeLibrary, readResumeLibraryFull, resumeStorageSnapshot, sampleResume, serializeResumeLibrary, TEMPLATE_IDS, upsertResume } from "../resume";
 
 describe("local résumé persistence", () => {
   it("round-trips personal data, sections and layout without merging distinct documents", () => {
@@ -107,4 +107,16 @@ it("does not treat schema property reordering after a cloud save as another tab'
   const restored = readResumeLibrary(serializeResumeLibrary([saved]))[0];
   expect(resumeStorageSnapshot(saved)).toBe(resumeStorageSnapshot(restored));
   expect(resumeStorageSnapshot({ ...restored, name: "Another tab" })).not.toBe(resumeStorageSnapshot(saved));
+});
+
+describe("moveItem", () => {
+  it("swaps an item with its neighbour", () => {
+    expect(moveItem(["a", "b", "c"], 0, 1)).toEqual(["b", "a", "c"]);
+    expect(moveItem(["a", "b", "c"], 2, -1)).toEqual(["a", "c", "b"]);
+  });
+  it("leaves the list untouched when the move is out of range", () => {
+    const items = ["a", "b"];
+    expect(moveItem(items, 0, -1)).toBe(items);
+    expect(moveItem(items, 1, 1)).toBe(items);
+  });
 });

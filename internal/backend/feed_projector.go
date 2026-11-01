@@ -47,6 +47,11 @@ type FeedProjectProjection struct {
 	BlockedReason        string        `json:"blockedReason"`
 	RiskOverrideEligible bool          `json:"riskOverrideEligible"`
 	ProductTags          []ProductTag  `json:"productTags"`
+	// Shadow discover score (discover-score-v1.1). Write-only: excluded from
+	// the source hash and the descriptor, and never read by Feed or Discover.
+	DiscoverScore        *int   `json:"discoverScore"`
+	DiscoverBand         string `json:"discoverBand"`
+	DiscoverScoreVersion string `json:"discoverScoreVersion"`
 }
 
 var feedHighRiskBlockingCategories = map[string]struct{}{
@@ -149,6 +154,10 @@ func BuildFeedProjectProjection(assessment ProjectAssessment, overview *ProjectO
 		RiskOverrideEligible: riskOverrideEligible,
 		ProductTags:          append([]ProductTag(nil), analysis.Project.ProductTags...),
 	}
+	shadow := ComputeDiscoverScore(DiscoverScoreInputFromArtifact(analysis))
+	projection.DiscoverScore = &shadow.Score
+	projection.DiscoverBand = shadow.Band
+	projection.DiscoverScoreVersion = shadow.Version
 	projection.Descriptor = BuildFeedProjectDescriptor(projection)
 	projection.DescriptorHash = descriptorHash(projection.Descriptor)
 	projection.SourceHash, err = feedProjectionHash(projection)

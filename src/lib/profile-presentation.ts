@@ -15,6 +15,7 @@ import type {
   TopRepo,
 } from "@/lib/types";
 import type { SignatureWork } from "@/lib/types";
+import type { GithubStanding } from "@/lib/github-standing";
 
 export interface AccountDetail {
   username: string;
@@ -38,6 +39,11 @@ export interface AccountDetail {
   risk_assessment?: RiskAssessment | null;
   risk_notes?: RiskSignal[];
   score_breakdown?: ScoreBreakdown | null;
+  /** Older-roast-release report on a current score; shown only as 旧版锐评. */
+  stale_roast?: string;
+  stale_roast_en?: string;
+  stale_roast_version?: string;
+  stale_roast_en_version?: string;
 }
 
 export interface ScoreBreakdown {
@@ -143,6 +149,9 @@ export interface FacetRankData {
 export interface ProfilePresentation {
   detail: AccountDetail;
   snapshot: ProfileSnapshotView | null;
+  /** Whole-GitHub standing of the snapshot's raw facts (server-computed so the
+   *  population table never ships to the browser). Absent without a snapshot. */
+  github_standing?: GithubStanding[];
   rank: ProfileRank | null;
   percentile: ProfilePercentile | null;
   delta: number | null;

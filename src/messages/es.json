@@ -1,4 +1,29 @@
 {
+  "loginDialog": {
+    "entry": "Iniciar sesión",
+    "title": "Inicia sesión en ghfind",
+    "description": "Elige una cuenta para continuar.",
+    "close": "Cerrar",
+    "google": "Continuar con Google",
+    "github": "Continuar con GitHub",
+    "apple": "Continuar con Apple",
+    "redirecting": "Abriendo {provider}…",
+    "loading": "Comprobando opciones de acceso…",
+    "retry": "Reintentar",
+    "loadFailed": "No se pudieron cargar las opciones de acceso. Revisa tu conexión y vuelve a intentarlo.",
+    "unavailable": "El inicio de sesión no está disponible temporalmente. Puedes seguir explorando e intentarlo más tarde.",
+    "githubFeatures": "Los seguimientos, currículums en la nube y tokens de API requieren actualmente una cuenta de GitHub.",
+    "providerAccount": "Cuenta de {provider}",
+    "switchToGitHub": "Cambiar al acceso con GitHub",
+    "errors": {
+      "denied": "Se canceló el inicio de sesión. Elige una cuenta para volver a intentarlo.",
+      "expired": "Esta solicitud de acceso ha caducado. Vuelve a empezar.",
+      "failed": "No se completó el inicio de sesión. Vuelve a intentarlo.",
+      "unavailable": "Este método no está disponible. Elige otra opción o inténtalo más tarde."
+    },
+    "signingOut": "Cerrando sesión…",
+    "signOutFailed": "No se pudo cerrar sesión. Revisa tu conexión y vuelve a intentarlo."
+  },
   "meta": {
     "title": "ghfind | Score brutal de GitHub, autoevalúate y descubre a los mejores devs",
     "description": "ghfind: un score de valor y confianza de GitHub de 0 a 100, más un roast sin piedad en 30s. Ve tus puntos débiles, ponte a prueba y crece; luego descubre a los mejores developers y deja que te encuentren.",
@@ -15,10 +40,11 @@
     "developers": "Developers",
     "projectBoards": "Tableros de proyectos",
     "projects": "Proyectos",
-    "collections": "Selección del editor",
+    "collections": "Investigación a fondo",
     "languages": "Lenguajes",
     "organizations": "Organizaciones",
     "versus": "Duelo de devs",
+    "mfcp": "MFCP Open Source",
     "blog": "Investigación",
     "openMenu": "Abrir menú",
     "closeMenu": "Cerrar menú",
@@ -27,19 +53,30 @@
     "githubBot": "GitHub Bot",
     "groupDiscover": "Descubrir",
     "groupCareer": "Carrera",
-    "groupTools": "Herramientas",
+    "groupTools": "Integrations",
     "beta": "Beta",
+    "event": "Evento",
     "hint": {
       "roast": "Puntúa una cuenta de GitHub en 30 segundos, con una frase sin piedad",
       "versus": "Enfrenta a dos desarrolladores",
+      "mfcp": "Programa de mentoría open source MFCP, inscripciones abiertas",
       "leaderboard": "Explora los mejores desarrolladores por puntuación",
       "projectBoards": "Descubre proyectos open source destacados por área",
-      "collections": "Proyectos y desarrolladores elegidos por el editor",
+      "collections": "Historias de desarrolladores, proyectos de código abierto seleccionados e investigación sobre GitHub.",
       "blog": "Datos y análisis del ecosistema de desarrolladores",
       "resume": "Crea un currículum de desarrollador con tus datos de GitHub",
       "talent": "Encuentra desarrolladores que vale la pena conocer",
-      "githubBot": "Etiqueta issues y PR según la puntuación del autor"
-    }
+      "githubBot": "Etiqueta issues y PR según la puntuación del autor",
+      "cliApi": "Install the ghfind CLI and Agent Skill, and manage API tokens",
+      "jobs": "Vacantes en empresas de IA y open source",
+      "talentMatch": "Informe de talento con IA, encaje con puestos y consejos",
+      "discover": "Explora repos de alto valor en cuadrícula o deslizando",
+      "feed": "Lee publicaciones de desarrolladores y de X"
+    },
+    "cliApi": "CLI & API",
+    "jobs": "Empleo",
+    "talentMatch": "Talent Match",
+    "feed": "Para ti"
   },
   "globalSearch": {
     "open": "Abrir búsqueda global",
@@ -92,7 +129,7 @@
     "title": "El código fuente y el algoritmo de scoring son open source · Ver en GitHub"
   },
   "home": {
-    "brand": "Sin piedad",
+    "brand": "Roast",
     "headline": "Descubre a los mejores developers — y conviértete en uno.",
     "subtitle": "Empieza con un score de 0 a 100 brutalmente honesto. Mira dónde estás parado y hacia dónde ir.",
     "boardHeading": "🏆 Los mejores developers",
@@ -157,7 +194,11 @@
     "apiCtaLink": "Docs de la API →",
     "repoAuthoredBy": "Mantenido por",
     "repoContributors": "contributors rankeados",
-    "repoAvgScore": "score promedio"
+    "repoAvgScore": "score promedio",
+    "repoGlobalRank": "#{rank} de {total} en GitHub",
+    "repoGlobalRankApprox": "~#{rank} de {total} en GitHub",
+    "repoTopAmong": "Top {pct}% de los repos con ≥{floor}★",
+    "repoRankNote": "Por estrellas entre todos los repositorios públicos que no son fork · {asOf}"
   },
   "projects": {
     "metaTitle": "Descubre proyectos de GitHub de calidad · ghfind",
@@ -200,11 +241,11 @@
     }
   },
   "collections": {
-    "metaTitle": "Selección del fundador: proyectos y desarrolladores · ghfind",
-    "metaDescription": "Colecciones curadas de proyectos y desarrolladores destacados de GitHub, respaldadas por el motor de calidad de contribuidores de ghfind.",
+    "metaTitle": "Investigación a fondo · ghfind",
+    "metaDescription": "Historias de desarrolladores, proyectos de código abierto seleccionados e investigación sobre GitHub.",
     "eyebrow": "Selección del fundador",
-    "heading": "Proyectos y desarrolladores seleccionados",
-    "subtitle": "No es otra lista de estrellas: cada selección incluye datos del motor sobre quién lo construye y qué nivel tiene.",
+    "heading": "Investigación a fondo",
+    "subtitle": "Historias de desarrolladores, proyectos de código abierto seleccionados e investigación sobre GitHub.",
     "empty": "Aún no hay colecciones; vuelve pronto.",
     "itemCount": "{count} selecciones",
     "publishedOn": "Publicado el {date}",
@@ -222,7 +263,7 @@
     "avgScoreLabel": "puntuación media de contribuidores",
     "followersLabel": "seguidores",
     "totalStarsLabel": "estrellas totales",
-    "backToCollections": "Todas las colecciones",
+    "backToCollections": "Volver a Investigación a fondo",
     "dataNote": "Las puntuaciones y los niveles provienen del motor de ghfind y se actualizan con cada nuevo escaneo."
   },
   "discoveryNext": {
@@ -270,12 +311,24 @@
     "signIn": "Iniciar sesión con GitHub"
   },
   "detail": {
+    "unratedMessage": "Este perfil está guardado, pero no hay una puntuación pública disponible en este momento. Puedes consultar GitHub o solicitar un nuevo resultado desde el formulario de análisis.",
+    "unratedAction": "Abrir formulario de análisis",
+    "unratedGithub": "Ver en GitHub",
     "back": "← Volver al Salón de la Fama",
     "backfilling": "🔍 Rastreando su huella open source (repos / lenguajes / contribuciones)…",
     "rankTitle": "Tu posición",
     "rankUnit": "/ de {total}",
     "rankUnranked": "Sin ranking (datos insuficientes)",
     "beatInline": "Superas al {beat}% de los developers",
+    "githubStandingTitle": "En todo GitHub",
+    "githubStandingAccountAge": "Antigüedad de la cuenta",
+    "githubStandingTopRepo": "Repo con más estrellas",
+    "githubStandingRank": "#{rank} de {total}",
+    "githubStandingRankApprox": "~#{rank} de {total}",
+    "githubStandingTopAmong": "Top {pct}% de los repos con ≥{floor}★",
+    "githubStandingOlder": "Más antigua que el {pct}%",
+    "githubStandingYears": "{years} años",
+    "githubStandingFootnote": "Datos públicos de todo GitHub · {asOf}",
     "milestoneNext": "{gap} pts para “{tier}”",
     "milestoneCapped": "🏆 Al tope · nivel máximo",
     "facetRankLine": "#{rank} en {facet}",
@@ -308,18 +361,26 @@
     "similarSub": "Perfil más cercano, score similar",
     "impactHeading": "🏆 Contribuciones destacadas",
     "impactSub": "Repos open source populares a los que ha aportado (commits + PRs)",
+    "impactDisclosure": "Contribuciones destacadas ({count})",
     "worksHeading": "🛠 Trabajo destacado",
     "worksSub": "Sus propios repositorios populares y fijados",
-    "stackHeading": "🧬 Stack y dominios",
-    "stackLangLabel": "Lenguajes principales",
-    "stackTopicsLabel": "Dominios",
     "orgsLabel": "Organizaciones",
     "commits": "commits",
     "prs": "PRs",
-    "roastHeading": "🔥 Roast completo",
+    "verdictLabel": "Veredicto breve",
     "roastEmpty": "Este roast todavía no está archivado — <a>vuelve a juzgar desde la página de inicio</a> para generarlo.",
     "scoreStateStaleTitle": "Puntuación histórica",
     "scoreStateStaleBody": "Esta puntuación pertenece a reglas anteriores. Seguirá visible hasta que un nuevo escaneo verificado la reemplace.",
+    "scoreStateRescanAction": "Reevaluar",
+    "scoreStateRescanRunning": "Reevaluando con las reglas actuales…",
+    "scoreStateRescanReport": "Generando el nuevo roast…",
+    "scoreStateRescanError": "La reevaluación falló, inténtalo más tarde",
+    "roastStaleLabel": "Roast de la versión anterior",
+    "roastStaleHint": "Este roast se escribió con las reglas anteriores; solo como referencia.",
+    "roastRegenerating": "Escribiendo el roast con las reglas actuales…",
+    "roastRegeneratePending": "El roast de la versión actual aún no está listo",
+    "roastRegenerateFailed": "No se pudo escribir el nuevo roast; reevalúa manualmente",
+    "roastRegenerateSlow": "Aún se está escribiendo el nuevo roast; recarga en un momento",
     "scoreStatePendingTitle": "Puntuación actual · reporte pendiente",
     "scoreStatePendingBody": "La puntuación determinista está actualizada. El reporte opcional de IA aún no se ha generado.",
     "scoreStateReadyTitle": "Puntuación y reporte actuales",
@@ -330,6 +391,13 @@
     "liveRateLimited": "Demasiados roasts ahora mismo — inténtalo en un minuto.",
     "liveExpired": "El escaneo expiró antes de que el roast terminara.",
     "liveGoHome": "Roastear de nuevo desde la página de inicio →",
+    "liveRetry": "Reintentar",
+    "roastProgressTitle": "Escribiendo tu roast…",
+    "roastStage1": "Leyendo el escaneo",
+    "roastStage2": "Eligiendo lo que merece escribirse",
+    "roastStage3": "Redactando los remates",
+    "roastStage4": "Comprobando cifras y nombres de repos",
+    "roastStage5": "Cerrando la maquetación",
     "modalTitle": "🔥 Tu roast ya llegó",
     "modalRoastHeading": "Roast completo",
     "modalFirstJudged": "🥇 Eres la primera persona en ser juzgada — pionero de verdad",
@@ -337,13 +405,20 @@
     "modalViewProfile": "Ver perfil completo",
     "modalBadgeCta": "Consigue tu badge para GitHub",
     "modalClose": "Cerrar",
-    "battlesHeading": "⚔️ Batallas",
-    "battlesSub": "Duelos PK que este dev ha peleado",
-    "battleWin": "Victoria",
-    "battleLoss": "Derrota",
-    "battleTie": "Empate",
     "selfCta": "Evalúa tu propio GitHub →",
-    "reportLangNotice": "El reporte de roast de la IA por ahora solo se escribe en inglés y chino — estás leyendo la versión en inglés."
+    "reportLangNotice": "El reporte de roast de la IA por ahora solo se escribe en inglés y chino — estás leyendo la versión en inglés.",
+    "coCreatorShare": "Liderado / cocreado ({share}%)",
+    "scoreReadyHint": "La puntuación ya está. El roast llega enseguida",
+    "adventurerLevel": "Nivel de aventurero",
+    "preciseScoreTitle": "Puntuación {score}",
+    "liveTimeout": "La evaluación agotó el tiempo de espera. Inténtalo más tarde; se conserva la puntuación y el roast previos.",
+    "scoreStateRescanTimeout": "La reevaluación agotó el tiempo de espera. Inténtalo más tarde",
+    "evaluateStageFetch": "Obteniendo datos",
+    "evaluateStageAnalyze": "Analizando repos",
+    "evaluateStageRoast": "Generando el roast",
+    "evaluateError": "Esta vez no terminó. Pulsa reintentar para probar de nuevo.",
+    "evaluateTimeout": "Esta generación tardó un poco. Pulsa reintentar para probar de nuevo.",
+    "evaluateRetry": "Reintentar"
   },
   "reactions": {
     "heading": "Reacciones de la comunidad",
@@ -360,26 +435,29 @@
     "clown": "No puedo con esto"
   },
   "rescan": {
-    "button": "🔄 Volver a detectar",
-    "scanning": "Escaneando…",
-    "roasting": "Roasteando…",
-    "error": "La detección falló, inténtalo más tarde",
-    "cooldown": "Podrás refrescar en {hours}h"
+    "button": "Reevaluar",
+    "scanning": "Analizando…",
+    "roasting": "Generando comentario…",
+    "error": "La evaluación falló, inténtalo más tarde",
+    "cooldown": "Podrás refrescar en {hours}h",
+    "timeout": "La evaluación agotó el tiempo de espera. Inténtalo más tarde"
   },
   "detailMeta": {
-    "title": "{username} — {score}/100 · {tier} | ghfind",
+    "unratedTitle": "{username} · Perfil de desarrollador",
+    "title": "{username} — Lv.{level} · {realm} | ghfind",
     "descWithTags": "{tags} — mira el reporte completo del score de {username} en ghfind.com.",
     "descPlain": "Reporte de valor y confianza de GitHub de {username} — ghfind.com.",
     "notFoundTitle": "Cuenta no encontrada · ghfind",
     "pendingTitle": "Roasteando a @{username}… · ghfind"
   },
   "roaster": {
+    "modelSponsor": "Patrocinador del modelo",
     "inputPlaceholder": "Escribe un usuario de GitHub o la URL de un perfil",
     "judge": "Juzgar",
     "judging": "Juzgando…",
     "byoLink": "Usa tu propio modelo / API key",
     "scanning": "Desenterrando el historial de {username}… leyendo commits, revisando PRs, contando stars, olfateando actividad inflada",
-    "roastLabel": "🔥 Roast",
+    "roastLabel": "Roast",
     "roastThinking": "La IA está cocinando un roast sin piedad — ya casi sale…",
     "roastPending": "Preparando el roast",
     "firstJudged": "🥇 Eres la primera persona en ser juzgada — pionero de verdad",
@@ -397,8 +475,10 @@
     "errRoastFailed": "La generación del roast falló — inténtalo más tarde o usa tu propia key.",
     "errNetworkRoast": "Se cayó la conexión — el roast quedó a medias.",
     "errScanFailed": "El escaneo falló, inténtalo más tarde.",
+    "largeAccountCollecting": "Recopilando datos de una cuenta grande…",
     "errScanPending": "Se está recopilando el historial público completo de PR y commits. Continuará automáticamente cuando esté listo.",
     "errNetworkScan": "Error de red — ni siquiera pudimos llegar a GitHub.",
+    "dataUpdating": "Actualizando los datos…",
     "byoReasonQuota": "La cuota gratis se acabó 😵 Agrega tu propia API key para seguir roasteando (OpenAI / StepFun / Groq, todas sirven).",
     "byoReasonRate": "Has roasteado mucho hoy 🥵 Tómate un respiro, o agrega tu propia API key para roasts ilimitados.",
     "byoReasonDefault": "No hay un modelo por defecto configurado en el servidor — agrega tu propia API key para empezar a roastear."
@@ -410,6 +490,9 @@
     "rate_limited": "Muy rápido — respira y vuelve a intentarlo en un minuto.",
     "github_rate_limited": "La API de GitHub está al límite ahora mismo — dale un momento.",
     "github_unavailable": "Los datos de GitHub no están disponibles por ahora — inténtalo más tarde.",
+    "github_collect_deadline": "La recolección de GitHub agotó el tiempo — reintenta en un momento.",
+    "scan_pending": "Recopilando datos de una cuenta grande…",
+    "scan_busy": "La generación de puntuación está ocupada — reintenta en un momento.",
     "scan_failed": "El escaneo se estrelló — inténtalo más tarde."
   },
   "share": {
@@ -476,36 +559,35 @@
     "cancel": "Cancelar",
     "saveContinue": "Guardar y continuar"
   },
-  "developerCount": "<n>{count, number}</n> developers han entrado a la arena ⚔️",
   "shareCard": {
     "beatLabel": "developers superados",
     "brand": "🔥 ghfind · mira cómo te comparas"
   },
   "tiers": {
-    "god": {
-      "name": "GOD",
-      "blurb": "Legendario · Salón de la Fama"
-    },
-    "elite": {
-      "name": "ELITE",
-      "blurb": "Élite · Dev de primer nivel"
-    },
-    "solid": {
-      "name": "SOLID",
-      "blurb": "Sólido · Confiable"
+    "trash": {
+      "name": "Condensación Qi",
+      "blurb": "Primeros pasos · Construyendo la base"
     },
     "npc": {
-      "name": "NPC",
-      "blurb": "Promedio · Nada memorable"
+      "name": "Formación Núcleo",
+      "blurb": "Núcleo formado · Mostrando filo"
     },
-    "trash": {
-      "name": "TRASH",
-      "blurb": "Bajo valor · Probablemente inflado"
+    "solid": {
+      "name": "Templado Espacial",
+      "blurb": "Maestría sin esfuerzo"
+    },
+    "elite": {
+      "name": "Integ. Corporal",
+      "blurb": "En armonía · Maestro de élite"
+    },
+    "god": {
+      "name": "Gran Ascensión",
+      "blurb": "Cerca de la cumbre · Salón de la fama"
     }
   },
   "dimensions": {
     "account_maturity": "Madurez de la cuenta",
-    "original_project_quality": "Calidad de proyectos originales",
+    "original_project_quality": "Proyectos originales y liderados",
     "contribution_quality": "Calidad de contribuciones",
     "ecosystem_impact": "Impacto en el ecosistema / mantenimiento",
     "community_influence": "Influencia en la comunidad",
@@ -531,14 +613,16 @@
     "suggestLanguage": "Ranking de developers de {value}",
     "suggestOrg": "{value} · miembros de la org",
     "pkHalfHint": "Escribe un oponente y presiona Enter para pelear",
-    "lockedRemove": "Quitar"
+    "lockedRemove": "Quitar",
+    "ctaMatch": "Match",
+    "ctaMatchHint": "Informe de talento y puestos afines"
   },
   "blog": {
     "heading": "Research",
     "subtitle": "Notas con datos de evaluar contribución real en GitHub a escala.",
     "readingTime": "{minutes} min de lectura",
     "notTranslated": "Este artículo todavía no está traducido — se muestra el original en inglés.",
-    "backToList": "Todo el research",
+    "backToList": "Volver a Investigación a fondo",
     "empty": "Todavía no hay artículos."
   },
   "footer": {
@@ -597,8 +681,8 @@
         "body": "La instantánea se evalúa en madurez de la cuenta, calidad de proyectos originales, calidad de contribuciones, impacto en el ecosistema, influencia en la comunidad y autenticidad de la actividad, con penalizaciones por farmeo de PRs, inflación de stars y patrones de spam con plantillas."
       },
       {
-        "title": "3. Recibe score, nivel y roast",
-        "body": "Recibes un score reproducible de 0 a 100 con un nivel que va de Trash a God, un desglose por dimensión que muestra exactamente qué frena tu score y — solo si lo pides — un roast sin piedad escrito por IA."
+        "title": "3. Obtén tu nivel de aventurero, reino y roast",
+        "body": "Obtienes un nivel de aventurero reproducible (Lv.1–100), un reino de cultivo de Condensación Qi a Gran Ascensión, un desglose por dimensiones que muestra qué baja la puntuación y —solo si lo pides— un roast ingenioso escrito por IA."
       }
     ],
     "numbersHeading": "ghfind en números",
@@ -636,7 +720,7 @@
     "heading": "Documentación de la API de ghfind",
     "lead": "ghfind evalúa cualquier cuenta de GitHub de 0 a 100 en valor real de contribución y confiabilidad con un motor determinista y open source. Todo lo que hay en el sitio también está disponible programáticamente: una REST API pública, un servidor MCP para agentes de IA y SDKs oficiales. Esta página documenta todo eso.",
     "restHeading": "REST API de ghfind",
-    "restIntro": "URL base: https://ghfind.com. Las lecturas de scoring no necesitan autenticación. Los errores son JSON estructurado ({error, message, hint}), las respuestas llevan headers RateLimit-* y los endpoints de listas soportan paginación con limit/offset.",
+    "restIntro": "URL base: https://ghfind.com. Las lecturas de scoring no necesitan autenticación. Los errores son JSON estructurado (error / message / hint), las respuestas llevan headers RateLimit-* y los endpoints de listas soportan paginación con limit/offset.",
     "endpoints": [
       {
         "sig": "GET /api/score/{username}",
@@ -777,8 +861,16 @@
         "p": "Para las cuentas evaluadas, cacheamos el score calculado, el nivel y las métricas derivadas para que los reportes compartidos carguen rápido y el ranking se mantenga ágil. Solo las cuentas con score de 60 o más se indexan y listan públicamente; las páginas con score más bajo son accesibles por enlace directo pero se mantienen fuera de los motores de búsqueda. Usamos analítica agregada y respetuosa de la privacidad para entender el tráfico, y no vendemos datos personales."
       },
       {
+        "h": "Acceso con Google y cookies de cuenta",
+        "p": "Si eliges acceder con Google, recibimos tu identificador de cuenta de Google (subject), nombre e imagen de perfil para establecer tu sesión de ghfind. Google también puede devolver tu correo electrónico durante el acceso; no lo guardamos de forma persistente. Una cookie de sesión firmada y HttpOnly almacena tu identidad básica durante un máximo de 30 días. No conservamos tokens de acceso a las API de Google ni tokens de actualización. Al cerrar sesión se elimina la cookie de sesión. Acceder con Google no concede permisos de GitHub y no vinculamos cuentas automáticamente por correo electrónico."
+      },
+      {
         "h": "Roasts con tu propia key",
         "p": "La función opcional de roast puede usar la key de tu propio proveedor de modelos. Cuando la proporcionas, se queda en tu navegador y pasa una sola vez por nuestro servidor para llamar al modelo — nunca se guarda ni se registra, y se descarta cuando la solicitud termina."
+      },
+      {
+        "h": "Publicidad y cookies",
+        "p": "Cuando mostramos anuncios, proveedores externos, incluido Google, utilizan cookies, balizas web y tecnologías similares para publicar anuncios basados en tus visitas anteriores a este u otros sitios. El uso de cookies publicitarias por parte de Google permite a Google y a sus socios mostrarte anuncios basados en tu visita a este sitio y/o a otros sitios de Internet. Puedes inhabilitar la publicidad personalizada en la Configuración de anuncios de Google (https://adssettings.google.com). Para inhabilitar el uso de cookies de publicidad personalizada de algunos proveedores externos, visita www.aboutads.info/choices."
       }
     ]
   },
@@ -791,7 +883,7 @@
     "dimensionsIntro": "Cada dimensión aporta al score base de 100 puntos. Juntas premian el trabajo open source sostenido, original y ampliamente usado por encima de los conteos crudos de actividad.",
     "dimensionDetails": {
       "account_maturity": "Qué tan establecida y consistente es la cuenta a lo largo del tiempo — antigüedad, actividad sostenida y una curva de credibilidad que resiste la inflación de la noche a la mañana.",
-      "original_project_quality": "La calidad y recepción de los repositorios que la cuenta realmente posee y escribió, no forks ni proyectos triviales.",
+      "original_project_quality": "Calidad y recepción de proyectos propios o sustancialmente liderados o cocreados, ponderadas por la participación atribuida; excluye forks.",
       "contribution_quality": "La sustancia de las contribuciones a otros proyectos — pull requests significativos y mergeados versus spam con plantillas.",
       "ecosystem_impact": "Cuánto se depende del trabajo de la cuenta y cuánto se mantiene en el ecosistema más amplio.",
       "community_influence": "Alcance y reputación genuinos en la comunidad, normalizados para que los conteos crudos de seguidores o stars no puedan dominar.",
@@ -1294,8 +1386,10 @@
     }
   },
   "sponsor": {
+    "stripLabel": "Patrocinador",
+    "learnMore": "Más información",
     "metaTitle": "Patrocina ghfind · Planes y beneficios",
-    "metaDescription": "Patrocina ghfind: planes Principal, Modelo, Destacado y Amigo, con pago mensual. El patrocinio nunca afecta ningún ranking ni puntuación.",
+    "metaDescription": "Patrocina ghfind con cuatro niveles mensuales: 夯, 顶级, 人上人 y 友情. El patrocinio nunca afecta rankings ni puntuaciones.",
     "topline": {
       "section": "Ayuda y documentación",
       "current": "Patrocinar"
@@ -1312,11 +1406,14 @@
     "available": "Disponible",
     "soon": "En desarrollo",
     "currentHolder": "Patrocinador actual",
+    "anonymous": "Patrocinador anónimo",
+    "emailTemplateSubject": "Consulta de patrocinio de ghfind · {tier}",
+    "emailTemplateBody": "Hola, quisiera consultar sobre el patrocinio del nivel {tier} de ghfind.\n\nFecha de inicio del patrocinio:\nDuración del patrocinio: 1 mes\n\n¿Mostrar de forma anónima? (sí/no):\nProducto o proyecto que desea promocionar (puede dejarse en blanco si es anónimo):\nEnlace del proyecto (opcional):\nIcono o logotipo (opcional; adjunte un archivo o indique un enlace):\nDescripción breve del producto o proyecto (opcional):",
     "cta": "Quiero patrocinar",
     "ctaSoldOut": "Agotado · Próximamente",
     "tiers": {
       "title": {
-        "name": "Patrocinador principal",
+        "name": "夯",
         "summary": "El espacio más visible del sitio: tu marca viaja con cada tarjeta de presumir compartida.",
         "perks": [
           {
@@ -1328,19 +1425,22 @@
         ]
       },
       "model": {
-        "name": "Patrocinador del modelo",
-        "summary": "Impulsa las opiniones y aparece cada vez que se genera una.",
+        "name": "顶级",
+        "summary": "Impulsa las opiniones, aparece cada vez que se genera una y destaca tus vacantes primero.",
         "perks": [
           {
             "text": "Crédito del patrocinador del modelo mientras se genera la opinión"
           },
           {
             "text": "Información y logo del patrocinador en la página de inicio"
+          },
+          {
+            "text": "Tus vacantes aparecen primero en la sección de empleo de la portada y en /jobs"
           }
         ]
       },
       "featured": {
-        "name": "Patrocinador destacado",
+        "name": "人上人",
         "summary": "Exposición constante en la página de inicio y en los perfiles de desarrolladores.",
         "perks": [
           {
@@ -1353,7 +1453,7 @@
         ]
       },
       "friend": {
-        "name": "Patrocinador amigo",
+        "name": "友情",
         "summary": "Apoya a ghfind como amigo; te recordaremos aquí.",
         "perks": [
           {
@@ -1381,98 +1481,670 @@
     "slotOpen": "Espacio disponible"
   },
   "githubBot": {
-    "metaTitle": "ghfind Review — GitHub App que etiqueta issues y PRs según la puntuación del autor",
-    "metaDescription": "Instala la GitHub App ghfind Review para añadir una etiqueta de color a cada issue y pull request nuevo, según la puntuación pública de ghfind del autor.",
+    "metaTitle": "ghfind Review | Bot de GitHub para clasificar Issues y PRs",
+    "metaDescription": "ghfind Review combina etiquetas de puntuación y clasificación de contenido con vistas previas, limpieza y tu propio servicio de IA (BYOK), por repositorio.",
     "topline": {
       "section": "Integraciones",
       "current": "GitHub Bot"
     },
     "hero": {
-      "eyebrow": "GitHub App · Gratis",
-      "title": "Prioriza issues y PRs según quién los abre",
-      "subtitle": "ghfind Review añade una etiqueta review: de color a cada issue y pull request nuevo, según la puntuación pública de ghfind del autor. Sin workflow, sin token, sin secretos que configurar.",
+      "eyebrow": "ghfind Review · GitHub App",
+      "title": "Issues y PRs,\nbajo tu control.",
+      "subtitle": "Etiqueta Issues y PRs por puntuación del autor o contenido. Gestiona la automatización desde la consola del Bot.",
+      "admin": "Abrir consola del Bot",
       "install": "Instalar en GitHub",
-      "status": "Abrir página de estado",
-      "note": "Funciona como ghfind-review[bot]. Solo añade etiquetas: nunca comenta, cierra ni bloquea una contribución."
+      "status": "Inicio del Bot"
     },
-    "preview": {
-      "label": "Ejemplo de lista de issues con etiquetas review",
-      "heading": "Issues",
+    "console": {
+      "heading": "Tu espacio de trabajo del Bot",
+      "note": "Inicia sesión con GitHub. La consola muestra las instalaciones y los repositorios a los que tienes acceso.",
       "items": {
-        "top": "Fallo al analizar configuración anidada",
-        "medium": "Añadir modo oscuro a ajustes",
-        "noScore": "Errata en el README"
+        "overview": {
+          "title": "Panel general",
+          "body": "Una vista general de tus instalaciones de GitHub."
+        },
+        "repositories": {
+          "title": "Repositorios",
+          "body": "Configura las etiquetas y pausa o reanuda el procesamiento."
+        },
+        "tasks": {
+          "title": "Tareas",
+          "body": "Sigue el procesamiento de envíos existentes y reintenta las tareas fallidas."
+        },
+        "activity": {
+          "title": "Actividad",
+          "body": "Consulta los cambios de configuración y el historial de limpieza."
+        }
+      },
+      "preview": "Consola del Bot · Datos de demostración local",
+      "screenshotAlt": "Dashboard del Bot con resumen de instalaciones, estado de repositorios, tareas y actividad reciente."
+    },
+    "classification": {
+      "heading": "Dos tipos de etiquetas. Dos señales distintas.",
+      "lead": "Distingue el contexto del perfil del autor del tema de su contribución.",
+      "score": {
+        "mode": "Contexto del perfil del autor",
+        "title": "Etiquetas de puntuación del autor",
+        "body": "Para los nuevos Issues y PRs, el Bot consulta la puntuación pública de ghfind del autor y aplica una etiqueta review:. La puntuación describe un perfil público, no la calidad de la contribución.",
+        "example": "Cinco rangos de puntuación, incluida una etiqueta explícita no-score cuando no hay puntuación disponible."
+      },
+      "intent": {
+        "mode": "Opcional · Desactivada por defecto",
+        "title": "Clasificación del contenido",
+        "body": "Compara el título y el cuerpo del Issue o PR con las descripciones de las etiquetas existentes que selecciones. Al activarse, el clasificador puede añadir hasta tres etiquetas coincidentes sin crear ni renombrar ninguna.",
+        "example": "Requiere un servicio de clasificación configurado. Prueba una sugerencia en la consola antes de activarla. La clasificación por IA es independiente de la puntuación del autor y puede necesitar correcciones. Conecta tu propio servicio de IA en los ajustes del repositorio."
       }
     },
-    "labels": {
-      "heading": "Cinco etiquetas, un vistazo",
-      "lead": "Las etiquetas que falten se crean al instalar. Se respetan los colores o descripciones que hayas personalizado.",
+    "byok": {
+      "heading": "Usa tu propio servicio de IA",
+      "lead": "Usa tu URL de API, clave y modelo. Configura cada repositorio y elige tu servicio o el de la plataforma.",
+      "cta": "Configurar tu servicio de IA",
+      "setup": "Abre un repositorio y entra en Servicio de IA. Guardar requiere permisos de administrador del repositorio.",
       "items": {
-        "low": {
-          "range": "0 – 39",
-          "desc": "Poca señal pública. Verifica el origen primero."
+        "provider": {
+          "title": "Elige el servicio por repositorio",
+          "body": "Alterna entre el servicio de la plataforma y tu propia URL base de API HTTPS pública. Cada repositorio conserva su configuración."
         },
-        "medium": {
-          "range": "40 – 69",
-          "desc": "Un perfil de contribuidor habitual."
+        "protocol": {
+          "title": "Elige protocolo y modelo",
+          "body": "Chat Completions compatible con OpenAI permite clasificar contenido y generar saludos. Jev Decisions solo clasifica contenido."
         },
-        "high": {
-          "range": "70 – 89",
-          "desc": "Señales públicas sólidas."
+        "key": {
+          "title": "Protege tu clave",
+          "body": "Las claves de API se almacenan cifradas y nunca vuelven a mostrarse. Puedes sustituir o eliminar una clave guardada desde la consola."
         },
-        "top": {
-          "range": "90 – 100",
-          "desc": "En lo más alto del índice ghfind."
+        "test": {
+          "title": "Prueba antes de activar",
+          "body": "Prueba explícitamente la conexión guardada. La prueba no modifica GitHub ni guarda textos de ejemplo. La clasificación de contenido sigue desactivada por defecto."
+        }
+      },
+      "billing": "Tu proveedor factura las solicitudes a tu clave. Si tu servicio falla, el Bot no cambia al servicio de la plataforma sin avisar."
+    },
+    "operations": {
+      "heading": "Primero revisa. Después decide.",
+      "lead": "Controla cada repositorio por separado; los cambios quedan registrados en el historial de actividad.",
+      "items": {
+        "preview": {
+          "title": "Probar una sugerencia de etiquetas",
+          "body": "Prueba un ejemplo de Issue o PR con las definiciones de etiquetas guardadas. La vista previa no modifica GitHub ni guarda el texto del ejemplo. Requiere un servicio de clasificación configurado."
         },
-        "noScore": {
-          "range": "Sin puntuación",
-          "desc": "Puntuación no disponible, no es cero. Se reintenta a los 20 y 60 minutos."
+        "backfill": {
+          "title": "Procesar envíos existentes",
+          "body": "Inicia tú mismo el procesamiento de los últimos 1–100 Issues y PRs abiertos. La instalación solo inicializa las etiquetas de puntuación; no procesa automáticamente los envíos anteriores."
+        },
+        "cleanup": {
+          "title": "Revisar y deshacer cambios del Bot",
+          "body": "Revisa las eliminaciones posibles antes de confirmar. La limpieza solo elimina cambios atribuibles a este Bot; conserva las etiquetas añadidas de nuevo manualmente y los cambios de autoría incierta."
         }
       }
     },
-    "steps": {
-      "heading": "Cómo funciona",
+    "cli": {
+      "heading": "Los mismos controles, desde tu terminal.",
+      "body": "Las CLI de Go, JavaScript y Python permiten consultar el estado, pausar, reanudar, procesar envíos existentes, reintentar y limpiar. Usa un token con permisos explícitos del Bot; también necesitas acceso al repositorio.",
+      "link": "Guía de CLI y API",
+      "example": "Comandos de ejemplo · sustituye owner/repo",
+      "note": "El comando cleanup muestra una vista previa de las eliminaciones. Para aplicarlas se necesita una confirmación aparte."
+    },
+    "reference": {
+      "heading": "Etiquetas de puntuación del autor y filtros de búsqueda de GitHub"
+    },
+    "labels": {
+      "heading": "Cinco rangos de puntuación del autor",
+      "lead": "Las etiquetas de puntuación que falten se crean al instalar. Se conservan los colores y las descripciones personalizados existentes.",
       "items": {
-        "install": {
-          "title": "Instala en los repositorios elegidos",
-          "body": "Concede lectura y escritura en Issues y Pull requests. Elige Only select repositories para empezar poco a poco; los repos de organización pueden requerir aprobación."
+        "low": {
+          "range": "0 – 39",
+          "desc": "Menos señales en el perfil público."
         },
-        "open": {
-          "title": "Alguien abre un issue o PR",
-          "body": "El bot consulta en segundo plano la puntuación pública de ghfind del autor. Nunca lee ni evalúa el cuerpo del issue."
+        "medium": {
+          "range": "40 – 69",
+          "desc": "Señales del perfil público en el rango intermedio."
         },
-        "label": {
-          "title": "Aparece una etiqueta review:",
-          "body": "Al instalar también se etiquetan las primeras páginas de issues y PRs abiertos. Editar o reabrir no vuelve a puntuar."
+        "high": {
+          "range": "70 – 89",
+          "desc": "Señales más sólidas en el perfil público."
+        },
+        "top": {
+          "range": "90 – 100",
+          "desc": "El rango más alto del índice ghfind."
+        },
+        "noScore": {
+          "range": "Sin puntuación",
+          "desc": "No disponible no significa cero. Los fallos temporales se reintentan a los 20 y 60 minutos."
         }
       }
     },
     "queues": {
-      "heading": "Convierte rangos de puntuación en colas de revisión",
-      "lead": "Pega un filtro en la búsqueda de issues de tu repositorio y empieza por la cola que encaje con tu tiempo.",
+      "heading": "Filtrar en GitHub",
+      "lead": "Pega un filtro en la búsqueda de Issues de tu repositorio. Sustituye is:issue por is:pr para buscar pull requests.",
       "items": {
-        "high": "Issues de puntuación alta",
-        "top": "Issues de puntuación máxima",
-        "low": "Issues de puntuación baja por verificar",
-        "noScore": "Sin puntuación — falta contexto"
+        "high": "Rango de puntuación alta",
+        "top": "Rango de puntuación máxima",
+        "low": "Rango de puntuación baja",
+        "noScore": "Puntuación no disponible"
       }
     },
     "notes": {
-      "rescore": {
-        "heading": "Pedir una nueva puntuación",
-        "body": "Tras los reintentos automáticos, el autor o un administrador del repositorio puede comentar @ghfind-review en el issue para volver a puntuarlo."
+      "heading": "Instalación, datos y controles",
+      "install": {
+        "heading": "Empieza con los repositorios elegidos",
+        "body": "Instala la GitHub App con acceso de lectura y escritura a Issues y Pull requests. No necesitas un workflow, PAT ni secreto en el repositorio. Los repositorios de organizaciones pueden requerir la aprobación de su propietario."
       },
       "privacy": {
-        "heading": "Qué datos toca",
-        "body": "Ni código fuente ni cuerpos de issues. Solo guarda la instalación, el repositorio, el número de issue, la puntuación y el estado del trabajo; los trabajos terminados se borran a los 30 días. Los autores con email público pueden recibir un email de puntuación cada 72 horas como máximo, con baja en un clic.",
-        "link": "Aviso de privacidad"
+        "heading": "Conoce qué se procesa",
+        "body": "La puntuación usa el perfil público del autor. La clasificación opcional envía el título, el cuerpo y las descripciones de las etiquetas seleccionadas al servicio de IA configurado. Los comentarios están desactivados por defecto; si los activas, incluyen una introducción y un resumen de la puntuación del autor, no una revisión de código.",
+        "link": "Leer el aviso de privacidad"
       },
       "stop": {
-        "heading": "Detenlo cuando quieras",
-        "body": "Quita repositorios, suspende o desinstala la app desde los ajustes de GitHub. Las etiquetas existentes se mantienen."
+        "heading": "Pausar o eliminar el Bot",
+        "body": "Pausa el procesamiento de cada repositorio desde la consola o elimina la App en los ajustes de GitHub. Las etiquetas existentes permanecen; usa la limpieza para revisar por separado los cambios del Bot que se pueden eliminar."
       }
     },
-    "disclaimer": "La puntuación refleja el perfil público de GitHub del autor, no la calidad de esta contribución. Los nuevos contribuidores quizá solo tengan poco historial público.",
+    "disclaimer": "La puntuación refleja el perfil público de GitHub del autor, no la calidad de esta contribución. Quienes acaban de empezar quizá solo tengan un historial público breve.",
     "source": "Código fuente y guía de autoalojamiento"
+  },
+  "integrations": {
+    "eyebrow": "For developers and agents",
+    "title": "CLI & API",
+    "subtitle": "Connect ghfind to your terminal, scripts, and agents. Install the CLI and Skill, create a personal API token, and explore the API docs.",
+    "install": {
+      "heading": "Install the CLI and Skill with one command",
+      "description": "Copy this into a terminal or coding agent. Node.js 18 or newer is required; no sudo needed.",
+      "copy": "Copy install command",
+      "copied": "Copied",
+      "requirement": "The script installs the official npm CLI and saves the ghfind-cli Skill to ~/.agents/skills/ghfind-cli.",
+      "cliDocs": "CLI docs",
+      "skill": "View Skill"
+    },
+    "how": {
+      "heading": "Get connected",
+      "install": "Run the command to install the ghfind CLI.",
+      "skill": "The installer also adds the ghfind-cli Skill so your agent can read the commands and guidance.",
+      "auth": "For full scans or roasts, create an API token above and set GHFIND_API_KEY."
+    },
+    "tokens": {
+      "heading": "Create API token",
+      "signedOut": "Sign in with GitHub to create separate tokens for your CLI or automation. A token is shown only once when created.",
+      "signIn": "Sign in to create token",
+      "description": "Revoke tokens individually. The full token is never shown again.",
+      "scanScope": "Escaneo",
+      "botScope": "Gestión del bot",
+      "scanIncluded": "Todos los tokens incluyen acceso de escaneo para la CLI, la API y MCP.",
+      "botPermission": "Administrar el ghfind Review bot",
+      "botPermissionHint": "Permite que este token cambie la configuración del bot y ejecute limpiezas en repositorios donde eres administrador.",
+      "scopesUnavailableError": "Los permisos del bot aún no están disponibles. Inténtalo más tarde.",
+      "limit": "{count}/10 active tokens",
+      "namePlaceholder": "Name, e.g. Local CLI",
+      "defaultName": "CLI / Agent",
+      "create": "Create token",
+      "working": "Working…",
+      "copyOnce": "Copy and save it now. You cannot view the full token again after leaving this page.",
+      "copy": "Copy token",
+      "copied": "Copied",
+      "loading": "Loading tokens…",
+      "empty": "No API tokens yet.",
+      "created": "Created {date}",
+      "revoke": "Revoke {name}",
+      "revokeShort": "Revoke",
+      "loadError": "Could not load tokens. Refresh and try again.",
+      "createError": "Could not create the token. Try again.",
+      "limitError": "You have reached the active token limit. Revoke a token you no longer use.",
+      "revokeError": "Could not revoke the token. Try again."
+    },
+    "auth": {
+      "heading": "Authentication",
+      "description": "Sign in to the website with GitHub OAuth. CLI and API requests use a personal Bearer token created from your account; these credentials are separate.",
+      "publicTitle": "Public endpoints",
+      "public": "Scoring, comparisons, search, leaderboards, and developer directories work without a token.",
+      "protectedTitle": "Token required",
+      "protected": "Full scans and roasts that run a scan require GHFIND_API_KEY.",
+      "credentialNote": "Keep tokens in environment variables or a secrets manager. Do not commit them or give them to an untrusted agent.",
+      "apiDocs": "API docs"
+    }
+  },
+  "jobs": {
+    "metaTitle": "Empleo para desarrolladores: vacantes en empresas de IA · ghfind",
+    "metaDescription": "Vacantes de ingeniería, investigación y producto en empresas de IA como DeepSeek y ModaLeap, con enlace para postularte en la web de cada empresa.",
+    "heading": "Empleo para desarrolladores",
+    "subtitle": "Convierte tu trabajo open source en tu próximo empleo.",
+    "postJob": "Publicar oferta",
+    "viewAll": "Ver todo",
+    "sponsored": "Patrocinador · Fijado",
+    "sponsorNote": "Las ofertas de patrocinadores aparecen primero",
+    "becomeSponsor": "Hazte patrocinador",
+    "filterLabel": "Filtrar por empresa",
+    "allCompanies": "Todas las empresas",
+    "openJobs": "Vacantes: {count}",
+    "sponsorTag": "Patrocinador",
+    "careersSite": "Web de empleo",
+    "empty": "No hay vacantes abiertas por ahora. Vuelve pronto.",
+    "disclaimer": "Las ofertas se recopilan de las páginas públicas de empleo de cada empresa. Postúlate en su web; ghfind no participa en las decisiones de contratación.",
+    "type": {
+      "full_time": "Jornada completa",
+      "intern": "Prácticas",
+      "part_time": "Media jornada"
+    },
+    "backToJobs": "Todas las ofertas",
+    "apply": "Postularme",
+    "applyByEmail": "Postularme por email",
+    "emailNote": "Envía tu CV a {email}",
+    "detailNote": "ghfind solo publica esta oferta; la empresa toma todas las decisiones de contratación."
+  },
+  "talentMatch": {
+    "source": {
+      "legend": "¿Cómo quieres compartir tu currículum?",
+      "existingTitle": "Usar un currículum de ghfind",
+      "existingHint": "Elige uno guardado en Mi currículum",
+      "uploadTitle": "Subir el tuyo",
+      "uploadHint": "PDF, hasta {max} MB",
+      "loading": "Cargando tus currículums…",
+      "loadFailed": "No pudimos cargar tus currículums guardados. Inténtalo más tarde o sube un PDF.",
+      "listLabel": "Tus currículums",
+      "profileOption": "Perfil (datos reutilizables)",
+      "profileHint": "Datos que guardaste para reutilizar en tus currículums",
+      "updated": "Actualizado el {date}",
+      "manage": "Gestionar currículums",
+      "emptyTitle": "Aún no tienes un currículum en ghfind",
+      "emptyBody": "Crea uno en pocos minutos con el editor de currículums, guárdalo en la nube y vuelve para analizarlo.",
+      "emptyCta": "Crear un currículum",
+      "emptyUpload": "Subir un PDF"
+    },
+    "drop": {
+      "label": "Subir un currículum en PDF",
+      "title": "Arrastra y suelta tu PDF aquí",
+      "or": "o",
+      "browse": "Elegir archivo",
+      "rules": "Solo PDF · hasta {max} MB",
+      "dragging": "Suéltalo para leer tu currículum",
+      "reading": "Leyendo {name}…",
+      "readingHint": "Se procesa en tu navegador y tarda unos segundos.",
+      "readyTitle": "Currículum listo",
+      "readyMeta": "{pages, plural, one {# página} other {# páginas}} · {chars} caracteres",
+      "replace": "Cambiar",
+      "remove": "Quitar",
+      "errorTitle": "Ese archivo no sirvió",
+      "retry": "Elegir otro archivo",
+      "privacy": "El PDF se lee en tu navegador y nunca se sube. Solo se envía su texto (sin correo ni teléfono) y el texto nunca se guarda.",
+      "errors": {
+        "type": "No es un PDF. Elige un archivo .pdf.",
+        "size": "El archivo pesa {size} MB. El límite es {max} MB.",
+        "empty": "El archivo está vacío.",
+        "multiple": "Suelta un solo archivo a la vez.",
+        "unreadable": "No se pudo leer texto de este PDF (puede ser un escaneo o una imagen). Usa un PDF con texto seleccionable.",
+        "parse": "No se pudo abrir este PDF; puede estar dañado o protegido con contraseña."
+      }
+    },
+    "history": {
+      "title": "Análisis anteriores",
+      "empty": "Tus análisis aparecerán aquí cuando generes uno.",
+      "untitled": "Informe de talento",
+      "viewing": "Viendo",
+      "opening": "Abriendo…",
+      "running": "En curso",
+      "failed": "Falló",
+      "matches": "{count, plural, one {# puesto compatible} other {# puestos compatibles}}",
+      "topFit": "Mejor ajuste {fit}",
+      "openFailed": "No se pudo abrir ese análisis. Inténtalo de nuevo."
+    },
+    "company": {
+      "badge": "Próximamente",
+      "title": "Las herramientas de contratación llegan pronto",
+      "body": "Pronto podrás pegar una descripción de puesto y ver desarrolladores abiertos a oportunidades, ordenados por habilidades verificadas en GitHub.",
+      "cta": "Publicar una oferta"
+    },
+    "optIn": {
+      "title": "Abierto a oportunidades",
+      "label": "Permitir que las empresas me encuentren en el banco de talento",
+      "detail": "Las empresas verían tu nombre, usuario de GitHub, titular, habilidades y nivel de coincidencia de tu perfil actual, nunca el texto de tu currículum. Puedes desactivarlo cuando quieras; eliminar tu perfil también te retira.",
+      "on": "Estás en el banco de talento.",
+      "off": "No estás en el banco de talento.",
+      "notLive": "La búsqueda para empresas aún no está disponible, así que hoy nadie puede ver tu perfil; si lo activas ahora, estarás en el banco cuando se abra.",
+      "saveFailed": "No se pudo guardar tu elección. Inténtalo de nuevo."
+    }
+  },
+  "discover": {
+    "metaTitle": "Descubrir proyectos · ghfind",
+    "metaDescription": "Un feed compacto de proyectos open source de alto valor.",
+    "title": "Descubrir",
+    "heading": "Feed de proyectos",
+    "beta": "Beta",
+    "modeGrid": "Cuadrícula",
+    "modeSwipe": "Deslizar",
+    "filters": "Filtros",
+    "filtersBody": "Guardar marca el proyecto. Saltar queda en este dispositivo y no lo marca como no interesado.",
+    "signedOutBanner": "Entra con GitHub para personalizar el feed. Ahora ves destacados públicos.",
+    "feedUnavailable": "El feed personalizado no está disponible. Mostramos destacados públicos.",
+    "empty": "No hay más proyectos por ahora.",
+    "like": "Guardar",
+    "skip": "Saltar",
+    "superLike": "Destacar",
+    "undo": "Deshacer",
+    "viewCard": "Ver informe",
+    "quickPreview": "Vista rápida",
+    "productScore": "Valor de producto",
+    "confidence": "Confianza",
+    "communityStrength": "Comunidad",
+    "language": "Lenguaje",
+    "openFull": "Abrir informe completo",
+    "keyboard": "← saltar · → guardar · ↑ destacar · Retroceso deshacer",
+    "hint": "Guardar marca el proyecto. Saltar es una señal débil, no un bloqueo.",
+    "audience": "Para",
+    "partitions": "Interest topics",
+    "partitionAll": "All",
+    "partitionAgent": "Agent",
+    "partitionSkill": "Skill",
+    "partitionMicroservice": "Microservices",
+    "partitionSandbox": "Sandbox"
+  },
+  "stream": {
+    "postTitle": "Publicación",
+    "replyPlaceholder": "Publica tu respuesta",
+    "replySend": "Responder",
+    "metaTitle": "Para ti · ghfind",
+    "metaDescription": "Publicaciones de desarrolladores en X, en un solo feed.",
+    "prototype": "Prototipo",
+    "demoData": "Datos de demostración: aquí no hay conexión con las fuentes en vivo.",
+    "heading": "Para ti",
+    "tabForYou": "Para ti",
+    "tabFollowing": "Siguiendo",
+    "channels": "Canales",
+    "kind": {
+      "project": "Proyectos",
+      "developer": "Desarrolladores",
+      "talent": "Talento",
+      "article": "Artículos",
+      "collection": "Colecciones",
+      "job": "Empleos",
+      "post": "En X"
+    },
+    "kindOne": {
+      "project": "Proyecto",
+      "developer": "Desarrollador",
+      "talent": "Talento",
+      "article": "Artículo",
+      "collection": "Colección",
+      "job": "Empleo",
+      "post": "Post de X"
+    },
+    "layoutList": "Lista",
+    "layoutMasonry": "Cuadrícula",
+    "sponsored": "Patrocinado",
+    "available": "Busca empleo",
+    "score": "Puntuación",
+    "productScore": "Puntuación de producto",
+    "minutesRead": "{minutes} min de lectura",
+    "like": "Me gusta",
+    "unlike": "Quitar me gusta",
+    "save": "Guardar",
+    "unsave": "Quitar de guardados",
+    "share": "Compartir",
+    "comments": "Comentarios",
+    "more": "Más",
+    "notInterested": "No me interesa",
+    "copyLink": "Copiar enlace",
+    "openOriginal": "Abrir página completa",
+    "linkCopied": "Enlace copiado",
+    "hidden": "Entendido. Verás menos contenido así.",
+    "undo": "Deshacer",
+    "follow": "Seguir",
+    "following": "Siguiendo",
+    "followedToast": "Ahora sigues a {name}",
+    "related": "Contenido similar",
+    "discussion": "Únete a la conversación en la página completa",
+    "close": "Cerrar",
+    "stats": {
+      "confidence": "Confianza",
+      "community": "Comunidad",
+      "language": "Lenguaje",
+      "lookups": "Consultas",
+      "delta": "Esta semana",
+      "location": "Ubicación",
+      "project": "Proyecto",
+      "stars": "Estrellas",
+      "salary": "Salario",
+      "note": "Por qué seguir"
+    },
+    "loadingMore": "Cargando más…",
+    "endTitle": "Ya lo viste todo",
+    "endBody": "Actualiza para reordenar según lo que acabas de marcar.",
+    "refresh": "Actualizar",
+    "retuned": "Ajustado a tus gustos · actualizar",
+    "followingEmptyTitle": "Sigue a personas para llenar esta pestaña",
+    "followingEmptyBody": "Sigue a autores para leer aquí sus publicaciones de X.",
+    "feedEmpty": "Todavía no hay publicaciones de X.",
+    "savedEmpty": "Aún no has guardado nada. Toca el marcador en cualquier publicación.",
+    "railDailyProjects": "Proyectos de código abierto de hoy",
+    "railDailyProjectsEmpty": "Hoy no hay proyectos recomendados.",
+    "railDailyProjectsMore": "Ver clasificación de proyectos",
+    "railInterests": "Tus intereses",
+    "railInterestsEmpty": "Da me gusta o guarda algunas publicaciones y el feed aprenderá lo que te interesa.",
+    "railReset": "Restablecer",
+    "railTopDevelopers": "Desarrolladores en ascenso",
+    "railCtaTitle": "¿En qué puesto estás?",
+    "railCtaBody": "Explora tus contribuciones públicas en GitHub en 30 segundos.",
+    "railCtaButton": "Evaluar mi GitHub",
+    "navHome": "Inicio",
+    "navDiscover": "Descubrir",
+    "navScore": "Evaluar",
+    "navSaved": "Guardados",
+    "navLeaderboard": "Ranking",
+    "doubleTapHint": "Toca dos veces para dar me gusta",
+    "backToTop": "Volver arriba",
+    "counter": {
+      "lookups": "{count} consultas",
+      "stars": "{count} estrellas",
+      "items": "{count} seleccionados"
+    },
+    "badge": {
+      "hot": "Popular",
+      "new": "Nuevo",
+      "editor": "Selección editorial"
+    },
+    "pulseTotal": "{count} desarrolladores evaluados hasta ahora",
+    "pulseTrending": "Tendencia 24 h",
+    "pulseLookups": "{count} visitas",
+    "aiRoast": "Opinión de la IA",
+    "aiNote": "Generado por el modelo de evaluación de ghfind",
+    "dimsTitle": "Seis dimensiones",
+    "beat": "Supera al {percent}% de los desarrolladores",
+    "rankOf": "Puesto {rank} de {total}",
+    "weekDelta": "{delta} esta semana",
+    "facts": {
+      "followers": "Seguidores",
+      "totalStars": "Estrellas totales",
+      "mergedPrs": "PR fusionados",
+      "contributions": "Contribuciones (1 año)",
+      "years": "Años en GitHub"
+    },
+    "topRepos": "Repositorios destacados",
+    "battles": "Historial VS",
+    "battleWon": "V",
+    "battleLost": "D",
+    "battleDraw": "E",
+    "battleViews": "{count} espectadores",
+    "similar": "Desarrolladores similares",
+    "reactionsTitle": "Reacciones de la comunidad",
+    "reactionsCta": "Vota en el perfil",
+    "projectDims": {
+      "pain": "Problema",
+      "effectiveness": "Eficacia",
+      "experience": "Experiencia",
+      "valueDensity": "Densidad de valor"
+    },
+    "projectScoreTitle": "Desglose de la puntuación de producto",
+    "audience": "Para quién es",
+    "risks": "A tener en cuenta",
+    "talentProjects": "Proyectos",
+    "ownProject": "Lideró",
+    "prProject": "Contribuyó",
+    "sources": "Fuentes públicas",
+    "picksTitle": "Selección de esta colección",
+    "toc": "Contenido",
+    "excerpt": "Extracto",
+    "readFull": "Leer el texto completo",
+    "jobDescription": "Sobre el puesto",
+    "companySite": "Sitio de la empresa",
+    "moreFrom": "Más de {name}",
+    "editorPicks": "Selección editorial",
+    "commentsTitle": "Comentarios",
+    "commentsEmpty": "Aún no hay comentarios. Sé el primero.",
+    "commentPlaceholder": "Escribe algo…",
+    "commentAnonymousHint": "Sin iniciar sesión, se publica de forma anónima",
+    "commentSend": "Enviar",
+    "anonymous": "Anónimo",
+    "commentFailed": "No se pudo enviar. Inténtalo más tarde.",
+    "commentRateLimited": "Ve un poco más despacio",
+    "commentLinks": "No se permiten enlaces en los comentarios",
+    "commentsClosed": "Aquí aún no se puede comentar; visita la página completa.",
+    "justNow": "ahora mismo",
+    "quick": {
+      "developer": {
+        "a": "Puntuación justa",
+        "b": "Enséñame 🙏",
+        "c": "Te sigo, gran trabajo"
+      },
+      "talent": {
+        "a": "Gran dirección",
+        "b": "Hablemos",
+        "c": "Te sigo"
+      },
+      "article": {
+        "a": "Aprendí mucho",
+        "b": "Muy revelador",
+        "c": "Quiero más de esto"
+      },
+      "collection": {
+        "a": "Guardado",
+        "b": "Más como esta, por favor",
+        "c": "Gran primera elección"
+      }
+    },
+    "loadingDetail": "Cargando…",
+    "railEditor": "Selección editorial",
+    "xCategory": {
+      "researcher": "Investigador",
+      "builder": "Creador",
+      "media": "Medio tecnológico",
+      "developer": "Desarrollador top"
+    },
+    "viewOnX": "Ver en X",
+    "xMetrics": {
+      "replies": "Respuestas",
+      "reposts": "Reposts",
+      "likes": "Me gusta",
+      "views": "Vistas"
+    },
+    "xLatest": "Últimamente en X",
+    "railVoices": "Voces que vale la pena seguir",
+    "railVoicesHint": "Solo investigadores, creadores, medios tecnológicos y desarrolladores con 80+ en ghfind.",
+    "xSource": "Desde X · las métricas son cifras reales de X",
+    "ghfindProfile": "Perfil en ghfind",
+    "demoX": "Por ahora, los posts de X son datos de demostración: cuentas y contenidos ficticios que se reemplazan al recibir posts reales.",
+    "showTranslation": "Mostrar traducción",
+    "showOriginal": "Ver original",
+    "translatedBy": "Traducido por el agente de ghfind",
+    "feed": {
+      "addImage": "Añadir imágenes",
+      "cancel": "Cancelar",
+      "capabilitiesError": "No se pudo comprobar el permiso para publicar. Puedes seguir leyendo.",
+      "checking": "Comprobando el permiso para publicar…",
+      "composerPlaceholder": "Comparte lo que estás creando o pensando",
+      "conversationDescription": "Lee la publicación y las respuestas anteriores. Puedes responder a cualquier publicación de la conversación.",
+      "copyFailed": "No se pudo copiar el enlace. Inténtalo de nuevo.",
+      "deleteHint": "¿Eliminar esta publicación? Las respuestas seguirán conectadas a un marcador de publicación eliminada.",
+      "deletePost": "Eliminar publicación",
+      "deleted": "Esta publicación se ha eliminado.",
+      "dislike": "No me gusta",
+      "earlierReplies": "Ver respuestas anteriores",
+      "empty": "Aún no hay publicaciones.",
+      "end": "Estás al día.",
+      "followingEmpty": "Sigue a desarrolladores para ver sus publicaciones y republicaciones.",
+      "imageDescription": "Descripción de imagen (opcional)",
+      "loadMore": "Cargar más",
+      "localInteractions": "Interacciones en ghfind",
+      "loginRequired": "Inicia sesión para interactuar. Cualquiera puede leer.",
+      "mediaCount": "Puedes adjuntar hasta 4 imágenes.",
+      "mediaInvalid": "Usa JPEG, PNG, WebP o GIF de hasta 10 MB por imagen.",
+      "myBookmarks": "Mis guardados",
+      "noReplies": "Aún no hay respuestas.",
+      "openConversation": "Abrir la conversación de {name}",
+      "openImage": "Abrir imagen",
+      "privateBookmarks": "Tus guardados son privados.",
+      "publish": "Publicar",
+      "publishAccessTitle": "Antes de publicar",
+      "publishRequirement": "Para publicar o responder necesitas una cuenta de GitHub verificada y al menos 60 puntos en ghfind.",
+      "published": "Publicado en ghfind.",
+      "publishing": "Publicando…",
+      "rateLimited": "Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.",
+      "removeImage": "Quitar imagen",
+      "repost": "Republicar",
+      "repostedBy": "Republicado por {name}",
+      "requestFailed": "No se pudo completar la solicitud. Inténtalo de nuevo.",
+      "retry": "Reintentar",
+      "unavailable": "Esta publicación no está disponible.",
+      "undoDislike": "Deshacer no me gusta",
+      "undoRepost": "Deshacer republicación",
+      "unfollow": "Dejar de seguir",
+      "viewQuotedPost": "Ver publicación citada",
+      "quotedPostPreviewUnavailable": "Vista previa no disponible",
+      "viewAttachedLink": "Ver enlace adjunto",
+      "attachedLinkPreviewUnavailable": "Abre el enlace para ver el contenido",
+      "viewOnX": "Ver publicación original en X",
+      "showOriginal": "Original",
+      "showTranslated": "Traducido",
+      "translationToggle": "Ver texto original o traducido",
+      "views": "Visualizaciones en ghfind",
+      "viewReplies": "Ver respuestas",
+      "scoreBelowMinimum": "Tu puntuación guardada es inferior a 60. No puedes publicar ni responder.",
+      "scoreMissing": "No hay una puntuación guardada. Consulta primero la puntuación de tu cuenta de GitHub.",
+      "verifyScore": "No pudimos verificar la titularidad de tu puntuación guardada. Inténtalo de nuevo.",
+      "rescanAccount": "Volver a analizar desde mi perfil",
+      "authorCard": {
+        "followingAction": "Following",
+        "follow": "Follow",
+        "followsYou": "Follows you",
+        "retry": "Could not load · Retry",
+        "loading": "Loading…",
+        "score": "ghfind score",
+        "unscored": "Not scored",
+        "following": "Following",
+        "followers": "Followers",
+        "source": "Follow counts from ghfind"
+      }
+    }
+  },
+  "realms": {
+    "qi": {
+      "name": "Condensación Qi",
+      "blurb": "Primeros pasos · Construyendo la base"
+    },
+    "foundation": {
+      "name": "Fundación",
+      "blurb": "Base lista · Progreso constante"
+    },
+    "goldenCore": {
+      "name": "Formación Núcleo",
+      "blurb": "Núcleo formado · Mostrando filo"
+    },
+    "nascentSoul": {
+      "name": "Alma Nascente",
+      "blurb": "Alma despierta · Estilo propio"
+    },
+    "deity": {
+      "name": "Transf. Divina",
+      "blurb": "Mente clara · Influencia real"
+    },
+    "voidRefining": {
+      "name": "Templado Espacial",
+      "blurb": "Maestría sin esfuerzo"
+    },
+    "integration": {
+      "name": "Integ. Corporal",
+      "blurb": "En armonía · Maestro de élite"
+    },
+    "mahayana": {
+      "name": "Gran Ascensión",
+      "blurb": "Cerca de la cumbre · Salón de la fama"
+    }
   }
 }

@@ -14,7 +14,8 @@ const ROLLOUT_KEYS = [
 // Versioned and independent of request paths, cookies, login names and process
 // randomness. Keep the seed fixed across internal -> 1% -> 10% -> all.
 export function feedRolloutBucket(githubId: number, seed: string): number {
-  return createHash("sha256").update(`ghfind-feed-rollout-v1\n${seed}\n${githubId}`).digest().readUInt32BE(0) % 10_000;
+  const digest = createHash("sha256").update(`ghfind-feed-rollout-v1\n${seed}\n${githubId}`).digest();
+  return new DataView(digest.buffer, digest.byteOffset, digest.byteLength).getUint32(0, false) % 10_000;
 }
 
 // This is admission to the Go runtime, not an alternative database writer.

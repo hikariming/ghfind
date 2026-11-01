@@ -1,16 +1,35 @@
-import { ScanBusyError } from "./scan-protection";
+import { projectShare } from "./co-creator";
+import { getScanDatabase } from "./db";
+import { DeferredScanError, ScanBusyError } from "./scan-protection";
+import {
+  commitPendingCursors,
+  loadScanCursors,
+  planInventoryCursor,
+  scanIncrementalEnabled,
+  type CursorRepo,
+  type PendingScanCursors,
+} from "./scan-cursor";
 import {
   AccountNotFoundError,
   GitHubAuthRequiredError,
   GitHubDataUnavailableError,
   GitHubRateLimitError,
+  GitHubInternalQueryError,
+  GitHubResourceLimitError,
+  GitHubQueryTimeoutError,
   computeImpactFromContribMap,
   computeImpactQualitySignals,
   bestOriginalRepoQuality,
+  isProfileReadmeRepo,
   topStarredOriginalRepoQuality,
+  weightedOriginalStars,
+  contentSkillSignals,
   collect,
+  COLLECT_DEADLINE_MS,
+  GitHubCollectDeadlineError,
   type ContribRepoAgg,
 } from "@/lib/github";
+import { collectorCache } from "@/lib/redis";
 import { score } from "@/lib/score";
 import type { PublicScanPrFact } from "@/lib/scan-run-types";
 import type { ImpactRepo, RecentPr, ScanResult, SignatureWork, SignatureWorkCluster, TopRepo } from "@/lib/types";
@@ -189,16 +208,129 @@ export function buildPublicSignatureWork(
  * Wrap calls in `coalesceScan()` (single-flight + cache) so a burst of identical
  * requests only crawls GitHub once.
  */
-export async function buildScanResult(username: string): Promise<ScanResult> {
-  const collected = await collect(username);
-  const scan = {
-    ...collected,
-    scoring: score(collected.metrics),
+export interface BuildScanResultOptions {
+  deadlineMs?: number;
+  full?: boolean;
+  /**
+   * Clock for cursor age. Tests pin this. Production uses the current time.
+   * Ignored when the incremental flag is off.
+   */
+  now?: Date;
+}
+
+const pendingScanCursors = new WeakMap<ScanResult, PendingScanCursors>();
+
+/**
+ * Drop a partial quick scan's incremental book. The deepen collects a full
+ * inventory page and that page is the only cursor recorded. PR sources stay
+ * full window pulls and are not stored as watermarks.
+ */
+export function discardIncrementalCursor(scan: ScanResult): void {
+  pendingScanCursors.delete(scan);
+}
+
+/**
+ * Deterministic scan. With `GHFIND_SCAN_INCREMENTAL_ENABLED` off this is the
+ * current collect path. With it on, inventory may resume from the stored
+ * `pushedAt` watermark. The cursor book stays off the snapshot and is written
+ * only after `publishCompleteQuickScan` commits.
+ */
+export async function buildScanResult(
+  username: string,
+  options: BuildScanResultOptions = {},
+): Promise<ScanResult> {
+  const { collected, pending } = await collectScan(username, options);
+  const scored = { ...collected, scoring: score(collected.metrics) };
+  const scan: ScanResult = {
+    ...scored,
+    signature_work: buildRecentSignatureWork(scored),
   };
+  if (pending && pending.repos.length > 0) pendingScanCursors.set(scan, pending);
+  return scan;
+}
+
+async function collectScan(
+  username: string,
+  options: BuildScanResultOptions,
+): Promise<{ collected: Awaited<ReturnType<typeof collect>>; pending: PendingScanCursors | null }> {
+  const base = {
+    cache: collectorCache,
+    deadlineMs: options.deadlineMs ?? COLLECT_DEADLINE_MS,
+  };
+  if (!scanIncrementalEnabled()) {
+    return { collected: await collect(username, { ...base, full: options.full }), pending: null };
+  }
+  const db = getScanDatabase();
+  if (!db) {
+    return { collected: await collect(username, { ...base, full: options.full }), pending: null };
+  }
+  const now = options.now ?? new Date();
+  const loaded = await loadScanCursors(db, username);
+  const plan = planInventoryCursor(loaded.book, now, loaded.schemaMismatch);
+  const incremental = !options.full && !plan.full && plan.since !== "";
+  let captured: { repos: CursorRepo[]; forkCount: number } | null = null;
+  const collected = await collect(username, {
+    ...base,
+    full: options.full,
+    captureInventory: (page) => {
+      captured = page;
+    },
+    ...(incremental
+      ? {
+          inventorySince: plan.since,
+          inventoryBaseline: {
+            repos: loaded.book.repos?.repos ?? [],
+            forkCount: loaded.book.repos?.forkCount ?? 0,
+          },
+        }
+      : {}),
+  });
+  // A quick scan that is still partial owes the existing deepen. This run's
+  // incremental page is not a cursor. The full inventory page, collected by
+  // the deepen, is the one that gets recorded.
+  if (
+    !options.full &&
+    collected.collection?.mode === "quick" &&
+    collected.collection.coverage === "partial_public"
+  ) {
+    return { collected, pending: null };
+  }
+  const page = captured as { repos: CursorRepo[]; forkCount: number } | null;
+  if (!page || page.repos.length === 0) return { collected, pending: null };
+  const reconciled = Boolean(options.full) || plan.full;
   return {
-    ...scan,
-    signature_work: buildRecentSignatureWork(scan),
+    collected,
+    pending: {
+      book: loaded.book,
+      plan: reconciled ? { ...plan, full: true, since: "" } : plan,
+      repos: page.repos,
+      forkCount: page.forkCount,
+      reconciled,
+      now,
+    },
   };
+}
+
+/**
+ * Write a staged inventory cursor after the public scan row commits.
+ * No-op when the flag is off, the scan did not stage a book, or the write
+ * fails after one retry. Never fails the scan. The book is not part of the
+ * public snapshot.
+ */
+export async function commitScanCursorsAfterPersist(scan: ScanResult): Promise<void> {
+  if (!scanIncrementalEnabled()) return;
+  const pending = pendingScanCursors.get(scan);
+  if (!pending) return;
+  const db = getScanDatabase();
+  if (!db) return;
+  try {
+    await commitPendingCursors(db, pending);
+  } catch {
+    console.error("scan_cursor_commit_failed", {
+      username: /^[a-z0-9-]{1,39}$/i.test(pending.book.username) ? pending.book.username : "invalid",
+      category: "cursor_write",
+    });
+  }
 }
 
 /**
@@ -228,6 +360,7 @@ export function applyPublicContributionAggregate(
     impact_prestige_score: impact.impact_prestige_score,
     impact_depth_raw: impact.impact_depth_raw,
     impact_repo_count: impact.impact_repo_count,
+    impact_repos: impact.impact_repos,
     impact_commit_count: impact.impact_commit_count,
     impact_pr_count: impact.impact_pr_count,
     ...quality,
@@ -268,16 +401,19 @@ export function applyPublicOriginalRepoInventory(
     ).values(),
   ];
   const loginLower = scan.metrics.username.toLowerCase();
+  const starRepos = all.filter((repo) => !isProfileReadmeRepo(repo, loginLower));
   const best = bestOriginalRepoQuality(all, loginLower);
-  const topStarred = topStarredOriginalRepoQuality(all, loginLower);
+  const topStarred = topStarredOriginalRepoQuality(starRepos, loginLower);
   const metrics = {
     ...scan.metrics,
     fetched_repo_count: Math.max(scan.metrics.fetched_repo_count, ownedRepos.length),
     original_repo_count: all.length,
     nonempty_original_repo_count: all.filter((repo) => repo.size > 0).length,
     empty_original_repo_count: ownedRepos.filter((repo) => repo.size <= 0).length,
-    total_stars: all.reduce((sum, repo) => sum + Math.max(0, repo.stars), 0),
-    max_stars: all.reduce((max, repo) => Math.max(max, repo.stars), 0),
+    total_stars: starRepos.reduce((sum, repo) => sum + Math.max(0, repo.stars)*projectShare(repo), 0),
+    max_stars: starRepos.reduce((max, repo) => Math.max(max, repo.stars*projectShare(repo)), 0),
+    ...weightedOriginalStars(starRepos, new Date()),
+    ...contentSkillSignals(starRepos),
     best_original_repo_quality_score: best.score,
     best_original_repo_quality_repo: best.repo,
     top_starred_original_repo_quality_score: topStarred.score,
@@ -286,7 +422,7 @@ export function applyPublicOriginalRepoInventory(
   return {
     ...scan,
     metrics,
-    top_repos: all.sort((a, b) => b.stars - a.stars || b.size - a.size).slice(0, 10),
+    top_repos: all.sort((a, b) => b.stars * projectShare(b) - a.stars * projectShare(a) || b.size - a.size).slice(0, 10),
     scoring: score(metrics),
   };
 }
@@ -298,6 +434,16 @@ export function scanErrorResponse(e: unknown): {
   status: number;
   retry_after?: number;
 } {
+  if (e instanceof DeferredScanError) {
+    const codes: Record<string, { status: number; retry_after?: number }> = {
+      account_not_found: { status: 404 }, github_token_required: { status: 500 },
+      github_rate_limited: { status: 503 }, github_collect_deadline: { status: 503, retry_after: 15 },
+      github_unavailable: { status: 503, retry_after: 60 }, scan_busy: { status: 503, retry_after: 15 },
+      scan_failed: { status: 500 },
+    };
+    const value = codes[e.code];
+    return value ? { error: e.code, ...value } : { error: "scan_failed", status: 500 };
+  }
   if (e instanceof ScanBusyError) {
     return { error: "scan_busy", status: 503, retry_after: 15 };
   }
@@ -310,9 +456,40 @@ export function scanErrorResponse(e: unknown): {
   if (e instanceof GitHubRateLimitError) {
     return { error: "github_rate_limited", status: 503 };
   }
+  if (e instanceof GitHubCollectDeadlineError) {
+    return { error: "github_collect_deadline", status: 503, retry_after: 15 };
+  }
   if (e instanceof GitHubDataUnavailableError) {
     return { error: "github_unavailable", status: 503, retry_after: 60 };
   }
-  console.error("scan failed:", e);
+  console.error("scan failed", { category: "unexpected" });
   return { error: "scan_failed", status: 500 };
+}
+
+/** Log before legacy fallback can turn a failed fresh scan into HTTP 200.
+ * Only allowlisted categories and a normalized public login leave this boundary;
+ * never serialize the error, request headers, or upstream response text.
+ */
+export function logFreshScanFailure(error: unknown, context: {
+  route: "scan" | "score";
+  username: string;
+  persistenceFailure: boolean;
+}): void {
+  const category = context.persistenceFailure ? "score_persistence"
+    : error instanceof DeferredScanError ? error.code
+    : error instanceof GitHubInternalQueryError ? "github_internal"
+    : error instanceof GitHubResourceLimitError ? "github_resource_limit"
+    : error instanceof GitHubQueryTimeoutError ? "github_query_timeout"
+    : error instanceof GitHubCollectDeadlineError ? "github_collect_deadline"
+    : error instanceof GitHubRateLimitError ? "github_rate_limited"
+    : error instanceof GitHubAuthRequiredError ? "github_token_required"
+    : error instanceof AccountNotFoundError ? "account_not_found"
+    : error instanceof GitHubDataUnavailableError ? "github_unavailable"
+    : error instanceof ScanBusyError ? "scan_busy"
+    : "unexpected";
+  console.error("fresh_scan_failed", {
+    route: context.route,
+    username: /^[a-z0-9-]{1,39}$/i.test(context.username) ? context.username : "invalid",
+    category,
+  });
 }

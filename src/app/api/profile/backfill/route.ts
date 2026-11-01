@@ -11,7 +11,13 @@ import {
   GitHubRateLimitError,
   collect,
 } from "@/lib/github";
-import { checkRateLimit, coalesceScan, getCachedScan, rateLimitHeaders } from "@/lib/redis";
+import {
+  checkRateLimit,
+  coalesceScan,
+  collectorCache,
+  getCachedScan,
+  rateLimitHeaders,
+} from "@/lib/redis";
 import { score } from "@/lib/score";
 import type { ScanResult } from "@/lib/types";
 import { normalizeUsername } from "@/lib/username";
@@ -83,7 +89,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await coalesceScan(username, async (): Promise<ScanResult> => {
-      const collected = await collect(username);
+      const collected = await collect(username, { cache: collectorCache });
       return { ...collected, scoring: score(collected.metrics) };
     });
     await recordProfileSnapshot(result);

@@ -1,0 +1,110 @@
+{
+  "scan": {
+    "metrics": {
+      "username": "fixture-co-maintainer",
+      "merged_pr_count": 40,
+      "recent_merged_pr_sample": 30,
+      "impact_pr_count": 3,
+      "followers": 900,
+      "total_stars": 215.77,
+      "max_stars": 133.4,
+      "weighted_total_stars": 215.77,
+      "weighted_max_stars": 133.4,
+      "top_starred_original_repo_quality_score": 0.3,
+      "top_starred_original_repo_quality_repo": "org-x/app-y"
+    },
+    "top_repos": [
+      {
+        "name": "app-y",
+        "owner_login": "org-x",
+        "name_with_owner": "org-x/app-y",
+        "stars": 259.4,
+        "forks": 30,
+        "open_issues": 5,
+        "attributed_original": true,
+        "attribution_share": 0.52,
+        "co_creator_facts": {
+          "user_commits": 420,
+          "total_commits": 1500,
+          "leading_commits": 520,
+          "user_merged_prs": 130,
+          "total_merged_prs": 640,
+          "active_years": 3,
+          "core_churn": 3200,
+          "sampled_churn": 4100,
+          "substantive_samples": 7,
+          "samples": 10,
+          "association": "MEMBER",
+          "recent_user_commits": 90,
+          "recent_total_commits": 150,
+          "recent_user_merged_prs": 40,
+          "recent_total_merged_prs": 70,
+          "reviewed_prs": 55
+        }
+      },
+      {
+        "name": "app-z",
+        "owner_login": "org-x",
+        "name_with_owner": "org-x/app-z",
+        "stars": 900,
+        "forks": 3,
+        "open_issues": 0,
+        "attributed_original": true,
+        "attribution_share": 0.004,
+        "co_creator_facts": {
+          "user_commits": 3,
+          "total_commits": 1500,
+          "leading_commits": 520,
+          "user_merged_prs": 130,
+          "total_merged_prs": 640,
+          "active_years": 3,
+          "core_churn": 3200,
+          "sampled_churn": 4100,
+          "substantive_samples": 7,
+          "samples": 10,
+          "association": "MEMBER",
+          "recent_user_commits": 0,
+          "recent_total_commits": 150,
+          "recent_user_merged_prs": 40,
+          "recent_total_merged_prs": 70,
+          "reviewed_prs": 55
+        }
+      }
+    ],
+    "recent_prs": [],
+    "verified_impact_prs": [],
+    "flood_pr_titles": [],
+    "scoring": {
+      "sub_scores": {},
+      "final_score": 80,
+      "tier": "人上人",
+      "tier_label": "x"
+    }
+  },
+  "expected": {
+    "zh": {
+      "factual_guardrails": [
+        "高星仓库 commit 为 0 只表示检测到的高星影响来自 PR；不得推断没有提交权限、不被信任或没有真实贡献。",
+        "org-x/app-y（259 星）是该用户当前主要维护和运营的项目：提交 420/1500（提交数约为第一名的 81%）、合并 PR 130/640；近 180 天提交 90/150、合并 PR 40/70。应写成 TA 实际维护/开发这个项目的贡献；不得称为 profile/config/展示材料、背景板或“别人的资产”，也不得用计入份额贬低（如“只占 xx%”）。"
+      ],
+      "risk_notes": [
+        "900 个 followers 对 216 总星，社交热度明显强过项目沉淀，粉丝滤镜偏重。"
+      ],
+      "total_stars": 216,
+      "max_stars": 133,
+      "weighted_total_stars": 216
+    },
+    "en": {
+      "factual_guardrails": [
+        "Zero popular-repo commits means the detected popular-repo impact is PR-based. Do not infer missing commit access, lack of trust, or lack of contribution from that.",
+        "org-x/app-y (259 stars) is a project this user actively maintains and runs as a primary current maintainer: 420/1500 commits (81% of the top committer's commits), 130/640 merged PRs; last 180 days: 90/150 commits, 40/70 merged PRs. Describe it as their real maintenance/engineering work. Never call it profile/config/showcase material, a backdrop, or someone else's asset, and do not use the credited share to belittle them (\"only xx%\")."
+      ],
+      "risk_notes": [
+        "900 followers but only 216 total stars; the social signal is much stronger than the project signal."
+      ],
+      "total_stars": 216,
+      "max_stars": 133,
+      "weighted_total_stars": 216
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "sample": 232,
+  "old_full": 11,
+  "old_full_percent": 4.741379310344827,
+  "forced_full_removals_at_least": 1,
+  "new_full_upper": 10,
+  "new_full_percent_upper": 4.310344827586207,
+  "forced_declines_at_least": 1,
+  "mean_decline_at_least": 0.004310344827586207,
+  "limitations": "仅旧 v15 聚合，使用 verified core PR 数作 merged 下界；缺完整 metrics，无法精确重放当前 v17→v18 分布。未访问生产数据库。"
+}

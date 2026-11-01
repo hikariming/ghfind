@@ -16,7 +16,7 @@ describe("OpenAPI backend extraction contract", () => {
     expect(score.description).toContain("synchronous quick");
     expect(score.description).not.toContain('source: "live"');
     expect(source.enum).toEqual(["indexed", "quick", "legacy_v5_v5_v3"]);
-    expect(spec.components.schemas.ScorePayload.properties.coverage.enum).toEqual(["quick", "legacy"]);
+    expect(spec.components.schemas.ScorePayload.properties.coverage.enum).toEqual(["quick", "partial_public", "complete_public", "legacy"]);
   });
 
   it("keeps machine-facing prose aligned with the worker-backed score path", () => {

@@ -564,6 +564,7 @@ export async function verifyDeployment(
         "container_dependency_not_ready",
         "container_not_ready",
         "container_version_or_contract_mismatch",
+        "container_response_not_json",
         "runtime_unconfigured",
         "unauthorized",
         "feed_unavailable",

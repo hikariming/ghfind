@@ -1,13 +1,25 @@
 /**
  * Client-side helpers for the homepage → /u/{username} handoff: the homepage
- * stashes the fresh scan in sessionStorage and navigates with `?roasting=1`
- * (see Roaster). The profile-page components consume both here so they agree
- * on the key and on when the one-shot URL marker is spent.
+ * navigates immediately with `?roasting=1` and may stash a scan (or just an
+ * evaluate intent + Turnstile token) in sessionStorage. Profile-page components
+ * consume both here so they agree on the key and on when the one-shot URL
+ * marker is spent.
  */
 import { pendingScanKey } from "./roast-stream";
 import type { ScanResult } from "./types";
 
 const HANDOFF_CONSUMED_KEY = "__ghfindRoastingHandoffConsumed";
+
+export function pendingEvaluateKey(username: string): string {
+  return `pendingEvaluate:${username.toLowerCase()}`;
+}
+
+export interface PendingEvaluateIntent {
+  /** Turnstile token captured on the homepage; optional if verification is off. */
+  turnstileToken?: string;
+  campaign?: string | null;
+  startedAt: number;
+}
 
 /** Read the homepage-stashed scan for `username`; null during SSR or if absent. */
 export function readSessionScan(username: string): ScanResult | null {
@@ -15,6 +27,40 @@ export function readSessionScan(username: string): ScanResult | null {
   try {
     const raw = sessionStorage.getItem(pendingScanKey(username));
     return raw ? (JSON.parse(raw) as ScanResult) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Stash a fresh scan so PendingProfile / LiveRoast can read it after navigation. */
+export function writeSessionScan(username: string, scan: ScanResult): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(pendingScanKey(username), JSON.stringify(scan));
+  } catch {
+    /* private mode / quota */
+  }
+}
+
+/** Homepage → profile: remember Turnstile + campaign before the scan finishes. */
+export function writePendingEvaluate(username: string, intent: PendingEvaluateIntent): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(pendingEvaluateKey(username), JSON.stringify(intent));
+  } catch {
+    /* private mode / quota */
+  }
+}
+
+/** Read-and-clear the evaluate intent so a retry can collect a fresh token. */
+export function takePendingEvaluate(username: string): PendingEvaluateIntent | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const key = pendingEvaluateKey(username);
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    sessionStorage.removeItem(key);
+    return JSON.parse(raw) as PendingEvaluateIntent;
   } catch {
     return null;
   }

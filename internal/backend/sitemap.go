@@ -27,8 +27,8 @@ type SitemapMatchup struct {
 
 func (s *TursoStore) GetPublicSitemapProfiles(ctx context.Context, minimumScore float64) ([]SitemapProfile, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT username, scanned_at FROM scores
-		WHERE hidden = 0 AND score_version = ? AND final_score >= ?
-		ORDER BY username ASC`, canonicalScoreVersion, minimumScore)
+		WHERE hidden = 0 AND `+publicScoreVersionClause("score_version")+` AND final_score >= ?
+		ORDER BY username ASC`, append(publicScoreVersionArgs(), minimumScore)...)
 	if err != nil {
 		return nil, fmt.Errorf("read sitemap profiles: %w", err)
 	}

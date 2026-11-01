@@ -106,3 +106,34 @@ func TestBuildFeedProjectProjectionRejectsStaleIdentity(t *testing.T) {
 		t.Fatal("expected mismatched analysis identity to fail")
 	}
 }
+
+func TestBuildFeedProjectProjectionShadowWritesDiscoverScoreOutsideHash(t *testing.T) {
+	assessment := validFeedAssessment()
+	a := assessment.Analysis
+	a.Scores = ProjectAnalysisScores{
+		Pain: ScoreDimension{Score: 22}, Effectiveness: ScoreDimension{Score: 27},
+		Experience: ScoreDimension{Score: 26}, ValueDensity: ScoreDimension{Score: 13}, ProductScore: 88,
+	}
+	a.CommunityStrength = ProjectCommunityStrength{Score: 40}
+	a.Confidence = 90
+	projection, err := BuildFeedProjectProjection(assessment, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := ComputeDiscoverScore(DiscoverScoreInputFromArtifact(a))
+	if projection.DiscoverScore == nil || *projection.DiscoverScore != want.Score ||
+		projection.DiscoverBand != want.Band || projection.DiscoverScoreVersion != DiscoverScoreVersion {
+		t.Fatalf("shadow score mismatch: %#v want %#v", projection, want)
+	}
+	if strings.Contains(projection.Descriptor, "discover") {
+		t.Fatalf("shadow score leaked into descriptor: %q", projection.Descriptor)
+	}
+	// The shadow score never changes the source hash, so it cannot trigger
+	// re-projection or embedding churn on its own.
+	hashed := projection
+	hashed.DiscoverScore, hashed.DiscoverBand, hashed.DiscoverScoreVersion = nil, "", ""
+	h, err := feedProjectionHash(hashed)
+	if err != nil || h != projection.SourceHash {
+		t.Fatalf("shadow score changed source hash: %s vs %s (%v)", h, projection.SourceHash, err)
+	}
+}

@@ -1,0 +1,2877 @@
+{
+  "note": "Role-family benchmark for Talent Match. Labels are hand-written; languages/repos are public GitHub evidence fetched read-only by scripts/talent-match-bench-fetch.mts and shaped like loadVerifiedEvidence rows. Candidates carry no résumé claims, so scoring sees verified GitHub evidence only.",
+  "candidates": [
+    {
+      "login": "zhaochenyang20",
+      "why": "SGLang core contributor (RadixArk); LLM serving and RL rollout systems",
+      "expect": [
+        "inference",
+        "infra"
+      ],
+      "mustNot": [
+        "hr",
+        "pm",
+        "sales",
+        "finance",
+        "trainee",
+        "ops"
+      ],
+      "languages": [
+        {
+          "language": "Python",
+          "share": 58
+        },
+        {
+          "language": "HTML",
+          "share": 26
+        },
+        {
+          "language": "Jupyter Notebook",
+          "share": 16
+        }
+      ],
+      "repos": [
+        {
+          "nameWithOwner": "zhaochenyang20/Awesome-ML-SYS-Tutorial",
+          "relation": "owner",
+          "stars": 7499,
+          "language": "HTML",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "zhaochenyang20/IAI_2022",
+          "relation": "owner",
+          "stars": 116,
+          "language": "HTML",
+          "topics": [
+            "deep-learning",
+            "machine-learning"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "zhaochenyang20/ModelServer",
+          "relation": "owner",
+          "stars": 63,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "zhaochenyang20/Cyber-Security",
+          "relation": "owner",
+          "stars": 35,
+          "language": null,
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "zhaochenyang20/Quantum_Project",
+          "relation": "owner",
+          "stars": 31,
+          "language": null,
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "zhaochenyang20/sglang-diffusion-routing",
+          "relation": "owner",
+          "stars": 26,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "zhaochenyang20/Sino-Japanese-Relations-analysis",
+          "relation": "owner",
+          "stars": 25,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "zhaochenyang20/TOFEL_words_reviewer",
+          "relation": "owner",
+          "stars": 17,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "zhaochenyang20/zhaochenyang20.github.io",
+          "relation": "owner",
+          "stars": 16,
+          "language": "Jupyter Notebook",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "zhaochenyang20/distirbution_is_all_you_need",
+          "relation": "owner",
+          "stars": 15,
+          "language": "Jupyter Notebook",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "zhaochenyang20/zhaochenyang20",
+          "relation": "owner",
+          "stars": 13,
+          "language": null,
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "zhaochenyang20/sabor",
+          "relation": "owner",
+          "stars": 13,
+          "language": "HTML",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "zhaochenyang20/ivue_wallpaper",
+          "relation": "owner",
+          "stars": 12,
+          "language": null,
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "zhaochenyang20/Analysis-of-National-Branding-Strategy-from-China-Japan-Media",
+          "relation": "owner",
+          "stars": 12,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "zhaochenyang20/Tsing-Answer",
+          "relation": "owner",
+          "stars": 10,
+          "language": "Python",
+          "topics": [
+            "data",
+            "json"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "sgl-project/sglang-omni",
+          "relation": "contributor",
+          "stars": 1440,
+          "language": "Python",
+          "topics": [
+            "asr",
+            "audio-generation",
+            "cuda",
+            "distributed-inference",
+            "inference",
+            "model-serving",
+            "multimodal",
+            "music-generation",
+            "openai-api",
+            "pytorch",
+            "sglang",
+            "speech-recognition",
+            "streaming",
+            "text-to-speech",
+            "tts"
+          ],
+          "prs": 93
+        },
+        {
+          "nameWithOwner": "lm-sys/lm-sys.github.io",
+          "relation": "contributor",
+          "stars": 100,
+          "language": "JavaScript",
+          "topics": [],
+          "prs": 5
+        },
+        {
+          "nameWithOwner": "studio-dots-ai/dots.tts",
+          "relation": "contributor",
+          "stars": 1385,
+          "language": "Python",
+          "topics": [],
+          "prs": 1
+        },
+        {
+          "nameWithOwner": "hehehai/voxt",
+          "relation": "contributor",
+          "stars": 888,
+          "language": "Swift",
+          "topics": [
+            "ai",
+            "ai-writer",
+            "asr",
+            "macos",
+            "meeting",
+            "notes",
+            "speaker",
+            "stt",
+            "translations",
+            "typeless",
+            "voice",
+            "voice-assistant",
+            "whisper"
+          ],
+          "prs": 1
+        }
+      ]
+    },
+    {
+      "login": "merrymercy",
+      "why": "SGLang creator; LLM serving systems",
+      "expect": [
+        "inference",
+        "infra"
+      ],
+      "mustNot": [
+        "hr",
+        "pm",
+        "sales",
+        "finance",
+        "trainee",
+        "ops"
+      ],
+      "languages": [
+        {
+          "language": "Python",
+          "share": 44
+        },
+        {
+          "language": "C",
+          "share": 22
+        },
+        {
+          "language": "Go",
+          "share": 11
+        },
+        {
+          "language": "Java",
+          "share": 11
+        },
+        {
+          "language": "TeX",
+          "share": 11
+        }
+      ],
+      "repos": [
+        {
+          "nameWithOwner": "merrymercy/awesome-tensor-compilers",
+          "relation": "owner",
+          "stars": 2791,
+          "language": null,
+          "topics": [
+            "code-generation",
+            "compiler",
+            "deep-learning",
+            "high-performance-computing",
+            "machine-learning",
+            "programming-language",
+            "tensor"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "merrymercy/tvm-mali",
+          "relation": "owner",
+          "stars": 184,
+          "language": "C",
+          "topics": [
+            "arm",
+            "deep-learning",
+            "mali",
+            "opencl",
+            "tvm"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "merrymercy/goGFS",
+          "relation": "owner",
+          "stars": 161,
+          "language": "Go",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "merrymercy/compiler2017",
+          "relation": "owner",
+          "stars": 81,
+          "language": "Java",
+          "topics": [
+            "compiler"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "merrymercy/NALU",
+          "relation": "owner",
+          "stars": 31,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "merrymercy/Wolf-Killer",
+          "relation": "owner",
+          "stars": 5,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "merrymercy/WSC-and-FVM",
+          "relation": "owner",
+          "stars": 4,
+          "language": "C",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "merrymercy/WordKiller",
+          "relation": "owner",
+          "stars": 3,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "merrymercy/dl-system-test",
+          "relation": "owner",
+          "stars": 1,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "merrymercy/merrymercy.github.io",
+          "relation": "owner",
+          "stars": 0,
+          "language": "TeX",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "merrymercy/merrymercy",
+          "relation": "owner",
+          "stars": 0,
+          "language": null,
+          "topics": [
+            "config",
+            "github-config"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "sgl-project/sglang",
+          "relation": "contributor",
+          "stars": 37096,
+          "language": "Python",
+          "topics": [
+            "attention",
+            "blackwell",
+            "cuda",
+            "deepseek",
+            "diffusion",
+            "glm",
+            "gpt-oss",
+            "inference",
+            "llama",
+            "llm",
+            "minimax",
+            "moe",
+            "qwen",
+            "qwen-image",
+            "reinforcement-learning",
+            "transformer",
+            "vlm",
+            "wan"
+          ],
+          "prs": 100
+        }
+      ]
+    },
+    {
+      "login": "WoosukKwon",
+      "why": "vLLM creator; LLM serving systems",
+      "expect": [
+        "inference",
+        "infra"
+      ],
+      "mustNot": [
+        "hr",
+        "pm",
+        "sales",
+        "finance",
+        "trainee",
+        "ops"
+      ],
+      "languages": [
+        {
+          "language": "Python",
+          "share": 80
+        },
+        {
+          "language": "Shell",
+          "share": 20
+        }
+      ],
+      "repos": [
+        {
+          "nameWithOwner": "WoosukKwon/retraining-free-pruning",
+          "relation": "owner",
+          "stars": 196,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "WoosukKwon/scatter",
+          "relation": "owner",
+          "stars": 1,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "WoosukKwon/scripts",
+          "relation": "owner",
+          "stars": 1,
+          "language": "Shell",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "WoosukKwon/exp",
+          "relation": "owner",
+          "stars": 1,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "WoosukKwon/vmi",
+          "relation": "owner",
+          "stars": 0,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "vllm-project/vllm",
+          "relation": "contributor",
+          "stars": 93733,
+          "language": "Python",
+          "topics": [
+            "amd",
+            "blackwell",
+            "cuda",
+            "deepseek",
+            "deepseek-v3",
+            "gpt",
+            "gpt-oss",
+            "inference",
+            "kimi",
+            "llama",
+            "llm",
+            "llm-serving",
+            "model-serving",
+            "moe",
+            "openai",
+            "pytorch",
+            "qwen",
+            "qwen3",
+            "tpu",
+            "transformer"
+          ],
+          "prs": 92
+        },
+        {
+          "nameWithOwner": "vllm-project/vllm-project.github.io",
+          "relation": "contributor",
+          "stars": 73,
+          "language": "HTML",
+          "topics": [],
+          "prs": 5
+        },
+        {
+          "nameWithOwner": "vllm-project/recipes",
+          "relation": "contributor",
+          "stars": 1050,
+          "language": "JavaScript",
+          "topics": [],
+          "prs": 1
+        },
+        {
+          "nameWithOwner": "vllm-project/tml-fa4",
+          "relation": "contributor",
+          "stars": 18,
+          "language": "Python",
+          "topics": [],
+          "prs": 1
+        },
+        {
+          "nameWithOwner": "zyongye/vllm",
+          "relation": "contributor",
+          "stars": 1,
+          "language": "Python",
+          "topics": [],
+          "prs": 1
+        }
+      ]
+    },
+    {
+      "login": "stas00",
+      "why": "ML Engineering book, BLOOM/large-scale training",
+      "expect": [
+        "pretraining",
+        "infra"
+      ],
+      "mustNot": [
+        "hr",
+        "pm",
+        "sales",
+        "finance",
+        "trainee",
+        "ops"
+      ],
+      "languages": [
+        {
+          "language": "Python",
+          "share": 40
+        },
+        {
+          "language": "Shell",
+          "share": 25
+        },
+        {
+          "language": "Jupyter Notebook",
+          "share": 20
+        },
+        {
+          "language": "Java",
+          "share": 5
+        },
+        {
+          "language": "Perl",
+          "share": 5
+        }
+      ],
+      "repos": [
+        {
+          "nameWithOwner": "stas00/ml-engineering",
+          "relation": "owner",
+          "stars": 19521,
+          "language": "Python",
+          "topics": [
+            "ai",
+            "debugging",
+            "gpus",
+            "inference",
+            "large-language-models",
+            "llm",
+            "machine-learning",
+            "machine-learning-engineering",
+            "mlops",
+            "network",
+            "pytorch",
+            "scalability",
+            "slurm",
+            "storage",
+            "training",
+            "transformers"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "stas00/the-art-of-debugging",
+          "relation": "owner",
+          "stars": 1738,
+          "language": "Python",
+          "topics": [
+            "c",
+            "debugging",
+            "gdb",
+            "linux",
+            "methodology",
+            "python",
+            "pytorch",
+            "segfault",
+            "unix"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "stas00/ipyexperiments",
+          "relation": "owner",
+          "stars": 236,
+          "language": "Jupyter Notebook",
+          "topics": [
+            "gpu",
+            "ipython",
+            "jupyter",
+            "memory-management",
+            "notebook",
+            "pytorch",
+            "ram"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "stas00/python-cookbook",
+          "relation": "owner",
+          "stars": 68,
+          "language": "Python",
+          "topics": [
+            "python",
+            "recipes"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "stas00/ml-ways",
+          "relation": "owner",
+          "stars": 68,
+          "language": "Jupyter Notebook",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "stas00/porting",
+          "relation": "owner",
+          "stars": 51,
+          "language": "Jupyter Notebook",
+          "topics": [
+            "nlp",
+            "porting",
+            "python"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "stas00/python-tools",
+          "relation": "owner",
+          "stars": 14,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "stas00/git-tools",
+          "relation": "owner",
+          "stars": 14,
+          "language": "Shell",
+          "topics": [
+            "git",
+            "github"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "stas00/stas00",
+          "relation": "owner",
+          "stars": 13,
+          "language": null,
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "stas00/reddit-to-threads",
+          "relation": "owner",
+          "stars": 11,
+          "language": "Python",
+          "topics": [
+            "conversion",
+            "data",
+            "dump",
+            "reddit"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "stas00/conda-tools",
+          "relation": "owner",
+          "stars": 7,
+          "language": "Shell",
+          "topics": [
+            "conda"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "stas00/bash-tools",
+          "relation": "owner",
+          "stars": 5,
+          "language": "Shell",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "stas00/google-earth-grid",
+          "relation": "owner",
+          "stars": 5,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "stas00/backups",
+          "relation": "owner",
+          "stars": 4,
+          "language": null,
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "stas00/jupyter-notebook-tools",
+          "relation": "owner",
+          "stars": 4,
+          "language": "Python",
+          "topics": [
+            "git",
+            "jupyter",
+            "jupyter-notebook"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "deepspeedai/DeepSpeed",
+          "relation": "contributor",
+          "stars": 43229,
+          "language": "Python",
+          "topics": [
+            "billion-parameters",
+            "compression",
+            "data-parallelism",
+            "deep-learning",
+            "gpu",
+            "inference",
+            "machine-learning",
+            "mixture-of-experts",
+            "model-parallelism",
+            "pipeline-parallelism",
+            "pytorch",
+            "trillion-parameters",
+            "zero"
+          ],
+          "prs": 57
+        },
+        {
+          "nameWithOwner": "huggingface/accelerate",
+          "relation": "contributor",
+          "stars": 9912,
+          "language": "Python",
+          "topics": [],
+          "prs": 10
+        },
+        {
+          "nameWithOwner": "huggingface/transformers",
+          "relation": "contributor",
+          "stars": 167683,
+          "language": "Python",
+          "topics": [
+            "audio",
+            "deep-learning",
+            "deepseek",
+            "gemma",
+            "glm",
+            "hacktoberfest",
+            "llm",
+            "machine-learning",
+            "model-hub",
+            "natural-language-processing",
+            "nlp",
+            "pretrained-models",
+            "python",
+            "pytorch",
+            "pytorch-transformers",
+            "qwen",
+            "speech-recognition",
+            "transformer",
+            "vlm"
+          ],
+          "prs": 8
+        },
+        {
+          "nameWithOwner": "EleutherAI/cookbook",
+          "relation": "contributor",
+          "stars": 857,
+          "language": "Python",
+          "topics": [],
+          "prs": 7
+        },
+        {
+          "nameWithOwner": "vllm-project/vllm",
+          "relation": "contributor",
+          "stars": 93733,
+          "language": "Python",
+          "topics": [
+            "amd",
+            "blackwell",
+            "cuda",
+            "deepseek",
+            "deepseek-v3",
+            "gpt",
+            "gpt-oss",
+            "inference",
+            "kimi",
+            "llama",
+            "llm",
+            "llm-serving",
+            "model-serving",
+            "moe",
+            "openai",
+            "pytorch",
+            "qwen",
+            "qwen3",
+            "tpu",
+            "transformer"
+          ],
+          "prs": 3
+        },
+        {
+          "nameWithOwner": "casper-hansen/AutoAWQ",
+          "relation": "contributor",
+          "stars": 2346,
+          "language": "Python",
+          "topics": [],
+          "prs": 2
+        },
+        {
+          "nameWithOwner": "ArthurHeitmann/arctic_shift",
+          "relation": "contributor",
+          "stars": 1657,
+          "language": "TypeScript",
+          "topics": [
+            "archived",
+            "pushshift",
+            "reddit"
+          ],
+          "prs": 2
+        },
+        {
+          "nameWithOwner": "NVIDIA-NeMo/Speech",
+          "relation": "contributor",
+          "stars": 18578,
+          "language": "Python",
+          "topics": [
+            "asr",
+            "deeplearning",
+            "generative-ai",
+            "machine-translation",
+            "neural-networks",
+            "speaker-diariazation",
+            "speaker-recognition",
+            "speech-synthesis",
+            "speech-translation",
+            "tts"
+          ],
+          "prs": 2
+        }
+      ]
+    },
+    {
+      "login": "karpathy",
+      "why": "nanoGPT / llm.c / nanochat; LLM pretraining from scratch",
+      "expect": [
+        "pretraining"
+      ],
+      "mustNot": [
+        "hr",
+        "pm",
+        "sales",
+        "finance",
+        "trainee",
+        "ops"
+      ],
+      "languages": [
+        {
+          "language": "Python",
+          "share": 48
+        },
+        {
+          "language": "Jupyter Notebook",
+          "share": 16
+        },
+        {
+          "language": "JavaScript",
+          "share": 10
+        },
+        {
+          "language": "HTML",
+          "share": 10
+        },
+        {
+          "language": "C++",
+          "share": 4
+        }
+      ],
+      "repos": [
+        {
+          "nameWithOwner": "karpathy/autoresearch",
+          "relation": "owner",
+          "stars": 97854,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "karpathy/nanoGPT",
+          "relation": "owner",
+          "stars": 63782,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "karpathy/nanochat",
+          "relation": "owner",
+          "stars": 58612,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "karpathy/LLM101n",
+          "relation": "owner",
+          "stars": 37471,
+          "language": null,
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "karpathy/llm.c",
+          "relation": "owner",
+          "stars": 31147,
+          "language": "Cuda",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "karpathy/llm-council",
+          "relation": "owner",
+          "stars": 25443,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "karpathy/minGPT",
+          "relation": "owner",
+          "stars": 24952,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "karpathy/nn-zero-to-hero",
+          "relation": "owner",
+          "stars": 24798,
+          "language": "Jupyter Notebook",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "karpathy/llama2.c",
+          "relation": "owner",
+          "stars": 20178,
+          "language": "C",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "karpathy/micrograd",
+          "relation": "owner",
+          "stars": 17887,
+          "language": "Jupyter Notebook",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "karpathy/char-rnn",
+          "relation": "owner",
+          "stars": 12114,
+          "language": "Lua",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "karpathy/convnetjs",
+          "relation": "owner",
+          "stars": 11207,
+          "language": "JavaScript",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "karpathy/minbpe",
+          "relation": "owner",
+          "stars": 10814,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "karpathy/arxiv-sanity-preserver",
+          "relation": "owner",
+          "stars": 5800,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "karpathy/neuraltalk2",
+          "relation": "owner",
+          "stars": 5600,
+          "language": "Jupyter Notebook",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "python/cpython",
+          "relation": "contributor",
+          "stars": 77722,
+          "language": "Python",
+          "topics": [],
+          "prs": 1
+        },
+        {
+          "nameWithOwner": "huggingface/transformers",
+          "relation": "contributor",
+          "stars": 167683,
+          "language": "Python",
+          "topics": [
+            "audio",
+            "deep-learning",
+            "deepseek",
+            "gemma",
+            "glm",
+            "hacktoberfest",
+            "llm",
+            "machine-learning",
+            "model-hub",
+            "natural-language-processing",
+            "nlp",
+            "pretrained-models",
+            "python",
+            "pytorch",
+            "pytorch-transformers",
+            "qwen",
+            "speech-recognition",
+            "transformer",
+            "vlm"
+          ],
+          "prs": 1
+        },
+        {
+          "nameWithOwner": "torch/optim",
+          "relation": "contributor",
+          "stars": 197,
+          "language": "Lua",
+          "topics": [],
+          "prs": 1
+        },
+        {
+          "nameWithOwner": "jcjohnson/simple-amt",
+          "relation": "contributor",
+          "stars": 303,
+          "language": "Python",
+          "topics": [],
+          "prs": 1
+        }
+      ]
+    },
+    {
+      "login": "hiyouga",
+      "why": "LLaMA-Factory; fine-tuning and post-training",
+      "expect": [
+        "post-training"
+      ],
+      "mustNot": [
+        "hr",
+        "pm",
+        "sales",
+        "finance",
+        "trainee",
+        "ops"
+      ],
+      "languages": [
+        {
+          "language": "Python",
+          "share": 53
+        },
+        {
+          "language": "PHP",
+          "share": 13
+        },
+        {
+          "language": "JavaScript",
+          "share": 13
+        },
+        {
+          "language": "TeX",
+          "share": 5
+        },
+        {
+          "language": "TypeScript",
+          "share": 5
+        }
+      ],
+      "repos": [
+        {
+          "nameWithOwner": "hiyouga/LlamaFactory",
+          "relation": "owner",
+          "stars": 75452,
+          "language": "Python",
+          "topics": [
+            "agent",
+            "ai",
+            "deepseek",
+            "fine-tuning",
+            "gemma",
+            "gpt",
+            "instruction-tuning",
+            "large-language-models",
+            "llama",
+            "llama3",
+            "llm",
+            "lora",
+            "moe",
+            "nlp",
+            "peft",
+            "qlora",
+            "quantization",
+            "qwen",
+            "rlhf",
+            "transformers"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "hiyouga/EasyR1",
+          "relation": "owner",
+          "stars": 5189,
+          "language": "Python",
+          "topics": [
+            "ai",
+            "deepseek",
+            "gpt",
+            "llm",
+            "nlp",
+            "qwen",
+            "reinforcement-learning",
+            "rl"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "hiyouga/ChatGLM-Efficient-Tuning",
+          "relation": "owner",
+          "stars": 3711,
+          "language": "Python",
+          "topics": [
+            "alpaca",
+            "chatglm",
+            "chatglm2",
+            "chatgpt",
+            "fine-tuning",
+            "huggingface",
+            "language-model",
+            "lora",
+            "peft",
+            "pytorch",
+            "qlora",
+            "rlhf",
+            "transformers"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "hiyouga/FastEdit",
+          "relation": "owner",
+          "stars": 1369,
+          "language": "Python",
+          "topics": [
+            "bloom",
+            "chatbots",
+            "chatgpt",
+            "falcon",
+            "gpt",
+            "large-language-models",
+            "llama",
+            "llms",
+            "pytorch",
+            "transformers"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "hiyouga/Dual-Contrastive-Learning",
+          "relation": "owner",
+          "stars": 169,
+          "language": "Python",
+          "topics": [
+            "bert",
+            "contrastive-learning",
+            "deep-learning",
+            "natural-language-processing",
+            "neural-networks",
+            "text-classification",
+            "transformers"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "hiyouga/MathRuler",
+          "relation": "owner",
+          "stars": 89,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "hiyouga/AMP-Regularizer",
+          "relation": "owner",
+          "stars": 42,
+          "language": "Python",
+          "topics": [
+            "computer-vision",
+            "cvpr",
+            "cvpr2021",
+            "deep-learning",
+            "deep-learning-algorithms",
+            "image-classification",
+            "machine-learning",
+            "neural-network",
+            "regularization",
+            "regularizing-neural-networks"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "hiyouga/PBAN-PyTorch",
+          "relation": "owner",
+          "stars": 37,
+          "language": "Python",
+          "topics": [
+            "aspect-based-sentiment-analysis",
+            "attention-model",
+            "deep-learning",
+            "natural-language-processing",
+            "nlp",
+            "pytorch",
+            "sentiment-analysis"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "hiyouga/AMP-Poster-Slides-LaTeX",
+          "relation": "owner",
+          "stars": 33,
+          "language": "TeX",
+          "topics": [
+            "cvpr2021",
+            "demo",
+            "latex",
+            "poster"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "hiyouga/RepWalk",
+          "relation": "owner",
+          "stars": 31,
+          "language": "Python",
+          "topics": [
+            "absa",
+            "aspect-based-sentiment-analysis",
+            "natural-language-processing",
+            "pytorch",
+            "random-walk",
+            "sentiment-analysis"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "hiyouga/HuaweiCup2021-MCM-ProblemE",
+          "relation": "owner",
+          "stars": 29,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "hiyouga/ChatNVL-Towards-Visual-Novel-ChatBot",
+          "relation": "owner",
+          "stars": 23,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "hiyouga/Image-Segmentation-PyTorch",
+          "relation": "owner",
+          "stars": 16,
+          "language": "Python",
+          "topics": [
+            "cv",
+            "deep-learning",
+            "image-segmentation",
+            "pytorch",
+            "unet",
+            "unet-pytorch"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "hiyouga/bilibili-parse",
+          "relation": "owner",
+          "stars": 15,
+          "language": "PHP",
+          "topics": [
+            "ajax",
+            "bilibili",
+            "bootstrap",
+            "html5",
+            "video"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "hiyouga/Designing-Self-Evolving-Agents",
+          "relation": "owner",
+          "stars": 13,
+          "language": "JavaScript",
+          "topics": [
+            "agents",
+            "ai",
+            "gpt",
+            "llm",
+            "self-evolving"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "Prism-Shadow/penguin-harness",
+          "relation": "contributor",
+          "stars": 2507,
+          "language": "TypeScript",
+          "topics": [
+            "agent",
+            "agentic-ai",
+            "ai",
+            "build-tool",
+            "claude-code",
+            "deepseek",
+            "deepseek-harness",
+            "desktop",
+            "harness",
+            "llm",
+            "rsi",
+            "self-evolving"
+          ],
+          "prs": 86
+        },
+        {
+          "nameWithOwner": "Prism-Shadow/model-message-stream-protocol",
+          "relation": "contributor",
+          "stars": 113,
+          "language": "Python",
+          "topics": [
+            "ai",
+            "anthropic",
+            "claude",
+            "claude-code",
+            "deepseek",
+            "gemini",
+            "google",
+            "gpt",
+            "openai"
+          ],
+          "prs": 6
+        },
+        {
+          "nameWithOwner": "Prism-Shadow/penguin-harness-community",
+          "relation": "contributor",
+          "stars": 1,
+          "language": null,
+          "topics": [],
+          "prs": 5
+        },
+        {
+          "nameWithOwner": "Prism-Shadow/penguin-harness-benchmark",
+          "relation": "contributor",
+          "stars": 1,
+          "language": "Python",
+          "topics": [],
+          "prs": 3
+        }
+      ]
+    },
+    {
+      "login": "lvwerra",
+      "why": "TRL; RLHF / post-training",
+      "expect": [
+        "post-training",
+        "rl"
+      ],
+      "mustNot": [
+        "hr",
+        "pm",
+        "sales",
+        "finance",
+        "trainee",
+        "ops"
+      ],
+      "languages": [
+        {
+          "language": "Jupyter Notebook",
+          "share": 67
+        },
+        {
+          "language": "Python",
+          "share": 17
+        },
+        {
+          "language": "C++",
+          "share": 17
+        }
+      ],
+      "repos": [
+        {
+          "nameWithOwner": "lvwerra/jupyterplot",
+          "relation": "owner",
+          "stars": 147,
+          "language": "Jupyter Notebook",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "lvwerra/dslectures",
+          "relation": "owner",
+          "stars": 32,
+          "language": "Jupyter Notebook",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "lvwerra/deep-math",
+          "relation": "owner",
+          "stars": 30,
+          "language": "Jupyter Notebook",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "lvwerra/rl-implementations",
+          "relation": "owner",
+          "stars": 18,
+          "language": "Jupyter Notebook",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "lvwerra/geneGAN",
+          "relation": "owner",
+          "stars": 5,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "lvwerra/led-matrix",
+          "relation": "owner",
+          "stars": 1,
+          "language": "C++",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "lvwerra/TextAnalyticsExam",
+          "relation": "owner",
+          "stars": 0,
+          "language": null,
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "lvwerra/mt_eval",
+          "relation": "owner",
+          "stars": 0,
+          "language": null,
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "huggingface/agent-manager",
+          "relation": "contributor",
+          "stars": 18,
+          "language": "JavaScript",
+          "topics": [],
+          "prs": 93
+        },
+        {
+          "nameWithOwner": "huggingface/blog",
+          "relation": "contributor",
+          "stars": 3543,
+          "language": "Jupyter Notebook",
+          "topics": [
+            "hacktoberfest"
+          ],
+          "prs": 6
+        },
+        {
+          "nameWithOwner": "nlp-with-transformers/notebooks",
+          "relation": "contributor",
+          "stars": 4824,
+          "language": "Jupyter Notebook",
+          "topics": [],
+          "prs": 1
+        }
+      ]
+    },
+    {
+      "login": "vwxyzjn",
+      "why": "CleanRL, TRL, open-instruct; RL",
+      "expect": [
+        "rl",
+        "post-training"
+      ],
+      "mustNot": [
+        "hr",
+        "pm",
+        "sales",
+        "finance",
+        "trainee",
+        "ops"
+      ],
+      "languages": [
+        {
+          "language": "Python",
+          "share": 93
+        },
+        {
+          "language": "Go",
+          "share": 3
+        },
+        {
+          "language": "HTML",
+          "share": 3
+        }
+      ],
+      "repos": [
+        {
+          "nameWithOwner": "vwxyzjn/cleanrl",
+          "relation": "owner",
+          "stars": 10546,
+          "language": "Python",
+          "topics": [
+            "a2c",
+            "actor-critic",
+            "advantage-actor-critic",
+            "ale",
+            "atari",
+            "deep-learning",
+            "deep-reinforcement-learning",
+            "gym",
+            "machine-learning",
+            "phasic-policy-gradient",
+            "ppo",
+            "proximal-policy-optimization",
+            "python",
+            "pytorch",
+            "reinforcement-learning",
+            "wandb"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "vwxyzjn/ppo-implementation-details",
+          "relation": "owner",
+          "stars": 959,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "vwxyzjn/portwarden",
+          "relation": "owner",
+          "stars": 635,
+          "language": "Go",
+          "topics": [
+            "bitwarden",
+            "docker",
+            "encryption",
+            "k8s"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "vwxyzjn/lm-human-preference-details",
+          "relation": "owner",
+          "stars": 200,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "vwxyzjn/invalid-action-masking",
+          "relation": "owner",
+          "stars": 171,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "vwxyzjn/summarize_from_feedback_details",
+          "relation": "owner",
+          "stars": 166,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "vwxyzjn/cleanba",
+          "relation": "owner",
+          "stars": 127,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "vwxyzjn/PPO-Implementation-Deep-Dive",
+          "relation": "owner",
+          "stars": 46,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "vwxyzjn/gym-microrts-paper",
+          "relation": "owner",
+          "stars": 45,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "vwxyzjn/a2c_is_a_special_case_of_ppo",
+          "relation": "owner",
+          "stars": 23,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "vwxyzjn/costa-utils",
+          "relation": "owner",
+          "stars": 10,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "vwxyzjn/gym-pysc2",
+          "relation": "owner",
+          "stars": 10,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "vwxyzjn/envpool-cleanrl",
+          "relation": "owner",
+          "stars": 9,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "vwxyzjn/ppo-atari-metrics",
+          "relation": "owner",
+          "stars": 8,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "vwxyzjn/benchmark-ci",
+          "relation": "owner",
+          "stars": 7,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "allenai/open-instruct",
+          "relation": "contributor",
+          "stars": 3897,
+          "language": "Python",
+          "topics": [],
+          "prs": 95
+        },
+        {
+          "nameWithOwner": "allenai/reward-bench",
+          "relation": "contributor",
+          "stars": 743,
+          "language": "Python",
+          "topics": [
+            "preference-learning",
+            "rlhf"
+          ],
+          "prs": 2
+        },
+        {
+          "nameWithOwner": "CederGroupHub/chgnet",
+          "relation": "contributor",
+          "stars": 413,
+          "language": "Python",
+          "topics": [
+            "atomistic-simulations",
+            "charge-distribution",
+            "charge-transport",
+            "computational-materials-science",
+            "force-fields",
+            "graph-neural-networks",
+            "machine-learning"
+          ],
+          "prs": 1
+        },
+        {
+          "nameWithOwner": "verl-project/verl",
+          "relation": "contributor",
+          "stars": 23857,
+          "language": "Python",
+          "topics": [],
+          "prs": 1
+        },
+        {
+          "nameWithOwner": "Open-Reasoner-Zero/Open-Reasoner-Zero",
+          "relation": "contributor",
+          "stars": 2100,
+          "language": "Python",
+          "topics": [],
+          "prs": 1
+        }
+      ]
+    },
+    {
+      "login": "haileyschoelkopf",
+      "why": "lm-evaluation-harness; LLM evals",
+      "expect": [
+        "harness"
+      ],
+      "mustNot": [
+        "hr",
+        "pm",
+        "sales",
+        "finance",
+        "trainee",
+        "ops"
+      ],
+      "languages": [
+        {
+          "language": "HTML",
+          "share": 50
+        },
+        {
+          "language": "JavaScript",
+          "share": 25
+        },
+        {
+          "language": "Jupyter Notebook",
+          "share": 25
+        }
+      ],
+      "repos": [
+        {
+          "nameWithOwner": "haileyschoelkopf/triton-index",
+          "relation": "owner",
+          "stars": 11,
+          "language": null,
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "haileyschoelkopf/haileyschoelkopf.github.io",
+          "relation": "owner",
+          "stars": 1,
+          "language": "HTML",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "haileyschoelkopf/Awesome-Multilingualsumm",
+          "relation": "owner",
+          "stars": 1,
+          "language": null,
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "haileyschoelkopf/old-haileyschoelkopf.github.io",
+          "relation": "owner",
+          "stars": 0,
+          "language": "HTML",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "haileyschoelkopf/minimal-mistakes",
+          "relation": "owner",
+          "stars": 0,
+          "language": "JavaScript",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "haileyschoelkopf/toy-scaling-laws",
+          "relation": "owner",
+          "stars": 0,
+          "language": "Jupyter Notebook",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "haileyschoelkopf/to-read-list",
+          "relation": "owner",
+          "stars": 0,
+          "language": null,
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "haileyschoelkopf/multilingual-generalization-papers",
+          "relation": "owner",
+          "stars": 0,
+          "language": null,
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "EleutherAI/lm-evaluation-harness",
+          "relation": "contributor",
+          "stars": 14209,
+          "language": "Python",
+          "topics": [
+            "evaluation-framework",
+            "language-model",
+            "transformer"
+          ],
+          "prs": 70
+        },
+        {
+          "nameWithOwner": "EleutherAI/gpt-neox",
+          "relation": "contributor",
+          "stars": 7472,
+          "language": "Python",
+          "topics": [
+            "deepspeed-library",
+            "gpt-3",
+            "language-model",
+            "transformers"
+          ],
+          "prs": 10
+        },
+        {
+          "nameWithOwner": "EleutherAI/website-legacy",
+          "relation": "contributor",
+          "stars": 7,
+          "language": "HTML",
+          "topics": [],
+          "prs": 6
+        },
+        {
+          "nameWithOwner": "Dahoas/QDSyntheticData",
+          "relation": "contributor",
+          "stars": 14,
+          "language": "Python",
+          "topics": [],
+          "prs": 5
+        },
+        {
+          "nameWithOwner": "EleutherAI/cookbook",
+          "relation": "contributor",
+          "stars": 857,
+          "language": "Python",
+          "topics": [],
+          "prs": 3
+        },
+        {
+          "nameWithOwner": "NoushNabi/lm-evaluation-harness",
+          "relation": "contributor",
+          "stars": 0,
+          "language": "Python",
+          "topics": [],
+          "prs": 2
+        },
+        {
+          "nameWithOwner": "AnswerDotAI/cold-compress",
+          "relation": "contributor",
+          "stars": 153,
+          "language": "Python",
+          "topics": [
+            "inference",
+            "llm",
+            "llm-inference",
+            "nlp",
+            "open-source"
+          ],
+          "prs": 1
+        },
+        {
+          "nameWithOwner": "HazyResearch/based-evaluation-harness",
+          "relation": "contributor",
+          "stars": 10,
+          "language": "Python",
+          "topics": [],
+          "prs": 1
+        }
+      ]
+    },
+    {
+      "login": "xingyaoww",
+      "why": "OpenHands; agent harness and agent evals",
+      "expect": [
+        "harness"
+      ],
+      "mustNot": [
+        "hr",
+        "pm",
+        "sales",
+        "finance",
+        "trainee",
+        "ops"
+      ],
+      "languages": [
+        {
+          "language": "Python",
+          "share": 53
+        },
+        {
+          "language": "HTML",
+          "share": 12
+        },
+        {
+          "language": "Shell",
+          "share": 12
+        },
+        {
+          "language": "JavaScript",
+          "share": 6
+        },
+        {
+          "language": "TypeScript",
+          "share": 6
+        }
+      ],
+      "repos": [
+        {
+          "nameWithOwner": "xingyaoww/code-act",
+          "relation": "owner",
+          "stars": 1712,
+          "language": "Python",
+          "topics": [
+            "llm",
+            "llm-agent",
+            "llm-finetuning",
+            "llm-framework"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "xingyaoww/mint-bench",
+          "relation": "owner",
+          "stars": 144,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "xingyaoww/LeTI",
+          "relation": "owner",
+          "stars": 66,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "xingyaoww/code4struct",
+          "relation": "owner",
+          "stars": 44,
+          "language": "HTML",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "xingyaoww/ecole-dataset",
+          "relation": "owner",
+          "stars": 5,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "xingyaoww/principles",
+          "relation": "owner",
+          "stars": 2,
+          "language": "JavaScript",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "xingyaoww/research-skill",
+          "relation": "owner",
+          "stars": 2,
+          "language": null,
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "xingyaoww/NeMo-RL-Private",
+          "relation": "owner",
+          "stars": 2,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "xingyaoww/alfworld-docker-setup",
+          "relation": "owner",
+          "stars": 2,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "xingyaoww/show-me",
+          "relation": "owner",
+          "stars": 1,
+          "language": null,
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "xingyaoww/checkee-dashboard",
+          "relation": "owner",
+          "stars": 1,
+          "language": "TypeScript",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "xingyaoww/llm-embedder",
+          "relation": "owner",
+          "stars": 1,
+          "language": "Jupyter Notebook",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "xingyaoww/nemo-util",
+          "relation": "owner",
+          "stars": 1,
+          "language": "Shell",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "xingyaoww/jaxlm",
+          "relation": "owner",
+          "stars": 1,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "xingyaoww/release-exp",
+          "relation": "owner",
+          "stars": 0,
+          "language": null,
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "OpenHands/software-agent-sdk",
+          "relation": "contributor",
+          "stars": 1250,
+          "language": "Python",
+          "topics": [
+            "agent",
+            "sdk"
+          ],
+          "prs": 29
+        },
+        {
+          "nameWithOwner": "OpenHands/extensions",
+          "relation": "contributor",
+          "stars": 166,
+          "language": "Python",
+          "topics": [],
+          "prs": 19
+        },
+        {
+          "nameWithOwner": "OpenHands/agent-canvas",
+          "relation": "contributor",
+          "stars": 229,
+          "language": null,
+          "topics": [],
+          "prs": 15
+        },
+        {
+          "nameWithOwner": "OpenHands/OpenHands",
+          "relation": "contributor",
+          "stars": 90828,
+          "language": "TypeScript",
+          "topics": [
+            "agent",
+            "artificial-intelligence",
+            "chatgpt",
+            "claude-ai",
+            "cli",
+            "developer-tools",
+            "gpt",
+            "llm",
+            "openai"
+          ],
+          "prs": 15
+        },
+        {
+          "nameWithOwner": "OpenHands/docs",
+          "relation": "contributor",
+          "stars": 16,
+          "language": "MDX",
+          "topics": [],
+          "prs": 10
+        },
+        {
+          "nameWithOwner": "OpenHands/OpenHands-CLI",
+          "relation": "contributor",
+          "stars": 266,
+          "language": "Python",
+          "topics": [],
+          "prs": 3
+        },
+        {
+          "nameWithOwner": "OpenHands/typescript-client",
+          "relation": "contributor",
+          "stars": 16,
+          "language": null,
+          "topics": [],
+          "prs": 2
+        },
+        {
+          "nameWithOwner": "OpenHands/automation",
+          "relation": "contributor",
+          "stars": 37,
+          "language": "Python",
+          "topics": [],
+          "prs": 2
+        }
+      ]
+    },
+    {
+      "login": "osanseviero",
+      "why": "Hugging Face / Google developer relations",
+      "expect": [
+        "devrel"
+      ],
+      "mustNot": [
+        "hr",
+        "sales",
+        "finance",
+        "trainee"
+      ],
+      "languages": [
+        {
+          "language": "Jupyter Notebook",
+          "share": 44
+        },
+        {
+          "language": "Python",
+          "share": 33
+        },
+        {
+          "language": "Go",
+          "share": 11
+        },
+        {
+          "language": "Java",
+          "share": 11
+        }
+      ],
+      "repos": [
+        {
+          "nameWithOwner": "osanseviero/ml_timeline",
+          "relation": "owner",
+          "stars": 583,
+          "language": null,
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "osanseviero/hackerllama",
+          "relation": "owner",
+          "stars": 84,
+          "language": "Jupyter Notebook",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "osanseviero/alpaca",
+          "relation": "owner",
+          "stars": 12,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "osanseviero/huggingface-go",
+          "relation": "owner",
+          "stars": 6,
+          "language": "Go",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "osanseviero/hugging-bots",
+          "relation": "owner",
+          "stars": 4,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "osanseviero/diffuse-it",
+          "relation": "owner",
+          "stars": 4,
+          "language": "Jupyter Notebook",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "osanseviero/spaces_demos",
+          "relation": "owner",
+          "stars": 0,
+          "language": "Jupyter Notebook",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "osanseviero/RIIAA_2020",
+          "relation": "owner",
+          "stars": 0,
+          "language": "Jupyter Notebook",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "osanseviero/datasciencecoursera",
+          "relation": "owner",
+          "stars": 0,
+          "language": null,
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "osanseviero/ProyectoIntegrador",
+          "relation": "owner",
+          "stars": 0,
+          "language": "Python",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "osanseviero/ProyectoFinalMoviles",
+          "relation": "owner",
+          "stars": 0,
+          "language": "Java",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "huggingface/huggingface.js",
+          "relation": "contributor",
+          "stars": 2557,
+          "language": "TypeScript",
+          "topics": [
+            "api-client",
+            "hub",
+            "huggingface",
+            "inference",
+            "machine-learning"
+          ],
+          "prs": 21
+        },
+        {
+          "nameWithOwner": "huggingface/blog",
+          "relation": "contributor",
+          "stars": 3543,
+          "language": "Jupyter Notebook",
+          "topics": [
+            "hacktoberfest"
+          ],
+          "prs": 19
+        },
+        {
+          "nameWithOwner": "genaibook/genaibook",
+          "relation": "contributor",
+          "stars": 263,
+          "language": "Jupyter Notebook",
+          "topics": [],
+          "prs": 11
+        },
+        {
+          "nameWithOwner": "huggingface/hub-docs",
+          "relation": "contributor",
+          "stars": 609,
+          "language": "Handlebars",
+          "topics": [
+            "hacktoberfest",
+            "machine-learning"
+          ],
+          "prs": 11
+        },
+        {
+          "nameWithOwner": "google/generative-ai-docs",
+          "relation": "contributor",
+          "stars": 2260,
+          "language": "Jupyter Notebook",
+          "topics": [
+            "ai",
+            "chatbot",
+            "documentation",
+            "embeddings",
+            "gemini",
+            "gemini-api",
+            "gemma",
+            "llm",
+            "machine-learning"
+          ],
+          "prs": 3
+        },
+        {
+          "nameWithOwner": "google-gemma/cookbook",
+          "relation": "contributor",
+          "stars": 4084,
+          "language": "Jupyter Notebook",
+          "topics": [
+            "codegemma",
+            "gemma",
+            "paligemma",
+            "recurrentgemma"
+          ],
+          "prs": 3
+        },
+        {
+          "nameWithOwner": "huggingface/text-generation-inference",
+          "relation": "contributor",
+          "stars": 10881,
+          "language": "Python",
+          "topics": [
+            "bloom",
+            "deep-learning",
+            "falcon",
+            "gpt",
+            "inference",
+            "nlp",
+            "pytorch",
+            "starcoder",
+            "transformer"
+          ],
+          "prs": 2
+        },
+        {
+          "nameWithOwner": "huggingface/transformers",
+          "relation": "contributor",
+          "stars": 167683,
+          "language": "Python",
+          "topics": [
+            "audio",
+            "deep-learning",
+            "deepseek",
+            "gemma",
+            "glm",
+            "hacktoberfest",
+            "llm",
+            "machine-learning",
+            "model-hub",
+            "natural-language-processing",
+            "nlp",
+            "pretrained-models",
+            "python",
+            "pytorch",
+            "pytorch-transformers",
+            "qwen",
+            "speech-recognition",
+            "transformer",
+            "vlm"
+          ],
+          "prs": 2
+        }
+      ]
+    },
+    {
+      "login": "swyx",
+      "why": "Developer relations and AI engineering community",
+      "expect": [
+        "devrel"
+      ],
+      "mustNot": [
+        "hr",
+        "sales",
+        "finance",
+        "trainee"
+      ],
+      "languages": [
+        {
+          "language": "PHP",
+          "share": 100
+        }
+      ],
+      "repos": [
+        {
+          "nameWithOwner": "swyx/swyx.github.io",
+          "relation": "owner",
+          "stars": 0,
+          "language": "PHP",
+          "topics": [],
+          "prs": null
+        }
+      ]
+    },
+    {
+      "login": "sindresorhus",
+      "why": "Non-LLM control: prolific JS/TS open-source maintainer",
+      "expect": [
+        "frontend"
+      ],
+      "mustNot": [
+        "hr",
+        "pm",
+        "sales",
+        "finance",
+        "trainee",
+        "ops"
+      ],
+      "languages": [
+        {
+          "language": "JavaScript",
+          "share": 85
+        },
+        {
+          "language": "TypeScript",
+          "share": 8
+        },
+        {
+          "language": "Swift",
+          "share": 4
+        },
+        {
+          "language": "Shell",
+          "share": 1
+        },
+        {
+          "language": "CSS",
+          "share": 1
+        }
+      ],
+      "repos": [
+        {
+          "nameWithOwner": "sindresorhus/type-fest",
+          "relation": "owner",
+          "stars": 17446,
+          "language": "TypeScript",
+          "topics": [
+            "npm-package",
+            "types",
+            "typescript",
+            "typescript-definitions",
+            "utilities"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "sindresorhus/ky",
+          "relation": "owner",
+          "stars": 17114,
+          "language": "TypeScript",
+          "topics": [
+            "fetch",
+            "http-client",
+            "http-request",
+            "javascript",
+            "js",
+            "json",
+            "npm-package",
+            "request",
+            "rest",
+            "tiny",
+            "whatwg-fetch"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "sindresorhus/got",
+          "relation": "owner",
+          "stars": 14949,
+          "language": "TypeScript",
+          "topics": [
+            "http",
+            "http-client",
+            "http-request",
+            "https",
+            "nodejs",
+            "npm-package"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "sindresorhus/pure",
+          "relation": "owner",
+          "stars": 14439,
+          "language": "Shell",
+          "topics": [
+            "git",
+            "minimal",
+            "prompt",
+            "pure",
+            "shell",
+            "shell-prompt",
+            "shell-theme",
+            "terminal",
+            "theme",
+            "zsh"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "sindresorhus/github-markdown-css",
+          "relation": "owner",
+          "stars": 8939,
+          "language": "CSS",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "sindresorhus/execa",
+          "relation": "owner",
+          "stars": 7618,
+          "language": "JavaScript",
+          "topics": [
+            "binary",
+            "child-process",
+            "exec",
+            "execute",
+            "javascript",
+            "nodejs",
+            "shell",
+            "spawn",
+            "spawned-processes",
+            "streams"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "sindresorhus/modern-normalize",
+          "relation": "owner",
+          "stars": 7421,
+          "language": "TypeScript",
+          "topics": [
+            "css",
+            "css-library",
+            "css-reset",
+            "normalize",
+            "normalize-css",
+            "npm-package"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "sindresorhus/eslint-plugin-unicorn",
+          "relation": "owner",
+          "stars": 5269,
+          "language": "JavaScript",
+          "topics": [
+            "eslint",
+            "eslint-config",
+            "eslint-plugin",
+            "eslint-rules",
+            "javascript",
+            "linting-rules",
+            "nodejs",
+            "unicorns",
+            "xo"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "sindresorhus/electron-store",
+          "relation": "owner",
+          "stars": 5024,
+          "language": "JavaScript",
+          "topics": [
+            "config",
+            "data-persistence",
+            "electron",
+            "electron-module",
+            "npm-package",
+            "preferences",
+            "storage",
+            "user-preferences"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "sindresorhus/file-type",
+          "relation": "owner",
+          "stars": 4334,
+          "language": "JavaScript",
+          "topics": [
+            "buffer",
+            "detect",
+            "file",
+            "file-types",
+            "javascript",
+            "magic",
+            "magic-numbers",
+            "nodejs",
+            "uint8array"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "sindresorhus/p-queue",
+          "relation": "owner",
+          "stars": 4283,
+          "language": "TypeScript",
+          "topics": [
+            "async-functions",
+            "async-queue",
+            "node-module",
+            "npm-package",
+            "promise",
+            "promise-queue",
+            "queue",
+            "queue-data-stucture"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "sindresorhus/emittery",
+          "relation": "owner",
+          "stars": 2075,
+          "language": "JavaScript",
+          "topics": [
+            "async",
+            "emitter",
+            "event-emitter",
+            "event-listener",
+            "javascript",
+            "nodejs",
+            "npm-package",
+            "promise"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "sindresorhus/boxen",
+          "relation": "owner",
+          "stars": 1675,
+          "language": "JavaScript",
+          "topics": [],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "sindresorhus/p-map",
+          "relation": "owner",
+          "stars": 1514,
+          "language": "JavaScript",
+          "topics": [
+            "async",
+            "async-await",
+            "async-functions",
+            "await",
+            "concurrency",
+            "iteration",
+            "javascript",
+            "mapper",
+            "nodejs",
+            "parallel",
+            "promise",
+            "promises"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "sindresorhus/pify",
+          "relation": "owner",
+          "stars": 1502,
+          "language": "JavaScript",
+          "topics": [
+            "promise-utilities",
+            "promises",
+            "promisify"
+          ],
+          "prs": null
+        },
+        {
+          "nameWithOwner": "jaywcjlove/awesome-mac",
+          "relation": "contributor",
+          "stars": 116047,
+          "language": "Swift",
+          "topics": [
+            "app",
+            "apple",
+            "application",
+            "apps",
+            "awesome",
+            "awesome-list",
+            "awesome-mac",
+            "desktop-app",
+            "desktop-application",
+            "desktop-apps",
+            "list",
+            "mac",
+            "mac-osx",
+            "macos",
+            "macos-app",
+            "macos-apps",
+            "macosx",
+            "software",
+            "swift",
+            "swiftui"
+          ],
+          "prs": 27
+        },
+        {
+          "nameWithOwner": "refined-github/refined-github",
+          "relation": "contributor",
+          "stars": 32306,
+          "language": "TypeScript",
+          "topics": [
+            "browser-extension",
+            "chrome-extension",
+            "firefox-addon",
+            "github",
+            "github-extension",
+            "safari-extension",
+            "userstyle"
+          ],
+          "prs": 13
+        },
+        {
+          "nameWithOwner": "dev-protocol/incubation-committee",
+          "relation": "contributor",
+          "stars": 3,
+          "language": null,
+          "topics": [
+            "incubator"
+          ],
+          "prs": 6
+        },
+        {
+          "nameWithOwner": "avajs/ava",
+          "relation": "contributor",
+          "stars": 20822,
+          "language": "JavaScript",
+          "topics": [
+            "assert",
+            "async",
+            "async-functions",
+            "ava",
+            "cli",
+            "cli-app",
+            "concurrency",
+            "javascript",
+            "node",
+            "nodejs",
+            "performance",
+            "tap",
+            "tdd",
+            "test-framework",
+            "test-runner",
+            "testing",
+            "unicorns",
+            "unit-testing"
+          ],
+          "prs": 5
+        },
+        {
+          "nameWithOwner": "xojs/xo",
+          "relation": "contributor",
+          "stars": 7991,
+          "language": "TypeScript",
+          "topics": [
+            "best-practices",
+            "code-style",
+            "eslint",
+            "eslint-plugin",
+            "eslint-rules",
+            "linter",
+            "nodejs",
+            "shareable-configs",
+            "style-linter",
+            "unicorns",
+            "xo"
+          ],
+          "prs": 5
+        },
+        {
+          "nameWithOwner": "raycast/script-commands",
+          "relation": "contributor",
+          "stars": 6804,
+          "language": "Shell",
+          "topics": [],
+          "prs": 5
+        },
+        {
+          "nameWithOwner": "chalk/chalk",
+          "relation": "contributor",
+          "stars": 23325,
+          "language": "JavaScript",
+          "topics": [
+            "ansi",
+            "ansi-escape-codes",
+            "chalk",
+            "cli",
+            "color",
+            "commandline",
+            "console",
+            "javascript",
+            "strip-ansi",
+            "terminal",
+            "terminal-emulators"
+          ],
+          "prs": 3
+        },
+        {
+          "nameWithOwner": "matteocrippa/awesome-swift",
+          "relation": "contributor",
+          "stars": 26317,
+          "language": "Ruby",
+          "topics": [
+            "awesome",
+            "awesome-list",
+            "awesome-lists",
+            "awesome-swift",
+            "ios",
+            "linux",
+            "list",
+            "lists",
+            "swift",
+            "swift-extensions",
+            "swift-framework",
+            "swift-language",
+            "swift-library"
+          ],
+          "prs": 3
+        }
+      ]
+    }
+  ]
+}

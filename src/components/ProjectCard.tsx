@@ -81,7 +81,7 @@ export function ProjectCard({ project, position }: { project: GoProjectListItem;
                   prefetch={false}
                   className={`rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[11px] hover:bg-white/[0.07] ${style.text}`}
                 >
-                  {style.emoji} @{contributor.username}
+                  @{contributor.username}
                 </Link>
               );
             })}

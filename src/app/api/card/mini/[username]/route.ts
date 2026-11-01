@@ -9,11 +9,11 @@
  * Defaults (`bars`, `auto`, `en`) are the safest thing to paste into a README.
  *
  * Every read here is a PK/index seek or a cached aggregate, and the response
- * carries a 6h CDN cache: README views are served by the CDN and GitHub's camo
- * proxy, so the function barely runs even on a popular profile.
+ * carries a short CDN cache (SCORE_CARD_CACHE: 10 min fresh + background
+ * revalidation) so a rescan shows up within minutes while README views are
+ * still mostly served by the edge and GitHub's camo proxy.
  */
 
-import { NextRequest } from "next/server";
 import { TIER_LABEL_EN } from "@/lib/badge";
 import {
   parseMiniCardLang,
@@ -24,11 +24,11 @@ import {
 } from "@/lib/mini-card";
 import { beatPercent } from "@/lib/percentile";
 import { aggregateLanguages } from "@/lib/profile-insights";
-import { getGoProfilePresentation } from "@/lib/go-profile.server";
+import { getGoProfileCardPresentation } from "@/lib/go-profile.server";
 import { tierFor } from "@/lib/score-presentation";
-import { sponsorLogoDataUrl } from "@/lib/sponsor.server";
+import { getCurrentTitleSponsor } from "@/lib/sponsor.server";
 import { publicDisplayName, USERNAME_RE } from "@/lib/username";
-import { avatarDataUrl, CDN_CACHE } from "../../shared";
+import { avatarDataUrl, SCORE_CARD_CACHE } from "../../assets";
 import { decodeRouteParam } from "@/lib/route-params";
 
 export const runtime = "nodejs";
@@ -53,17 +53,17 @@ function svg(body: string, cache: string): Response {
 }
 
 export async function GET(
-  req: NextRequest,
+  req: Request,
   ctx: { params: Promise<{ username: string }> },
 ) {
   const { username } = await ctx.params;
-  const params = req.nextUrl.searchParams;
+  const params = new URL(req.url).searchParams;
   const variant = parseMiniCardVariant(params.get("variant"));
   const theme = parseMiniCardTheme(params.get("theme"));
   const lang = parseMiniCardLang(params.get("lang"));
 
   const name = decodeRouteParam(username ?? "").trim();
-  const presentation = USERNAME_RE.test(name) ? await getGoProfilePresentation(name) : null;
+  const presentation = USERNAME_RE.test(name) ? await getGoProfileCardPresentation(name) : null;
   const detail = presentation?.detail ?? null;
   if (!detail) {
     // Never 404: an embedded card that fails renders as a broken image in
@@ -77,10 +77,10 @@ export async function GET(
   // Rank and percentile both come off getRankCached so the two halves of the
   // meta line ("Top 0.8% · #128 / 21,384") share one denominator. getRank /
   // getPercentile in db.ts aggregate the whole table — never call those here.
-  const [avatar, sponsorLogo] = await Promise.all([
+  const [avatar, titleSponsor] = await Promise.all([
     avatarDataUrl(detail.avatar_url, AVATAR_PX),
     // `small`: this is the other half of the payload budget the avatar spends.
-    sponsorLogoDataUrl("small"),
+    getCurrentTitleSponsor("small"),
   ]);
   const rank = presentation?.rank ?? null;
   const delta = presentation?.delta ?? null;
@@ -107,11 +107,12 @@ export async function GET(
       total: rank?.total ?? null,
       beat: rank ? beatPercent(rank.below, rank.total) : null,
       delta,
-      sponsorLogo,
+      sponsorLogo: titleSponsor?.logo ?? null,
+      sponsorName: titleSponsor?.name ?? null,
       variant,
       theme,
       lang,
     }),
-    CDN_CACHE,
+    SCORE_CARD_CACHE,
   );
 }

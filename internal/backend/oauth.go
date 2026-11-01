@@ -66,11 +66,11 @@ func (s *TursoStore) UpsertOAuthUser(ctx context.Context, session OAuthSession, 
 func (s *TursoStore) HasCanonicalPublicScore(ctx context.Context, username string) (bool, error) {
 	var exists int
 	err := s.db.QueryRowContext(ctx, `SELECT 1 FROM scores
-      WHERE username = ? AND hidden = 0 AND score_version = ?
+      WHERE username = ? AND hidden = 0 AND `+publicScoreVersionClause("score_version")+`
         AND score_source_collection_version = ?
         AND length(score_source_snapshot_hash) = 64
         AND score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'
-      LIMIT 1`, strings.ToLower(username), goCanonicalScoreVersion, goCanonicalCollectionVersion).Scan(&exists)
+      LIMIT 1`, append([]any{strings.ToLower(username)}, append(publicScoreVersionArgs(), goCanonicalCollectionVersion)...)...).Scan(&exists)
 	if err == nil {
 		return true, nil
 	}

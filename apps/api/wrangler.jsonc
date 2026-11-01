@@ -1,0 +1,149 @@
+{
+  // ghfind-api: the Hono API Worker. No custom domain — ghfind-router owns the
+  // hostname and forwards migrated /api paths here over a service binding.
+  // Handlers are the Next app's route modules (src/app/api) and src/lib, so
+  // bindings and secrets must match the legacy Worker's for each env.
+  "name": "ghfind-api",
+      "tail_consumers": [{ "service": "ghfind-cost-monitor" }],
+  "account_id": "8f19bebe359e4ec1a24c68c5f49c1584",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-06",
+  // nodejs_compat populates process.env from vars/secrets (src/lib reads it).
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  // Workers Cache: a cache in front of this Worker, including calls over the
+  // router's service binding. It honors each response's own Cache-Control
+  // (RFC 9111), so the handlers' `public, s-maxage=…, stale-while-revalidate=…`
+  // finally takes effect on Cloudflare (those headers were written for
+  // Vercel's CDN and did nothing behind OpenNext). Hits skip the Worker: no
+  // CPU, no D1/Redis. The Worker version is part of the key, so every deploy
+  // starts cold. Responses that are private/no-store, set cookies, or are
+  // non-GET/HEAD are never cached. Inherited by every env below.
+  "cache": { "enabled": true },
+  // Vendors Next's @vercel/og edge build for the PNG card routes
+  // (scripts/vendor-og.mjs); runs before every bundle, incl. dev and dry-run.
+  "build": { "command": "node scripts/vendor-og.mjs" },
+  // The vendored renderer imports its Geist base font as raw bytes.
+  "rules": [{ "type": "Data", "globs": ["**/*.ttf"], "fallthrough": true }],
+  "alias": {
+    "@opennextjs/cloudflare": "./src/shims/opennext-cloudflare.ts",
+    // PNG cards render with the exact renderer next/og uses (see the shim).
+    "next/og": "./src/shims/next-og.ts",
+    "next-intl/server": "./src/shims/next-intl-server.ts",
+    "vercel-og-edge": "./.generated/og/index.edge.js",
+    "server-only": "./src/shims/server-only.ts",
+    // Auth routes: Next's own NextRequest/NextResponse (cookie serialization
+    // parity) and a request-scoped cookies() for src/lib/auth.ts.
+    "next/server": "./src/shims/next-server.ts",
+    "next/headers": "./src/shims/next-headers.ts",
+    // qrcode's "browser" field picks a canvas-based build, which has no canvas
+    // on Workers (toDataURL fails → cards lose their QR code). The Node entry
+    // renders PNGs with pure-JS pngjs over nodejs_compat's zlib/stream.
+    "qrcode": "../../node_modules/qrcode/lib/server.js"
+  },
+  "d1_databases": [
+    { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d" },
+    { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed-dev", "database_id": "bd305af9-2cab-4fe8-8c2f-324391cf105e" }
+  ],
+  "vars": {
+    "GHFIND_DEPLOY_ENV": "development"
+  },
+  "r2_buckets": [
+    { "binding": "SOCIAL_FEED_MEDIA", "bucket_name": "ghfind-social-media-dev" }
+  ],
+  "env": {
+    "dev": {
+      "name": "ghfind-api-dev",
+      "workers_dev": true,
+      "r2_buckets": [
+        { "binding": "SOCIAL_FEED_MEDIA", "bucket_name": "ghfind-social-media-dev" }
+      ],
+      "d1_databases": [
+        { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d" },
+        { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed-dev", "database_id": "bd305af9-2cab-4fe8-8c2f-324391cf105e" }
+      ],
+      "kv_namespaces": [
+        { "binding": "GHFIND_CACHE", "id": "d66443adfd3f4fccbab02fcb41e63284" }
+      ],
+      "durable_objects": {
+        "bindings": [
+          { "name": "RATE_LIMITER", "class_name": "RateLimiter", "script_name": "ghfind-coord-dev" },
+          { "name": "COORD_KV", "class_name": "KeyValue", "script_name": "ghfind-coord-dev" },
+          { "name": "SCAN_SLOT", "class_name": "ScanSlot", "script_name": "ghfind-coord-dev" }
+        ]
+      },
+      // Talent Match reports run on ghfind-talent-dev (apps/talent).
+      "workflows": [
+        { "name": "ghfind-talent-report-dev", "binding": "TALENT_REPORT", "class_name": "TalentReportWorkflow", "script_name": "ghfind-talent-dev" }
+      ],
+      "vars": {
+        "GHFIND_DEPLOY_ENV": "preview",
+        // Read-model caches on KV (src/lib/cache-store.ts), same namespace as
+        // ghfind-dev. Production stays on Redis until its cutover.
+        "GHFIND_CACHE_BACKEND": "kv",
+        // Rate limits on ghfind-coord-dev's RateLimiter Durable Object.
+        "GHFIND_RATELIMIT_BACKEND": "do",
+        "GHFIND_COORD_BACKEND": "do",
+        "PUBLIC_SITE_URL": "https://dev.ghfind.com",
+        "NEXT_PUBLIC_SITE_URL": "https://dev.ghfind.com"
+      }
+    },
+    "production": {
+      "name": "ghfind-api",
+      "r2_buckets": [
+        { "binding": "SOCIAL_FEED_MEDIA", "bucket_name": "ghfind-social-media" }
+      ],
+      "tail_consumers": [{ "service": "ghfind-cost-monitor" }],
+      "workers_dev": true,
+      // Project-analysis reconcile (apps/api/src/index.ts scheduled): advances
+      // queued/running assessments in batches of 20, still bounded by
+      // PROJECT_ANALYSIS_MAX_CONCURRENCY. Pause without a deploy by setting
+      // PROJECT_ANALYSIS_RECONCILE_CRON=off (wrangler secret put … --env production).
+      // The same tick drains the on-view auto re-roast queue (≤3 jobs, ≤8 min;
+      // src/lib/auto-reroast-worker.ts); pause with GHFIND_AUTO_REROAST_DISABLED=1.
+      "triggers": { "crons": ["*/2 * * * *"] },
+      "d1_databases": [
+        { "binding": "GHFIND_D1", "database_name": "ghfind", "database_id": "60d45096-bfe7-4de1-8b85-c1b66a466b0d" },
+        { "binding": "GHFIND_FEED_D1", "database_name": "ghfind-feed", "database_id": "9c4ac13a-4c90-40a8-9d56-d7141f864bbf" }
+      ],
+      // Upstash replacements (same as scripts/feed-production-release.mjs renderWeb).
+      "kv_namespaces": [
+        { "binding": "GHFIND_CACHE", "id": "f7a7299eef224d899c21121c1979be32" }
+      ],
+      "durable_objects": {
+        "bindings": [
+          { "name": "RATE_LIMITER", "class_name": "RateLimiter", "script_name": "ghfind-coord" },
+          { "name": "COORD_KV", "class_name": "KeyValue", "script_name": "ghfind-coord" },
+          { "name": "SCAN_SLOT", "class_name": "ScanSlot", "script_name": "ghfind-coord" },
+          { "name": "ROAST_JOB", "class_name": "RoastJob", "script_name": "ghfind-coord" }
+        ]
+      },
+      // Talent Match reports run on ghfind-talent (apps/talent).
+      "workflows": [
+        { "name": "ghfind-talent-report", "binding": "TALENT_REPORT", "class_name": "TalentReportWorkflow", "script_name": "ghfind-talent" }
+      ],
+      "vars": {
+        "GHFIND_DEPLOY_ENV": "production",
+        "GHFIND_CACHE_BACKEND": "kv",
+        "GHFIND_RATELIMIT_BACKEND": "do",
+        "GHFIND_COORD_BACKEND": "do",
+        "PUBLIC_SITE_URL": "https://ghfind.com",
+        "NEXT_PUBLIC_SITE_URL": "https://ghfind.com",
+        // Project analyses (served here) finalize through the Feed source
+        // outbox in production; without these they would take the legacy
+        // catalog writer that the Feed writer fence rejects. Feed's own routes
+        // stay on the legacy Worker, whose rollout the release controls.
+        // Pinned to scripts/feed-production-release.mjs renderWeb by
+        // src/__tests__/apps-production-config.test.ts.
+        "FEED_BACKEND": "go",
+        "FEED_SOURCE_OUTBOX_ENABLED": "true",
+        // Same values as the GitHub "Production" environment variables that
+        // the release passes to renderWeb.
+        "MOSOO_API_BASE": "https://cloud.mosoo.ai/api/v1",
+        "MOSOO_PROJECT_AGENT_ID": "01M22PWZR0A7ZYCDKWTEA0YEHQ",
+        "MOSOO_PROJECT_USER_ID": "ghfind-production",
+        "MOSOO_PROJECT_REQUEST_TIMEOUT_MS": "15000"
+      }
+    }
+  }
+}

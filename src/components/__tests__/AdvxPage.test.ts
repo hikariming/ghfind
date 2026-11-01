@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(
-  new URL("../../app/[locale]/advx/page.tsx", import.meta.url),
+  // The page body lives in the view shared by the Next page and apps/web.
+  new URL("../pages/AdvxView.tsx", import.meta.url),
   "utf8",
 );
 

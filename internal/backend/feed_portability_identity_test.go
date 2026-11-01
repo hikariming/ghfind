@@ -123,7 +123,7 @@ func portabilityEmptyTableQuery(table string) (string, int, error) {
 	if !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(table) {
 		return "", 0, errors.New("invalid fixture table identifier")
 	}
-	seeded := map[string]int{"taxonomy_versions": 1, "tag_definitions": 13, "algorithm_configs": 1, "embedding_model_state": 1, "runtime_control": 1, "schema_compatibility": 1, "schema_migrations": 22}
+	seeded := map[string]int{"taxonomy_versions": 1, "tag_definitions": 17, "algorithm_configs": 1, "embedding_model_state": 1, "runtime_control": 1, "schema_compatibility": 1, "schema_migrations": 23}
 	return `SELECT COUNT(*) FROM feed."` + table + `"`, seeded[table], nil
 }
 func TestPortabilityRejectsEndpointFromAnotherDatabase(t *testing.T) {
@@ -160,7 +160,7 @@ func TestPortabilityAllNonSeedTablesMustBeEmpty(t *testing.T) {
 		}
 	}
 	_, n, _ := portabilityEmptyTableQuery("tag_definitions")
-	if strconv.Itoa(n) != "13" {
+	if strconv.Itoa(n) != "17" {
 		t.Fatal("taxonomy seed count drift")
 	}
 }

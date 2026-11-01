@@ -1,3 +1,4 @@
+import { validateRefresh, readRefreshFailure, type RefreshRequest } from "./refresh";
 import { validateTransition, type TransitionRequest } from "./transition";
 import {
   bearerAuthorized,
@@ -17,10 +18,12 @@ export type NativeProbe = { actorId: string; running: boolean } & (
 export interface Dispatch {
   fetch(target: Target, request: Request): Promise<Response>;
   stop(target: Target): Promise<void>;
+  refresh?(target: Target, input: RefreshRequest): Promise<unknown>;
   restart?(target: Target, input: TransitionRequest): Promise<unknown>;
   // These are binding-only capabilities, never client-provided identities.
   probe?(target: Target): Promise<NativeProbe>;
   actorId?(target: Target): string;
+  configuration?(target: Target): Promise<unknown>;
 }
 export type RuntimeSettings = Pick<
   RuntimeEnv,
@@ -84,6 +87,25 @@ export function checkConfiguration(env: RuntimeSettings): void {
 // exceptions, never on HTTP response text. Its private predicate uses the same
 // substring (dist/lib/container.js); unknown errors remain failures on upgrades.
 const NO_INSTANCE_ERROR = "there is no container instance that can be provided to this durable object";
+
+/**
+ * Name an exception from a Container lifecycle call or the Durable Object RPC
+ * carrying it. Untyped errors used to fall through to the generic
+ * `feed_unavailable`, which is all every failed production mode transition
+ * since 2026-10-01 reported. Only a fixed code leaves the Worker — never the
+ * message — and classification never makes an error retryable.
+ */
+export function classifyLifecycleError(error: unknown, phase: "probe" | "stop" | "start" | "rpc"): HTTPError {
+  if (error instanceof HTTPError) return error;
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  const flags = (error ?? {}) as { durableObjectReset?: unknown; retryable?: unknown; overloaded?: unknown };
+  if (message.includes(NO_INSTANCE_ERROR)) return new HTTPError(503, "container_no_instance");
+  if (flags.durableObjectReset === true || message.includes("reset because its code was updated"))
+    return new HTTPError(503, "actor_reset_by_deploy");
+  if (flags.overloaded === true) return new HTTPError(503, "actor_overloaded");
+  if (flags.retryable === true) return new HTTPError(503, `actor_${phase}_retryable_error`);
+  return new HTTPError(503, `container_${phase}_failed`);
+}
 
 // The binding-only same-DO operation has one deadline for preparation, HTTP and
 // body consumption. Native observations do not claim readiness without real Go.
@@ -161,6 +183,53 @@ function targetFrom(value: string): Target {
   throw new HTTPError(404, "not_found");
 }
 
+// Binding metadata only: this must never inspect, start or contact a process.
+// In a rolling update, the DO's environment can differ from the calling edge.
+export function actorConfiguration(env: RuntimeSettings, target: Target, actorId: string) {
+  checkConfiguration(env);
+  targetFrom(target);
+  if (env.FEED_ENVIRONMENT !== "production" || !/^[a-f0-9]{64}$/.test(actorId))
+    throw new HTTPError(503, "runtime_configuration_invalid");
+  return {
+    target, actorId, workerVersionId: env.WORKER_VERSION.id,
+    sourceSha: env.FEED_RELEASE_SHA, configuredImage: env.FEED_IMAGE_REFERENCE,
+    imageBuildId: env.FEED_IMAGE_BUILD_ID, mode: env.FEED_MODE,
+    writerEpoch: Number(env.FEED_WRITER_EPOCH),
+  };
+}
+
+// A Container DO freshly reset by a deploy can hold its input gate for several
+// seconds while it reconciles the previous instance; 2s produced repeated false
+// "unavailable" results during production off transitions. Keep below the
+// operator's 10s per-request bound.
+const CONFIGURATION_READ_TIMEOUT_MS = 8000;
+
+async function readActorConfiguration(target: Target, dispatch: Dispatch) {
+  if (!dispatch.configuration || !dispatch.actorId)
+    throw new HTTPError(503, "runtime_configuration_unavailable");
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let value: unknown;
+  try {
+    value = await Promise.race([dispatch.configuration(target), new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new HTTPError(503, "runtime_configuration_unavailable")), CONFIGURATION_READ_TIMEOUT_MS);
+    })]);
+  } finally { clearTimeout(timer); }
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new HTTPError(503, "runtime_configuration_invalid");
+  const data = value as Record<string, unknown>;
+  if (Object.keys(data).sort().join(",") !== "actorId,configuredImage,imageBuildId,mode,sourceSha,target,workerVersionId,writerEpoch" ||
+      data.target !== target || data.actorId !== dispatch.actorId(target) ||
+      typeof data.actorId !== "string" || !/^[a-f0-9]{64}$/.test(data.actorId) ||
+      typeof data.workerVersionId !== "string" || !/^[a-f0-9-]{36}$/.test(data.workerVersionId) ||
+      typeof data.sourceSha !== "string" || !/^[a-f0-9]{40}$/.test(data.sourceSha) ||
+      typeof data.configuredImage !== "string" || !/^registry\.cloudflare\.com\/8f19bebe359e4ec1a24c68c5f49c1584\/ghfind-feed@sha256:[a-f0-9]{64}$/.test(data.configuredImage) ||
+      typeof data.imageBuildId !== "string" || !/^[a-f0-9]{64}$/.test(data.imageBuildId) ||
+      (data.mode !== "off" && data.mode !== "baseline") ||
+      !Number.isSafeInteger(data.writerEpoch) || Number(data.writerEpoch) < 1)
+    throw new HTTPError(503, "runtime_configuration_invalid");
+  return data;
+}
+
 export async function probe(
   target: Target,
   env: RuntimeSettings,
@@ -200,9 +269,15 @@ export async function probe(
     status = response.status;
     body = await readBounded(response, 4096);
   }
-  const data: Record<string, unknown> = JSON.parse(
-    new TextDecoder().decode(body),
-  );
+  let data: Record<string, unknown>;
+  try {
+    data = JSON.parse(new TextDecoder().decode(body));
+  } catch {
+    // The Go binaries always answer JSON; a text body is the Containers SDK's
+    // own error page ("There is no Container instance available...",
+    // "Failed to start container: ...", "Container suddenly disconnected").
+    throw new HTTPError(503, "container_response_not_json");
+  }
   if (
     !data || typeof data !== "object" || Array.isArray(data) ||
     data.version !== env.FEED_RELEASE_SHA ||
@@ -299,12 +374,43 @@ export async function handleRequest(
         });
       }
       const match =
-        /^\/internal\/runtime\/(api-[01]|executor-0)\/(ready|stop|restart)$/.exec(
+        /^\/internal\/runtime\/(api-[01]|executor-0)\/(ready|stop|restart|configuration|refresh)$/.exec(
           url.pathname,
         );
       if (!match?.[1] || !match[2] || url.search)
         throw new HTTPError(404, "not_found");
       const target = targetFrom(match[1]);
+      // Metadata does not enable or wake the executor. Off deployments must
+      // remain inspectable while every process/lifecycle route stays gated.
+      if (match[2] === "configuration" && request.method === "GET" && env.FEED_ENVIRONMENT === "production")
+        return json(await readActorConfiguration(target, dispatch));
+      if (match[2] === "refresh" && request.method === "POST") {
+        const body = await readBounded(request, 1024);
+        let input: unknown;
+        try { input = JSON.parse(new TextDecoder().decode(body)); }
+        catch { throw new HTTPError(400, "invalid_refresh_shape"); }
+        if (!dispatch.actorId || !dispatch.refresh) throw new HTTPError(503, "refresh_unavailable");
+        if (env.FEED_MODE === "off") {
+          try { validateRefresh(input, env, dispatch.actorId(target), "actor"); }
+          catch (error) {
+            if (error instanceof HTTPError && error.code === "invalid_refresh_actor_version")
+              throw new HTTPError(400, "invalid_refresh_edge_version");
+            throw error;
+          }
+          return json({ error: "refresh_edge_not_ready", workerVersionId: env.WORKER_VERSION.id }, 409);
+        }
+        validateRefresh(input, env, dispatch.actorId(target), "edge");
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        let result: unknown;
+        try {
+          result = await Promise.race([dispatch.refresh(target, input), new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new Error("refresh timeout")), 2000);
+          })]);
+        } catch { throw new HTTPError(503, "refresh_outcome_unknown"); }
+        finally { clearTimeout(timer); }
+        const currentVersion = readRefreshFailure(result, input.baselineVersionId);
+        return json({ error: "refresh_actor_already_current", workerVersionId: currentVersion }, 409);
+      }
       if (target === "executor-0" && env.FEED_EXECUTOR_ENABLED !== "true")
         throw new HTTPError(503, "executor_not_enabled");
       if (match[2] === "restart" && request.method === "POST" && env.FEED_ENVIRONMENT === "production") {
@@ -312,7 +418,7 @@ export async function handleRequest(
         let input: unknown;
         try { input = JSON.parse(new TextDecoder().decode(body)); }
         catch { throw new HTTPError(400, "invalid_transition"); }
-        if (env.FEED_MODE === "off") {
+        if (env.FEED_MODE === "off" && (input as Partial<TransitionRequest> | null)?.mode === "baseline") {
           // A configuration GET and the following POST can reach different edge
           // versions. Only this exact, validated pre-dispatch rejection proves
           // that retrying cannot repeat a lifecycle mutation.
@@ -321,7 +427,13 @@ export async function handleRequest(
         }
         validateTransition(input, env);
         if (!dispatch.restart) throw new HTTPError(503, "transition_unavailable");
-        return json(await dispatch.restart(target, input));
+        let restarted: unknown;
+        try {
+          restarted = await dispatch.restart(target, input);
+        } catch (error) {
+          throw classifyLifecycleError(error, "rpc");
+        }
+        return json(restarted);
       }
       if (match[2] === "ready" && request.method === "GET")
         return json(await probe(target, env, dispatch));

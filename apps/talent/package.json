@@ -1,0 +1,15 @@
+{
+  "name": "@ghfind/talent",
+  "private": true,
+  "type": "module",
+  "description": "ghfind-talent Worker: hosts the Talent Match report Workflow (extract, verify, match, advise). No public routes; the API Worker starts reports through a cross-script Workflow binding.",
+  "scripts": {
+    "deploy:dev": "wrangler deploy --env dev",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260929.1",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.143.0"
+  }
+}

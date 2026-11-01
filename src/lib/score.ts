@@ -1,3 +1,5 @@
+import { presentationDiscount, ecosystemPresentationDiscount, externalPrShare } from "./presentation-concentration";
+import type { ImpactRepo } from "./types";
 /**
  * Deterministic 0-100 value/trust scorer.
  *
@@ -116,52 +118,12 @@ export function spamBotScore(m: RawMetrics): number {
   return Math.round(Math.max(0, Math.min(s, 10)) * 10) / 10;
 }
 
+/** Retained API: v15 replaces binary caps with evidence-based continuous weighting. */
 export function docLikePrVolumeDiscount(m: RawMetrics, prVolume: number): number {
-  const sample = m.recent_external_pr_sample ?? m.recent_merged_pr_sample ?? 0;
-  const ratio =
-    m.recent_external_doc_like_pr_ratio ??
-    m.recent_doc_like_pr_ratio ??
-    (sample > 0 && m.recent_external_doc_like_pr_count !== undefined
-      ? m.recent_external_doc_like_pr_count / sample
-      : sample > 0 && m.recent_doc_like_pr_count !== undefined
-        ? m.recent_doc_like_pr_count / sample
-      : 0);
-  if (sample < 20 || ratio < 0.55) return 0;
-
-  const severity = Math.max(0, Math.min(1, (ratio - 0.55) / 0.075));
-  return Math.min(prVolume * 0.55, 2.5 + severity * 3.0);
+  const share = Math.min(1, Math.max(0, m.external_merged_pr_count ?? 0) / Math.max(1, m.merged_pr_count));
+  return prVolume * share * (1 - presentationDiscount(m)) * 0.8;
 }
-
-export function contributionQualityCap(m: RawMetrics): number | undefined {
-  const sample = m.recent_external_pr_sample ?? m.recent_merged_pr_sample ?? 0;
-  const ratio =
-    m.recent_external_doc_like_pr_ratio ??
-    m.recent_doc_like_pr_ratio ??
-    (sample > 0 && m.recent_external_doc_like_pr_count !== undefined
-      ? m.recent_external_doc_like_pr_count / sample
-      : sample > 0 && m.recent_doc_like_pr_count !== undefined
-        ? m.recent_doc_like_pr_count / sample
-        : 0);
-  if (sample < 20 || ratio < 0.55) return undefined;
-
-  const lowTrustImpact =
-    m.impact_quality_cap !== undefined &&
-    m.impact_quality_cap <= 4 &&
-    (m.core_impact_pr_count ?? 0) <= 2;
-  const weakTopStarProject =
-    (m.top_starred_original_repo_quality_score ?? 1) < 0.3 && m.total_stars > 0;
-  const selfClosedExternal = m.self_closed_external_pr_count ?? 0;
-  const totalExternalish =
-    m.merged_pr_count + (m.maintainer_closed_unmerged_pr_count ?? 0) + selfClosedExternal;
-  const heavySelfClosedExternal =
-    totalExternalish >= 20 && selfClosedExternal / totalExternalish >= 0.25;
-  const weakOwnProjectSignal =
-    m.max_stars < 100 &&
-    m.total_stars < 300 &&
-    (m.top_starred_original_repo_quality_score ?? 1) < 0.6;
-  if (lowTrustImpact && (weakTopStarProject || weakOwnProjectSignal || heavySelfClosedExternal)) {
-    return 12;
-  }
+export function contributionQualityCap(_m: RawMetrics): number | undefined {
   return undefined;
 }
 
@@ -181,6 +143,29 @@ export function highImpactCorePrBonus(m: RawMetrics): number {
   return Math.min(2, starSignal * 0.8 + coreSignal * 1.2);
 }
 
+/** Own-repo merged PRs saturate at 200. */
+const OWN_PR_VOLUME_FULL_AT = 200;
+/**
+ * 209ff9f5 community extra on own-repo PR volume. In that formula own volume
+ * was `(4 + 6·A)·logRatio(own, 200)` capped at 10; v10 already counts own PRs
+ * in the 16-point combined pool (the 4), so v13 restores only `6·A·logRatio`.
+ */
+const OWN_PR_COMMUNITY_BONUS = 6;
+
+/**
+ * Extra contribution-quality points when own-repo merged PRs landed in an
+ * outside community. `A` is `own_pr_community` (0..1). Snapshots without
+ * `external_merged_pr_count` keep the v10 single-pool score (credit 0).
+ */
+export function ownPrCommunityCredit(m: RawMetrics): number {
+  if (m.external_merged_pr_count == null) return 0;
+  const community = Math.max(0, Math.min(m.own_pr_community ?? 0, 1));
+  if (community === 0) return 0;
+  const external = Math.max(0, Math.min(m.external_merged_pr_count, m.merged_pr_count));
+  const own = Math.max(0, m.merged_pr_count - external);
+  return logRatio(own, OWN_PR_VOLUME_FULL_AT) * OWN_PR_COMMUNITY_BONUS * community;
+}
+
 export function impactPrestigeSignal(m: RawMetrics): number {
   return Math.max(
     0,
@@ -192,17 +177,192 @@ export function impactPrestigeSignal(m: RawMetrics): number {
 }
 
 /**
- * Many merged PRs are not automatically top-tier contribution quality. If the
- * history is bulk-heavy but lacks either a 10k-star external repo signal or a
- * genuinely popular own project, cap the PR/issue-derived contribution score.
- * This still lets small-community work score well, but prevents low-stakes PR
- * volume from outranking fewer high-impact core PRs.
+ * Bulk volume needs prestige and independent adoption to approach full credit.
+ * Own project stars cannot bypass either constraint. Own PRs earn adoption
+ * through the measured outside community, including attributed org projects.
+ * Missing external counts are unknown: retain the prestige cap alone.
+ */
+/** Log-sum-exp soft minimum. Approaches the smaller input; never a hard cut. */
+export function softMin(values: number[], k = 6): number {
+  const finite = values.filter((value) => Number.isFinite(value));
+  if (finite.length === 0) return Infinity;
+  const peak = Math.max(...finite.map((value) => -k * value));
+  const sum = finite.reduce((total, value) => total + Math.exp(-k * value - peak), 0);
+  return -(peak + Math.log(sum)) / k;
+}
+
+/**
+ * Evidence ceiling for contribution quality. v19 no longer returns a value
+ * that `min(raw, cap)` can slam into: callers saturate toward this ceiling.
+ * Missing external counts stay unknown and omit recognition, matching v18.
+ */
+export function contributionEvidenceCeiling(m: RawMetrics): number {
+  const smooth = (value: number) => { const x = Math.max(0, Math.min(1, value)); return x*x*(3-2*x); };
+  const volume = smooth((m.merged_pr_count - 40) / 80);
+  const prestige = impactPrestigeSignal(m);
+  const strongPrestige = smooth((prestige - .65) / .15);
+  const coreProtection = smooth(((m.core_impact_pr_count ?? 0) - 40) / 60);
+  const prestigeCap = 20 + 3*smooth((prestige-.3)/.5) + 4*strongPrestige + 2.5*coreProtection*(1-strongPrestige);
+  const cap = 27 - (27 - prestigeCap) * volume;
+  const bounds = [SUBSCORE_MAX.contribution_quality, cap];
+  if (m.external_merged_pr_count != null) {
+    const external = Math.max(0, Math.min(m.external_merged_pr_count, m.merged_pr_count));
+    const own = Math.max(0, m.merged_pr_count - external);
+    const community = Math.max(0, Math.min(m.own_pr_community ?? 0, 1));
+    // 80 effective landings earn 63% of the seven points above the legacy floor;
+    // roughly 396 are needed for this ceiling to approach 27.0.
+    bounds.push(20 + 7 * (1 - Math.exp(-(external + own * community) / 80)));
+  }
+  const legacy = contributionQualityCap(m);
+  if (legacy != null) bounds.push(legacy);
+  return softMin(bounds, 6);
+}
+
+/**
+ * v18 hard cap, retained so tests can show the cliff this release removes.
+ * Same prestige and recognition curves; combines them with `min`.
  */
 export function lowPrestigeBulkContributionCap(m: RawMetrics): number | undefined {
-  if (m.merged_pr_count < 80) return undefined;
-  if (impactPrestigeSignal(m) >= logRatio(10_000, 100_000)) return undefined;
-  if (m.max_stars >= 1000) return undefined;
-  return 22;
+  const ceiling = contributionEvidenceCeiling(m);
+  if (!Number.isFinite(ceiling)) return undefined;
+  // Reconstruct the v18 min() of the same evidence bounds for callers that
+  // still inspect the legacy cap. The live score uses the soft ceiling.
+  const smooth = (value: number) => { const x = Math.max(0, Math.min(1, value)); return x*x*(3-2*x); };
+  const volume = smooth((m.merged_pr_count - 40) / 80);
+  const prestige = impactPrestigeSignal(m);
+  const strongPrestige = smooth((prestige - .65) / .15);
+  const coreProtection = smooth(((m.core_impact_pr_count ?? 0) - 40) / 60);
+  const prestigeCap = 20 + 3*smooth((prestige-.3)/.5) + 4*strongPrestige + 2.5*coreProtection*(1-strongPrestige);
+  const cap = 27 - (27 - prestigeCap) * volume;
+  if (m.external_merged_pr_count == null) return Math.min(cap, SUBSCORE_MAX.contribution_quality);
+  const external = Math.max(0, Math.min(m.external_merged_pr_count, m.merged_pr_count));
+  const own = Math.max(0, m.merged_pr_count - external);
+  const community = Math.max(0, Math.min(m.own_pr_community ?? 0, 1));
+  const recognitionCap = 20 + 7 * (1 - Math.exp(-(external + own * community) / 80));
+  return Math.min(cap, recognitionCap, SUBSCORE_MAX.contribution_quality);
+}
+
+/**
+ * Smooth stand-in for `min(raw, ceiling)`. Far below the ceiling the value
+ * stays on the raw curve. Within about one point it bends, and past the
+ * ceiling it approaches the ceiling instead of being cut flat.
+ */
+export function saturateToward(raw: number, ceiling: number): number {
+  if (!(raw > 0)) return 0;
+  if (!Number.isFinite(ceiling)) return raw;
+  if (!(ceiling > 0)) return 0;
+  return softMin([raw, ceiling], 3);
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+/**
+ * How much of the sampled impact work is code rather than docs, tiny edits,
+ * or presentation churn. Missing classification is unknown and stays neutral.
+ */
+export function impactSubstance(m: RawMetrics): number {
+  const trivialCount = Math.max(0, m.external_trivial_pr_count ?? 0);
+  const sample = Math.max(0, m.recent_merged_pr_sample ?? 0);
+  const trivialKnown = sample > 0 || trivialCount > 0;
+  const trivialShare = trivialKnown ? trivialCount / Math.max(sample, trivialCount, 1) : 0;
+  const core = Math.max(0, m.core_impact_pr_count ?? 0);
+  const docLike = Math.max(0, m.doc_like_impact_pr_count ?? 0);
+  const classKnown = core + docLike > 0;
+  // Core work earns full credit. A docs-only sample keeps a floor so a
+  // documentation-heavy history is discounted without going to zero.
+  const classQuality = classKnown ? 0.45 + 0.55 * (core / (core + docLike)) : 1;
+  const presentationKnown = m.presentation_churn_share != null;
+  const presentation = presentationKnown ? clamp01(m.presentation_churn_share ?? 0) : 0;
+  if (!trivialKnown && !classKnown && !presentationKnown) return 1;
+  // A short recent sample must not define a large lifetime. Coverage is how
+  // much of the landed impact work that sample actually saw.
+  const work = Math.max(m.impact_pr_count ?? 0, sample, trivialCount, core + docLike, 1);
+  const trivialCoverage = trivialKnown ? Math.min(1, Math.max(sample, trivialCount) / work) : 0;
+  const classCoverage = classKnown ? Math.min(1, (core + docLike) / work) : 0;
+  const presentationCoverage = presentationKnown
+    ? Math.min(1, Math.max(m.presentation_pr_sample ?? sample, 0) / work)
+    : 0;
+  const quality =
+    (1 - trivialCoverage * 0.55 * trivialShare) *
+    (1 - classCoverage * (1 - classQuality)) *
+    (1 - presentationCoverage * 0.5 * presentation);
+  return Math.max(0.18, Math.min(1, 0.22 + 0.78 * quality));
+}
+
+/** Cross-repo spread in (0.62, 1]. One repo or one dominant share sits near 0.62.
+ * Sustained work in the dominant repo softens concentration so a long-term
+ * co-maintainer of one mid-size project is not damped like a drive-by. */
+export function impactBreadth(m: RawMetrics): number {
+  const repos = (m.impact_repos ?? []).filter((repo) => repo && typeof repo.repo === "string");
+  let concentration = 0;
+  let known = false;
+  if (repos.length > 0) {
+    known = true;
+    concentration = repoConcentration(repos);
+  } else if ((m.impact_repo_count ?? 0) > 0) {
+    // No per-repo weights. A single qualifying repo is concentrated.
+    // Several repos stay neutral until the repo list is present; the recent
+    // PR share is a flood signal, not a lifetime diversity measure.
+    known = true;
+    concentration = (m.impact_repo_count ?? 0) <= 1 ? 1 : 0;
+  }
+  if (!known) return 1;
+  const work = dominantRepoWork(m, repos);
+  // ~0.05 at 3 PRs, ~0.49 at 40, ~0.95 at 180 — drive-bys keep nearly full
+  // concentration; long co-maintainers recover part of the breadth floor.
+  const maintainerRelief = 1 - Math.exp(-work / 60);
+  const effectiveConcentration = concentration * (1 - 0.4 * maintainerRelief);
+  const spread = Math.pow(1 - effectiveConcentration, 1.15);
+  return 0.62 + 0.38 * spread;
+}
+
+/** Dominant-repo landed work (PRs + commits/4). Count-only snapshots fall back
+ * to aggregate impact counts so the single-repo path still gets relief. */
+function dominantRepoWork(m: RawMetrics, repos: ImpactRepo[]): number {
+  if (repos.length > 0) {
+    let maxWork = 0;
+    for (const repo of repos) {
+      const work = Math.max(0, repo.prs ?? 0) + Math.max(0, repo.commits ?? 0) / 4;
+      if (work > maxWork) maxWork = work;
+    }
+    return maxWork;
+  }
+  return Math.max(0, m.impact_pr_count ?? 0) + Math.max(0, m.impact_commit_count ?? 0) / 4;
+}
+
+function repoConcentration(repos: ImpactRepo[]): number {
+  const weights = repos.map((repo) => Math.max(0, repo.prs ?? 0));
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  const shares = total > 0
+    ? weights.map((weight) => weight / total)
+    : repos.map(() => 1 / repos.length);
+  const hhi = shares.reduce((sum, share) => sum + share * share, 0);
+  if (repos.length <= 1) return 1;
+  const equal = 1 / repos.length;
+  return clamp01((hhi - equal) / (1 - equal));
+}
+
+/**
+ * Concave credit for landed popular-repo work. Commits count at 1/4 of a PR
+ * so commit-only maintainers are not treated as a drive-by. Unknown stays 1.
+ */
+export function impactTouch(m: RawMetrics): number {
+  const prsKnown = m.impact_pr_count != null && Number.isFinite(m.impact_pr_count);
+  const commitsKnown = m.impact_commit_count != null && Number.isFinite(m.impact_commit_count);
+  const reposKnown = (m.impact_repos?.length ?? 0) > 0 || (m.impact_repo_count ?? 0) > 0;
+  if (!prsKnown && !commitsKnown && !reposKnown) return 1;
+  if (prsKnown && m.impact_pr_count === 0 && !commitsKnown && !reposKnown) return 1;
+  const prs = prsKnown ? Math.max(0, m.impact_pr_count) : 0;
+  const commits = commitsKnown ? Math.max(0, m.impact_commit_count ?? 0) : 0;
+  const landed = 1 - Math.exp(-(prs + commits / 4) / 18);
+  const core = Math.max(0, m.core_impact_pr_count ?? 0);
+  const docLike = Math.max(0, m.doc_like_impact_pr_count ?? 0);
+  if (core + docLike <= 0) return landed;
+  const coverage = Math.min(1, (core + docLike) / Math.max(prs, core + docLike, 1));
+  const coreMix = 0.35 + 0.65 * (core / (core + docLike));
+  return landed * (1 - coverage * (1 - coreMix));
 }
 
 /**
@@ -229,6 +389,40 @@ function hasSocialOnlyDormantSignal(m: RawMetrics): boolean {
   );
 }
 
+/** Only star points are discounted; independently measured substance survives. */
+export function contentSkillDiscount(m: RawMetrics): number {
+  const share = Math.max(0, Math.min(1, m.content_skill_star_share ?? 0));
+  const confidence = Math.max(0, Math.min(1, m.content_skill_confidence ?? 0));
+  const external = Math.max(0, m.external_merged_pr_count ?? 0);
+  const engineering = Math.max(Math.max(0, m.core_impact_pr_count ?? 0) * externalPrShare({ ...m, merged_pr_count: m.merged_pr_count ?? 0 }), external * (1 - Math.max(0, Math.min(1, m.presentation_churn_share ?? 0))) / 20);
+  const starMass = Math.max(0, m.total_stars) / (Math.max(0, m.total_stars) + 5000);
+  return 1 - 0.9 * share * share * (3 - 2 * share) * confidence * starMass / (1 + engineering);
+}
+
+export function originalProjectQuality(m: RawMetrics): number {
+  if (m.nonempty_original_repo_count === 0) {
+    return 0.0;
+  } else {
+    const starQuality =
+      m.total_stars > 0
+        ? Math.max(0, Math.min(m.top_starred_original_repo_quality_score ?? 1, 1))
+        : 1;
+    const starPts =
+      (logRatio(m.weighted_total_stars ?? m.total_stars, 5000) * 7 + logRatio(m.weighted_max_stars ?? m.max_stars, 2000) * 5) *
+      starQuality *
+      starEngagementMultiplier(m.top_repo_engagement_ratio) * contentSkillDiscount(m);
+    const projectSubstance = Math.max(
+      0,
+      Math.min(m.best_original_repo_quality_score ?? 0, 1),
+    ) * 6;
+    return roundHalfEven(
+      starPts + projectSubstance,
+      1,
+    );
+  }
+
+}
+
 export function score(m: RawMetrics): Scoring {
   const sub: SubScores = {
     account_maturity: 0,
@@ -248,26 +442,7 @@ export function score(m: RawMetrics): Scoring {
   // 2. Original Project Quality (18) — stars are only part of quality. A useful
   // 0-star project can still earn substance points, while stars alone cannot
   // max out the dimension without a complete-looking original repo.
-  if (m.nonempty_original_repo_count === 0) {
-    sub.original_project_quality = 0.0;
-  } else {
-    const starQuality =
-      m.total_stars > 0
-        ? Math.max(0, Math.min(m.top_starred_original_repo_quality_score ?? 1, 1))
-        : 1;
-    const starPts =
-      (logRatio(m.total_stars, 5000) * 7 + logRatio(m.max_stars, 2000) * 5) *
-      starQuality *
-      starEngagementMultiplier(m.top_repo_engagement_ratio);
-    const projectSubstance = Math.max(
-      0,
-      Math.min(m.best_original_repo_quality_score ?? 0, 1),
-    ) * 6;
-    sub.original_project_quality = roundHalfEven(
-      starPts + projectSubstance,
-      1,
-    );
-  }
+  sub.original_project_quality = Math.max(originalProjectQuality(m), Math.max(0, Math.min(18, m.personal_original_project_quality_score ?? 0)));
 
   // 3. Contribution Quality (27) — merged-PR volume, acceptance, issue engagement.
   // PRs into one's own projects count normally (solo-dev work / learning / testing
@@ -294,31 +469,31 @@ export function score(m: RawMetrics): Scoring {
   const issuePts = logRatio(m.issues_created, 100) * 5;
   const contributionQualityRaw =
     prVolume +
-    acceptance +
+    ownPrCommunityCredit(m) +
+    acceptance - docLikePrVolumeDiscount(m, acceptance) +
     issuePts +
-    highImpactCorePrBonus(m) -
+    highImpactCorePrBonus(m) * (1 - (1 - presentationDiscount(m)) * 0.8) -
     authorSelfClosedExternalPenalty(m);
-  const contributionCap = Math.min(
-    contributionQualityCap(m) ?? Infinity,
-    lowPrestigeBulkContributionCap(m) ?? Infinity,
-    SUBSCORE_MAX.contribution_quality,
-  );
+  // Soft saturation toward the evidence ceiling. A large raw approaches the
+  // ceiling without the v18 hard min() cut.
   sub.contribution_quality = roundHalfEven(
-    Math.min(contributionQualityRaw, contributionCap),
+    saturateToward(Math.max(0, contributionQualityRaw), contributionEvidenceCeiling(m)),
     1,
   );
 
-  // 4. Ecosystem & Maintainer Impact (20) — substantial PRs into popular repos,
-  // whether contributing to others' projects or actively maintaining one's own
-  // popular repo. Hardest signal to fake; captures both contributor and
-  // creator/maintainer value.
-  const prestige = impactPrestigeSignal(m) * 9;
-  const depth = Math.min(m.impact_depth_raw / 8.0, 1.0) * 11;
-  const ecosystemRaw = prestige + depth;
+  // 4. Ecosystem & Maintainer Impact (20) — substantial, repeated work across
+  // popular repos. A few tiny PRs into one mega-repo, or every PR in a single
+  // repo, approach the 9+11 budget slowly instead of filling it.
+  const substance = impactSubstance(m);
+  const breadth = impactBreadth(m);
+  const prestige =
+    9 * impactPrestigeSignal(m) * substance * impactTouch(m) * (0.72 + 0.28 * breadth);
+  const depth =
+    11 * (1 - Math.exp(-Math.max(0, m.impact_depth_raw) / 4)) * substance * breadth;
+  const ecosystemRaw = (prestige + depth) * ecosystemPresentationDiscount(m) *
+    (1 - (1 - contentSkillDiscount(m)) * (1 - externalPrShare(m)));
   sub.ecosystem_impact = roundHalfEven(
-    m.impact_quality_cap === undefined
-      ? ecosystemRaw
-      : Math.min(ecosystemRaw, m.impact_quality_cap),
+    ecosystemRaw,
     1,
   );
 

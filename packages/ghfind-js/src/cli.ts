@@ -19,6 +19,7 @@ import { spawnSync } from "node:child_process";
 import { GhFind, GhFindError } from "./client.js";
 import type { ByoKey, ScanResult } from "./types.js";
 import { catalog, DEFAULT_HOST } from "./catalog.js";
+import { DEFAULT_BOT_HOST, runBot } from "./bot.js";
 
 const VERSION: string = "0.1.1";
 const DEFAULT_RELEASE_URL = "https://api.github.com/repos/hikariming/ghfind/releases/latest";
@@ -651,6 +652,10 @@ function printHelp(): void {
   out("  update npm|pip|brew   Upgrade through a package manager. Use --dry-run first.");
   out("  commands [show <c>]    List agent-callable capabilities (self-describing).");
   out("  auth status           Show host + which credentials are configured.");
+  out("  bot <command> <repo>  Manage the ghfind Review GitHub App on repositories you administer:");
+  out("                        status | settings get|set | pause | resume | backfill | retry |");
+  out("                        cleanup (preview) | cleanup confirm <token> | cleanup status|cancel <id>.");
+  out("                        Needs a personal API token (GHFIND_API_KEY). GHFIND_BOT_HOST overrides the bot URL.");
   out("");
   out("Common options: --host, --api-key, --json, -o/--output, --lang zh|en");
   out("Local scoring:  --local (score/scan/roast) uses your GITHUB_TOKEN, entirely on your machine.");
@@ -705,6 +710,12 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         return fail("Unknown update command. Try: ghfind update check");
       case "commands":
         return cmdCommands(positional, flags);
+      case "bot":
+        return await runBot(positional.slice(1), {
+          host: process.env.GHFIND_BOT_HOST || DEFAULT_BOT_HOST,
+          apiKey: flags.apiKey ?? process.env.GHFIND_API_KEY ?? process.env.GITHUB_ROAST_API_KEY,
+          output: outputMode(flags),
+        });
       case "auth":
         if (positional[1] === "status") return cmdAuthStatus(flags);
         return fail("Unknown auth command. Try: ghfind auth status");

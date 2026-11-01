@@ -17,7 +17,7 @@ export async function SiteFooter() {
     { label: tNav("leaderboard"), href: "/leaderboard" },
     { label: tNav("developers"), href: "/developers" },
     { label: tNav("versus"), href: "/vs" },
-    { label: t("blog"), href: "/blog" },
+    { label: tNav("collections"), href: "/collections" },
   ];
   const resources = [
     { label: t("docs"), href: "/docs" },

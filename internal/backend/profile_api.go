@@ -39,6 +39,13 @@ type ProfileDetail struct {
 	RiskAssessment     *RiskAssessment        `json:"risk_assessment"`
 	RiskNotes          []RiskSignal           `json:"risk_notes"`
 	ScoreBreakdown     *ProfileScoreBreakdown `json:"score_breakdown"`
+	// Stale* carry a report from an older roast release on a current score.
+	// Never served as the current report: the page labels it 旧版锐评 while
+	// the on-view auto re-roast regenerates it (src/lib/auto-reroast.ts).
+	StaleRoast          *string `json:"stale_roast,omitempty"`
+	StaleRoastEN        *string `json:"stale_roast_en,omitempty"`
+	StaleRoastVersion   *string `json:"stale_roast_version,omitempty"`
+	StaleRoastENVersion *string `json:"stale_roast_en_version,omitempty"`
 }
 
 // ProfileScoreBreakdown explains how the six public dimensions become the
@@ -181,12 +188,17 @@ func closeProfileScores(left, right float64) bool {
 }
 
 func validProfileScoring(scoring *Scoring, detail *ProfileDetail) bool {
+	penaltyCap := 40.0
+	if scoring != nil && scoring.RiskAssessment.Version == "v10" {
+		penaltyCap = 25
+	}
+
 	if scoring == nil || scoring.RedFlags == nil ||
 		!finiteProfileScore(scoring.BaseScore) ||
 		!finiteProfileScore(scoring.TotalPenalty) ||
 		!finiteProfileScore(scoring.FinalScore) ||
 		scoring.BaseScore < 0 || scoring.BaseScore > 100 ||
-		scoring.TotalPenalty < 0 || scoring.TotalPenalty > 25 ||
+		scoring.TotalPenalty < 0 || scoring.TotalPenalty > penaltyCap ||
 		scoring.FinalScore < 0 || scoring.FinalScore > 100 {
 		return false
 	}
@@ -217,15 +229,15 @@ func validProfileScoring(scoring *Scoring, detail *ProfileDetail) bool {
 		}
 		flagPenaltyTotal += flag.Penalty
 	}
-	if flagPenaltyTotal > 25 {
-		flagPenaltyTotal = 25
+	if flagPenaltyTotal > penaltyCap {
+		flagPenaltyTotal = penaltyCap
 	}
 	if !closeProfileScores(flagPenaltyTotal, scoring.TotalPenalty) {
 		return false
 	}
-	if scoring.RiskAssessment.Version != "v10" ||
+	if (scoring.RiskAssessment.Version != "v9" && scoring.RiskAssessment.Version != "v10") ||
 		!closeProfileScores(scoring.RiskAssessment.AppliedPenalty, scoring.TotalPenalty) ||
-		!closeProfileScores(scoring.RiskAssessment.RiskScore, scoring.TotalPenalty/25*100) {
+		!closeProfileScores(scoring.RiskAssessment.RiskScore, scoring.TotalPenalty/penaltyCap*100) {
 		return false
 	}
 	expectedFinal := clampScore(roundToEven(scoring.BaseScore-scoring.TotalPenalty, 2))
@@ -329,7 +341,7 @@ func (s *TursoStore) GetProfileDetail(ctx context.Context, username string) (*Pr
 		return nil, fmt.Errorf("read profile detail: %w", err)
 	}
 
-	current := version.String == canonicalScoreVersion
+	current := isPublicScoreVersion(version.String)
 	canonical := current && collection.String == goCanonicalCollectionVersion && canonicalSnapshotHashPattern.MatchString(hash.String)
 	legacy := version.String == legacyRoastScoreVersion && ((roastVersion.String == legacyRoastVersion && roast.Valid && roast.String != "") || (roastENVersion.String == legacyRoastVersion && roastEN.Valid && roastEN.String != ""))
 	if !current && !legacy {
@@ -354,13 +366,36 @@ func (s *TursoStore) GetProfileDetail(ctx context.Context, username string) (*Pr
 	if breakdown, breakdownErr := s.getProfileScoreBreakdown(ctx, &detail); breakdownErr == nil {
 		detail.ScoreBreakdown = breakdown
 	}
-	if (canonical && roastVersion.String == roastArtifactVersion) || (legacy && roastVersion.String == legacyRoastVersion) {
+	zhCurrent := (canonical && roastVersion.String == roastArtifactVersion) || (legacy && roastVersion.String == legacyRoastVersion)
+	enCurrent := (canonical && roastENVersion.String == roastArtifactVersion) || (legacy && roastENVersion.String == legacyRoastVersion)
+	if zhCurrent {
 		detail.Roast = nullableProfileString(roast)
 	}
-	if (canonical && roastENVersion.String == roastArtifactVersion) || (legacy && roastENVersion.String == legacyRoastVersion) {
+	if enCurrent {
 		detail.RoastEN = nullableProfileString(roastEN)
 	}
+	// Every report generation rewrites the bilingual one-liner, so the stored
+	// line belongs to the newest report. It is current exactly when one of the
+	// reports is; otherwise it is from an older roast release and is withheld
+	// like the report itself.
+	if !zhCurrent && !enCurrent {
+		detail.RoastLine = RoastLine{}
+	}
+	if canonical && !zhCurrent && isStaleRoastArtifact(roastVersion, roast) {
+		detail.StaleRoast = nullableProfileString(roast)
+		detail.StaleRoastVersion = nullableProfileString(roastVersion)
+	}
+	if canonical && !enCurrent && isStaleRoastArtifact(roastENVersion, roastEN) {
+		detail.StaleRoastEN = nullableProfileString(roastEN)
+		detail.StaleRoastENVersion = nullableProfileString(roastENVersion)
+	}
 	return &detail, nil
+}
+
+// isStaleRoastArtifact: a non-empty report written by an older roast release.
+func isStaleRoastArtifact(version, report sql.NullString) bool {
+	return version.Valid && version.String != "" && version.String != roastArtifactVersion &&
+		report.Valid && strings.TrimSpace(report.String) != ""
 }
 
 func decodeJSONSlice[T any](raw sql.NullString) []T {
@@ -382,9 +417,14 @@ func decodeJSONSlice[T any](raw sql.NullString) []T {
 func (s *TursoStore) GetProfileSnapshot(ctx context.Context, username string) (*ProfileSnapshotView, error) {
 	var topRepos, impactRepos, signature, pinned, organizations, metrics sql.NullString
 	var scannedAt int64
+	// Prefer the canonical scan_version, then retained public labels, so a score
+	// advance does not blank repos/contributions until organic rescan writes vN.
 	err := s.db.QueryRowContext(ctx, `SELECT top_repos, impact_repos, signature_work, pinned_repos, organizations, metrics, scanned_at
-		FROM profile_snapshots WHERE username = ? AND scan_version = ?
-		ORDER BY scanned_at DESC LIMIT 1`, strings.ToLower(username), canonicalScoreVersion).Scan(
+		FROM profile_snapshots WHERE username = ? AND `+publicScoreVersionClause("scan_version")+`
+		ORDER BY CASE scan_version
+			WHEN ? THEN 0 WHEN ? THEN 1 WHEN ? THEN 2 WHEN ? THEN 3 WHEN ? THEN 4 WHEN ? THEN 5
+			ELSE 6 END, scanned_at DESC LIMIT 1`,
+		append([]any{strings.ToLower(username)}, append(publicScoreVersionArgs(), publicScoreVersionArgs()...)...)...).Scan(
 		&topRepos, &impactRepos, &signature, &pinned, &organizations, &metrics, &scannedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -430,7 +470,7 @@ func (s *TursoStore) GetProfileRank(ctx context.Context, score float64) (*Profil
 	err := s.db.QueryRowContext(ctx, `SELECT
 		COALESCE(SUM(CASE WHEN CAST(ROUND(final_score * 10) AS INTEGER) > ? THEN 1 ELSE 0 END), 0),
 		COALESCE(SUM(CASE WHEN CAST(ROUND(final_score * 10) AS INTEGER) < ? THEN 1 ELSE 0 END), 0),
-		COUNT(*) FROM scores WHERE hidden = 0 AND score_version = ?`, bucket, bucket, canonicalScoreVersion).Scan(&above, &below, &total)
+		COUNT(*) FROM scores WHERE hidden = 0 AND `+publicScoreVersionClause("score_version"), append([]any{bucket, bucket}, publicScoreVersionArgs()...)...).Scan(&above, &below, &total)
 	if err != nil {
 		return nil, fmt.Errorf("read profile rank: %w", err)
 	}
@@ -460,12 +500,12 @@ func (s *TursoStore) GetSimilarProfiles(ctx context.Context, username string, fi
 	rows, err := s.db.QueryContext(ctx, `SELECT s.username, s.display_name, s.avatar_url, s.profile_url, s.final_score, s.tier,
 		s.tags, s.sub_scores, MAX(COALESCE(stats.lookup_count, 0), 1) AS lookup_count
 		FROM scores AS s LEFT JOIN account_stats AS stats ON stats.username = s.username
-		WHERE s.hidden = 0 AND s.score_version = ?
+		WHERE s.hidden = 0 AND `+publicScoreVersionClause("s.score_version")+`
 			AND s.score_source_collection_version = ?
 			AND length(s.score_source_snapshot_hash) = 64
 			AND s.score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'
 			AND s.username != ? AND s.final_score BETWEEN ? AND ?
-		ORDER BY s.final_score DESC LIMIT 300`, canonicalScoreVersion, goCanonicalCollectionVersion, strings.ToLower(username), finalScore-10, finalScore+10)
+		ORDER BY s.final_score DESC LIMIT 300`, append(publicScoreVersionArgs(), goCanonicalCollectionVersion, strings.ToLower(username), finalScore-10, finalScore+10)...)
 	if err != nil {
 		return nil, fmt.Errorf("read similar profiles: %w", err)
 	}
@@ -522,12 +562,12 @@ func (s *TursoStore) GetCommonProfileProjects(ctx context.Context, username stri
 			JOIN repos AS r ON r.repo_key = mine.repo_key
 			JOIN repo_developers AS members ON members.repo_key = mine.repo_key
 			JOIN scores AS s ON s.username = members.username
-			WHERE mine.username = ? AND s.hidden = 0 AND s.score_version = ?
+			WHERE mine.username = ? AND s.hidden = 0 AND `+publicScoreVersionClause("s.score_version")+`
 				AND s.score_source_collection_version = ?
 				AND length(s.score_source_snapshot_hash) = 64
 				AND s.score_source_snapshot_hash NOT GLOB '*[^0-9a-f]*'
 			GROUP BY r.repo_key ORDER BY AVG(s.final_score) DESC, r.repo_key ASC LIMIT ?`,
-			strings.ToLower(candidate), strings.ToLower(username), canonicalScoreVersion, goCanonicalCollectionVersion, limit)
+			append([]any{strings.ToLower(candidate), strings.ToLower(username)}, append(publicScoreVersionArgs(), goCanonicalCollectionVersion, limit)...)...)
 		if err != nil {
 			return nil, fmt.Errorf("read profile common projects: %w", err)
 		}

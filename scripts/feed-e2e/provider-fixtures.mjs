@@ -26,10 +26,11 @@ const analysis = {
   },
   rubric_version: "project-value-v1",
   agent_version: "project-evaluator-v3",
-  skill_version: "ghfind-project-evaluator-v4",
+  skill_version: "ghfind-project-evaluator-v5",
   project: {
     name: "useful-tool",
     summary: "Converts one format into another.",
+    discover_hook: "Stop hand-converting the same payload every release.",
     target_users: ["developers"],
     pain_statement: "Manual conversion is repetitive.",
     project_type: "micro_tool",

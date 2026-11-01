@@ -27,6 +27,7 @@ type RoastLine struct {
 }
 
 type StoredScoreDetail struct {
+	ScanCoverage      string
 	Username          string
 	DisplayName       *string
 	AvatarURL         *string
@@ -80,7 +81,7 @@ func parseSubScores(raw string) SubScores {
 
 func parseRiskAssessment(raw string) *RiskAssessment {
 	assessment := RiskAssessment{}
-	if err := json.Unmarshal([]byte(raw), &assessment); err != nil || assessment.Version != "v10" {
+	if err := json.Unmarshal([]byte(raw), &assessment); err != nil || (assessment.Version != "v9" && assessment.Version != "v10") {
 		return nil
 	}
 	return &assessment
@@ -140,6 +141,18 @@ func (s *TursoStore) GetStoredScore(ctx context.Context, username string) (*Stor
 		detail.RiskAssessment = parseRiskAssessment(riskAssessment.String)
 		detail.RiskNotes = parseRiskNotes(riskNotes.String)
 		detail.LegacyFallback = detail.ScoreVersion == legacyRoastScoreVersion && ((roastVersion.String == legacyRoastVersion && roast.Valid && roast.String != "") || (roastENVersion.String == legacyRoastVersion && roastEN.Valid && roastEN.String != ""))
+		// The one-liner belongs to the newest report; withhold it unless that
+		// report is on the current roast release (or the legacy continuity path).
+		if !detail.LegacyFallback && roastVersion.String != roastArtifactVersion && roastENVersion.String != roastArtifactVersion {
+			detail.RoastLine = RoastLine{}
+		}
+		if detail.CollectionVersion == goCanonicalCollectionVersion && canonicalSnapshotHashPattern.MatchString(detail.SnapshotHash) {
+			var coverage string
+			err := s.db.QueryRowContext(ctx, `SELECT coverage FROM public_scan_runs WHERE username = ? AND snapshot_hash = ? AND collection_version = ? ORDER BY started_at DESC LIMIT 1`, strings.ToLower(detail.Username), detail.SnapshotHash, detail.CollectionVersion).Scan(&coverage)
+			if err == nil && (coverage == "partial_public" || coverage == "complete_public") {
+				detail.ScanCoverage = coverage
+			}
+		}
 		return &detail, nil
 	}
 
@@ -152,7 +165,7 @@ func (s *TursoStore) GetStoredScore(ctx context.Context, username string) (*Stor
 	if err != nil {
 		return nil, fmt.Errorf("read stored score: %w", err)
 	}
-	if detail == nil || detail.ScoreVersion != canonicalScoreVersion || detail.CollectionVersion != goCanonicalCollectionVersion || !canonicalSnapshotHashPattern.MatchString(detail.SnapshotHash) {
+	if detail == nil || !isPublicScoreVersion(detail.ScoreVersion) || detail.CollectionVersion != goCanonicalCollectionVersion || !canonicalSnapshotHashPattern.MatchString(detail.SnapshotHash) {
 		fallback, fallbackErr := read(`SELECT username, display_name, avatar_url, profile_url, final_score, tier,
 			tags, roast_line, sub_scores, score_version, collection_version,
 			NULL, roast, roast_en, roast_version, roast_en_version,
@@ -163,7 +176,7 @@ func (s *TursoStore) GetStoredScore(ctx context.Context, username string) (*Stor
 			detail = fallback
 		}
 	}
-	if detail == nil || (detail.ScoreVersion != canonicalScoreVersion && !detail.LegacyFallback) {
+	if detail == nil || (!isPublicScoreVersion(detail.ScoreVersion) && !detail.LegacyFallback) {
 		return nil, nil
 	}
 	return detail, nil
@@ -173,7 +186,7 @@ func (s *TursoStore) GetScorePercentile(ctx context.Context, score float64) (*Sc
 	bucket := int(math.Floor(score*10 + 0.5))
 	var total, below int
 	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(SUM(CASE WHEN CAST(ROUND(final_score * 10) AS INTEGER) < ? THEN 1 ELSE 0 END), 0)
-		FROM scores WHERE score_version = ?`, bucket, canonicalScoreVersion).Scan(&total, &below)
+		FROM scores WHERE `+publicScoreVersionClause("score_version"), append([]any{bucket}, publicScoreVersionArgs()...)...).Scan(&total, &below)
 	if err != nil {
 		return nil, fmt.Errorf("score percentile: %w", err)
 	}
@@ -186,7 +199,7 @@ func (s *TursoStore) GetScorePercentile(ctx context.Context, score float64) (*Sc
 		result.Beat = &beat
 		var visibleTotal, above int
 		if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(SUM(CASE WHEN CAST(ROUND(final_score * 10) AS INTEGER) > ? THEN 1 ELSE 0 END), 0)
-			FROM scores WHERE score_version = ? AND hidden = 0`, bucket, canonicalScoreVersion).Scan(&visibleTotal, &above); err != nil {
+			FROM scores WHERE `+publicScoreVersionClause("score_version")+` AND hidden = 0`, append([]any{bucket}, publicScoreVersionArgs()...)...).Scan(&visibleTotal, &above); err != nil {
 			return nil, fmt.Errorf("score rank: %w", err)
 		}
 		if visibleTotal > 1 {
@@ -230,7 +243,7 @@ func (s *APIServer) storedScorePayload(ctx context.Context, detail StoredScoreDe
 	}
 	return map[string]any{
 		"source":          source,
-		"coverage":        map[bool]string{true: "quick", false: "legacy"}[current],
+		"coverage":        storedScanCoverage(detail, current),
 		"stale":           !current,
 		"username":        detail.Username,
 		"display_name":    detail.DisplayName,
@@ -267,7 +280,7 @@ func (s *APIServer) liveScorePayload(ctx context.Context, scan ScanResult, cache
 	}
 	return map[string]any{
 		"source":          "quick",
-		"coverage":        "quick",
+		"coverage":        scanCoverage(scan),
 		"cached":          cached,
 		"username":        scan.Metrics.Username,
 		"display_name":    scan.Metrics.Name,
@@ -330,7 +343,7 @@ func (s *APIServer) score(w http.ResponseWriter, request *http.Request) {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "scan_failed", "message": "score persistence is temporarily unavailable", "hint": "Retry later; no incomplete score was published."}, map[string]string{"Cache-Control": "no-store", "Retry-After": "5"})
 		return
 	}
-	if detail != nil && detail.ScoreVersion == canonicalScoreVersion && detail.CollectionVersion == goCanonicalCollectionVersion && canonicalSnapshotHashPattern.MatchString(detail.SnapshotHash) {
+	if detail != nil && isPublicScoreVersion(detail.ScoreVersion) && detail.CollectionVersion == goCanonicalCollectionVersion && canonicalSnapshotHashPattern.MatchString(detail.SnapshotHash) {
 		writeJSON(w, http.StatusOK, s.storedScorePayload(request.Context(), *detail, "indexed", true), map[string]string{"Cache-Control": scoreRatedCache})
 		return
 	}
@@ -488,4 +501,14 @@ func (s *APIServer) scoreFailure(w http.ResponseWriter, legacy *StoredScoreDetai
 		resultHeaders["Retry-After"] = retry
 	}
 	writeJSON(w, status, response, resultHeaders)
+}
+
+func storedScanCoverage(detail StoredScoreDetail, current bool) string {
+	if !current {
+		return "legacy"
+	}
+	if detail.ScanCoverage != "" {
+		return detail.ScanCoverage
+	}
+	return "quick"
 }
