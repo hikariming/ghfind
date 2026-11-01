@@ -194,7 +194,11 @@
     "apiCtaLink": "API 문서 →",
     "repoAuthoredBy": "메인테이너",
     "repoContributors": "명의 랭킹 기여자",
-    "repoAvgScore": "평균 점수"
+    "repoAvgScore": "평균 점수",
+    "repoGlobalRank": "GitHub 전체 {total} 중 {rank}위",
+    "repoGlobalRankApprox": "GitHub 전체 {total} 중 약 {rank}위",
+    "repoTopAmong": "{floor}★ 이상 저장소 중 상위 {pct}%",
+    "repoRankNote": "공개 비포크 저장소 전체와 스타 수 비교 · {asOf}"
   },
   "projects": {
     "metaTitle": "고품질 GitHub 프로젝트 발견 · ghfind",
@@ -316,6 +320,15 @@
     "rankUnit": "/ 전체 {total}명",
     "rankUnranked": "순위 없음 (데이터 부족)",
     "beatInline": "개발자 {beat}%를 제쳤습니다",
+    "githubStandingTitle": "GitHub 전체에서의 위치",
+    "githubStandingAccountAge": "계정 나이",
+    "githubStandingTopRepo": "최다 스타 저장소",
+    "githubStandingRank": "{total} 중 {rank}위",
+    "githubStandingRankApprox": "{total} 중 약 {rank}위",
+    "githubStandingTopAmong": "{floor}★ 이상 저장소 중 상위 {pct}%",
+    "githubStandingOlder": "{pct}% 계정보다 오래됨",
+    "githubStandingYears": "{years}년",
+    "githubStandingFootnote": "GitHub 전체 공개 데이터와 비교 · {asOf}",
     "milestoneNext": "“{tier}”까지 {gap}점",
     "milestoneCapped": "🏆 만렙 달성 · 최상위 티어",
     "facetRankLine": "{facet} 보드 #{rank}",
