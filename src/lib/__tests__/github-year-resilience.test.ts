@@ -27,23 +27,50 @@ it.each([502, 504, "INTERNAL", "RESOURCE_LIMITS_EXCEEDED"])("splits oversized ye
   expect(result).toEqual([expect.objectContaining({ commits: 30, active_years: 2, repo: "org/project" })]);
 });
 
-it.each([502, 504, "INTERNAL"])("does not silently drop a single year still failing with %s", async (kind) => {
-  const fetchMock = vi.fn(async () => failure(kind)); vi.stubGlobal("fetch", fetchMock);
-  await expect(fetchCommitContribReposByYear("busy", [2026, 2025])).rejects.toBeInstanceOf(
-    typeof kind === "number" ? GitHubQueryTimeoutError : GitHubInternalQueryError,
-  );
-  expect(fetchMock).toHaveBeenCalledTimes(3);
+it.each([
+  ["INTERNAL", "commit_year_internal", GitHubInternalQueryError],
+  [504, "commit_year_timeout", GitHubQueryTimeoutError],
+] as const)("degrades a single split year still failing with %s and keeps other years", async (kind, note, ErrorType) => {
+  const notes: string[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (_url, init) => {
+    const { variables } = JSON.parse(init.body);
+    const count = Object.keys(variables).filter((key) => key.startsWith("from")).length;
+    if (count > 1) return failure(kind);
+    if (variables.from0.startsWith("2025")) return failure(kind);
+    return yearData(10);
+  }));
+  const result = await fetchCommitContribReposByYear("busy", [2026, 2025], {
+    note: (reason) => notes.push(reason),
+  });
+  expect(result).toEqual([expect.objectContaining({ commits: 10, active_years: 1 })]);
+  expect(notes).toEqual([note]);
+  expect(ErrorType).toBeTruthy();
 });
 
 it("preserves existing resource-limit degradation for an unqueryable split year", async () => {
+  const notes: string[] = [];
   vi.stubGlobal("fetch", vi.fn(async (_url, init) => {
     const { variables } = JSON.parse(init.body);
     if (variables.from1 || variables.from0.startsWith("2025")) return failure("RESOURCE_LIMITS_EXCEEDED");
     return yearData(10);
   }));
-  expect(await fetchCommitContribReposByYear("busy", [2026, 2025])).toEqual([
+  expect(await fetchCommitContribReposByYear("busy", [2026, 2025], {
+    note: (reason) => notes.push(reason),
+  })).toEqual([
     expect.objectContaining({ commits: 10, active_years: 1 }),
   ]);
+  expect(notes).toEqual(["commit_resource_limit"]);
+});
+
+it.each([502, 504, "INTERNAL"])("fails the collect when every split year still fails with %s", async (kind) => {
+  const fetchMock = vi.fn(async () => failure(kind));
+  vi.stubGlobal("fetch", fetchMock);
+  await expect(fetchCommitContribReposByYear("busy", [2026, 2025], {
+    note: () => {},
+  })).rejects.toBeInstanceOf(
+    typeof kind === "number" ? GitHubQueryTimeoutError : GitHubInternalQueryError,
+  );
+  expect(fetchMock).toHaveBeenCalledTimes(3);
 });
 
 it("does not retry or recursively split a single-year timeout", async () => {

@@ -3491,8 +3491,10 @@ async function fetchYearContribsBatch(
  * unqueryable, so one pathological year degrades impact data instead of
  * failing the whole scan. Gateway timeouts and INTERNAL errors also split the
  * batch: retrying the same oversized query can hit the same resource ceiling.
- * A timeout or INTERNAL error on a single year still fails the scan rather than
- * publishing an incomplete contribution total as a successful fresh result.
+ * After the split, a timeout or INTERNAL on one year is noted and skipped the
+ * same way as a resource-limit year (no fabricated data). If every year still
+ * fails, the original error is rethrown so the collect does not publish an
+ * empty contribution set as a successful fresh result.
  */
 export async function fetchCommitContribReposByYear(
   username: string,
@@ -3503,6 +3505,8 @@ export async function fetchCommitContribReposByYear(
   const capped = [...years].sort((a, b) => b - a).slice(0, scope?.full ? undefined : IMPACT_YEAR_CAP);
   if (capped.length === 0) return null;
 
+  /** Years already noted+skipped in the split catch; avoid mislabeling them. */
+  const degradedYears = new Set<number>();
   let perYear: (YearContribs | null)[];
   try {
     perYear = await fetchYearContribsBatch(username, capped);
@@ -3513,11 +3517,29 @@ export async function fetchCommitContribReposByYear(
         try {
           return (await fetchYearContribsBatch(username, [year]))[0];
         } catch (e2) {
-          if (e2 instanceof GitHubResourceLimitError) { scope?.note("commit_resource_limit"); return null; }
+          if (e2 instanceof GitHubResourceLimitError) {
+            scope?.note("commit_resource_limit");
+            degradedYears.add(year);
+            return null;
+          }
+          // Same degrade path as resource-limit years: note + skip. On this
+          // branch ResourceLimit does not subdivide via fetchCompleteCommitWindow
+          // in the catch (full mode only uses that for page-size saturation).
+          if (e2 instanceof GitHubInternalQueryError) {
+            scope?.note("commit_year_internal");
+            degradedYears.add(year);
+            return null;
+          }
+          if (e2 instanceof GitHubQueryTimeoutError) {
+            scope?.note("commit_year_timeout");
+            degradedYears.add(year);
+            return null;
+          }
           throw e2;
         }
       }),
     );
+    if (perYear.every((year) => year === null)) throw e;
   }
 
   // Merge per-year per-repo aggregates: sum commits/prs, take max stars.
@@ -3552,7 +3574,10 @@ export async function fetchCommitContribReposByYear(
   };
   for (let i = 0; i < capped.length; i++) {
     let yc = perYear[i];
-    if (!yc) { scope?.note("commit_resource_limit"); continue; }
+    if (!yc) {
+      if (!degradedYears.has(capped[i])) scope?.note("commit_resource_limit");
+      continue;
+    }
     if ((yc.commitContributionsByRepository?.length ?? 0) >= GITHUB_PAGE_SIZE) {
       if (scope?.full) yc = { commitContributionsByRepository: await fetchCompleteCommitWindow(username, Date.UTC(capped[i], 0, 1), Date.UTC(capped[i]+1, 0, 1)-1000) };
       else scope?.note("commit_repository_cap");
