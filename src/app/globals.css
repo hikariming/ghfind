@@ -1477,6 +1477,8 @@ body { line-height: 1.65; }
   outline: 2px solid var(--ring);
   outline-offset: 3px;
 }
+/* The composite challenge field owns the focus indicator around the @ prefix. */
+.challenge-field input:focus-visible { outline: none; }
 ::selection { background: var(--highlight); color: var(--foreground); }
 html .site-navbar {
   background: color-mix(in srgb, var(--background) 96%, transparent);

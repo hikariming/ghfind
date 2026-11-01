@@ -303,8 +303,9 @@ export function Roaster({
           return;
         }
         presentScan(data as ScanResult);
-      } catch {
-        setError(t("errNetworkScan"));
+      } catch (error) {
+        const code = error instanceof Error && "code" in error && typeof error.code === "string" ? error.code : null;
+        setError(code ? (tScan.has(code) ? tScan(code) : t("errScanFailed")) : t("errNetworkScan"));
         setScanning(false);
         setScanPending(false);
       }

@@ -11,7 +11,7 @@ import { DurableObject } from "cloudflare:workers";
  * storage once everything has expired.
  */
 
-type Field = "payload" | "lock" | "cooldown" | "revision" | "stale" | "pending";
+type Field = "payload" | "lock" | "cooldown" | "revision" | "stale" | "pending" | "failure";
 
 interface Entry {
   value: string;
@@ -109,6 +109,7 @@ export class ScanSlot extends DurableObject<Env> {
     } finally {
       if (!leased && this.read("lock") === owner) this.ctx.storage.kv.delete("lock");
     }
+    if (leased) this.ctx.storage.kv.delete("failure");
     return leased ? 1 : -1;
   }
 
@@ -122,6 +123,7 @@ export class ScanSlot extends DurableObject<Env> {
   ): number {
     if (this.read("lock") !== owner) return 0;
     this.ctx.storage.kv.delete("pending");
+    this.ctx.storage.kv.delete("failure");
     this.write("payload", payload, ttlSeconds * 1000);
     if (withRevision) this.write("revision", owner, ttlSeconds * 1000);
     if (staleTtlSeconds > 0) this.write("stale", payload, staleTtlSeconds * 1000);
@@ -158,6 +160,20 @@ export class ScanSlot extends DurableObject<Env> {
     } catch {
       return null;
     }
+  }
+
+  /** Safe terminal outcome, retained briefly for callers that received 202. */
+  failure(): { owner: string; code: string } | null {
+    const raw = this.read("failure");
+    if (!raw) return null;
+    try { return JSON.parse(raw) as { owner: string; code: string }; } catch { return null; }
+  }
+
+  fail(owner: string, code: string): number {
+    if (this.read("lock") !== owner) return 0;
+    this.ctx.storage.kv.delete("pending");
+    this.write("failure", JSON.stringify({ owner, code }), 300_000);
+    return 1;
   }
 
   /** Stretch the producer lock and capacity lease. 1 while `owner` still holds both. */
@@ -201,7 +217,7 @@ export class ScanSlot extends DurableObject<Env> {
       }
     }
     const now = Date.now();
-    for (const field of ["payload", "lock", "cooldown", "revision", "stale", "pending"] as const) {
+    for (const field of ["payload", "lock", "cooldown", "revision", "stale", "pending", "failure"] as const) {
       this.read(field, now);
     }
     const remaining = [...this.ctx.storage.kv.list<Entry>()];

@@ -1,6 +1,7 @@
 import type { ScanResult } from "@/lib/types";
 
-const SCAN_JOB_TIMEOUT_MS = 180_000;
+// Allow the five-minute background collection budget plus persistence and polling.
+const SCAN_JOB_TIMEOUT_MS = 360_000;
 const SCAN_JOB_POLL_MS = 5_000;
 
 type ScanJobPayload = {
@@ -77,5 +78,5 @@ export async function readScanResponse(response: Response): Promise<unknown> {
     }
     await delay(interval);
   }
-  throw scanJobError(last?.status?.error || last?.error || "scan_timeout");
+  throw scanJobError(last?.status?.error || "scan_timeout");
 }
