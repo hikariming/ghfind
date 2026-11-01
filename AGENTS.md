@@ -150,6 +150,14 @@ Before calling a frontend change done:
   overly bright borders in dark mode.
 - Run `pnpm typecheck` and `pnpm lint`.
 
+## 升级 Next.js
+
+`next` 和 `@opennextjs/cloudflare`（OpenNext 适配器）必须一起升级。适配器落后于 Next 大/小版本时，构建仍会通过，但线上经 Next 服务端的请求（如 `/api/feed/*`）会抛 `Unexpected loadManifest(...)` 并返回 500，部署冒烟失败（2026-11-01：Next 16.4.1 + 适配器 1.20.3）。
+
+- 升级前确认适配器的 release notes 或 issue 已支持目标 Next 版本，并同步升级。
+- 合并前本地运行 `NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM=cloudflare pnpm exec opennextjs-cloudflare build`，不要只跑 `pnpm build`。
+- 合并后盯住生产部署的 smoke（`pnpm smoke:deployment`），失败按 Feed 切换回滚流程处理。
+
 ## Astro Migration (apps/)
 
 Pages are moving from the Next app to `apps/web` (Astro + React islands),
