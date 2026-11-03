@@ -35,7 +35,14 @@ closedPRs: pullRequests(states: CLOSED, first: 100, orderBy: {field: CREATED_AT,
   totalCount
   nodes {
     id author { login } repository { owner { login } }
-    timelineItems(last: 1, itemTypes: CLOSED_EVENT) { nodes { ... on ClosedEvent { actor { login } } } }
+    timelineItems(last: 1, itemTypes: CLOSED_EVENT) {
+      nodes {
+        ... on ClosedEvent {
+          actor { login }
+          closer { __typename ... on Commit { author { user { login } } } }
+        }
+      }
+    }
   }
 }
 issues { totalCount }
@@ -56,6 +63,14 @@ type graphClosedPRNode struct {
 			Actor *struct {
 				Login *string `json:"login"`
 			} `json:"actor"`
+			Closer *struct {
+				Typename string `json:"__typename"`
+				Author   *struct {
+					User *struct {
+						Login *string `json:"login"`
+					} `json:"user"`
+				} `json:"author"`
+			} `json:"closer"`
 		} `json:"nodes"`
 	} `json:"timelineItems"`
 }
@@ -127,8 +142,15 @@ func mapContributionOverview(user *graphOverviewUser) contributionOverview {
 			if node.Repository != nil && node.Repository.Owner != nil {
 				mapped.RepositoryOwner = node.Repository.Owner.Login
 			}
-			if node.TimelineItems != nil && len(node.TimelineItems.Nodes) > 0 && node.TimelineItems.Nodes[0].Actor != nil {
-				mapped.ClosedBy = node.TimelineItems.Nodes[0].Actor.Login
+			if node.TimelineItems != nil && len(node.TimelineItems.Nodes) > 0 {
+				closed := node.TimelineItems.Nodes[0]
+				if closed.Actor != nil {
+					mapped.ClosedBy = closed.Actor.Login
+				}
+				if closed.Closer != nil && closed.Closer.Typename == "Commit" &&
+					closed.Closer.Author != nil && closed.Closer.Author.User != nil {
+					mapped.CloserCommitAuthor = closed.Closer.Author.User.Login
+				}
 			}
 			result.ClosedPRNodes = append(result.ClosedPRNodes, mapped)
 		}

@@ -918,6 +918,11 @@ type ClosedPRNode struct {
 	AuthorLogin     *string
 	RepositoryOwner *string
 	ClosedBy        *string
+	// CloserCommitAuthor is the GitHub login of the author of the commit that
+	// closed the PR, when ClosedEvent.closer is a Commit. It is populated only
+	// for commits that landed on the upstream default branch, which is what
+	// closes the PR in the first place.
+	CloserCommitAuthor *string
 }
 
 type ClosedPRBreakdown struct {
@@ -925,9 +930,16 @@ type ClosedPRBreakdown struct {
 	MaintainerClosedUnmergedPRCount float64 `json:"maintainer_closed_unmerged_pr_count"`
 	SelfClosedExternalPRCount       float64 `json:"self_closed_external_pr_count"`
 	SelfClosedOwnRepoPRCount        float64 `json:"self_closed_own_repo_pr_count"`
+	DefaultBranchLandedPRCount      float64 `json:"default_branch_landed_pr_count"`
 	UnknownClosedUnmergedPRCount    float64 `json:"unknown_closed_unmerged_pr_count"`
 }
 
+// ComputeClosedPRBreakdown classifies closed, unmerged PRs. Some upstream
+// projects (vim/vim, for example) land an external PR by pushing the author's
+// commits to the default branch with authorship preserved, then closing the
+// GitHub PR by hand. GitHub records that as ClosedEvent.closer: a Commit
+// authored by the PR author. The signal must be checked per PR; a repo-level
+// heuristic would also classify genuine rejections in the same repo as landed.
 func ComputeClosedPRBreakdown(nodes []ClosedPRNode, total float64, loginLower string, workflowLandedIDs map[string]bool) ClosedPRBreakdown {
 	result := ClosedPRBreakdown{UnknownClosedUnmergedPRCount: max(0, total-float64(len(nodes)))}
 	for _, node := range nodes {
@@ -937,6 +949,7 @@ func ComputeClosedPRBreakdown(nodes []ClosedPRNode, total float64, loginLower st
 		author := strings.ToLower(valueOrString(node.AuthorLogin, loginLower))
 		owner := strings.ToLower(valueOrString(node.RepositoryOwner, ""))
 		actor := strings.ToLower(valueOrString(node.ClosedBy, ""))
+		closedByAuthorCommit := node.CloserCommitAuthor != nil && strings.EqualFold(*node.CloserCommitAuthor, author)
 		switch {
 		case actor == "":
 			result.UnknownClosedUnmergedPRCount++
@@ -948,11 +961,13 @@ func ComputeClosedPRBreakdown(nodes []ClosedPRNode, total float64, loginLower st
 			}
 		case owner == strings.ToLower(loginLower):
 			result.UnknownClosedUnmergedPRCount++
+		case closedByAuthorCommit:
+			result.DefaultBranchLandedPRCount++
 		default:
 			result.MaintainerClosedUnmergedPRCount++
 		}
 	}
-	result.ClosedUnmergedPRCount = max(0, total-float64(len(workflowLandedIDs)))
+	result.ClosedUnmergedPRCount = max(0, total-float64(len(workflowLandedIDs))-result.DefaultBranchLandedPRCount)
 	return result
 }
 

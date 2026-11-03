@@ -129,15 +129,31 @@ const closedPr = ({
   actor,
   author = "alice",
   owner = "someone",
+  closer,
 }: {
   actor?: string | null;
   author?: string;
   owner?: string;
+  /** Login of the commit author that landed the PR, or "user" for a plain closer. */
+  closer?: string | null;
 }) => ({
   author: { login: author },
   repository: { owner: { login: owner } },
   timelineItems: {
-    nodes: actor === undefined ? [] : [{ actor: actor ? { login: actor } : null }],
+    nodes:
+      actor === undefined
+        ? []
+        : [
+            {
+              actor: actor ? { login: actor } : null,
+              closer:
+                closer === "user"
+                  ? { __typename: "User" }
+                  : closer
+                    ? { __typename: "Commit", author: { user: { login: closer } } }
+                    : null,
+            },
+          ],
   },
 });
 
@@ -417,6 +433,7 @@ describe("computeClosedPrBreakdown", () => {
       maintainer_closed_unmerged_pr_count: 1,
       self_closed_external_pr_count: 1,
       self_closed_own_repo_pr_count: 1,
+      default_branch_landed_pr_count: 0,
       unknown_closed_unmerged_pr_count: 3,
     });
   });
@@ -436,8 +453,60 @@ describe("computeClosedPrBreakdown", () => {
       maintainer_closed_unmerged_pr_count: 1,
       self_closed_external_pr_count: 0,
       self_closed_own_repo_pr_count: 0,
+      default_branch_landed_pr_count: 0,
       unknown_closed_unmerged_pr_count: 0,
     });
+  });
+
+  it("counts a maintainer-closed PR as landed only when a commit by the PR author closed it", () => {
+    // vim/vim lands external PRs by pushing the author's commit to the default
+    // branch, which closes the PR: the closer is a Commit authored by the PR
+    // author. A maintainer-closed PR in the same repo without that evidence is
+    // still a rejection, so the signal must be per-PR, not per-repo.
+    const b = computeClosedPrBreakdown(
+      [
+        closedPr({ actor: "maintainer", owner: "vim", closer: "alice" }),
+        closedPr({ actor: "maintainer", owner: "vim" }),
+      ],
+      2,
+      "alice",
+    );
+    expect(b).toEqual({
+      closed_unmerged_pr_count: 1,
+      maintainer_closed_unmerged_pr_count: 1,
+      self_closed_external_pr_count: 0,
+      self_closed_own_repo_pr_count: 0,
+      default_branch_landed_pr_count: 1,
+      unknown_closed_unmerged_pr_count: 0,
+    });
+  });
+
+  it("does not credit a closing commit authored by someone else", () => {
+    // The maintainer replayed the patch under their own authorship; the
+    // contributor's work is not attributable from this signal.
+    const b = computeClosedPrBreakdown(
+      [closedPr({ actor: "maintainer", owner: "vim", closer: "maintainer" })],
+      1,
+      "alice",
+    );
+    expect(b).toEqual({
+      closed_unmerged_pr_count: 1,
+      maintainer_closed_unmerged_pr_count: 1,
+      self_closed_external_pr_count: 0,
+      self_closed_own_repo_pr_count: 0,
+      default_branch_landed_pr_count: 0,
+      unknown_closed_unmerged_pr_count: 0,
+    });
+  });
+
+  it("treats a plain user closer as a rejection, not a landing", () => {
+    const b = computeClosedPrBreakdown(
+      [closedPr({ actor: "maintainer", owner: "vim", closer: "user" })],
+      1,
+      "alice",
+    );
+    expect(b.default_branch_landed_pr_count).toBe(0);
+    expect(b.maintainer_closed_unmerged_pr_count).toBe(1);
   });
 });
 

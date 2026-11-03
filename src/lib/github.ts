@@ -2226,7 +2226,14 @@ interface ClosedPrNode {
   author: { login: string } | null;
   repository: { owner: { login: string } | null } | null;
   timelineItems: {
-    nodes: ({ actor: { login: string } | null } | null)[];
+    nodes: ({
+      actor: { login: string } | null;
+      /** Set when a commit closed the PR: the commit landed and closed it. */
+      closer: {
+        __typename: string;
+        author?: { user: { login: string } | null } | null;
+      } | null;
+    } | null)[];
   } | null;
 }
 
@@ -2467,9 +2474,26 @@ export interface ClosedPrBreakdown {
   maintainer_closed_unmerged_pr_count: number;
   self_closed_external_pr_count: number;
   self_closed_own_repo_pr_count: number;
+  default_branch_landed_pr_count: number;
   unknown_closed_unmerged_pr_count: number;
 }
 
+/**
+ * Classify closed, unmerged PRs from who closed them and, for maintainer
+ * closures, whether a commit closed the PR.
+ *
+ * Some upstream projects (vim/vim, for example) land an external PR by pushing
+ * the author's commits to the default branch with authorship preserved, then
+ * closing the GitHub PR by hand — no `mergedAt`, no official merge-bot label,
+ * so {@link isWorkflowLandedPr} never fires. GitHub records that landing as
+ * `ClosedEvent.closer`: a `Commit` authored by the PR's author. Per-PR evidence
+ * is required here; a repo-level "the user has commits in this repo" heuristic
+ * would also swallow genuine rejections in the same repo. A commit closer is
+ * only recorded after the commit lands on the upstream default branch, so the
+ * signal is maintainer-controlled and not farmable — the same trust level as a
+ * native merge. It generalizes the exact-match `git/git` default-branch-
+ * authorship exception in {@link computeImpactFromContribMap}.
+ */
 export function computeClosedPrBreakdown(
   nodes: ClosedPrNode[],
   total: number,
@@ -2479,13 +2503,19 @@ export function computeClosedPrBreakdown(
   let maintainerClosed = 0;
   let selfClosedExternal = 0;
   let selfClosedOwnRepo = 0;
+  let defaultBranchLanded = 0;
   let unknownClosed = Math.max(0, total - nodes.length);
 
   for (const node of nodes) {
     if (node.id && workflowLandedIds.has(node.id)) continue;
     const author = (node.author?.login ?? loginLower).toLowerCase();
     const repoOwner = node.repository?.owner?.login?.toLowerCase() ?? "";
-    const actor = node.timelineItems?.nodes?.[0]?.actor?.login?.toLowerCase() ?? "";
+    const closed = node.timelineItems?.nodes?.[0] ?? null;
+    const actor = closed?.actor?.login?.toLowerCase() ?? "";
+    const closer = closed?.closer ?? null;
+    const closedByAuthorCommit =
+      closer?.__typename === "Commit" &&
+      closer.author?.user?.login?.toLowerCase() === author;
     if (!actor) {
       unknownClosed += 1;
     } else if (actor === author || actor === loginLower) {
@@ -2493,16 +2523,21 @@ export function computeClosedPrBreakdown(
       else selfClosedExternal += 1;
     } else if (repoOwner === loginLower) {
       unknownClosed += 1;
+    } else if (closedByAuthorCommit) {
+      // A maintainer closed an external PR and a commit authored by the PR
+      // author landed it on the default branch: landed, not rejected.
+      defaultBranchLanded += 1;
     } else {
       maintainerClosed += 1;
     }
   }
 
   return {
-    closed_unmerged_pr_count: Math.max(0, total - workflowLandedIds.size),
+    closed_unmerged_pr_count: Math.max(0, total - workflowLandedIds.size - defaultBranchLanded),
     maintainer_closed_unmerged_pr_count: maintainerClosed,
     self_closed_external_pr_count: selfClosedExternal,
     self_closed_own_repo_pr_count: selfClosedOwnRepo,
+    default_branch_landed_pr_count: defaultBranchLanded,
     unknown_closed_unmerged_pr_count: unknownClosed,
   };
 }
@@ -4762,6 +4797,7 @@ const CLOSED_PR_OVERVIEW_FIELDS = `closedPRs: pullRequests(states: CLOSED, first
               nodes {
                 ... on ClosedEvent {
                   actor { login }
+                  closer { __typename ... on Commit { author { user { login } } } }
                 }
               }
             }
@@ -5498,6 +5534,7 @@ export async function collect(username: string, options: CollectOptions = {}): P
       closedPrBreakdown.maintainer_closed_unmerged_pr_count,
     self_closed_external_pr_count: closedPrBreakdown.self_closed_external_pr_count,
     self_closed_own_repo_pr_count: closedPrBreakdown.self_closed_own_repo_pr_count,
+    default_branch_landed_pr_count: closedPrBreakdown.default_branch_landed_pr_count,
     unknown_closed_unmerged_pr_count: closedPrBreakdown.unknown_closed_unmerged_pr_count,
     pr_rejection_rate: prRejectionRate,
     recent_pr_sample: flood.recent_pr_sample,

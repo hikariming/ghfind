@@ -98,6 +98,7 @@ type RawMetrics struct {
 	MaintainerClosedUnmergedPRCount           *float64     `json:"maintainer_closed_unmerged_pr_count,omitempty"`
 	SelfClosedExternalPRCount                 *float64     `json:"self_closed_external_pr_count,omitempty"`
 	SelfClosedOwnRepoPRCount                  *float64     `json:"self_closed_own_repo_pr_count,omitempty"`
+	DefaultBranchLandedPRCount                *float64     `json:"default_branch_landed_pr_count,omitempty"`
 	UnknownClosedUnmergedPRCount              *float64     `json:"unknown_closed_unmerged_pr_count,omitempty"`
 	PRRejectionRate                           float64      `json:"pr_rejection_rate"`
 	RecentPRSample                            float64      `json:"recent_pr_sample"`
