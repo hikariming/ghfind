@@ -39,6 +39,7 @@ const PRESETS: { label: string; baseURL: string; model: string }[] = [
   { label: "OpenAI", baseURL: "https://api.openai.com/v1", model: "gpt-4o-mini" },
   { label: "OpenRouter", baseURL: "https://openrouter.ai/api/v1", model: "deepseek/deepseek-chat-v3-0324" },
   { label: "Requesty", baseURL: "https://router.requesty.ai/v1", model: "openai/gpt-4o-mini" },
+  { label: "Cheaper Inference", baseURL: "https://api.cheaperinference.com/v1", model: "gpt-4o-mini" },
   { label: "Groq", baseURL: "https://api.groq.com/openai/v1", model: "llama-3.3-70b-versatile" },
   { label: "DeepSeek", baseURL: "https://api.deepseek.com/v1", model: "deepseek-chat" },
 ];
