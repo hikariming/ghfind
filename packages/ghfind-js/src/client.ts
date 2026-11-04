@@ -171,17 +171,18 @@ export class GhFind {
 
   private async pollScanJob(location: string): Promise<ScanResult> {
     const deadline = Date.now() + SCAN_JOB_TIMEOUT_MS;
-    let last: {
+    type ScanJobPayload = {
       error?: string;
       status?: { state?: string; error?: string };
       result?: ScanResult;
       metrics?: unknown;
       scoring?: unknown;
-    } | null = null;
+    };
+    let last: ScanJobPayload | null = null;
     let interval = SCAN_JOB_POLL_MS;
     for (;;) {
       const res = await this.fetchImpl(this.absoluteURL(location), { method: "GET" });
-      const payload = (await res.json()) as NonNullable<typeof last>;
+      const payload = (await res.json()) as ScanJobPayload;
       last = payload;
       const nested = payload.result;
       const done =

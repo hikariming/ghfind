@@ -1,0 +1,110 @@
+name: Scoring release
+
+# Releases the public scoring module and tells the private backend about it.
+#
+#   git tag scoring/v0.2.0 && git push origin scoring/v0.2.0
+#
+# One tag versions all three runtimes:
+#   Go      github.com/hikariming/ghfind/scoring@v0.2.0  (the tag itself; nested-module tag format)
+#   npm     @ghfind/scoring@0.2.0                       (published only when vars.SCORING_NPM_PUBLISH == 'true')
+#   fixtures ship inside both.
+#
+# Security model: this workflow runs only for tags pushed by maintainers, never
+# for pull_request / pull_request_target, so fork code can never reach the
+# dispatch credential. The credential lives in the `scoring-release`
+# environment (add required reviewers there) and can only send a
+# repository_dispatch to the one private repository.
+
+on:
+  push:
+    tags: ["scoring/v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scoring-release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    uses: ./.github/workflows/scoring.yml
+
+  release:
+    name: Publish and notify backend
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: scoring-release
+    permissions:
+      contents: write   # create the GitHub release
+      id-token: write   # npm provenance
+    env:
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Resolve version and check it matches scoring/package.json
+        id: version
+        run: |
+          version="${TAG#scoring/v}"
+          pkg="$(node -p 'require("./scoring/package.json").version')"
+          if [ "$version" != "$pkg" ]; then
+            echo "::error::tag $TAG does not match scoring/package.json version $pkg"; exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: ${{ vars.SCORING_NPM_REGISTRY || 'https://registry.npmjs.org' }}
+
+      - name: Pack npm tarball
+        working-directory: scoring
+        run: |
+          npm pkg delete private devDependencies scripts
+          npm pack --pack-destination "$RUNNER_TEMP"
+          ls -l "$RUNNER_TEMP"/*.tgz
+
+      - name: Publish @ghfind/scoring
+        if: vars.SCORING_NPM_PUBLISH == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.SCORING_NPM_TOKEN }}
+        run: npm publish "$RUNNER_TEMP"/ghfind-scoring-*.tgz --access public --provenance
+
+      - name: Warm the Go module proxy
+        run: |
+          curl -fsS "https://proxy.golang.org/github.com/hikariming/ghfind/scoring/@v/v${{ steps.version.outputs.version }}.info" || \
+            echo "::warning::proxy.golang.org has not indexed the tag yet; go get will fetch it on demand"
+
+      - name: GitHub release with the tarball and fixtures
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tar -czf "$RUNNER_TEMP/scoring-fixtures.tgz" -C scoring fixtures rules
+          gh release create "$TAG" "$RUNNER_TEMP"/ghfind-scoring-*.tgz "$RUNNER_TEMP/scoring-fixtures.tgz" \
+            --repo "$GITHUB_REPOSITORY" --title "scoring v${{ steps.version.outputs.version }}" --generate-notes --verify-tag
+
+      - name: Mint a token scoped to the private backend repository
+        id: app-token
+        if: vars.BACKEND_REPOSITORY != ''
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.BACKEND_DISPATCH_APP_ID }}
+          private-key: ${{ secrets.BACKEND_DISPATCH_APP_KEY }}
+          owner: ${{ vars.BACKEND_REPOSITORY_OWNER }}
+          repositories: ${{ vars.BACKEND_REPOSITORY_NAME }}
+
+      - name: Notify the private backend (repository_dispatch)
+        if: vars.BACKEND_REPOSITORY != ''
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh api "repos/${{ vars.BACKEND_REPOSITORY }}/dispatches" \
+            -f event_type=scoring-released \
+            -F "client_payload[version]=$VERSION" \
+            -F "client_payload[tag]=$TAG" \
+            -F "client_payload[sha]=$GITHUB_SHA"

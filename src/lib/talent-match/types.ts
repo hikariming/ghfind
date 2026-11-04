@@ -1,7 +1,7 @@
 import type { SubScoreKey } from "@/lib/types";
 
 /**
- * Talent Match data contract (docs/plans/2026-10-12-talent-match-report.md).
+ * Talent Match data contract (docs/archive/plans/2026-10-12-talent-match-report.md).
  * The backend returns these shapes from /api/talent-match/*; `mock.ts` holds a
  * sample report of the same shape. Company-side shapes arrive with phase 3.
  */

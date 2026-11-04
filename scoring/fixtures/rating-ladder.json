@@ -1,0 +1,184 @@
+{
+  "ladder": [
+    {
+      "id": "qi",
+      "minScore": 0,
+      "rank": 1
+    },
+    {
+      "id": "foundation",
+      "minScore": 30,
+      "rank": 2
+    },
+    {
+      "id": "goldenCore",
+      "minScore": 40,
+      "rank": 3
+    },
+    {
+      "id": "nascentSoul",
+      "minScore": 50,
+      "rank": 4
+    },
+    {
+      "id": "deity",
+      "minScore": 60,
+      "rank": 5
+    },
+    {
+      "id": "voidRefining",
+      "minScore": 70,
+      "rank": 6
+    },
+    {
+      "id": "integration",
+      "minScore": 80,
+      "rank": 7
+    },
+    {
+      "id": "mahayana",
+      "minScore": 90,
+      "rank": 8
+    }
+  ],
+  "cases": [
+    {
+      "score": -5,
+      "level": 1,
+      "rating": "qi",
+      "next_threshold": 30
+    },
+    {
+      "score": 0,
+      "level": 1,
+      "rating": "qi",
+      "next_threshold": 30
+    },
+    {
+      "score": 0.5,
+      "level": 1,
+      "rating": "qi",
+      "next_threshold": 30
+    },
+    {
+      "score": 1,
+      "level": 1,
+      "rating": "qi",
+      "next_threshold": 30
+    },
+    {
+      "score": 29.99,
+      "level": 29,
+      "rating": "qi",
+      "next_threshold": 30
+    },
+    {
+      "score": 30,
+      "level": 30,
+      "rating": "foundation",
+      "next_threshold": 40
+    },
+    {
+      "score": 30.01,
+      "level": 30,
+      "rating": "foundation",
+      "next_threshold": 40
+    },
+    {
+      "score": 39.99,
+      "level": 39,
+      "rating": "foundation",
+      "next_threshold": 40
+    },
+    {
+      "score": 40,
+      "level": 40,
+      "rating": "goldenCore",
+      "next_threshold": 50
+    },
+    {
+      "score": 49.5,
+      "level": 49,
+      "rating": "goldenCore",
+      "next_threshold": 50
+    },
+    {
+      "score": 50,
+      "level": 50,
+      "rating": "nascentSoul",
+      "next_threshold": 60
+    },
+    {
+      "score": 59.99,
+      "level": 59,
+      "rating": "nascentSoul",
+      "next_threshold": 60
+    },
+    {
+      "score": 60,
+      "level": 60,
+      "rating": "deity",
+      "next_threshold": 70
+    },
+    {
+      "score": 69.99,
+      "level": 69,
+      "rating": "deity",
+      "next_threshold": 70
+    },
+    {
+      "score": 70,
+      "level": 70,
+      "rating": "voidRefining",
+      "next_threshold": 80
+    },
+    {
+      "score": 79.99,
+      "level": 79,
+      "rating": "voidRefining",
+      "next_threshold": 80
+    },
+    {
+      "score": 80,
+      "level": 80,
+      "rating": "integration",
+      "next_threshold": 90
+    },
+    {
+      "score": 89.99,
+      "level": 89,
+      "rating": "integration",
+      "next_threshold": 90
+    },
+    {
+      "score": 90,
+      "level": 90,
+      "rating": "mahayana",
+      "next_threshold": null
+    },
+    {
+      "score": 94.6,
+      "level": 94,
+      "rating": "mahayana",
+      "next_threshold": null
+    },
+    {
+      "score": 99.99,
+      "level": 99,
+      "rating": "mahayana",
+      "next_threshold": null
+    },
+    {
+      "score": 100,
+      "level": 100,
+      "rating": "mahayana",
+      "next_threshold": null
+    },
+    {
+      "score": 120,
+      "level": 100,
+      "rating": "mahayana",
+      "next_threshold": null
+    }
+  ]
+}

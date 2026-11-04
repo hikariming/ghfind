@@ -22,7 +22,7 @@ and `src/lib/project-analysis-db.ts` selects `getD1Binding()` before Turso.
 Turso fallback code does not make Turso the active production source.
 
 Historical migration completeness remains unresolved. The earlier
-[migration execution record](../plans/2026-08-28-cloudflare-migration-execution.md)
+[migration execution record](../archive/plans/2026-08-28-cloudflare-migration-execution.md)
 claims an August 29 import and approximately one hour of writes left in the old
 database. That is a historical report, not a current data comparison or renewed
 authorization to discard data. Neither this process nor local `.env.local`

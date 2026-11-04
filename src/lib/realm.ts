@@ -1,24 +1,24 @@
 /**
- * Cultivation realms + Adventurer Level — DISPLAY ONLY.
+ * Cultivation realms + Adventurer Level — presentation of the rating ladder.
  *
- * Derived from the numeric final_score. Does NOT change scoring, stored Tier
- * keys, DB rows, or SCORE/ROAST/COLLECTION versions. Import this module
- * everywhere user-facing copy/color needs a realm (web, OG/card, share,
- * leaderboard, PK, CLI display strings).
+ * The rule (30–100, one rating every 10 points, Lv = floor(score)) is owned by
+ * the public scoring module: @ghfind/scoring/rating. This file only adds names,
+ * colors, glyphs and effects per rating id; thresholds and ranks are read from
+ * RATING_LADDER so the site, CLI and SDKs cannot drift. Does NOT change stored
+ * Tier keys, DB rows, or SCORE/ROAST/COLLECTION versions.
  */
 
+import {
+  RATING_LADDER,
+  nextRating,
+  ratingForScore,
+  ratingLevel,
+  type RatingId,
+} from "@ghfind/scoring/rating";
 import type { Tier } from "./types";
 
 /** Stable i18n / CSS key per realm (`realms.<id>.name` / `.blurb`). */
-export type RealmId =
-  | "qi"
-  | "foundation"
-  | "goldenCore"
-  | "nascentSoul"
-  | "deity"
-  | "voidRefining"
-  | "integration"
-  | "mahayana";
+export type RealmId = RatingId;
 
 export type RealmGlyphKind = "dot" | "core" | "lotus" | "star";
 
@@ -63,11 +63,17 @@ export interface RealmDef {
  * Ascending thresholds. Boundary rule: score === min → that realm
  * (30.0 → 筑基, 90.0 → 大乘). 练气 is [0, 30).
  */
+function ladderStep(id: RatingId) {
+  const step = RATING_LADDER.find((r) => r.id === id);
+  if (!step) throw new Error(`unknown rating id: ${id}`);
+  return step;
+}
+
 export const REALM_DEFS: readonly RealmDef[] = [
   {
     id: "qi",
-    minScore: 0,
-    rank: 1,
+    minScore: ladderStep("qi").minScore,
+    rank: ladderStep("qi").rank,
     glyph: "dot",
     effects: { softGlow: false, lightSweep: false, shimmer: false, doubleRing: false, aurora: false },
     colors: {
@@ -84,8 +90,8 @@ export const REALM_DEFS: readonly RealmDef[] = [
   },
   {
     id: "foundation",
-    minScore: 30,
-    rank: 2,
+    minScore: ladderStep("foundation").minScore,
+    rank: ladderStep("foundation").rank,
     glyph: "dot",
     effects: { softGlow: false, lightSweep: false, shimmer: false, doubleRing: false, aurora: false },
     colors: {
@@ -102,8 +108,8 @@ export const REALM_DEFS: readonly RealmDef[] = [
   },
   {
     id: "goldenCore",
-    minScore: 40,
-    rank: 3,
+    minScore: ladderStep("goldenCore").minScore,
+    rank: ladderStep("goldenCore").rank,
     glyph: "core",
     effects: { softGlow: false, lightSweep: false, shimmer: false, doubleRing: false, aurora: false },
     colors: {
@@ -121,8 +127,8 @@ export const REALM_DEFS: readonly RealmDef[] = [
   },
   {
     id: "nascentSoul",
-    minScore: 50,
-    rank: 4,
+    minScore: ladderStep("nascentSoul").minScore,
+    rank: ladderStep("nascentSoul").rank,
     glyph: "core",
     effects: { softGlow: false, lightSweep: false, shimmer: false, doubleRing: false, aurora: false },
     colors: {
@@ -140,8 +146,8 @@ export const REALM_DEFS: readonly RealmDef[] = [
   },
   {
     id: "deity",
-    minScore: 60,
-    rank: 5,
+    minScore: ladderStep("deity").minScore,
+    rank: ladderStep("deity").rank,
     glyph: "lotus",
     effects: { softGlow: false, lightSweep: false, shimmer: false, doubleRing: false, aurora: false },
     colors: {
@@ -159,8 +165,8 @@ export const REALM_DEFS: readonly RealmDef[] = [
   },
   {
     id: "voidRefining",
-    minScore: 70,
-    rank: 6,
+    minScore: ladderStep("voidRefining").minScore,
+    rank: ladderStep("voidRefining").rank,
     glyph: "lotus",
     effects: { softGlow: true, lightSweep: false, shimmer: false, doubleRing: false, aurora: false },
     colors: {
@@ -178,8 +184,8 @@ export const REALM_DEFS: readonly RealmDef[] = [
   },
   {
     id: "integration",
-    minScore: 80,
-    rank: 7,
+    minScore: ladderStep("integration").minScore,
+    rank: ladderStep("integration").rank,
     glyph: "star",
     effects: { softGlow: true, lightSweep: true, shimmer: false, doubleRing: false, aurora: false },
     colors: {
@@ -197,8 +203,8 @@ export const REALM_DEFS: readonly RealmDef[] = [
   },
   {
     id: "mahayana",
-    minScore: 90,
-    rank: 8,
+    minScore: ladderStep("mahayana").minScore,
+    rank: ladderStep("mahayana").rank,
     glyph: "star",
     effects: { softGlow: true, lightSweep: false, shimmer: true, doubleRing: true, aurora: true },
     colors: {
@@ -220,8 +226,7 @@ const BY_ID = Object.fromEntries(REALM_DEFS.map((r) => [r.id, r])) as Record<Rea
 
 /** Clamp floor(score) into Lv.1 … Lv.100. */
 export function adventurerLevel(score: number): number {
-  if (!Number.isFinite(score)) return 1;
-  return Math.min(100, Math.max(1, Math.floor(score)));
+  return ratingLevel(score);
 }
 
 /** Format as `Lv.97` (always with the Lv. prefix). */
@@ -231,12 +236,7 @@ export function formatAdventurerLevel(score: number): string {
 
 /** Resolve realm from numeric score. Exact boundary mins belong to that realm. */
 export function realmForScore(score: number): RealmDef {
-  const s = Number.isFinite(score) ? score : 0;
-  let current = REALM_DEFS[0]!;
-  for (const r of REALM_DEFS) {
-    if (s >= r.minScore) current = r;
-  }
-  return current;
+  return BY_ID[ratingForScore(score).id];
 }
 
 export function realmById(id: RealmId): RealmDef {
@@ -265,11 +265,8 @@ export function realmForTier(tier: Tier): RealmDef {
 
 /** Next realm promotion line, or null at 大乘. */
 export function nextRealm(score: number): { threshold: number; realm: RealmDef } | null {
-  const current = realmForScore(score);
-  const idx = REALM_DEFS.findIndex((r) => r.id === current.id);
-  const nxt = REALM_DEFS[idx + 1];
-  if (!nxt) return null;
-  return { threshold: nxt.minScore, realm: nxt };
+  const next = nextRating(score);
+  return next ? { threshold: next.threshold, realm: BY_ID[next.rating.id] } : null;
 }
 
 /** CSS custom-property bag for inline style / data-realm attribute consumers. */

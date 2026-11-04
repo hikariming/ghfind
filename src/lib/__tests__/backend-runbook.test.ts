@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 describe("backend extraction runbook", () => {
   it("treats missing backend origin as fail-closed containment, not rollback", () => {
-    const runbook = readFileSync("docs/operations/go-backend-runbook.md", "utf8");
+    const runbook = readFileSync("docs/archive/operations/go-backend-runbook.md", "utf8");
 
     expect(runbook).toContain("Emergency fail-closed containment");
     expect(runbook).toMatch(/not a\s+functional rollback/);
@@ -12,7 +12,7 @@ describe("backend extraction runbook", () => {
   });
 
   it("documents executable staging resilience evidence", () => {
-    const runbook = readFileSync("docs/operations/go-backend-runbook.md", "utf8");
+    const runbook = readFileSync("docs/archive/operations/go-backend-runbook.md", "utf8");
     const smoke = readFileSync("docs/releases/deployment-smoke.md", "utf8");
 
     for (const document of [runbook, smoke]) {
@@ -24,7 +24,7 @@ describe("backend extraction runbook", () => {
   });
 
   it("ships alert rules for the extracted backend", () => {
-    const runbook = readFileSync("docs/operations/go-backend-runbook.md", "utf8");
+    const runbook = readFileSync("docs/archive/operations/go-backend-runbook.md", "utf8");
     const smoke = readFileSync("docs/releases/deployment-smoke.md", "utf8");
     const alerts = readFileSync("docs/operations/backend-alerts.prometheus.yml", "utf8");
 

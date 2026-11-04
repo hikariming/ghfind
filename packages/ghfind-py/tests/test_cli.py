@@ -39,7 +39,7 @@ def test_version(capsys):
     with pytest.raises(SystemExit) as e:
         _cli.main(["--version"])
     assert e.value.code == 0
-    assert "ghfind 0.1.0" in capsys.readouterr().out
+    assert "ghfind 0.2.0" in capsys.readouterr().out
 
 
 def test_badge_markdown(capsys):
@@ -93,7 +93,8 @@ def test_score_pretty_formatting(capsys, monkeypatch):
     monkeypatch.setattr(_cli, "_client", lambda args: _fake_client(payload))
     assert _cli.main(["score", "torvalds"]) == 0
     out = capsys.readouterr().out
-    assert "torvalds: 94.6/100 夯 (god)" in out
+    # The CLI prints the current rating ladder (Lv + realm), not the legacy tier.
+    assert "torvalds: Lv.94 Mahayana" in out
     # sub-scores print in the canonical order, not dict order
     assert out.index("account_maturity") < out.index("activity_authenticity")
     assert "beats 98.4% of 18000 scored accounts" in out

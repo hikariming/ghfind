@@ -1,0 +1,47 @@
+{
+  "name": "@ghfind/scoring",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "description": "Public, deterministic ghfind account scoring: the RawMetrics contract, pure evidence->metrics derivation, the six-dimension score, risk rules and tiers. No network, token, environment or storage access.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hikariming/ghfind.git",
+    "directory": "scoring"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts",
+    "./score": "./src/score.ts",
+    "./rating": "./src/rating.ts",
+    "./risk": "./src/risk.ts",
+    "./legacy-risk": "./src/legacy-risk.ts",
+    "./presentation-concentration": "./src/presentation-concentration.ts",
+    "./score-presentation": "./src/score-presentation.ts",
+    "./score-red-flags": "./src/score-red-flags.ts",
+    "./co-creator": "./src/co-creator.ts",
+    "./extract": "./src/extract.ts",
+    "./fixtures/*": "./fixtures/*",
+    "./tools/*": "./tools/*.ts"
+  },
+  "files": [
+    "src",
+    "rules",
+    "fixtures",
+    "tools",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "vitest run --root .",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
+    "boundary:check": "node ../scripts/check-scoring-boundary.mjs",
+    "fixtures:rating": "tsx tools/gen-rating-fixture.mts"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4.22.4",
+    "typescript": "^5",
+    "vitest": "^4.1.9"
+  }
+}

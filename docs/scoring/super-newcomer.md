@@ -144,7 +144,7 @@ reproducible, not silently age or invent history.
 ## Validation and rollout
 
 The TS site/JS local SDK, Go scorer, and Python SDK use the same rule and share
-42 regression cases in src/lib/__tests__/newcomer-score-fixtures.json. Tests
+42 regression cases in scoring/fixtures/newcomer-score-fixtures.json. Tests
 cover aging, partial strength, limited/missing evidence, benign notes, risk
 vetoes, malformed dates, unchanged baseline dimensions, bounds, and adversarial
 volume-path cases (heavy landed work with weak project substance, and heavy

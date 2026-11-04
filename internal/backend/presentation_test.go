@@ -2,13 +2,13 @@ package backend
 
 import (
 	"encoding/json"
+	scoringfixtures "github.com/hikariming/ghfind/scoring/fixtures"
 	"math"
-	"os"
 	"testing"
 )
 
 func TestPresentationParity(t *testing.T) {
-	data, err := os.ReadFile("../../src/lib/__tests__/presentation-fixtures.json")
+	data, err := scoringfixtures.FS.ReadFile("presentation-fixtures.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func TestPresentationParity(t *testing.T) {
 }
 
 func TestPresentationFullScoreParity(t *testing.T) {
-	data, err := os.ReadFile("../../src/lib/__tests__/presentation-score-fixtures.json")
+	data, err := scoringfixtures.FS.ReadFile("presentation-score-fixtures.json")
 	if err != nil {
 		t.Fatal(err)
 	}

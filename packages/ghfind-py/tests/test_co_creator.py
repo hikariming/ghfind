@@ -2,8 +2,8 @@ import json
 from pathlib import Path
 import pytest
 from ghfind._co_creator import co_creator_share, budget_co_creator_shares
-from ghfind._github import compute_org_repo_attribution
-CASES=json.loads((Path(__file__).resolve().parents[3]/'src/lib/__tests__/co-creator-fixtures.json').read_text())
+from ghfind._extract import compute_org_repo_attribution
+CASES=json.loads((Path(__file__).resolve().parents[3]/'scoring/fixtures/co-creator-fixtures.json').read_text())
 @pytest.mark.parametrize('case',CASES,ids=lambda c:c['name'])
 def test_co_creator_evidence(case):
     assert co_creator_share(case['facts'])==pytest.approx(case['share'],abs=1e-12)
@@ -20,13 +20,13 @@ def test_co_creator_budget():
     assert budget_co_creator_shares([dict(attribution_share=.99,co_creator_facts=dict(first_author=True))])[0]['attribution_share']==.99
 
 from ghfind._score import low_prestige_bulk_contribution_cap
-CAP_CASES=json.loads((Path(__file__).resolve().parents[3]/'src/lib/__tests__/contribution-cap-fixtures.json').read_text())
+CAP_CASES=json.loads((Path(__file__).resolve().parents[3]/'scoring/fixtures/contribution-cap-fixtures.json').read_text())
 @pytest.mark.parametrize('case',CAP_CASES,ids=lambda c:c['name'])
 def test_shared_cap_boundaries(case):
     assert low_prestige_bulk_contribution_cap(case['metrics']) == pytest.approx(case['expected'],abs=1e-10)
 
 from ghfind._co_creator import weighted_core_churn, summarize_contributors
-CONTENT=json.loads((Path(__file__).resolve().parents[3]/'src/lib/__tests__/contribution-content-fixtures.json').read_text())
+CONTENT=json.loads((Path(__file__).resolve().parents[3]/'scoring/fixtures/contribution-content-fixtures.json').read_text())
 @pytest.mark.parametrize('case',CONTENT['churn'],ids=lambda c:c['name'])
 def test_content_weighted_core_churn(case):
     core,total,fresh=weighted_core_churn(case['files'],case['repo'])
@@ -39,7 +39,7 @@ def test_bot_free_contributor_totals(case):
 
 def test_top_starred_quality_does_not_double_count_share():
     from datetime import datetime, timezone
-    from ghfind._github import top_starred_original_repo_quality
+    from ghfind._extract import top_starred_original_repo_quality
     now=datetime(2026,10,1,tzinfo=timezone.utc)
     repo=dict(name='app-y',owner_login='org-x',name_with_owner='org-x/app-y',stars=3000,forks=300,open_issues=40,size=9000,language='TypeScript',description='Production scheduling service with API and dashboard',pushed_at='2026-09-01T00:00:00Z',topics=[],attributed_original=True)
     full=top_starred_original_repo_quality([{**repo,'attribution_share':1}],'user-a',now)['score']

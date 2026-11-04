@@ -12,7 +12,7 @@ from .client import DEFAULT_HOST, GhFind, GhFindError
 from .catalog import CATALOG, find_capability
 from .types import TIER_KEY
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "GhFind",

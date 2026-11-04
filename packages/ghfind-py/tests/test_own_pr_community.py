@@ -8,7 +8,7 @@ from pathlib import Path
 from ghfind._score import log_ratio, own_pr_community_credit, score
 
 SCORE_FIXTURES = (
-    Path(__file__).resolve().parents[3] / "src" / "lib" / "__tests__" / "score-fixtures.json"
+    Path(__file__).resolve().parents[3] / "scoring" / "fixtures" / "score-fixtures.json"
 )
 
 

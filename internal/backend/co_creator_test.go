@@ -2,14 +2,14 @@ package backend
 
 import (
 	"encoding/json"
+	scoringfixtures "github.com/hikariming/ghfind/scoring/fixtures"
 	"math"
-	"os"
 	"testing"
 	"time"
 )
 
 func TestCoCreatorSharedEvidence(t *testing.T) {
-	data, err := os.ReadFile("../../src/lib/__tests__/co-creator-fixtures.json")
+	data, err := scoringfixtures.FS.ReadFile("co-creator-fixtures.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func TestCoCreatorBudget(t *testing.T) {
 }
 
 func TestContinuousContributionCapSharedBoundaries(t *testing.T) {
-	data, err := os.ReadFile("../../src/lib/__tests__/contribution-cap-fixtures.json")
+	data, err := scoringfixtures.FS.ReadFile("contribution-cap-fixtures.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestContinuousContributionCapSharedBoundaries(t *testing.T) {
 }
 
 func TestContributionContentSharedFixtures(t *testing.T) {
-	data, err := os.ReadFile("../../src/lib/__tests__/contribution-content-fixtures.json")
+	data, err := scoringfixtures.FS.ReadFile("contribution-content-fixtures.json")
 	if err != nil {
 		t.Fatal(err)
 	}

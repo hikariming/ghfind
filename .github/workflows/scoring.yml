@@ -1,0 +1,82 @@
+name: Scoring
+
+# Public scoring module CI. Runs on the open-source repo before and after the
+# open-core split; it needs no secrets and no backend services, so it is safe
+# for pull requests from forks.
+
+on:
+  pull_request:
+    paths:
+      - "scoring/**"
+      - "packages/ghfind-py/**"
+      - "scripts/check-scoring-boundary.mjs"
+      - ".github/workflows/scoring.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scoring/**"
+      - "packages/ghfind-py/**"
+      - "scripts/check-scoring-boundary.mjs"
+      - ".github/workflows/scoring.yml"
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scoring-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scoring:
+    name: Scoring parity (TS / Go / Python) and boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # The scorer must never need GitHub access; keep credentials out entirely.
+      GITHUB_TOKEN: ""
+      GH_TOKEN: ""
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+          cache-dependency-path: scoring/go.mod
+
+      - name: Install scoring package dependencies only
+        run: pnpm install --frozen-lockfile --filter @ghfind/scoring...
+
+      - name: Boundary (pure TS, stdlib-only Go, no credentials)
+        run: node scripts/check-scoring-boundary.mjs
+
+      - name: TypeScript reference — typecheck and tests
+        working-directory: scoring
+        run: |
+          pnpm run typecheck
+          pnpm test
+
+      - name: Go port — vet, gofmt and tests
+        working-directory: scoring
+        run: |
+          go vet ./...
+          test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+          go test ./...
+
+      - name: Python port — parity tests
+        working-directory: packages/ghfind-py
+        run: |
+          python3 -m pip install --quiet pytest
+          python3 -m pytest -q
+
+      - name: Rating fixture is generated from the TypeScript reference
+        working-directory: scoring
+        run: |
+          pnpm run fixtures:rating
+          git diff --exit-code -- fixtures/rating-ladder.json

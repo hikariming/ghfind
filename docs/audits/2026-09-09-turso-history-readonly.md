@@ -96,7 +96,7 @@ the binding before the Turso fallback. No fresh D1 data query was made during
 this supplement: without the other side, repeating its known row count would
 not produce comparison evidence.
 
-The [August 29 migration record](../plans/2026-08-28-cloudflare-migration-execution.md)
+The [August 29 migration record](../archive/plans/2026-08-28-cloudflare-migration-execution.md)
 reports 31 tables/245k+ imported rows, an approximately one-hour write gap, and
 historical byte-reconstruction corrections. These remain historical claims;
 this attempt neither verifies nor disproves them. The earlier pasted instruction

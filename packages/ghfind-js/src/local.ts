@@ -1,73 +1,77 @@
 /**
- * `ghfind/local` — LOCAL deterministic scoring (Node-only).
+ * `ghfind/local` — verify ghfind scores locally (pure, no I/O).
  *
- * This entry point bundles the *actual* open-source scoring core from the ghfind
- * website (`src/lib/score.ts` + `src/lib/github.ts`) — not a copy — so results are
- * byte-for-byte identical to the site and can never drift. With your own GitHub
- * token you can score any account entirely on your own machine and quota, WITHOUT
- * calling the ghfind server at all. No LLM is involved.
+ * This entry point bundles the public, open-source scoring module
+ * (`@ghfind/scoring`) — the same code the ghfind service scores with — so you
+ * can recompute any score from its published evidence and check it yourself.
+ * It never calls GitHub or ghfind and needs no token. No LLM is involved.
  *
- * Import it only when you want local scoring — the main `ghfind` entry stays a
- * tiny dependency-free remote client and does NOT pull this core in.
+ *   import { GhFind } from "ghfind";
+ *   import { verifyScan } from "ghfind/local";
+ *   const scan = await new GhFind({ apiKey }).scan("torvalds");
+ *   const check = verifyScan(scan);
+ *   console.log(check.verified, check.differences);
  *
- *   import { collectAndScore } from "ghfind/local";
- *   const scan = await collectAndScore("torvalds", { token: process.env.GITHUB_TOKEN });
- *   console.log(scan.scoring.final_score, scan.scoring.red_flags);
- *
- * No token? Use the remote client instead: `new GhFind().getScore(username)` —
- * the ghfind server does the crawl + deterministic scoring for you.
+ * Collecting evidence from GitHub happens on the ghfind service (it is rate
+ * limited and runs against a managed token pool), so local crawling was removed
+ * in 0.2.0. Get a scan from the remote client and verify it here.
  */
 
-import {
-  AccountNotFoundError,
-  GitHubAuthRequiredError,
-  GitHubDataUnavailableError,
-  GitHubRateLimitError,
-  collect,
-  withGithubToken,
-} from "../../../src/lib/github";
-import { score } from "../../../src/lib/score";
-import type { RawMetrics, ScanResult, Scoring } from "./types.js";
+import { score } from "@ghfind/scoring/score";
+import { nextRating, ratingForScore, ratingLevel } from "@ghfind/scoring/rating";
+import type { RawMetrics, ScanResult, Scoring, SubScores } from "./types.js";
 
-export {
-  AccountNotFoundError,
-  GitHubAuthRequiredError,
-  GitHubDataUnavailableError,
-  GitHubRateLimitError,
-};
+export { nextRating, ratingForScore, ratingLevel };
+export type { RatingId, RatingStep } from "@ghfind/scoring/rating";
 
 /** Run the pure deterministic scorer over metrics you already have. No I/O. */
 export function scoreMetrics(metrics: RawMetrics): Scoring {
   return score(metrics as never) as unknown as Scoring;
 }
 
-export interface LocalScanOptions {
-  /** GitHub token used for the crawl. Falls back to `process.env.GITHUB_TOKEN`.
-   * Local scoring makes many authenticated GitHub API calls, so a token is
-   * required (an unauthenticated crawl would hit GitHub's 60/h limit instantly). */
-  token?: string;
+export interface ScoreDifference {
+  /** `final_score`, `base_score`, `total_penalty`, `tier` or `sub_scores.<name>`. */
+  field: string;
+  server: unknown;
+  local: unknown;
+}
+
+export interface ScanVerification {
+  /** True when every compared field matches the published score. */
+  verified: boolean;
+  /** The score recomputed locally from `scan.metrics`. */
+  local: Scoring;
+  differences: ScoreDifference[];
+}
+
+const NUMERIC_TOLERANCE = 1e-9;
+
+function same(a: unknown, b: unknown): boolean {
+  if (typeof a === "number" && typeof b === "number") return Math.abs(a - b) <= NUMERIC_TOLERANCE;
+  return a === b;
 }
 
 /**
- * Crawl GitHub and compute the full deterministic scan + score locally.
+ * Recompute `scan.scoring` from `scan.metrics` and compare.
  *
- * Identical output shape to `POST /api/scan` / the remote client's `scan()`, but
- * runs entirely on your machine and your GitHub token. Throws the GitHub error
- * classes re-exported above (`AccountNotFoundError` for a nonexistent login, etc.).
+ * A difference means the scan was altered or was scored by a different version
+ * of the scoring module than this SDK bundles (update the SDK and retry).
  */
-export async function collectAndScore(
-  username: string,
-  opts: LocalScanOptions = {},
-): Promise<ScanResult> {
-  const token = opts.token ?? process.env.GITHUB_TOKEN ?? "";
-  if (!token.trim()) {
-    throw new GitHubAuthRequiredError(
-      "collectAndScore needs a GitHub token: pass { token } or set GITHUB_TOKEN. " +
-        "Local scoring makes many authenticated GitHub API calls.",
-    );
+export function verifyScan(scan: Pick<ScanResult, "metrics" | "scoring">): ScanVerification {
+  if (typeof scan?.metrics?.username !== "string" || typeof scan?.scoring?.sub_scores !== "object") {
+    throw new TypeError("verifyScan needs a full scan with `metrics` and `scoring` (from GhFind.scan()).");
   }
-  return withGithubToken(token, async () => {
-    const data = await collect(username);
-    return { ...data, scoring: score(data.metrics) } as unknown as ScanResult;
-  });
+  const local = scoreMetrics(scan.metrics);
+  const server = scan.scoring;
+  const differences: ScoreDifference[] = [];
+  for (const field of ["final_score", "base_score", "total_penalty", "tier"] as const) {
+    if (!same(server[field], local[field])) differences.push({ field, server: server[field], local: local[field] });
+  }
+  const names = new Set([...Object.keys(server.sub_scores ?? {}), ...Object.keys(local.sub_scores)]);
+  for (const name of [...names].sort()) {
+    const s = server.sub_scores?.[name as keyof SubScores];
+    const l = local.sub_scores[name as keyof SubScores];
+    if (!same(s, l)) differences.push({ field: `sub_scores.${name}`, server: s, local: l });
+  }
+  return { verified: differences.length === 0, local, differences };
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { scoreMetrics, collectAndScore, GitHubAuthRequiredError } from "./local.js";
+import { ratingForScore, ratingLevel, scoreMetrics, verifyScan } from "./local.js";
 import type { RawMetrics } from "./types.js";
 
 /** A complete, all-neutral RawMetrics (valid input to the pure scorer). */
@@ -64,13 +64,34 @@ describe("ghfind/local", () => {
     expect(scoreMetrics(m).final_score).toBe(scoreMetrics(m).final_score);
   });
 
-  it("collectAndScore requires a token", async () => {
-    const prev = process.env.GITHUB_TOKEN;
-    delete process.env.GITHUB_TOKEN;
-    try {
-      await expect(collectAndScore("torvalds")).rejects.toBeInstanceOf(GitHubAuthRequiredError);
-    } finally {
-      if (prev !== undefined) process.env.GITHUB_TOKEN = prev;
-    }
+  it("verifyScan accepts an untouched scan", () => {
+    const metrics = emptyMetrics({ followers: 1200, total_stars: 9000, merged_pr_count: 80, account_age_years: 9 });
+    const check = verifyScan({ metrics, scoring: scoreMetrics(metrics) });
+    expect(check.verified).toBe(true);
+    expect(check.differences).toEqual([]);
+  });
+
+  it("verifyScan reports every field that does not match", () => {
+    const metrics = emptyMetrics({ followers: 1200, total_stars: 9000, merged_pr_count: 80 });
+    const scoring = scoreMetrics(metrics);
+    const tampered = {
+      ...scoring,
+      final_score: scoring.final_score + 7,
+      sub_scores: { ...scoring.sub_scores, community_influence: scoring.sub_scores.community_influence + 1 },
+    };
+    const check = verifyScan({ metrics, scoring: tampered });
+    expect(check.verified).toBe(false);
+    expect(check.differences.map((d) => d.field)).toEqual(["final_score", "sub_scores.community_influence"]);
+    expect(check.differences[0]).toMatchObject({ server: scoring.final_score + 7, local: scoring.final_score });
+  });
+
+  it("verifyScan rejects payloads without evidence", () => {
+    expect(() => verifyScan({ scoring: scoreMetrics(emptyMetrics()) } as never)).toThrow(/metrics/);
+  });
+
+  it("re-exports the public rating ladder", () => {
+    expect(ratingLevel(94.6)).toBe(94);
+    expect(ratingForScore(94.6).id).toBe("mahayana");
+    expect(ratingForScore(29.9).id).toBe("qi");
   });
 });

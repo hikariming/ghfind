@@ -15,7 +15,7 @@ type Tab = "candidate" | "company";
 /**
  * /talent-match: candidate talent reports from /api/talent-match (phase 1).
  * The company side shows a coming-soon state until phase 3
- * (docs/plans/2026-10-12-talent-match-report.md).
+ * (docs/archive/plans/2026-10-12-talent-match-report.md).
  */
 export function TalentMatch({ zh }: { zh: boolean }) {
   const copy = makeCopy(zh);

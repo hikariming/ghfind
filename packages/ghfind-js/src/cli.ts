@@ -5,15 +5,15 @@ import { isNewerVersion } from "./version.js";
  * Design goals (in priority order):
  *  1. Useful with zero setup: `score` hits the public GET /api/score endpoint,
  *     which needs no auth and is cached + rate-limited on the server.
- *  2. Kind to the ghfind server: `--local` moves the heavy GitHub crawl onto the
- *     caller's own token/machine (see `ghfind/local`); nothing touches ghfind.
+ *  2. Trust but verify: `scan --verify` / `verify <scan.json>` recompute a score
+ *     from its evidence with the public scoring module (see `ghfind/local`).
  *  3. Drives traffic back: human-facing output ends with a profile link, and
  *     `badge --markdown` prints a README-ready snippet that links to ghfind.com.
  *
  * No LLM is ever bundled. `roast` uses the server's model by default (protected
  * by caching + rate limits); pass `--byo-*` to run it through your own provider.
  */
-import { chmodSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { arch, platform } from "node:os";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -22,7 +22,7 @@ import type { ByoKey, ScanResult } from "./types.js";
 import { catalog, DEFAULT_HOST } from "./catalog.js";
 import { DEFAULT_BOT_HOST, runBot } from "./bot.js";
 
-const VERSION: string = "0.1.1";
+const VERSION: string = "0.2.0";
 const DEFAULT_RELEASE_URL = "https://api.github.com/repos/hikariming/ghfind/releases/latest";
 const VALID_OUTPUTS = new Set(["json", "pretty", "markdown"]);
 const SUB_SCORE_ORDER = [
@@ -45,12 +45,12 @@ export interface Flags {
   type?: string;
   value?: string;
   local?: boolean;
+  verify?: boolean;
   githubToken?: string;
   byoBaseUrl?: string;
   byoApiKey?: string;
   byoModel?: string;
   markdown?: boolean;
-  includeScan?: boolean;
   verifyExists?: boolean;
   releaseUrl?: string;
   method?: string;
@@ -98,8 +98,8 @@ export function parseArgs(argv: string[]): { positional: string[]; flags: Flags 
     const arg = argv[i];
     if (arg === "--json") flags.json = true;
     else if (arg === "--local") flags.local = true;
+    else if (arg === "--verify") flags.verify = true;
     else if (arg === "--markdown" || arg === "--md") flags.markdown = true;
-    else if (arg === "--include-scan") flags.includeScan = true;
     else if (arg === "--verify-exists") flags.verifyExists = true;
     else if (arg === "--dry-run") flags.dryRun = true;
     else if (arg === "-h" || arg === "--help") flags.help = true;
@@ -183,17 +183,34 @@ function printRisk(s: { risk_assessment?: { level: string; confidence: number; a
   for (const note of s.risk_notes ?? []) out(`risk_note: ${note.flag} ${note.detail}`);
 }
 
-async function localScan(flags: Flags, username: string): Promise<ScanResult> {
-  const token = githubToken(flags);
-  if (!token) {
-    fail(
-      "--local needs a GitHub token: pass --github-token or set GITHUB_TOKEN.\n" +
-        "Local scoring crawls GitHub on your own machine and quota (ghfind is never called).",
-    );
+const LOCAL_REMOVED =
+  "--local was removed in 0.2.0: GitHub collection now runs only on the ghfind service.\n" +
+  "Use `ghfind scan <user> --verify` or `ghfind verify <scan.json>` to recompute a score locally.";
+
+/** Re-score `scan` with the bundled public scoring module; exit 3 on mismatch. */
+async function verifyLocally(scan: ScanResult, mode: string): Promise<void> {
+  // Loaded lazily so the common remote path never pulls in the scoring engine.
+  const { verifyScan } = await import("./local.js");
+  const check = verifyScan(scan);
+  if (mode === "json") {
+    outJson({ username: scan.metrics.username, verified: check.verified, differences: check.differences });
+  } else if (check.verified) {
+    out(`${scan.metrics.username}: verified — ${check.local.final_score}/100 recomputed locally from the published evidence.`);
+  } else {
+    out(`${scan.metrics.username}: NOT verified — local recomputation differs from the published score:`);
+    for (const d of check.differences) out(`- ${d.field}: server ${JSON.stringify(d.server)}, local ${JSON.stringify(d.local)}`);
+    out("This means the scan was altered or this CLI bundles a different scoring version (try `ghfind update check`).");
   }
-  // Loaded lazily so the common remote path never pulls in the heavy engine.
-  const { collectAndScore } = await import("./local.js");
-  return collectAndScore(username, { token });
+  if (!check.verified) process.exitCode = 3;
+}
+
+async function readScanFile(path: string | undefined): Promise<ScanResult> {
+  if (!path) fail("Usage: ghfind verify <scan.json | ->");
+  try {
+    return JSON.parse(readFileSync(path === "-" ? 0 : path, "utf8")) as ScanResult;
+  } catch (e) {
+    return fail(`Could not read a scan from ${path}: ${(e as Error).message}`);
+  }
 }
 
 // ---- commands --------------------------------------------------------------
@@ -203,23 +220,7 @@ async function cmdScore(positional: string[], flags: Flags): Promise<void> {
   const host = resolveHost(flags);
   const mode = outputMode(flags);
 
-  if (flags.local) {
-    const scan = await localScan(flags, username);
-    const s = scan.scoring;
-    if (mode === "json") {
-      outJson({ source: "local", username: scan.metrics.username, ...s });
-      return;
-    }
-    out(`${scan.metrics.username}: ${s.final_score}/100 ${s.tier} (${s.tier_label})`);
-    printSubScores(s.sub_scores);
-    printRisk(s);
-    if (s.red_flags?.length) {
-      out("red_flags:");
-      for (const f of s.red_flags) out(`- ${f.flag}: -${f.penalty} ${f.detail}`);
-    }
-    out(profileLink(host, scan.metrics.username));
-    return;
-  }
+  if (flags.local) fail(LOCAL_REMOVED);
 
   const payload = await client(flags).getScore(username, { verifyExists: flags.verifyExists });
   if (mode === "json") {
@@ -241,10 +242,14 @@ async function cmdScore(positional: string[], flags: Flags): Promise<void> {
 
 async function cmdScan(positional: string[], flags: Flags): Promise<void> {
   const username = usernameArg(positional);
-  const scan = flags.local
-    ? await localScan(flags, username)
-    : await client(flags).scan(username, { verifyExists: flags.verifyExists });
+  if (flags.local) fail(LOCAL_REMOVED);
+  const scan = await client(flags).scan(username, { verifyExists: flags.verifyExists });
+  if (flags.verify) return verifyLocally(scan, outputMode(flags));
   outJson(scan);
+}
+
+async function cmdVerify(positional: string[], flags: Flags): Promise<void> {
+  await verifyLocally(await readScanFile(positional[1]), outputMode(flags));
 }
 
 async function cmdRoast(positional: string[], flags: Flags): Promise<void> {
@@ -253,10 +258,8 @@ async function cmdRoast(positional: string[], flags: Flags): Promise<void> {
   const lang = langMode(flags);
   const mode = outputMode(flags, "markdown");
   const gh = client(flags);
-  // --local crawls + scores on the caller's machine, then sends only the scan to
-  // the server for the prose (which still needs a model — the server's or BYO).
-  const scan = flags.local ? await localScan(flags, username) : undefined;
-  const roast = await gh.roast({ username: scan ? undefined : username, scan, lang, byoKey: byoKey(flags) });
+  if (flags.local) fail(LOCAL_REMOVED);
+  const roast = await gh.roast({ username, lang, byoKey: byoKey(flags) });
 
   if (mode === "json") {
     const body: Record<string, unknown> = {
@@ -265,7 +268,6 @@ async function cmdRoast(positional: string[], flags: Flags): Promise<void> {
       meta: roast.meta,
       report: roast.report,
     };
-    if (flags.includeScan && scan) body.scan = scan;
     outJson(body);
     return;
   }
@@ -400,7 +402,7 @@ function cmdAuthStatus(flags: Flags): void {
   }
   out(`host: ${body.host}`);
   out(`api key: ${body.has_api_key ? "configured" : "missing"}`);
-  out(`github token (for --local / exists): ${body.has_github_token ? "configured" : "missing"}`);
+  out(`github token (for exists): ${body.has_github_token ? "configured" : "missing"}`);
   out(`byo llm key (for roast): ${body.has_byo_key ? "configured" : "missing"}`);
 }
 
@@ -611,8 +613,9 @@ function printHelp(): void {
   out("Usage: ghfind <command> [options]");
   out("");
   out("Commands:");
-  out("  score <user>          Deterministic score via GET /api/score (no auth, cached). --local to score offline.");
-  out("  scan <user>           Full evidence payload via POST /api/scan (heavy; needs --api-key in prod). --local supported.");
+  out("  score <user>          Deterministic score via GET /api/score (no auth, cached).");
+  out("  scan <user>           Full evidence payload via POST /api/scan (heavy; needs --api-key in prod). --verify to re-score it locally.");
+  out("  verify <scan.json|->  Recompute a saved scan's score locally with the public scoring module (offline).");
   out("  roast <user>          Human-facing roast report (LLM). --byo-* to use your own model.");
   out("  vs <a> <b>            Head-to-head verdict (winner deterministic).");
   out("  exists <user>         Check a GitHub login exists (client-side; never touches ghfind).");
@@ -633,7 +636,7 @@ function printHelp(): void {
   out("                        Needs a personal API token (GHFIND_API_KEY). GHFIND_BOT_HOST overrides the bot URL.");
   out("");
   out("Common options: --host, --api-key, --json, -o/--output, --lang zh|en");
-  out("Local scoring:  --local (score/scan/roast) uses your GITHUB_TOKEN, entirely on your machine.");
+  out("Verify scores:  scan --verify / verify <file> recompute scores offline (exit 3 on mismatch).");
   out("Bring your own model: --byo-base-url --byo-api-key --byo-model (roast only).");
 }
 
@@ -656,6 +659,8 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<void>
         return await cmdScore(positional, flags);
       case "scan":
         return await cmdScan(positional, flags);
+      case "verify":
+        return await cmdVerify(positional, flags);
       case "roast":
         return await cmdRoast(positional, flags);
       case "vs":

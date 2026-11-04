@@ -2,14 +2,14 @@ package backend
 
 import (
 	"encoding/json"
+	scoringfixtures "github.com/hikariming/ghfind/scoring/fixtures"
 	"math"
-	"os"
 	"testing"
 	"time"
 )
 
 func TestContentSkillParity(t *testing.T) {
-	data, err := os.ReadFile("../../src/lib/__tests__/content-skill-fixtures.json")
+	data, err := scoringfixtures.FS.ReadFile("content-skill-fixtures.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestContentSkillParity(t *testing.T) {
 }
 
 func TestContentSkillScores(t *testing.T) {
-	data, err := os.ReadFile("../../src/lib/__tests__/content-skill-score-fixtures.json")
+	data, err := scoringfixtures.FS.ReadFile("content-skill-score-fixtures.json")
 	if err != nil {
 		t.Fatal(err)
 	}

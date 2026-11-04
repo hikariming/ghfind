@@ -2,13 +2,13 @@ package backend
 
 import (
 	"encoding/json"
-	"os"
+	scoringfixtures "github.com/hikariming/ghfind/scoring/fixtures"
 	"reflect"
 	"testing"
 )
 
 func TestAttributedCreatorImpact(t *testing.T) {
-	data, err := os.ReadFile("../../src/lib/__tests__/attributed-impact-fixture.json")
+	data, err := scoringfixtures.FS.ReadFile("attributed-impact-fixture.json")
 	if err != nil {
 		t.Fatal(err)
 	}

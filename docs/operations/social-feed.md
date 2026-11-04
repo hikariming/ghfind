@@ -1,6 +1,6 @@
 # Social Feed 初版
 
-`/feed` 现在接入独立的 Social Feed 存储与 API；旧项目 Feed 表继续服务原功能。设计背景见 [数据设计](../plans/2026-10-25-x-feed-data-model.md)，运行时 DTO 以 `src/lib/social-feed/contract.ts` 为准。
+`/feed` 现在接入独立的 Social Feed 存储与 API；旧项目 Feed 表继续服务原功能。设计背景见 [数据设计](../archive/plans/2026-10-25-x-feed-data-model.md)，运行时 DTO 以 `src/lib/social-feed/contract.ts` 为准。
 
 ## 当前边界
 

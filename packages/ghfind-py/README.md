@@ -10,9 +10,8 @@ battles, leaderboards, and developer discovery.
   commentary*. `roast(..., byo_key=...)` runs the LLM through your own
   OpenAI-compatible provider — or just feed the structured `scan()` output to your
   own model.
-- **Score anywhere.** No token → the ghfind server crawls + scores for you. Have a
-  token → `ghfind.local` runs the *same* open-source engine entirely on your
-  machine (see below). Same numbers either way.
+- **Verifiable.** The scoring module is open source. `ghfind.local` recomputes
+  any scan's score on your machine from its published evidence (see below).
 - **Zero dependencies.** Standard library only.
 
 ```bash
@@ -38,6 +37,7 @@ deterministic, no LLM). It's the cheapest path for you *and* for ghfind.
 | --- | --- | --- | --- |
 | `score <user>` | Deterministic score; prints tier, sub-scores, percentile. | `GET /api/score/{u}` | no |
 | `scan <user>` | Full evidence payload (metrics, signals, red flags). Heavy — needs `--api-key` in prod. | `POST /api/scan` | no |
+| `verify <file\|->` | Recompute a saved scan's score locally; exit 3 on mismatch. Never touches the network. | — | no |
 | `roast <user>` | Human-facing roast report + AI-adjusted score. | `POST /api/scan` + `/api/roast` | yes\* |
 | `vs <a> <b>` | Head-to-head verdict (winner deterministic). | `POST /api/vs-verdict` | yes\* |
 | `exists <user>` | Does this GitHub login exist? Runs on **your** IP, never touches ghfind. | `api.github.com` | no |
@@ -55,19 +55,21 @@ deterministic, no LLM). It's the cheapest path for you *and* for ghfind.
 --byo-model` (or `GHFIND_BYO_*` env vars) to run `roast` through your own model
 instead of ghfind's.
 
-### Score locally, offline, on your own token
+### Verify a score locally
 
-`--local` runs the crawl **and** scoring on your machine with your `GITHUB_TOKEN`
-— the ghfind server is never called, so it scales infinitely and never adds load:
+Every score is a pure function of its published evidence. `--verify` re-scores a
+scan with the open-source scoring module (the Python port of `@ghfind/scoring`, pinned by shared parity fixtures) —
+no GitHub calls, no token — and exits `3` if anything differs:
 
 ```bash
-export GITHUB_TOKEN=ghp_xxx
-ghfind score torvalds --local     # crawl + score entirely on your machine
-ghfind scan torvalds  --local
+ghfind scan torvalds --verify          # fetch the scan, recompute it locally
+ghfind scan torvalds --json > s.json
+ghfind verify s.json                   # offline, any time later (or: ghfind verify -)
 ```
 
-Rule of thumb: **have a token → `--local`** (offline, unlimited); **no token →
-plain `score`** (ghfind scores it for you). Output is identical.
+> **0.2.0:** `--local` (crawl + score on your own token) was removed. GitHub
+> collection now runs only on the ghfind service, which rate-limits and schedules
+> it; the scoring itself stays open and verifiable as shown above.
 
 ### Options & environment
 
@@ -75,7 +77,7 @@ plain `score`** (ghfind scores it for you). Output is identical.
 --host <url>          default https://ghfind.com (or GHFIND_HOST)
 --api-key <key>       Authorization: Bearer — bypasses Turnstile on POST /api/scan
                       (or GHFIND_API_KEY)
---github-token <t>    for --local and exists (or GITHUB_TOKEN)
+--github-token <t>    for exists (or GITHUB_TOKEN)
 --byo-base-url/-api-key/-model   your OpenAI-compatible provider for roast
 --json | -o json|pretty|markdown
 --lang zh|en
@@ -137,23 +139,23 @@ roast = gh.roast("torvalds", byo_key={
 Every method is one atomic capability; introspect them via
 `from ghfind import CATALOG`.
 
-### Local scoring (`ghfind.local`)
+### Local verification (`ghfind.local`)
 
 ```python
 import os
-from ghfind.local import collect_and_score
+from ghfind import GhFind
+from ghfind.local import verify_scan, score_metrics
 
-scan = collect_and_score("torvalds", token=os.environ["GITHUB_TOKEN"])
-print(scan["scoring"]["final_score"], scan["scoring"]["tier"])
-
-# Already have metrics? Score them purely (no I/O):
-from ghfind.local import score_metrics
-scoring = score_metrics(metrics)
+scan = GhFind(api_key=os.environ["GHFIND_API_KEY"]).scan("torvalds")
+check = verify_scan(scan)   # {"verified", "local", "differences": [{"field", "server", "local"}]}
+scoring = score_metrics(scan["metrics"])   # pure, no I/O
 ```
 
-`ghfind.local` is a faithful port of the website's `collect()` + `score()`,
-verified bit-for-bit against the TS/website output. It runs entirely on your own
-machine and GitHub token — no ghfind server, no LLM, no rate limits but GitHub's.
+`ghfind.local` is the Python port of the public scoring module (`@ghfind/scoring`),
+pinned bit-for-bit to the TypeScript and Go implementations by the shared
+fixtures in `scoring/fixtures`. It makes no network calls and needs no token.
+
+`collect_and_score` (local crawling) was removed in 0.2.0.
 
 ### Errors
 

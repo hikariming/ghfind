@@ -5,7 +5,7 @@ from pathlib import Path
 
 from ghfind._score import score
 
-FIXTURE = Path(__file__).resolve().parents[3] / "src/lib/__tests__/newcomer-score-fixtures.json"
+FIXTURE = Path(__file__).resolve().parents[3] / "scoring/fixtures/newcomer-score-fixtures.json"
 with FIXTURE.open(encoding="utf-8") as f:
     DATA = json.load(f)
 

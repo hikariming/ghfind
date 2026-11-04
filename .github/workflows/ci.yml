@@ -119,6 +119,18 @@ jobs:
       - name: Test Go packages
         run: go test ./...
 
+      # scoring/ is a nested Go module (the public open-core boundary), so the
+      # root `go test ./...` does not reach it.
+      - name: Test public scoring Go module
+        working-directory: scoring
+        run: go test ./...
+
+      - name: Verify public scoring boundary
+        run: pnpm scoring:boundary
+
+      - name: Verify open-core split manifest
+        run: node ops/open-core/split.mjs check
+
       # Compile the explicit integration entry without claiming a Docker run.
       - name: Compile bounded Docker HTTP acceptance harness
         run: go test -tags feedportability -run '^$' ./internal/backend

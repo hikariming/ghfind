@@ -6,7 +6,7 @@ import pytest
 
 from ghfind._score import low_prestige_bulk_contribution_cap, score
 
-FIXTURES = json.loads((Path(__file__).resolve().parents[3] / "src/lib/__tests__/contribution-quality-fixtures.json").read_text())
+FIXTURES = json.loads((Path(__file__).resolve().parents[3] / "scoring/fixtures/contribution-quality-fixtures.json").read_text())
 
 
 @pytest.mark.parametrize("case", FIXTURES, ids=[c["metrics"]["username"] for c in FIXTURES])

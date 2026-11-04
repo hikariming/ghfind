@@ -3,8 +3,8 @@
 Design goals (in priority order):
   1. Useful with zero setup: ``score`` hits the public GET /api/score endpoint,
      which needs no auth and is cached + rate-limited on the server.
-  2. Kind to the ghfind server: ``--local`` moves the heavy GitHub crawl onto the
-     caller's own token/machine (see :mod:`ghfind.local`); nothing touches ghfind.
+  2. Trust but verify: ``scan --verify`` / ``verify <scan.json>`` recompute a
+     score from its evidence with the public scoring port (see :mod:`ghfind.local`).
   3. Drives traffic back: human-facing output ends with a profile link, and
      ``badge --markdown`` prints a README-ready snippet that links to ghfind.com.
 
@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 from typing import Any, Dict, List, Optional
@@ -28,7 +29,10 @@ from .catalog import CATALOG, DEFAULT_HOST
 from .client import GhFind, GhFindError, Transport
 
 
-# Display-only; mirrors src/lib/realm.ts. Does not change scoring or stored tiers.
+# Rating ladder (30-100, one rating every 10 points). Thresholds mirror the
+# canonical rule in scoring/src/rating.ts and are pinned by
+# scoring/fixtures/rating-ladder.json (tests/test_rating.py). Display names are
+# CLI copy. Does not change scoring or stored tiers.
 _REALM_DEFS = (
     (0, "练气", "Qi Refining"),
     (30, "筑基", "Foundation"),
@@ -41,18 +45,24 @@ _REALM_DEFS = (
 )
 
 
-def _adventurer_level(score: Any) -> int:
-    try:
-        lv = int(float(score))
-    except (TypeError, ValueError):
-        return 1
-    return max(1, min(100, lv))
-
-
-def _realm_name(score: Any, lang: str = "en") -> str:
+def _finite(score: Any) -> Optional[float]:
     try:
         s = float(score)
     except (TypeError, ValueError):
+        return None
+    return s if math.isfinite(s) else None
+
+
+def _adventurer_level(score: Any) -> int:
+    s = _finite(score)
+    if s is None:
+        return 1
+    return max(1, min(100, math.floor(s)))
+
+
+def _realm_name(score: Any, lang: str = "en") -> str:
+    s = _finite(score)
+    if s is None:
         s = 0.0
     current = _REALM_DEFS[0]
     for row in _REALM_DEFS:
@@ -175,17 +185,38 @@ def _print_risk(scoring: Dict[str, Any]) -> None:
         _out(f'{note.get("flag")}: {note.get("detail", "")}')
 
 
-def _local_scan(args: argparse.Namespace, username: str) -> Dict[str, Any]:
-    token = _github_token(args)
-    if not token:
-        _fail(
-            "--local needs a GitHub token: pass --github-token or set GITHUB_TOKEN.\n"
-            "Local scoring crawls GitHub on your own machine and quota (ghfind is never called)."
-        )
-    # Imported lazily so the common remote path never pays for the scoring engine.
-    from .local import collect_and_score
+_LOCAL_REMOVED = (
+    "--local was removed in 0.2.0: GitHub collection now runs only on the ghfind service.\n"
+    "Use `ghfind scan <user> --verify` or `ghfind verify <scan.json>` to recompute a score locally."
+)
 
-    return collect_and_score(username, token=token)
+
+def _reject_local(args: argparse.Namespace) -> None:
+    if getattr(args, "local", False):
+        _fail(_LOCAL_REMOVED)
+
+
+def _verify_locally(scan: Dict[str, Any], mode: str) -> None:
+    """Re-score ``scan`` with the bundled public scoring port; exit 3 on mismatch."""
+    # Imported lazily so the common remote path never pays for the scoring engine.
+    from .local import verify_scan
+
+    try:
+        check = verify_scan(scan)
+    except TypeError as e:
+        _fail(str(e))
+    username = scan["metrics"]["username"]
+    if mode == "json":
+        _out_json({"username": username, "verified": check["verified"], "differences": check["differences"]})
+    elif check["verified"]:
+        _out(f'{username}: verified — {check["local"]["final_score"]}/100 recomputed locally from the published evidence.')
+    else:
+        _out(f"{username}: NOT verified — local recomputation differs from the published score:")
+        for d in check["differences"]:
+            _out(f'- {d["field"]}: server {json.dumps(d["server"], ensure_ascii=False)}, local {json.dumps(d["local"], ensure_ascii=False)}')
+        _out("This means the scan was altered or this CLI bundles a different scoring version (try `ghfind update check`).")
+    if not check["verified"]:
+        sys.exit(3)
 
 
 # ---- commands --------------------------------------------------------------
@@ -195,19 +226,7 @@ def _cmd_score(args: argparse.Namespace) -> None:
     host = _resolve_host(args)
     mode = _output_mode(args)
 
-    if args.local:
-        scan = _local_scan(args, args.username)
-        s = scan["scoring"]
-        if mode == "json":
-            _out_json({"source": "local", "username": scan["metrics"]["username"], **s})
-            return
-        _out(f'{scan["metrics"]["username"]}: {_format_level_realm(s["final_score"], getattr(args, "lang", "en"))}')
-        _print_sub_scores(s.get("sub_scores"))
-        _print_risk(s)
-        for f in s.get("red_flags") or []:
-            _out(f'- {f["flag"]}: -{f["penalty"]} {f["detail"]}')
-        _out(_profile_link(host, scan["metrics"]["username"]))
-        return
+    _reject_local(args)
 
     payload = _client(args).get_score(args.username, verify_exists=args.verify_exists)
     if mode == "json":
@@ -225,11 +244,24 @@ def _cmd_score(args: argparse.Namespace) -> None:
 
 
 def _cmd_scan(args: argparse.Namespace) -> None:
-    if args.local:
-        scan = _local_scan(args, args.username)
-    else:
-        scan = _client(args).scan(args.username, verify_exists=args.verify_exists)
+    _reject_local(args)
+    scan = _client(args).scan(args.username, verify_exists=args.verify_exists)
+    if args.verify:
+        _verify_locally(scan, _output_mode(args))
+        return
     _out_json(scan)
+
+
+def _cmd_verify(args: argparse.Namespace) -> None:
+    try:
+        if args.file == "-":
+            scan = json.load(sys.stdin)
+        else:
+            with open(args.file, encoding="utf-8") as fh:
+                scan = json.load(fh)
+    except (OSError, ValueError) as e:
+        _fail(f"Could not read a scan from {args.file}: {e}")
+    _verify_locally(scan, _output_mode(args))
 
 
 def _cmd_roast(args: argparse.Namespace) -> None:
@@ -237,15 +269,8 @@ def _cmd_roast(args: argparse.Namespace) -> None:
     lang = args.lang
     mode = _output_mode(args, "markdown")
     gh = _client(args)
-    # --local crawls + scores on the caller's machine, then sends only the scan to
-    # the server for the prose (which still needs a model — the server's or BYO).
-    scan = _local_scan(args, args.username) if args.local else None
-    roast = gh.roast(
-        username=None if scan else args.username,
-        scan=scan,
-        lang=lang,
-        byo_key=_byo_key(args),
-    )
+    _reject_local(args)
+    roast = gh.roast(username=args.username, lang=lang, byo_key=_byo_key(args))
     if mode == "json":
         body: Dict[str, Any] = {
             "username": args.username,
@@ -253,8 +278,6 @@ def _cmd_roast(args: argparse.Namespace) -> None:
             "meta": roast.get("meta"),
             "report": roast.get("report"),
         }
-        if args.include_scan and scan:
-            body["scan"] = scan
         _out_json(body)
         return
     meta = roast.get("meta") or {}
@@ -390,7 +413,7 @@ def _cmd_auth_status(args: argparse.Namespace) -> None:
         return
     _out(f'host: {body["host"]}')
     _out(f'api key: {"configured" if body["has_api_key"] else "missing"}')
-    _out(f'github token (for --local / exists): {"configured" if body["has_github_token"] else "missing"}')
+    _out(f'github token (for exists): {"configured" if body["has_github_token"] else "missing"}')
     _out(f'byo llm key (for roast): {"configured" if body["has_byo_key"] else "missing"}')
 
 
@@ -449,22 +472,25 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p = add("score", _cmd_score, help="Deterministic score via GET /api/score (no auth, cached).")
     p.add_argument("username")
-    p.add_argument("--local", action="store_true", help="score offline with your GITHUB_TOKEN")
+    p.add_argument("--local", action="store_true", help=argparse.SUPPRESS)
     p.add_argument("--verify-exists", action="store_true", help="confirm the login exists first")
 
     p = add("scan", _cmd_scan, help="Full evidence payload via POST /api/scan (heavy; needs --api-key in prod).")
     p.add_argument("username")
-    p.add_argument("--local", action="store_true", help="crawl + score offline with your GITHUB_TOKEN")
+    p.add_argument("--local", action="store_true", help=argparse.SUPPRESS)
+    p.add_argument("--verify", action="store_true", help="re-score the scan locally and report differences (exit 3 on mismatch)")
     p.add_argument("--verify-exists", action="store_true")
+
+    p = add("verify", _cmd_verify, help="Recompute a saved scan's score locally with the public scoring port (offline).")
+    p.add_argument("file", help="scan JSON file, or - for stdin")
 
     p = add("roast", _cmd_roast, help="Human-facing roast report (LLM). --byo-* to use your own model.")
     p.add_argument("username")
     p.add_argument("--lang", choices=["zh", "en"], default="zh")
-    p.add_argument("--local", action="store_true", help="crawl the scan offline, then only send it for prose")
+    p.add_argument("--local", action="store_true", help=argparse.SUPPRESS)
     p.add_argument("--byo-base-url")
     p.add_argument("--byo-api-key")
     p.add_argument("--byo-model")
-    p.add_argument("--include-scan", action="store_true", help="embed the scan in --json output")
 
     p = add("vs", _cmd_vs, help="Head-to-head verdict (winner deterministic).")
     p.add_argument("a")

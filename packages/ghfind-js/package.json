@@ -1,6 +1,6 @@
 {
   "name": "@hikariming/ghfind",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Official SDK for ghfind.com — score any GitHub account 0-100 for value & trustworthiness (deterministic, no LLM), plus roasts, battles, leaderboards, and developer discovery.",
   "keywords": [
     "github",
@@ -58,6 +58,7 @@
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
+    "@ghfind/scoring": "file:../../scoring",
     "tsup": "^8.3.5",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"

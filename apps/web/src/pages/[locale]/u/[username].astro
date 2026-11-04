@@ -41,8 +41,9 @@ if (!d && !pendingScan && !fromHome && !retiredIdentity) return notFound();
 let page: Omit<Parameters<typeof ProfileIsland>[0], "intl"> | null = null;
 let meta: ReturnType<typeof profileMetadata> | null = null;
 if (presentation && d) {
-  const tTiers = await getTranslator(locale, "tiers");
-  meta = profileMetadata(locale, d, tMeta, tTiers);
+  // Rating names live under `realms` (same as the Next page's generateMetadata).
+  const tRealms = await getTranslator(locale, "realms");
+  meta = profileMetadata(locale, d, tMeta, tRealms);
   const [roastState, comments, viewer] = await Promise.all([
     loadProfileRoastState(d, locale, fromHome, getGoLiveProfileScan),
     getProfileComments(d.username),

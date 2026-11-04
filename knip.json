@@ -12,6 +12,17 @@
         "packages/ghfind-js/**"
       ]
     },
+    "scoring": {
+      "entry": [
+        "test/**/*.test.ts",
+        "tools/*.{ts,mts}"
+      ],
+      "vitest": {
+        "entry": [
+          "test/**/*.test.ts"
+        ]
+      }
+    },
     "apps/web": {
       "entry": [
         "src/pages/**/*.astro",
@@ -36,5 +47,9 @@
         "cloudflare"
       ]
     }
-  }
+  },
+  "ignoreBinaries": [
+    "go",
+    "gofmt"
+  ]
 }
