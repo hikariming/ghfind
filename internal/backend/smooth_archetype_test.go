@@ -2,12 +2,12 @@ package backend
 
 import (
 	"encoding/json"
-	"os"
+	scoringfixtures "github.com/hikariming/ghfind/scoring/fixtures"
 	"testing"
 )
 
 func TestSmoothImpactArchetypes(t *testing.T) {
-	data, err := os.ReadFile("../../src/lib/__tests__/smooth-impact-archetypes.json")
+	data, err := scoringfixtures.FS.ReadFile("smooth-impact-archetypes.json")
 	if err != nil {
 		t.Fatal(err)
 	}

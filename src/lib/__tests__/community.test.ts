@@ -13,7 +13,7 @@ import {
   type OwnRepoCommunityRaw,
 } from "../github";
 import { logRatio } from "../score";
-import fixtures from "./community-fixtures.json";
+import fixtures from "@ghfind/scoring/fixtures/community-fixtures.json";
 
 // Shared with internal/backend: raw community samples must produce the same
 // facts and community score in TypeScript and Go.

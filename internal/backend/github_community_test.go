@@ -3,13 +3,11 @@ package backend
 import (
 	"context"
 	"encoding/json"
+	scoringfixtures "github.com/hikariming/ghfind/scoring/fixtures"
 	"math"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -26,8 +24,7 @@ type communityFixture struct {
 // TestCommunityFixturesMatchNode pins Go to the facts and community score the
 // TypeScript collector derives from the same raw samples.
 func TestCommunityFixturesMatchNode(t *testing.T) {
-	_, thisFile, _, _ := runtime.Caller(0)
-	contents, err := os.ReadFile(filepath.Join(filepath.Dir(thisFile), "..", "..", "src", "lib", "__tests__", "community-fixtures.json"))
+	contents, err := scoringfixtures.FS.ReadFile("community-fixtures.json")
 	if err != nil {
 		t.Fatal(err)
 	}

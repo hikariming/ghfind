@@ -20,10 +20,10 @@
 
 实现索引（相对仓库根目录）：
 
-- TypeScript：`src/lib/score.ts`、`src/lib/risk.ts`、`src/lib/legacy-risk.ts`。
-- Go：`internal/backend/scoring.go`、`risk.go`、`legacy_risk.go`。
+- TypeScript：`scoring/src/score.ts`、`scoring/src/risk.ts`、`scoring/src/legacy-risk.ts`（公开模块 `@ghfind/scoring`；`src/lib/*.ts` 仅为转发）。
+- Go：`scoring/scoring.go`、`risk.go`、`legacy_risk.go`（`internal/backend/scoring_bridge.go` 转发）。
 - Python：`packages/ghfind-py/ghfind/_score.py`、`_risk.py`、`_legacy_risk.py`。
-- 风险参数：`config/risk-rules-v10.json`；档位：`src/lib/score-presentation.ts`。
+- 风险参数：`scoring/rules/risk-rules-v10.json`；档位：`scoring/src/score-presentation.ts`（旧五档）与 `scoring/src/rating.ts`（30–100 评级阶梯）。
 - 新人奖励细节：[super-newcomer.md](../scoring/super-newcomer.md)。
 
 ## 2. 公共算子与舍入
@@ -191,6 +191,9 @@ score v12 是产物版本，与 risk policy v9 是不同命名空间。
 
 档位阈值保持：>=90 夯，>=80 顶级，>=70 人上人，>=40 NPC，其余拉完了。
 不因回退重新校准排名或文字。
+
+> 2026-11 注：上述五档现为存量字段 `Scoring.tier`（Bot 标签分桶仍使用）。页面展示的评级是
+> 30–100 评级阶梯（`scoring/src/rating.ts`），见 [AGENTS.md](../../AGENTS.md#账号评分报告与证据)。
 
 发布使用 [v12/v11/v5 计划](../releases/v12-v11-v5-rollout.md)：
 三端公式一致；新缓存、重放、物化使用新 score 版本；旧历史保留；不能仅改版本号。

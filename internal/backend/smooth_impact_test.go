@@ -2,14 +2,14 @@ package backend
 
 import (
 	"encoding/json"
+	scoringfixtures "github.com/hikariming/ghfind/scoring/fixtures"
 	"math"
-	"os"
 	"strings"
 	"testing"
 )
 
 func TestSmoothImpactSharedFixtures(t *testing.T) {
-	data, err := os.ReadFile("../../src/lib/__tests__/smooth-impact-fixtures.json")
+	data, err := scoringfixtures.FS.ReadFile("smooth-impact-fixtures.json")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -4,13 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	scoringfixtures "github.com/hikariming/ghfind/scoring/fixtures"
 	"math"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -37,12 +35,7 @@ type impactRegressionFixture struct {
 // pipeline at the recorded clock: the collected metrics, impact, weighted
 // stars and score must all match the Node results.
 func TestImpactRegressionFixturesMatchNode(t *testing.T) {
-	_, thisFile, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("locate Go test file")
-	}
-	path := filepath.Join(filepath.Dir(thisFile), "..", "..", "src", "lib", "__tests__", "impact-regression-fixtures.json")
-	contents, err := os.ReadFile(path)
+	contents, err := scoringfixtures.FS.ReadFile("impact-regression-fixtures.json")
 	if err != nil {
 		t.Fatalf("read impact regression fixtures: %v", err)
 	}

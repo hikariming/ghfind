@@ -14,6 +14,9 @@ importers:
       '@ghfind/i18n':
         specifier: workspace:*
         version: link:packages/i18n
+      '@ghfind/scoring':
+        specifier: workspace:*
+        version: link:scoring
       '@libsql/client':
         specifier: ^0.17.4
         version: 0.17.4
@@ -290,6 +293,21 @@ importers:
         version: 4.143.0(@cloudflare/workers-types@5.20260929.1)(@types/node@20.19.43)
 
   packages/i18n: {}
+
+  scoring:
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.43
+      tsx:
+        specifier: ^4.22.4
+        version: 4.22.4
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.9
+        version: 4.1.9(@types/node@20.19.43)(vite@8.3.1(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.36.0)(tsx@4.22.4)(yaml@2.9.1))
 
 packages:
 

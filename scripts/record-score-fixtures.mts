@@ -7,7 +7,7 @@
  * Runs this checkout's `collect()` and `score()` for each login and writes the
  * pure-pipeline inputs (contribution aggregates with their per-repo signals,
  * verified ecosystem PRs, star-bearing original repos), the collected metrics
- * and the resulting scores into src/lib/__tests__/impact-regression-fixtures.json.
+ * and the resulting scores into scoring/fixtures/impact-regression-fixtures.json.
  * The TypeScript and Go regression tests recompute impact, quality signals and
  * weighted stars from those inputs at the recorded clock, so both runtimes are
  * pinned to the same numbers.
@@ -17,7 +17,7 @@
  * Nothing is written to any database.
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { anonymizeScoreFixture } from "./lib/anonymize-score-fixture";
+import { anonymizeScoreFixture } from "@ghfind/scoring/tools/anonymize-fixture";
 
 import { collect, isEcosystemImpactPr, type ContribRepoAgg } from "../src/lib/github";
 import { score } from "../src/lib/score";
@@ -27,7 +27,7 @@ type ScoreInputsRecord = Parameters<
   NonNullable<NonNullable<Parameters<typeof collect>[1]>["recordScoreInputs"]>
 >[0];
 
-const FIXTURES = new URL("../src/lib/__tests__/impact-regression-fixtures.json", import.meta.url);
+const FIXTURES = new URL("../scoring/fixtures/impact-regression-fixtures.json", import.meta.url);
 
 const argv = process.argv.slice(2);
 const nowFlag = argv.find((a) => a.startsWith("--now="))?.slice("--now=".length);

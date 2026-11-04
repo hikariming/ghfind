@@ -1,7 +1,10 @@
 FROM golang:1.23-alpine@sha256:383395b794dffa5b53012a212365d40c8e37109a626ca30d6151c8348d380b5f AS build
 WORKDIR /src
 COPY go.mod go.sum ./
+# Public scoring module (replace ./scoring in go.mod; a versioned require once split).
+COPY scoring/go.mod ./scoring/go.mod
 RUN go mod download
+COPY scoring/*.go ./scoring/
 COPY internal ./internal
 COPY cmd/feed-api ./cmd/feed-api
 COPY cmd/feed-worker ./cmd/feed-worker

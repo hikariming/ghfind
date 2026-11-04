@@ -3,6 +3,9 @@
 !Dockerfile.feed.dockerignore
 !go.mod
 !go.sum
+!scoring/
+!scoring/go.mod
+!scoring/*.go
 !internal/
 !internal/**
 !cmd/

@@ -34,10 +34,12 @@
     "local:open": "tsx scripts/local-dev/main.mts open",
     "local:verify": "tsx scripts/local-dev/main.mts verify",
     "local:renew": "tsx scripts/local-dev/main.mts renew",
-    "local:check": "tsc --noEmit -p scripts/local-dev/tsconfig.json"
+    "local:check": "tsc --noEmit -p scripts/local-dev/tsconfig.json",
+    "scoring:boundary": "node scripts/check-scoring-boundary.mjs"
   },
   "dependencies": {
     "@ghfind/i18n": "workspace:*",
+    "@ghfind/scoring": "workspace:*",
     "@libsql/client": "^0.17.4",
     "@libsql/isomorphic-fetch": "^0.3.1",
     "@libsql/isomorphic-ws": "^0.1.5",
