@@ -6,7 +6,7 @@ import pytest
 
 from ghfind._score import score
 
-CASES = json.loads((Path(__file__).resolve().parents[3] / "src/lib/__tests__/smooth-impact-archetypes.json").read_text())
+CASES = json.loads((Path(__file__).resolve().parents[3] / "scoring/fixtures/smooth-impact-archetypes.json").read_text())
 
 
 @pytest.mark.parametrize("case", CASES, ids=[c["name"] for c in CASES])

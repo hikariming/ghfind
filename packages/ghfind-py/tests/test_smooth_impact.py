@@ -1,10 +1,10 @@
 import json
 from pathlib import Path
 import pytest
-from ghfind._github import compute_impact_from_contrib_map
+from ghfind._extract import compute_impact_from_contrib_map
 from ghfind._community import attributed_creator_weight, impact_evidence_weight, impact_star_discount, own_star_weight
 
-FIXTURES = json.loads((Path(__file__).resolve().parents[3] / 'src/lib/__tests__/smooth-impact-fixtures.json').read_text())
+FIXTURES = json.loads((Path(__file__).resolve().parents[3] / 'scoring/fixtures/smooth-impact-fixtures.json').read_text())
 
 @pytest.mark.parametrize('f', FIXTURES, ids=lambda f: f['name'])
 def test_shared_curve(f):

@@ -1,15 +1,18 @@
-"""Local scoring: offline unit tests + a token-gated live integration test.
+"""Local verification: offline unit tests for ``ghfind.local``.
 
 The bit-exact score parity lives in test_score_parity.py (offline). Here we cover
-the local module's own surface and a real end-to-end crawl when a token is present.
+the verify-only surface (``score_metrics`` / ``verify_scan``) and the CLI's
+``verify`` / ``scan --verify`` paths.
 """
 
-import os
+import json
 
 import pytest
 
-from ghfind._github import compute_impact_from_contrib_map
-from ghfind.local import collect_and_score, score_metrics, GitHubAuthRequiredError
+import ghfind
+from ghfind._cli import main
+from ghfind._extract import compute_impact_from_contrib_map
+from ghfind.local import score_metrics, verify_scan
 
 
 def _empty_metrics(**over):
@@ -43,14 +46,74 @@ def test_score_metrics_deterministic():
     assert score_metrics(m)["final_score"] == score_metrics(m)["final_score"]
 
 
-def test_collect_and_score_requires_token():
-    prev = os.environ.pop("GITHUB_TOKEN", None)
-    try:
-        with pytest.raises(GitHubAuthRequiredError):
-            collect_and_score("torvalds")
-    finally:
-        if prev is not None:
-            os.environ["GITHUB_TOKEN"] = prev
+def test_local_no_longer_crawls():
+    import ghfind.local as local
+    assert not hasattr(local, "collect_and_score")
+    with pytest.raises(ImportError):
+        __import__("ghfind._github")
+
+
+def test_verify_scan_accepts_untouched_scan():
+    metrics = _empty_metrics(followers=1200, total_stars=9000, merged_pr_count=80, account_age_years=9)
+    check = verify_scan({"metrics": metrics, "scoring": score_metrics(metrics)})
+    assert check["verified"] is True
+    assert check["differences"] == []
+
+
+def test_verify_scan_lists_mismatched_fields():
+    metrics = _empty_metrics(followers=1200, total_stars=9000, merged_pr_count=80)
+    scoring = score_metrics(metrics)
+    tampered = {
+        **scoring,
+        "final_score": scoring["final_score"] + 7,
+        "sub_scores": {**scoring["sub_scores"], "community_influence": scoring["sub_scores"]["community_influence"] + 1},
+    }
+    check = verify_scan({"metrics": metrics, "scoring": tampered})
+    assert check["verified"] is False
+    assert [d["field"] for d in check["differences"]] == ["final_score", "sub_scores.community_influence"]
+    assert check["differences"][0] == {"field": "final_score", "server": scoring["final_score"] + 7, "local": scoring["final_score"]}
+
+
+def test_verify_scan_survives_json_round_trip():
+    metrics = _empty_metrics(followers=300, total_stars=1500, merged_pr_count=12)
+    scan = json.loads(json.dumps({"metrics": metrics, "scoring": score_metrics(metrics)}))
+    assert verify_scan(scan)["verified"] is True
+
+
+@pytest.mark.parametrize("payload", [{}, {"metrics": {}, "scoring": {}}, {"scoring": {"sub_scores": {}}}])
+def test_verify_scan_rejects_payloads_without_evidence(payload):
+    with pytest.raises(TypeError, match="metrics"):
+        verify_scan(payload)
+
+
+def test_verify_scan_reports_incomplete_metrics():
+    with pytest.raises(TypeError, match="incomplete or malformed.*account_age_years"):
+        verify_scan({"metrics": {"username": "x"}, "scoring": {"sub_scores": {}}})
+
+
+def test_cli_verify_file(tmp_path, capsys):
+    metrics = _empty_metrics(followers=800, total_stars=4000, merged_pr_count=30)
+    scoring = score_metrics(metrics)
+    good = tmp_path / "good.json"
+    bad = tmp_path / "bad.json"
+    good.write_text(json.dumps({"metrics": metrics, "scoring": scoring}))
+    bad.write_text(json.dumps({"metrics": metrics, "scoring": {**scoring, "final_score": scoring["final_score"] + 5}}))
+
+    assert main(["verify", str(good), "--json"]) == 0
+    assert json.loads(capsys.readouterr().out) == {"username": "test", "verified": True, "differences": []}
+
+    assert main(["verify", str(bad)]) == 3
+    out = capsys.readouterr().out
+    assert "NOT verified" in out and "- final_score: server" in out
+
+
+def test_cli_local_flag_explains_removal(capsys):
+    assert main(["score", "torvalds", "--local"]) == 1
+    assert "--local was removed" in capsys.readouterr().err
+
+
+def test_version_is_verify_only_release():
+    assert ghfind.__version__ == "0.2.0"
 
 
 def test_git_git_single_default_branch_commit_counts_as_ecosystem_impact():
@@ -80,78 +143,3 @@ def test_git_git_single_default_branch_commit_counts_as_ecosystem_impact():
     assert impact["impact_repo_count"] == 1
     assert impact["impact_commit_count"] == 1
     assert impact["impact_pr_count"] == 0
-
-
-@pytest.mark.skipif(not os.environ.get("GITHUB_TOKEN"), reason="needs GITHUB_TOKEN for a live crawl")
-def test_collect_and_score_live():
-    scan = collect_and_score("torvalds")
-    assert scan["metrics"]["username"].lower() == "torvalds"
-    s = scan["scoring"]
-    assert 85 <= s["final_score"] <= 100  # a stable, very high account
-    assert s["tier"] in ("夯", "顶级")
-    assert set(s["sub_scores"]) == {
-        "account_maturity", "original_project_quality", "contribution_quality",
-        "ecosystem_impact", "community_influence", "activity_authenticity",
-    }
-
-
-@pytest.mark.parametrize("fail", [False, True])
-def test_token_override_preserves_environment(monkeypatch, fail):
-    import ghfind.local as local
-    from ghfind._github import _auth_headers
-    monkeypatch.setenv("GITHUB_TOKEN", "default-token")
-
-    def collect_override(username):
-        assert _auth_headers()["Authorization"] == "Bearer override-token"
-        if fail:
-            raise RuntimeError("fixture failure")
-        return {"metrics": _empty_metrics()}
-
-    monkeypatch.setattr(local, "collect", collect_override)
-    if fail:
-        with pytest.raises(RuntimeError, match="fixture failure"):
-            collect_and_score("fixture", token="override-token")
-    else:
-        collect_and_score("fixture", token="override-token")
-    assert os.environ["GITHUB_TOKEN"] == "default-token"
-    assert _auth_headers()["Authorization"] == "Bearer default-token"
-
-    def collect_default(username):
-        assert _auth_headers()["Authorization"] == "Bearer default-token"
-        return {"metrics": _empty_metrics()}
-
-    monkeypatch.setattr(local, "collect", collect_default)
-    collect_and_score("fixture")
-
-
-def test_token_override_does_not_create_environment(monkeypatch):
-    import ghfind.local as local
-    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
-    monkeypatch.setattr(local, "collect", lambda _: {"metrics": _empty_metrics()})
-    collect_and_score("fixture", token="override-token")
-    assert "GITHUB_TOKEN" not in os.environ
-    with pytest.raises(GitHubAuthRequiredError):
-        collect_and_score("fixture")
-
-
-def test_concurrent_token_overrides(monkeypatch):
-    from concurrent.futures import ThreadPoolExecutor
-    from threading import Barrier
-    import ghfind.local as local
-    from ghfind._github import _auth_headers
-    monkeypatch.setenv("GITHUB_TOKEN", "default-token")
-    barrier = Barrier(2, timeout=5)
-
-    def collect_fixture(username):
-        assert _auth_headers()["Authorization"] == f"Bearer {username}-token"
-        barrier.wait()
-        assert _auth_headers()["Authorization"] == f"Bearer {username}-token"
-        return {"metrics": _empty_metrics()}
-
-    monkeypatch.setattr(local, "collect", collect_fixture)
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        first = pool.submit(collect_and_score, "first", token="first-token")
-        second = pool.submit(collect_and_score, "second", token="second-token")
-        first.result(timeout=10)
-        second.result(timeout=10)
-    assert _auth_headers()["Authorization"] == "Bearer default-token"

@@ -2,7 +2,7 @@
 engine) into the Python `score()` must reproduce the golden `scoring` exactly.
 
 Fixtures live in tests/fixtures/golden_scores.json and are generated from the
-already-verified `ghfind/local` (npm) output — see the repo's fixture dumper.
+already-verified TypeScript `@ghfind/scoring` output — see the repo's fixture dumper.
 """
 
 import json

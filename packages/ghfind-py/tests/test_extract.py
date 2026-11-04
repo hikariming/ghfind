@@ -1,8 +1,8 @@
-"""Offline tests for GitHub contribution classification."""
+"""Offline tests for pure GitHub evidence classification (ghfind._extract)."""
 
 from datetime import datetime, timezone
 
-from ghfind._github import (
+from ghfind._extract import (
     compute_impact_from_contrib_map,
     compute_impact_quality_signals,
     compute_org_repo_attribution,

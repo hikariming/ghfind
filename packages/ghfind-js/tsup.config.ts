@@ -6,8 +6,10 @@ export default defineConfig({
   dts: { entry: ["src/index.ts", "src/local.ts"] },
   clean: true,
   sourcemap: true,
-  // ESM splitting keeps the heavy local-scoring engine in its own chunk so the
-  // CLI only loads it when `--local` is used (dynamic import in cli.ts).
+  // `@ghfind/scoring` is a source-only devDependency, so it is bundled (not a
+  // runtime dependency). ESM splitting keeps it in its own chunk so the CLI only
+  // loads it for `--verify` / `verify` (dynamic import in cli.ts).
+  noExternal: ["@ghfind/scoring"],
   splitting: true,
   treeshake: true,
   target: "es2021",

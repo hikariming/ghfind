@@ -31,7 +31,7 @@ def _established(profile, at, seen):
 
 
 def compute_own_repo_community_facts(raw, ctx):
-    from ._github import is_doc_like_impact_pr
+    from ._extract import is_doc_like_impact_pr
     login = ctx['login'].lower()
     orgs = {o.lower() for o in ctx['owner_orgs']}
     if ctx['attributed']:
@@ -155,72 +155,3 @@ def own_pr_community_share(repos, login, own_prs):
         return 0
     return _round4(max(0, min(1, sum(r['prs'] * project_share(r) * r.get('community', 0) for r in repos
         if is_own_impact_repo(r, login) and not r['is_fork'] and r.get('community', 0) > 0) / own_prs)))
-
-
-def collect_own_repo_communities(repos, login, organizations, now):
-    """Bounded best-effort samples; failed measurements remain absent, never invented."""
-    from ._github import _graphql, _rest_get_opt, GitHubRateLimitError
-    candidates = [r for r in repos if is_own_impact_repo(r, login.lower()) and not r['is_private']
-                  and not r['is_fork'] and r['stars'] >= 200 and r['commits'] + r['prs'] > 0]
-    counts = []
-    for r in candidates:
-        try:
-            n = _graphql('query($q: String!) { search(query: $q, type: ISSUE, first: 0) { issueCount } }',
-                         {'q': 'repo:' + r['repo'] + ' is:pr is:merged -author:' + login})['search']['issueCount']
-            if n > 0:
-                counts.append((r, n))
-        except GitHubRateLimitError:
-            raise
-        except Exception:
-            continue
-    profiles = {}
-    mutual = sorted({r['owner_login'].lower() for r in repos if not is_own_impact_repo(r, login.lower()) and r['commits'] + r['prs'] > 0})
-    ranked=sorted(counts,key=lambda item:(-item[1]*project_share(item[0]),-item[0]['stars'],item[0]['repo']))
-    established=lambda r: 'attribution_share' not in r or (r.get('co_creator_facts') or {}).get('first_author',False)
-    picked=[x for x in ranked if established(x[0])][:3]+[x for x in ranked if not established(x[0])][:3]
-    for r, _ in picked:
-        try:
-            owner, name = r['repo'].split('/', 1)
-            def query(filter_):
-                return 'repo:' + r['repo'] + ' ' + filter_ + ' -author:' + login
-            data = _graphql('''query($o: String!, $n: String!, $m: String!, $i: String!, $c: String!, $p: String!) {
-              repository(owner: $o, name: $n) { forkCount }
-              merged: search(query: $m, type: ISSUE, first: 60) { issueCount nodes { ... on PullRequest {
-                createdAt mergedAt title additions deletions files(first: 15) { nodes { path } } author { __typename login }
-              } } }
-              issues: search(query: $i, type: ISSUE, first: 30) { issueCount nodes { ... on Issue {
-                createdAt author { __typename login } comments(first: 20) { nodes { author { login } } }
-              } } }
-              closed: search(query: $c, type: ISSUE, first: 0) { issueCount }
-              opened: search(query: $p, type: ISSUE, first: 0) { issueCount }
-            }''', dict(o=owner, n=name, m=query('is:pr is:merged sort:created-desc'), i=query('is:issue sort:created-desc'),
-                       c=query('is:pr is:closed is:unmerged'), p=query('is:pr')))
-            contributors = [dict(login=c['login'], type=c.get('type', 'User'), contributions=c.get('contributions', 0))
-                            for c in (_rest_get_opt('repos/' + r['repo'] + '/contributors?per_page=100') or []) if c.get('login')]
-            merged = [dict(author=(p.get('author') or {}).get('login'), author_type=(p.get('author') or {}).get('__typename'),
-                           created_at=p['createdAt'], merged_at=p['mergedAt'], title=p.get('title'),
-                           churn=p.get('additions', 0) + p.get('deletions', 0), files=[f['path'] for f in (p.get('files') or {}).get('nodes', [])])
-                      for p in data['merged']['nodes'] if p and p.get('mergedAt') and p.get('createdAt')]
-            issues = [dict(author=(i.get('author') or {}).get('login'), author_type=(i.get('author') or {}).get('__typename'),
-                           created_at=i['createdAt'], commenters=[c['author']['login'] for c in (i.get('comments') or {}).get('nodes', []) if c and c.get('author')])
-                      for i in data['issues']['nodes'] if i and i.get('createdAt')]
-            authors = {c['login'].lower() for c in contributors if not _bot(c['login'], c['type'])}
-            authors.update(p['author'].lower() for p in merged + issues if not _bot(p['author'], p['author_type']))
-            for author in sorted(authors - {login.lower()} - set(profiles)):
-                profile = _graphql('''query($l: String!) { user(login: $l) { createdAt followers { totalCount }
-                    pullRequests(states: MERGED) { totalCount } organizations(first: 10) { nodes { login } } } }''', {'l': author}).get('user')
-                if profile:
-                    profiles[author] = dict(created_at=profile['createdAt'], followers=profile['followers']['totalCount'],
-                                            merged_prs=profile['pullRequests']['totalCount'], orgs=[o['login'] for o in profile['organizations']['nodes'] if o])
-            raw = dict(repo=r['repo'], forks=(data.get('repository') or {}).get('forkCount', 0), merged_total=data['merged']['issueCount'],
-                       closed_unmerged_total=data['closed']['issueCount'], prs_opened_total=data['opened']['issueCount'],
-                       issues_total=data['issues']['issueCount'], contributors=contributors, merged=merged, issues=issues)
-            facts = compute_own_repo_community_facts(raw, dict(login=login, owner_orgs=organizations,
-                attributed=bool(r.get('attributed_original')), mutual_owners=mutual, profiles=profiles, now=now.isoformat()))
-            r['community_facts'] = facts
-            r['star_inflation_severity'] = impact_star_severity(r)
-            r['community'] = own_repo_community(facts) * impact_star_discount(r)
-        except GitHubRateLimitError:
-            raise
-        except Exception:
-            continue

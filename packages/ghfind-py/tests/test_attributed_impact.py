@@ -1,11 +1,11 @@
 import json
 from pathlib import Path
 import pytest
-from ghfind._github import compute_impact_from_contrib_map, is_ecosystem_impact_pr
+from ghfind._extract import compute_impact_from_contrib_map, is_ecosystem_impact_pr
 from ghfind._community import compute_own_repo_community_facts, own_repo_community, own_pr_community_share
 from ghfind._score import score
 
-FIXTURES = Path(__file__).resolve().parents[3] / 'src/lib/__tests__'
+FIXTURES = Path(__file__).resolve().parents[3] / 'scoring/fixtures'
 
 
 def test_community_shared_fixtures():
