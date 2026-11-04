@@ -13,5 +13,5 @@ const copy = pageCopy(locale);
 Astro.response.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=31536000");
 ---
 <Base locale={locale} path="/advx" title={`${copy.title} · ghfind`} description={copy.description}>
-  <AdvxIsland client:load locale={locale} entries={entries} intl={{ locale, pathname: "/advx", messages: pickMessages(messages, ["badge", "byok", "detail", "dimensions", "omnibox", "roaster", "scanErrors", "share", "shareCard", "tiers"]) }} />
+  <AdvxIsland client:load locale={locale} entries={entries} intl={{ locale, pathname: "/advx", messages: pickMessages(messages, ["badge", "byok", "detail", "dimensions", "omnibox", "roaster", "scanErrors", "share", "shareCard", "tiers", "realms"]) }} />
 </Base>

@@ -16,5 +16,5 @@ const [t, tMeta, messages, data] = await Promise.all([
 Astro.response.headers.set("Cache-Control", "private, no-cache, no-store, max-age=0, must-revalidate");
 ---
 <Base locale={locale} path="/leaderboard" title={`${t("heading")} · ${tMeta("siteName")}`} description={t("subtitle")}>
-  <LeaderboardIsland client:load locale={locale} {...data} intl={{ locale, pathname: "/leaderboard", search: Astro.url.search, messages: pickMessages(messages, ["leaderboard", "discoveryNext", "tiers"]) }} />
+  <LeaderboardIsland client:load locale={locale} {...data} intl={{ locale, pathname: "/leaderboard", search: Astro.url.search, messages: pickMessages(messages, ["leaderboard", "discoveryNext", "tiers", "realms"]) }} />
 </Base>
