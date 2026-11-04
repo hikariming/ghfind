@@ -1,12 +1,7 @@
 # Code owners for ghfind.
 #
-# Every pull request targeting a protected branch (main) requires an approval
-# from one of the owners listed here, because the branch ruleset enables
-# "Require review from Code Owners" with 1 required approval.
-#
-# GitHub never counts a pull request author's own approval, so listing all
-# three core maintainers means every PR has to be cross-reviewed by one of the
-# other two: whoever opens it cannot be the one who unblocks it.
+# Pull request reviews are optional; required status checks still gate merges.
+# Code owners identify the maintainers and remain available for requested reviews.
 #
 # Syntax: <path pattern>  <@owner ...>   (last matching line wins)
 

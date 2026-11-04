@@ -8,7 +8,7 @@ const clone = value => JSON.parse(JSON.stringify(value));
 function server() {
   const data = {
     admin: true,
-    ruleset: { id: rulesetId, name: 'Protect main', target: 'branch', source_type: 'Repository', source: repository, enforcement: 'active', bypass_actors: [{ actor_id: 5, actor_type: 'RepositoryRole', bypass_mode: 'always' }], conditions: { ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] } }, rules: [{ type: 'deletion' }, { type: 'non_fast_forward' }, { type: 'pull_request', parameters: { required_approving_review_count: 1, dismiss_stale_reviews_on_push: true, require_code_owner_review: true, require_last_push_approval: true, required_review_thread_resolution: false, require_extra_approval_for_unattributed_changes: true, required_reviewers: [], allowed_merge_methods: ['merge', 'squash', 'rebase'] } }] },
+    ruleset: { id: rulesetId, name: 'Protect main', target: 'branch', source_type: 'Repository', source: repository, enforcement: 'active', bypass_actors: [{ actor_id: 5, actor_type: 'RepositoryRole', bypass_mode: 'always' }], conditions: { ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] } }, rules: [{ type: 'deletion' }, { type: 'non_fast_forward' }, { type: 'pull_request', parameters: { required_approving_review_count: 0, dismiss_stale_reviews_on_push: true, require_code_owner_review: true, require_last_push_approval: true, required_review_thread_resolution: false, require_extra_approval_for_unattributed_changes: true, required_reviewers: [], allowed_merge_methods: ['merge', 'squash', 'rebase'] } }] },
     environments: { Production: { name: 'Production', can_admins_bypass: true, protection_rules: [], deployment_branch_policy: null } },
     policies: {}, writes: [], reads: [], failNextWrite: null,
   };
@@ -249,6 +249,7 @@ test('verify-existing rejects inactive rules, weakened reviews, broad branches a
   for (const mutate of [
     state => { state.ruleset.enforcement = 'disabled'; },
     state => { state.ruleset.rules.find(rule => rule.type === 'pull_request').parameters.require_last_push_approval = false; },
+    state => { state.ruleset.rules.find(rule => rule.type === 'pull_request').parameters.required_approving_review_count = 1; },
     state => { state.ruleset.rules.find(rule => rule.type === 'required_status_checks').parameters.strict_required_status_checks_policy = false; },
     state => { state.ruleset.rules.find(rule => rule.type === 'required_status_checks').parameters.required_status_checks[0].integration_id = 999; },
     state => { state.environments['Feed staging'].branch_policies.push({ name: '*', type: 'branch' }); },
@@ -259,7 +260,6 @@ test('verify-existing rejects inactive rules, weakened reviews, broad branches a
 
 test('verify-existing preserves additional stricter rules and Production approval without needing administrator access', async () => {
   const { data, request } = await configuredServer();
-  data.ruleset.rules.find(rule => rule.type === 'pull_request').parameters.required_approving_review_count = 2;
   data.ruleset.rules.find(rule => rule.type === 'pull_request').parameters.required_review_thread_resolution = true;
   data.ruleset.rules.find(rule => rule.type === 'required_status_checks').parameters.required_status_checks.push({ context: 'Security audit', integration_id: 99 });
   data.environments.Production.can_admins_bypass = false;

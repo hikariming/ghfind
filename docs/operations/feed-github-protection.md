@@ -10,7 +10,7 @@
 
 | 配置 | 必须达到的状态 |
 | --- | --- |
-| Protect main | 保留原有分支范围、active 状态、所有合并方式、review 条件、其他 rules 和 bypass actors；确认本次 PR 可以使用 `rebase` |
+| Protect main | 保留原有分支范围、active 状态、所有合并方式、其他 rules 和 bypass actors；必须开 PR，但 required approvals 为 `0`，作者可在 checks 通过后自行合并；确认本次 PR 可以使用 `rebase` |
 | Required checks | `Application checks`、`Feed storage contracts`、`Feed runtime builds`、`Complete local Feed E2E`；来源固定为已核验的 GitHub Actions integration `15368`；strict 模式 |
 | Feed staging | 自定义 branch policy，仅 `main` 和 `codex/feed-*`；不允许 tag；不新增人工等待 |
 | Feed staging operations | 仅 `main`；新增环境时 reviewer 为个人管理员 `hikariming`（User ID `23065064`）；仓库 owner 为 `FindAny` 组织 |
@@ -63,6 +63,6 @@ node scripts/feed-github-protection.mjs --verify-existing "$RUNNER_TEMP/feed-git
 
 只有该 job 成功，声明 `Feed staging` 环境的部署 job 才能运行。这样 GitHub 不会因为 workflow 提及了一个缺失环境，就先自动创建没有保护的空环境。
 
-该模式只执行 GET，不要求管理员身份，也不要求看到被隐藏的 bypass actors。它核验 active 的固定 ruleset、原有 PR review 约束、允许本次 PR 使用 rebase、来源固定的四个 strict required checks、三个环境的精确 branch allowlist，以及 operations 的 owner reviewer。仓库可以同时允许 squash 和 merge commit。既有更严格的 review、wait timer、额外 status checks 和保护规则不会被改写。
+该模式只执行 GET，不要求管理员身份，也不要求看到被隐藏的 bypass actors。它核验 active 的固定 ruleset、必须开 PR 且 required approvals 为 `0`、允许本次 PR 使用 rebase、来源固定的四个 strict required checks、三个环境的精确 branch allowlist，以及 operations 的 owner reviewer。仓库可以同时允许 squash 和 merge commit。既有 reviewer、wait timer、额外 status checks 和保护规则不会被改写；审核人数或其他固定策略漂移会失败。
 
 成功输出 `ghfind-github-protection-verification-v1` 证据，包含核验时间、状态 hash、checks 和环境策略；不包含 bypass 列表。任何缺失、策略不符或 403 等读取错误都会失败，且不生成可用的通过证据。`--verify-existing` 不能与 `--apply`、计划输入或其他输出选项混用。
