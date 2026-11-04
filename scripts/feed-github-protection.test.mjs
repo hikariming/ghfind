@@ -18,7 +18,7 @@ function server() {
       if (data.failNextWrite?.(method, path)) { const error = new Error('Must have admin rights to Repository'); error.code = 'ADMIN_REQUIRED'; throw error; }
       data.writes.push({ method, path, body: clone(body) });
     }
-    if (path === `/repos/${repository}`) return { full_name: repository, default_branch: 'main', owner, permissions: { admin: data.admin } };
+    if (path === `/repos/${repository}`) return { full_name: repository, default_branch: 'main', owner: { login: 'FindAny', id: 352470658, type: 'Organization' }, permissions: { admin: data.admin } };
     if (path === `/users/${owner.login}`) return owner;
     if (path.endsWith(`/rulesets/${rulesetId}`)) { if (method === 'PUT') Object.assign(data.ruleset, clone(body)); return clone(data.ruleset); }
     if (path.includes('/environments?')) return { total_count: Object.keys(data.environments).length, environments: Object.values(data.environments).map(clone) };

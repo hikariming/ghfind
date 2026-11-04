@@ -277,7 +277,7 @@ async function main() {
   const { validateWebManifest } = await import("./feed-platform-web.mjs");
   const m = validateTarget(validateWebManifest(JSON.parse(await readFile(values.manifest, "utf8"))));
   if (!values.execute) { console.log(JSON.stringify({ mode: "dry-run", sourceSha, worker: WEB, profiles: ["cf_d1_r2"], maxAssessments: 1, maxRequests: 450, realOAuthRequired: true })); return; }
-  check(process.env.GITHUB_ACTIONS === "true" && process.env.GITHUB_REPOSITORY === "hikariming/ghfind", "github_actions_required");
+  check(process.env.GITHUB_ACTIONS === "true" && process.env.GITHUB_REPOSITORY === "FindAny/ghfind", "github_actions_required");
   check(execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim() === sourceSha, "checkout_mismatch");
   const sourceTree = execFileSync("git", ["rev-parse", "HEAD^{tree}"], { encoding: "utf8" }).trim();
   await mkdir(values.directory, { mode: 0o700 });

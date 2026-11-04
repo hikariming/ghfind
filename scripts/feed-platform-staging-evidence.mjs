@@ -27,7 +27,7 @@ function passedProfile(profile, label) {
   requireThat(profile?.status === "passed" && milestones.every(k => profile.milestones?.[k] === true), `${label} incomplete`);
 }
 export function actionContext(env = process.env, root = repository) {
-  requireThat(env.GITHUB_REPOSITORY === "hikariming/ghfind" && decimal.test(env.GITHUB_RUN_ID) && decimal.test(env.GITHUB_RUN_ATTEMPT), "trusted current Actions context required");
+  requireThat(env.GITHUB_REPOSITORY === "FindAny/ghfind" && decimal.test(env.GITHUB_RUN_ID) && decimal.test(env.GITHUB_RUN_ATTEMPT), "trusted current Actions context required");
   const git = args => execFileSync("git", args, { cwd: root, encoding: "utf8", timeout: 10000 }).trim();
   requireThat(!git(["status", "--porcelain", "--untracked-files=normal"]), "clean evidence checkout required");
   return { repository: env.GITHUB_REPOSITORY, runId: env.GITHUB_RUN_ID, runAttempt: env.GITHUB_RUN_ATTEMPT,
@@ -38,7 +38,7 @@ export function validateInputs(input, context, now = Date.now()) {
     runtimeDeployment: runtime, webDeployment: web, remoteJourney: journey } = input;
   validateWebManifest(m);
   const sha = context.sourceSha, tree = context.sourceTree;
-  requireThat(context.repository === "hikariming/ghfind" && sha40.test(sha) && sha40.test(tree) && decimal.test(context.runId) && decimal.test(context.runAttempt), "invalid source/run context");
+  requireThat(context.repository === "FindAny/ghfind" && sha40.test(sha) && sha40.test(tree) && decimal.test(context.runId) && decimal.test(context.runAttempt), "invalid source/run context");
   const c = ci?.context;
   requireThat(ci?.version === "ghfind.feed-ci.v1" && ci.kind === "release" && ci.eligible === true &&
     c?.repository === context.repository && c.event === "push" && c.sourceSha === sha && c.checkoutSha === sha && c.treeSha === tree &&

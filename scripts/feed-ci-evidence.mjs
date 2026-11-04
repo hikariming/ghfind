@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-export const repository = 'hikariming/ghfind';
+export const repository = 'FindAny/ghfind';
 export const requiredJobs = Object.freeze({ verify: 'Application checks', 'feed-contracts': 'Feed storage contracts', 'feed-runtime': 'Feed runtime builds', 'feed-e2e': 'Complete local Feed E2E' });
 export const evidenceVersion = 'ghfind.feed-ci.v1';
 const shaPattern = /^[a-f0-9]{40}$/;

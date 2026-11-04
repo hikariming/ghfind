@@ -20,7 +20,7 @@ jobs:
     outputs:
       current: ${{ steps.authorization.outputs.current }}
     name: Require exact main CI and complete dual-profile E2E
-    if: ${{ github.repository == 'hikariming/ghfind' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.repository.full_name == 'hikariming/ghfind' }}
+    if: ${{ github.repository == 'FindAny/ghfind' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.repository.full_name == 'FindAny/ghfind' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -304,7 +304,7 @@ jobs:
   deploy-bot:
     name: Deploy bot after its legacy SCORE backend
     needs: [deploy]
-    if: ${{ github.repository == 'hikariming/ghfind' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.repository.full_name == 'hikariming/ghfind' }}
+    if: ${{ github.repository == 'FindAny/ghfind' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.repository.full_name == 'FindAny/ghfind' }}
     environment: Production
     concurrency:
       group: ghfind-bot-production

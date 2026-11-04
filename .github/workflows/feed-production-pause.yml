@@ -24,7 +24,7 @@ concurrency:
 jobs:
   protection:
     name: Verify manual main context and existing production protections
-    if: ${{ github.repository == 'hikariming/ghfind' && github.ref == 'refs/heads/main' }}
+    if: ${{ github.repository == 'FindAny/ghfind' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -54,7 +54,7 @@ jobs:
   pause:
     name: Verify exact candidate, pause Web and read back actual containment
     needs: [protection]
-    if: ${{ github.repository == 'hikariming/ghfind' && github.ref == 'refs/heads/main' }}
+    if: ${{ github.repository == 'FindAny/ghfind' && github.ref == 'refs/heads/main' }}
     environment: Production
     runs-on: ubuntu-latest
     timeout-minutes: 12

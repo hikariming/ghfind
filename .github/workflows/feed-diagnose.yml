@@ -19,7 +19,7 @@ concurrency:
 jobs:
   diagnose:
     name: Bounded synthetic query diagnosis
-    if: ${{ github.repository == 'hikariming/ghfind' }}
+    if: ${{ github.repository == 'FindAny/ghfind' }}
     runs-on: ubuntu-24.04
     # Bounded preflight/execution steps leave time for evidence upload and cleanup.
     timeout-minutes: 25
@@ -61,9 +61,9 @@ jobs:
           [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
           git merge-base --is-ancestor "$RELEASE_SHA" origin/main
-          gh api --method GET repos/hikariming/ghfind/actions/workflows/ci.yml/runs \
+          gh api --method GET repos/FindAny/ghfind/actions/workflows/ci.yml/runs \
             -f head_sha="$RELEASE_SHA" -f status=success -f per_page=20 \
-            --jq '.workflow_runs | any(.head_repository.full_name == "hikariming/ghfind" and .conclusion == "success")' | jq -e '. == true'
+            --jq '.workflow_runs | any(.head_repository.full_name == "FindAny/ghfind" and .conclusion == "success")' | jq -e '. == true'
       - uses: actions/setup-go@v5
         timeout-minutes: 3
         with:

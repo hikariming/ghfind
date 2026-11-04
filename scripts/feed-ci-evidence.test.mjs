@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { aggregateEvidence, artifactName, contextFromEnvironment, eligibleBranch, localMilestones, makeJobReceipt, requiredJobs, validateLocalE2E, validateRemoteEvidence, verifyRemote } from './feed-ci-evidence.mjs';
 
 const sha = 'a'.repeat(40), tree = 'b'.repeat(40);
-const context = { repository: 'hikariming/ghfind', event: 'push', branch: 'codex/feed-test', sourceSha: sha, checkoutSha: sha, treeSha: tree, runId: '123', runAttempt: '2' };
+const context = { repository: 'FindAny/ghfind', event: 'push', branch: 'codex/feed-test', sourceSha: sha, checkoutSha: sha, treeSha: tree, runId: '123', runAttempt: '2' };
 const createdAt = '2026-09-09T03:00:00Z';
 function local(c = context) {
   return { format: 'ghfind-complete-local-e2e-v1', sourceSha: c.checkoutSha, sourceTree: c.treeSha, status: 'passed', cleanupSuccessful: true, externalProviders: 'local-fixture-transports', realOAuth: false, profiles: Object.fromEntries(['cf_d1_r2', 'postgres'].map(profile => [profile, { status: 'passed', milestones: Object.fromEntries(localMilestones.map(name => [name, true])), report: `${profile}/journey.json` }])) };

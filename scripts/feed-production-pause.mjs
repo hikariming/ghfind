@@ -11,7 +11,7 @@ import { boundedJSON } from './feed-platform-web-verify.mjs';
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const accountId = '8f19bebe359e4ec1a24c68c5f49c1584';
 export const worker = 'ghfind';
-export const workflow = 'hikariming/ghfind/.github/workflows/feed-production-pause.yml@refs/heads/main';
+export const workflow = 'FindAny/ghfind/.github/workflows/feed-production-pause.yml@refs/heads/main';
 export const runtimeWorker = 'ghfind-feed-runtime-production';
 const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
 const sha = /^[a-f0-9]{40}$/;
@@ -26,7 +26,7 @@ export function validateInput(sourceSha, pausedWebVersion) {
 }
 export function authorizeApply(env = process.env) {
   requireThat(env.GITHUB_ACTIONS === 'true' && env.GITHUB_EVENT_NAME === 'workflow_dispatch' &&
-    env.GITHUB_REPOSITORY === 'hikariming/ghfind' && env.GITHUB_REF === 'refs/heads/main' &&
+    env.GITHUB_REPOSITORY === 'FindAny/ghfind' && env.GITHUB_REF === 'refs/heads/main' &&
     env.GITHUB_WORKFLOW_REF === workflow && sha.test(env.GITHUB_SHA ?? '') &&
     /^[1-9][0-9]*$/.test(env.GITHUB_RUN_ID ?? '') && /^[1-9][0-9]*$/.test(env.GITHUB_RUN_ATTEMPT ?? ''),
   'mutation requires the pinned manual production pause workflow on main');

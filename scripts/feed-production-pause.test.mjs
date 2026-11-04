@@ -8,7 +8,7 @@ import { accountId, authorizeApply, expectedBindings, minimalEnvironment, parseA
 const sourceSha = 'a'.repeat(40);
 const pausedWebVersion = '11111111-1111-4111-8111-111111111111';
 const deploymentId = '22222222-2222-4222-8222-222222222222';
-const env = { GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_REPOSITORY: 'hikariming/ghfind',
+const env = { GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_REPOSITORY: 'FindAny/ghfind',
   GITHUB_REF: 'refs/heads/main', GITHUB_WORKFLOW_REF: workflow, GITHUB_SHA: 'b'.repeat(40), GITHUB_RUN_ID: '123', GITHUB_RUN_ATTEMPT: '1' };
 const candidate = () => ({ id: pausedWebVersion, annotations: { 'workers/tag': `production-${sourceSha}` },
   resources: { script: { etag: 'synthetic-script-etag' }, bindings: [...expectedBindings(sourceSha), { name: 'PRIVATE_EXISTING_METADATA', type: 'plain_text', text: 'NEVER_EMIT_THIS_VALUE' }] } });

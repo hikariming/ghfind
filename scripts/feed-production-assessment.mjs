@@ -17,7 +17,7 @@ import {
 } from "./feed-production-assessment-recovery.mjs";
 export const ACCOUNT = "8f19bebe359e4ec1a24c68c5f49c1584";
 export const ORIGIN = "https://ghfind.beiming1201.workers.dev";
-export const REPO = "hikariming/ghfind";
+export const REPO = "FindAny/ghfind";
 export const CORE = "60d45096-bfe7-4de1-8b85-c1b66a466b0d";
 export const FEED = "9c4ac13a-4c90-40a8-9d56-d7141f864bbf";
 export const LIMITS = Object.freeze({
@@ -370,7 +370,7 @@ function context(
 function candidate(row) {
   check(
     typeof row?.repo_key === "string" &&
-      /^[a-z0-9_.-]+\/[a-z0-9_.-]+$/.test(row.repo_key) &&
+      /^[a-z0-9_.-]+\/[a-z0-9_.-]+$/i.test(row.repo_key) &&
       id(row.analysis_id) &&
       hash(row.source_hash),
     "invalid_candidate_identity",
@@ -546,7 +546,7 @@ export async function startAssessment(sha, path, options = {}) {
       return r;
     }
     const { response, data } = await c.request(
-      "https://api.github.com/repos/hikariming/ghfind/git/ref/heads/main",
+      "https://api.github.com/repos/FindAny/ghfind/git/ref/heads/main",
       { method: "GET", headers: { accept: "application/vnd.github+json" } },
     );
     check(

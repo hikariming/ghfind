@@ -8,7 +8,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { requiredJobs } from './feed-ci-evidence.mjs';
 
-export const repository = 'hikariming/ghfind';
+export const repository = 'FindAny/ghfind';
 export const rulesetId = 18206694;
 export const actionsIntegrationId = 15368;
 export const owner = { login: 'hikariming', id: 23065064, type: 'User' };
@@ -43,7 +43,7 @@ function environmentConfiguration(value, policies) {
 
 export async function captureState(request = githubRequest) {
   const metadata = await request('GET', base);
-  assert(metadata.full_name === repository && metadata.owner?.login === owner.login && metadata.owner?.type === 'User' && metadata.default_branch === 'main', 'Repository ownership/default branch drift');
+  assert(metadata.full_name === repository && metadata.owner?.login === 'FindAny' && metadata.owner?.type === 'Organization' && metadata.default_branch === 'main', 'Repository ownership/default branch drift');
   const account = await request('GET', `/users/${owner.login}`);
   assert(account.id === owner.id && account.login === owner.login && account.type === owner.type, 'Governance reviewer identity changed');
   const ruleset = await request('GET', `${base}/rulesets/${rulesetId}`);

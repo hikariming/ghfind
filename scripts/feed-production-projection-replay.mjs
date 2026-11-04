@@ -12,12 +12,12 @@ export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const manifest = JSON.parse(readFileSync(resolve(root, 'ops/feed-production-manifest.json')));
 export const events = JSON.parse(readFileSync(resolve(root, 'ops/feed-production-projection-replay.json')));
 export const LIMITS = Object.freeze({ polls: 6, intervalMs: 20000, timeoutMs: 10000, observationStartDeadlineMs: 120000 });
-const workflow = 'hikariming/ghfind/.github/workflows/feed-production-projection-replay.yml@refs/heads/main';
+const workflow = 'FindAny/ghfind/.github/workflows/feed-production-projection-replay.yml@refs/heads/main';
 const check = (value, code) => { if (!value) throw new Error(code); };
 const hash = value => createHash('sha256').update(value).digest('hex');
 export function authorize(env = process.env) {
   check(env.GITHUB_ACTIONS === 'true' && env.GITHUB_EVENT_NAME === 'workflow_dispatch' &&
-    env.GITHUB_REPOSITORY === 'hikariming/ghfind' && env.GITHUB_REF === 'refs/heads/main' &&
+    env.GITHUB_REPOSITORY === 'FindAny/ghfind' && env.GITHUB_REF === 'refs/heads/main' &&
     env.GITHUB_WORKFLOW_REF === workflow && /^[0-9a-f]{40}$/.test(env.RELEASE_SHA ?? '') &&
     env.RELEASE_SHA === env.GITHUB_SHA, 'protected_current_main_required');
 }
@@ -186,7 +186,7 @@ async function main() {
   const resultPath = resolve(directory, 'result.json');
   try {
   check(process.argv[2] === '--execute' && JSON.stringify(JSON.parse(readFileSync(intentPath))) === JSON.stringify(expected), 'persisted_intent_changed');
-  const current = execFileSync('gh', ['api', 'repos/hikariming/ghfind/git/ref/heads/main', '--jq', '.object.sha'], { encoding: 'utf8' }).trim();
+  const current = execFileSync('gh', ['api', 'repos/FindAny/ghfind/git/ref/heads/main', '--jq', '.object.sha'], { encoding: 'utf8' }).trim();
   check(current === sha && execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim() === sha, 'main_advanced');
     const t = await transport(process.env);
     await execute(t, value => writeFileSync(resultPath, JSON.stringify(value, null, 2), { mode: 0o600 }));

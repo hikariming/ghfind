@@ -21,9 +21,9 @@ const deployJob = jobBody(workflow, "deploy");
 const botJob = jobBody(workflow, "deploy-bot");
 for (const fragment of ['needs: [deploy]', 'environment: Production',
   'group: ghfind-bot-production', 'cancel-in-progress: false',
-  "github.repository == 'hikariming/ghfind'", "github.event.workflow_run.conclusion == 'success'",
+  "github.repository == 'FindAny/ghfind'", "github.event.workflow_run.conclusion == 'success'",
   "github.event.workflow_run.event == 'push'", "github.event.workflow_run.head_branch == 'main'",
-  "github.event.workflow_run.repository.full_name == 'hikariming/ghfind'",
+  "github.event.workflow_run.repository.full_name == 'FindAny/ghfind'",
   'ref: ${{ github.event.workflow_run.head_sha }}', 'persist-credentials: false',
   'RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}',
   'test "$(git rev-parse HEAD)" = "$RELEASE_SHA"',
@@ -40,7 +40,7 @@ for (let i = 1; i < botOrder.length; i++)
 for (const fragment of ['workflow_run:', 'workflows: ["CI"]', 'types: [completed]', 'branches: [main]', 'cancel-in-progress: false']) {
   if (!workflow.includes(fragment)) throw new Error(`Production trigger missing ${fragment}`);
 }
-for (const fragment of ["github.repository == 'hikariming/ghfind'", "github.event.workflow_run.conclusion == 'success'", "github.event.workflow_run.event == 'push'", "github.event.workflow_run.head_branch == 'main'", "github.event.workflow_run.repository.full_name == 'hikariming/ghfind'", 'node scripts/feed-ci-evidence.mjs verify-ci-remote', 'node scripts/feed-github-protection.mjs --verify-existing']) {
+for (const fragment of ["github.repository == 'FindAny/ghfind'", "github.event.workflow_run.conclusion == 'success'", "github.event.workflow_run.event == 'push'", "github.event.workflow_run.head_branch == 'main'", "github.event.workflow_run.repository.full_name == 'FindAny/ghfind'", 'node scripts/feed-ci-evidence.mjs verify-ci-remote', 'node scripts/feed-github-protection.mjs --verify-existing']) {
   if (!authorization.includes(fragment)) throw new Error(`Authorization missing ${fragment}`);
 }
 for (const job of [authorization,deployJob]) for (const fragment of ['ref: ${{ github.event.workflow_run.head_sha }}','persist-credentials: false']) {
@@ -132,7 +132,7 @@ const requiredReconcileFragments = [
   "max_pages:",
   "updated_at:",
   "repo_key:",
-  "github.repository == 'hikariming/ghfind'",
+  "github.repository == 'FindAny/ghfind'",
   "FEED_ADMIN_SECRET: ${{ secrets.FEED_ADMIN_SECRET }}",
   "CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}",
   "wrangler secret put FEED_ADMIN_SECRET --env production",

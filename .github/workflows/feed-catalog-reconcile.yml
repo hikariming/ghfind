@@ -45,7 +45,7 @@ concurrency:
 jobs:
   reconcile:
     name: Bounded production catalog reconciliation
-    if: ${{ github.repository == 'hikariming/ghfind' }}
+    if: ${{ github.repository == 'FindAny/ghfind' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -81,7 +81,7 @@ jobs:
       - name: Validate bounded operator inputs
         run: |
           set -euo pipefail
-          test "$GITHUB_REPOSITORY" = "hikariming/ghfind"
+          test "$GITHUB_REPOSITORY" = "FindAny/ghfind"
           test "$CLOUDFLARE_ACCOUNT_ID" = "$EXPECTED_ACCOUNT_ID"
           test -n "$FEED_ADMIN_SECRET"
           case "$BOOTSTRAP_CREDENTIAL" in true|false) ;; *) echo "bootstrap_credential must be boolean" >&2; exit 1 ;; esac

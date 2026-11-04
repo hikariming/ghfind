@@ -13,8 +13,8 @@ export const ACCOUNT = '8f19bebe359e4ec1a24c68c5f49c1584';
 export const webConfig = resolve(repository, 'platform/runtime/wrangler.web.production.generated.json');
 export const requireThat = (ok, text) => { if (!ok) throw new Error(text); };
 export function authorizeMutation(env = process.env) {
-  requireThat(env.GITHUB_ACTIONS === 'true' && env.GITHUB_REPOSITORY === 'hikariming/ghfind' &&
-    env.GITHUB_REF === 'refs/heads/main' && /^hikariming\/ghfind\/.github\/workflows\/deploy-cf-production.yml@refs\/heads\/main$/.test(env.GITHUB_WORKFLOW_REF ?? ''), 'only the production Actions workflow on main may mutate');
+  requireThat(env.GITHUB_ACTIONS === 'true' && env.GITHUB_REPOSITORY === 'FindAny/ghfind' &&
+    env.GITHUB_REF === 'refs/heads/main' && /^FindAny\/ghfind\/.github\/workflows\/deploy-cf-production.yml@refs\/heads\/main$/.test(env.GITHUB_WORKFLOW_REF ?? ''), 'only the production Actions workflow on main may mutate');
 }
 const PRODUCTION_CACHE_KV = 'f7a7299eef224d899c21121c1979be32'; // ghfind-cache
 const COORDINATION_WORKER = 'ghfind-coord';
