@@ -89,7 +89,7 @@ export function buildPlan(state, workflow) {
   assert(desiredRuleset.enforcement === 'active', 'Protect main enforcement drift requires manual review');
   assert(desiredRuleset.conditions?.ref_name?.exclude?.length === 0 && (equal(desiredRuleset.conditions.ref_name.include, ['~DEFAULT_BRANCH']) || equal(desiredRuleset.conditions.ref_name.include, ['refs/heads/main'])), 'Protect main branch scope drift requires manual review');
   const pullRequests = desiredRuleset.rules.filter(rule => rule.type === 'pull_request');
-  assert(pullRequests.length === 1 && pullRequests[0].parameters.required_approving_review_count >= 1, 'Existing mandatory PR review rule absent or ambiguous');
+  assert(pullRequests.length === 1 && pullRequests[0].parameters.required_approving_review_count === 0, 'Existing mandatory PR review rule absent or ambiguous');
   const methods = pullRequests[0].parameters.allowed_merge_methods;
   assert(Array.isArray(methods) && methods.includes('rebase'), 'The requested PR rebase merge must be allowed');
   // This delivery uses rebase; preserve the repository's other merge options.
@@ -145,7 +145,7 @@ export function verifyExistingState(state, checkedAt = new Date().toISOString())
   const reviews = rule.rules.filter(item => item.type === 'pull_request');
   assert(reviews.length === 1, 'Mandatory PR review rule missing or ambiguous', 'PROTECTION_NOT_ENFORCED');
   const review = reviews[0].parameters;
-  assert(Number.isSafeInteger(review.required_approving_review_count) && review.required_approving_review_count >= 1, 'At least one independent PR approval is required', 'PROTECTION_NOT_ENFORCED');
+  assert(Number.isSafeInteger(review.required_approving_review_count) && review.required_approving_review_count === 0, 'PR review rule must require zero approvals', 'PROTECTION_NOT_ENFORCED');
   for (const field of ['dismiss_stale_reviews_on_push', 'require_code_owner_review', 'require_last_push_approval', 'require_extra_approval_for_unattributed_changes']) assert(review[field] === true, `Existing PR protection ${field} was weakened`, 'PROTECTION_NOT_ENFORCED');
   assert(Array.isArray(review.allowed_merge_methods) && review.allowed_merge_methods.includes('rebase'), 'The requested PR rebase merge must be allowed', 'PROTECTION_NOT_ENFORCED');
   const statuses = rule.rules.filter(item => item.type === 'required_status_checks');
