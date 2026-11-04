@@ -381,12 +381,12 @@ function candidate(row) {
     sourceHash: row.source_hash,
   };
 }
-function runIdentity(row, sha, wantedId) {
+function runIdentity(row, sha, wantedId, repository = REPO) {
   check(
     row &&
       id(row.id) &&
       (!wantedId || row.id === wantedId) &&
-      row.repo_key === REPO &&
+      row.repo_key === repository &&
       row.requested_ref === sha &&
       Object.entries(versions).every(([k, v]) =>
         k === "skill_version" ? acceptedSkillVersions.has(row[k]) : row[k] === v,
@@ -608,8 +608,8 @@ export async function startAssessment(sha, path, options = {}) {
     c.close();
   }
 }
-export function sourceIdentity(row, sha, analysisId, agentId) {
-  const run = runIdentity(row, sha, analysisId);
+export function sourceIdentity(row, sha, analysisId, agentId, repository = REPO) {
+  const run = runIdentity(row, sha, analysisId, repository);
   check(
     row.status === "completed" &&
       row.create_attempts >= 1 &&
@@ -630,9 +630,9 @@ export function sourceIdentity(row, sha, analysisId, agentId) {
       ].every(hash) &&
       row.source_hash === row.analysis_sha256 &&
       id(row.receipt_id) &&
-      row.requested_repo_key === REPO &&
+      row.requested_repo_key === repository &&
       row.source_kind === "app_submission" &&
-      row.aggregate_key === REPO &&
+      row.aggregate_key === repository &&
       row.contract_version === 1 &&
       Number.isSafeInteger(row.sequence) &&
       row.sequence > 0 &&
@@ -680,7 +680,7 @@ export function executionIdentity(row, source) {
     "projection_terminal_failure",
   );
 }
-export function projectionIdentity(row, source, sha) {
+export function projectionIdentity(row, source, sha, repository = REPO) {
   if (!row) return null;
   if (
     Number.isSafeInteger(row.source_version) &&
@@ -701,7 +701,7 @@ export function projectionIdentity(row, source, sha) {
         row.event_source_version === row.source_version &&
         row.event_receipt_id === row.receipt_id &&
         row.event_contract_version === 1 &&
-        row.job_repo === REPO &&
+        row.job_repo === repository &&
         typeof row.resolved_commit_sha === "string" &&
         /^[a-f0-9]{40}$/.test(row.resolved_commit_sha) &&
         ["app_submission", "agent_submission", "verified_backfill"].includes(
@@ -736,7 +736,7 @@ export function projectionIdentity(row, source, sha) {
       row.event_receipt_id === source.receiptId &&
       row.event_source_hash === source.sourceHash &&
       row.event_contract_version === 1 &&
-      row.job_repo === REPO &&
+      row.job_repo === repository &&
       row.resolved_commit_sha === sha &&
       row.source_kind === "app_submission" &&
       hash(row.source_hash) &&

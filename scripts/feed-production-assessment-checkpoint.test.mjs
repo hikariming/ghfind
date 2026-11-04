@@ -88,6 +88,18 @@ test('completed checkpoint is freshly verified without mutating receipt or provi
   assert.equal(result.status,'passed'); assert.equal(result.providerRequests,0); assert.equal(result.observedAt,123);
   assert.deepEqual(calls.map(([k])=>k),['runs','source','projection']); assert.equal(JSON.stringify(m),before);
 });
+test('historical checkpoint retains its original repository identity', async()=>{
+  const legacy='hikariming/ghfind', m=checkpoint(), calls=[];
+  m.receipt.repository=legacy; m.receiptSHA256=checkpointHash(m.receipt);
+  const historical={
+    runs:[run({repo_key:legacy,status:'completed'})],
+    source:[source({repo_key:legacy,requested_repo_key:legacy,aggregate_key:legacy})],
+    projection:[projection({job_repo:legacy})],
+  };
+  const result=await verifyCheckpoint('b'.repeat(40),m,carryover,{query:async(k,p)=>{calls.push([k,p]);return historical[k];}});
+  assert.equal(result.status,'passed');
+  assert.deepEqual(calls,[['runs',[legacy,SHA]],['source',[ID,legacy]],['projection',[legacy]]]);
+});
 test('tampering, mismatched carryover, and nonterminal checkpoints fail before reads',async()=>{
   for(const mutate of [m=>m.receipt.polls=1,m=>m.receipt.analysisId='other',m=>{m.receipt.phase='waiting';m.receiptSHA256=checkpointHash(m.receipt);},m=>delete m.source.providerThreadId]){
     const m=checkpoint(); mutate(m); let reads=0;

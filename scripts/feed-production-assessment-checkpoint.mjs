@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ACCOUNT, CORE, FEED, SQL, REPO, sourceIdentity, projectionIdentity } from './feed-production-assessment.mjs';
+import { ACCOUNT, CORE, FEED, SQL, sourceIdentity, projectionIdentity } from './feed-production-assessment.mjs';
 import { validateCarryoverReceipt, validateContext } from './feed-production-assessment-recovery.mjs';
 
 const check = (ok, message) => { if (!ok) throw new Error(message); };
@@ -41,15 +41,15 @@ export async function verifyCheckpoint(releaseSha, manifest, carryover, { query,
     check(Array.isArray(rows) && rows.length === 1, `checkpoint_${kind}_not_unique`);
     return rows[0];
   };
-  const run = await one('runs', [REPO, receipt.sourceSha]);
+  const run = await one('runs', [receipt.repository, receipt.sourceSha]);
   check(run.id === receipt.analysisId && run.status === 'completed' && run.idempotency_key === receipt.idempotencyKey,
     'checkpoint_live_run_identity_mismatch');
-  const row = await one('source', [receipt.analysisId, REPO]);
+  const row = await one('source', [receipt.analysisId, receipt.repository]);
   check(Object.entries(run).every(([key, value]) => row[key] === value), 'checkpoint_live_run_changed');
-  const source = sourceIdentity(row, receipt.sourceSha, receipt.analysisId, receipt.web.agentId);
+  const source = sourceIdentity(row, receipt.sourceSha, receipt.analysisId, receipt.web.agentId, receipt.repository);
   check(Object.entries(manifest.source).every(([key, value]) => Object.hasOwn(source, key) && source[key] === value),
     'checkpoint_live_source_changed');
-  const projection = stage === 'projection' ? projectionIdentity(await one('projection', [REPO]), source, receipt.sourceSha) : null;
+  const projection = stage === 'projection' ? projectionIdentity(await one('projection', [receipt.repository]), source, receipt.sourceSha, receipt.repository) : null;
   check(stage === 'source' || projection, 'checkpoint_projection_not_ready');
   return { format: 'ghfind-production-assessment-checkpoint-result-v1', status: stage === 'source' ? 'source_verified' : 'passed', releaseSha,
     sourceSha: receipt.sourceSha, intentId: receipt.intentId, receiptSHA256: manifest.receiptSHA256,
