@@ -1,0 +1,84 @@
+name: Bump public scoring module
+
+# TEMPLATE for the private backend repository (copied at seed time from
+# hikariming/ghfind ops/open-core/private-repo/). Receives the
+# `scoring-released` repository_dispatch sent by the public repo's
+# scoring-release.yml, upgrades both the npm package and the Go module to the
+# released version, runs the full private test suite, and opens a PR.
+# Nothing merges or deploys automatically.
+
+on:
+  repository_dispatch:
+    types: [scoring-released]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "scoring version without the v prefix, e.g. 0.2.0"
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: scoring-bump
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VERSION: ${{ github.event.client_payload.version || inputs.version }}
+      # npm (default) or github-release (when the package is not on a registry).
+      SCORING_SOURCE: ${{ vars.SCORING_SOURCE || 'npm' }}
+      UPSTREAM: hikariming/ghfind
+    steps:
+      - name: Validate version
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::bad version '$VERSION'"; exit 1; }
+
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+
+      - name: Upgrade @ghfind/scoring
+        run: |
+          if [ "$SCORING_SOURCE" = "github-release" ]; then
+            spec="https://github.com/$UPSTREAM/releases/download/scoring%2Fv$VERSION/ghfind-scoring-$VERSION.tgz"
+          else
+            spec="$VERSION"
+          fi
+          pnpm add "@ghfind/scoring@$spec"
+
+      - name: Upgrade github.com/hikariming/ghfind/scoring
+        run: |
+          go get "github.com/hikariming/ghfind/scoring@v$VERSION"
+          go mod tidy
+
+      - name: Private test suite against the new rubric
+        run: |
+          pnpm typecheck
+          pnpm test
+          go test ./...
+
+      - name: Open PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: deps/scoring-v${{ env.VERSION }}
+          commit-message: "deps: @ghfind/scoring and scoring Go module v${{ env.VERSION }}"
+          title: "deps: scoring v${{ env.VERSION }}"
+          body: |
+            Upgrades the public scoring module to [scoring/v${{ env.VERSION }}](https://github.com/${{ env.UPSTREAM }}/releases/tag/scoring%2Fv${{ env.VERSION }}).
+
+            The private suite passed against the new version. Before merging:
+            - If the release changes scores, ratings or the RawMetrics contract, bump the
+              score / cache version in `config/release-versions.json` so stale snapshots are
+              not served as current.
+            - Production still deploys only through the normal release workflow.
