@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"math"
 	"regexp"
@@ -320,11 +321,11 @@ func (c *GitHubClient) hydrateTopRepoEvidence(ctx context.Context, repos []TopRe
 	for index := 0; index < limit; index++ {
 		owner := valueOrString(repos[index].OwnerLogin, fallbackOwner)
 		readme, readmeErr := c.fetchReadmeDocument(ctx, owner, repos[index].Name)
-		if readmeErr != nil && readmeErr != ErrGitHubUnavailable {
+		if readmeErr != nil && !errors.Is(readmeErr, ErrGitHubUnavailable) {
 			return readmeErr
 		}
 		languages, languageErr := c.fetchRepoLanguages(ctx, owner, repos[index].Name)
-		if languageErr != nil && languageErr != ErrGitHubUnavailable {
+		if languageErr != nil && !errors.Is(languageErr, ErrGitHubUnavailable) {
 			return languageErr
 		}
 		if readme != nil {
