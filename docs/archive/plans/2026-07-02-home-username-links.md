@@ -60,7 +60,7 @@ Run the app and inspect the affected score card and home leaderboard under Light
 **Step 5: Commit**
 
 ```bash
-git add docs/plans/2026-07-02-home-username-links.md \
+git add docs/archive/plans/2026-07-02-home-username-links.md \
   src/components/__tests__/homeUsernameLinks.test.ts \
   src/components/Roaster.tsx \
   src/components/LeaderboardClient.tsx

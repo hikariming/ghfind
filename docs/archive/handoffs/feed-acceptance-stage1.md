@@ -37,9 +37,9 @@ image E2E and actual migration/restore acceptance remain stage 4.
 
 | Gate | Current evidence / next action |
 | --- | --- |
-| CF Workers Paid | Dashboard verified on September 9; see the [follow-up audit](../audits/2026-09-09-feed-stage1-prerequisites.md). Measured Feed costs remain unaccepted. |
+| CF Workers Paid | Dashboard verified on September 9; see the [follow-up audit](../../audits/2026-09-09-feed-stage1-prerequisites.md). Measured Feed costs remain unaccepted. |
 | GitHub settings rights | Active `AsperforMias` session has push but no admin. Creating `Feed staging` returned actual HTTP 403; current policies fail `--verify-existing`. |
-| Required checks and environments | Administrator must apply and read back the [guarded configuration](../feed-github-protection.md). No E2E or PR bypass exempts this gate. |
+| Required checks and environments | Administrator must apply and read back the [guarded configuration](../../operations/feed-github-protection.md). No E2E or PR bypass exempts this gate. |
 | Dedicated credentials | Staging CF, service, OAuth and provider credentials must be installed in the dedicated environment. No values belong in the repository or evidence. |
 | Two identities and approved repositories | Names/IDs and up to four repository keys must be supplied; holders complete their first dedicated OAuth login. |
 | Isolated resources | Existing core/feed D1, archive and three queues have audited IDs. The empty private Web cache was created and read back at 11:49 Hong Kong time. Business schema, consumers and Workers still need Actions deployment/readback. |

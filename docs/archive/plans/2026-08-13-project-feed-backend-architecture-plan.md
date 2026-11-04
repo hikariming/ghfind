@@ -5,7 +5,7 @@
 状态：**已被 Cloudflare-native 基线实现取代（2026-09-07）**。本文件保留为
 原始 PostgreSQL/Go/Gorse 方案的架构史料，不能用于部署、运维或判断当前线上
 行为。当前可部署实现和验收步骤见
-[`project-feed-backend-runbook.md`](../operations/project-feed-backend-runbook.md)：
+[`project-feed-backend-runbook.md`](../../operations/project-feed-backend-runbook.md)：
 同源 OpenNext Worker + 专用 `GHFIND_FEED_D1`（核心 `GHFIND_D1` 只读作评测事实源）、
 `migrations-feed/0001`、受治理标签、
 确定性 tag/quality 基线；不启用 Railway、Vercel、PostgreSQL、RabbitMQ、Gorse、

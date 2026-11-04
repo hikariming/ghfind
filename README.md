@@ -6,31 +6,39 @@
 
 An evidence-based platform to **find** great developers, **measure** where you stand, and **grow** from there.
 
-Start with a brutally honest **0–100 value & trust score** on any public GitHub profile — see your gaps, learn where to go, then explore the strongest builders in your ecosystem, find worthy peers and rivals, and let your own work get discovered.
-
 **English** · [中文](./README.zh.md)
 
-[**🔍 Score a GitHub profile**](https://ghfind.com/en) · [**🏆 Discover top developers**](https://ghfind.com/en/leaderboard) · [**🤖 Install GitHub Bot**](https://github.com/apps/ghfind-review/installations/new) · [**⭐ View source**](https://github.com/hikariming/ghfind)
+[**🔍 Score a GitHub profile**](https://ghfind.com/en) · [**🏆 Discover developers**](https://ghfind.com/en/leaderboard) · [**🤖 Install the GitHub App**](https://github.com/apps/ghfind-review/installations/new) · [**📚 Docs**](./docs/README.md)
 
 </div>
 
-[![ghfind developer profile preview](./show_img/usercard.png)](https://ghfind.com/en/u/hikariming)
+[![ghfind developer profile](./show_img/usercard.png)](https://ghfind.com/en/u/hikariming)
 
-## Measure. Grow. Discover.
+## What you can do
 
-### 📊 Know exactly where you stand in 30 seconds
+- **Measure.** Enter a GitHub handle to get a deterministic **0–100 score** across six dimensions, a level and rating, the risk signals behind it, and an optional AI-written report.
+- **Discover.** Browse the developer board, language/org/repo directories, project boards and the talent pool, or put two developers head to head.
+- **Share.** Every profile has a live README badge and a light/dark developer card.
+- **Maintain.** The ghfind Review GitHub App labels new issues and PRs with the author's score band.
+- **Integrate.** The same data is available through a REST API, an MCP server, SDKs and a CLI.
 
-Enter a GitHub handle to get a **0–100 value & trust score**, a five-tier verdict (🏆 GOD / 🥇 ELITE / 💪 SOLID / 🫥 NPC / 💩 TRASH), and a brutally honest read grounded in public data. Six scoring dimensions and ten farming red flags separate sustained engineering work from star farming, fork hoarding, bots, and self-merged PRs — so the score tells you what's real and where to improve.
+[![ghfind developer duel](./show_img/vs.png)](https://ghfind.com/en/vs/torvalds/yyx990803)
 
-### 🧭 Discover the developers worth knowing
+## How scoring works
 
-ghfind is a discovery engine, not just a scorer. Use the leaderboard and public profiles to find strong open-source contributors, builders in your ecosystem, potential collaborators, and the developers you want to measure yourself against — and let the right people find you.
+- **Deterministic.** Six dimensions — account maturity, original projects, contribution quality, ecosystem impact, community influence and activity authenticity — plus capped risk rules for farming patterns (star or fork farming, self-merged PRs, PR floods, bots). Same evidence and version, same score.
+- **Hard-to-fake signals win.** Merged PRs into real projects and sustained activity weigh more than buyable stars and followers. Only public GitHub data is used, so mostly-private work is underrated.
+- **Levels and ratings.** `Lv = floor(score)`. Ratings step every 10 points from 30:
 
-[![ghfind developer leaderboard](./show_img/leaderboard.png)](https://ghfind.com/en/leaderboard)
+  | Score | < 30 | 30 | 40 | 50 | 60 | 70 | 80 | 90+ |
+  | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+  | Rating | Qi Condensation | Foundation Est. | Core Formation | Nascent Soul | Deity Transformation | Spatial Tempering | Body Integration | Grand Ascension |
 
-### 🪪 Turn your GitHub work into a shareable identity
+- **AI never changes the number.** The report model writes tags and prose from the fixed score.
+- **Open and verifiable.** The formula, risk rules and rating ladder are the public module [`scoring/`](./scoring) (TypeScript, Go and a Python port, locked together by shared fixtures). The SDKs (0.2+) recompute any published scan locally: `ghfind verify scan.json`.
+- **Super newcomers.** Young accounts with strong, evidenced work can earn up to 4 extra maturity points, fading to zero by age 3 — see [the rule](./docs/scoring/super-newcomer.md).
 
-Every assessment can generate a live badge and light/dark developer card for your GitHub profile, project README, portfolio, or personal site. Here is a real example:
+## Share your profile
 
 <div align="center">
 
@@ -46,247 +54,104 @@ Every assessment can generate a live badge and light/dark developer card for you
 
 </div>
 
-The scoring core comes from the open-source Claude skill `github-account-value`. This site **ports its Python scoring logic line-by-line into TypeScript**, with unit tests locking the two outputs in parity.
+## GitHub App: ghfind Review
 
-## GitHub App: spend less time triaging, more time maintaining
+Install **ghfind Review** and new issues and pull requests arrive labelled with the
+author's public score band (`review:` labels at 40, 70 and 90; `review: no-score`
+when no score is available). By default it doesn't comment, and it never blocks
+or closes anything — a profile score is a starting point for triage, not a
+verdict on the contribution. Labels are created automatically; no workflow or
+secret is needed.
 
-**Every issue asks for your attention. Get the author's context before you invest it.**
+[**Install**](https://github.com/apps/ghfind-review/installations/new) · [English guide](./platform/github-app/README.md) · [中文指南](./platform/github-app/README.zh.md)
 
-Install **ghfind Review** to label new issues with the author's public ghfind score.
-Color-coded `review:` bands help you sort the queue without opening each profile first.
+## API, MCP and SDKs
 
-- **Build your review queue around score bands.** Filter issues by `review:` labels and set your team's review priorities.
-- **Make stronger profile signals stand out.** Muted grey and light blue keep lower bands quiet; soft apricot and wheat mark higher bands.
-- **Screen sources before deep review.** Route low or missing scores into a manual source-check queue.
+Full reference: **[ghfind.com/docs](https://ghfind.com/docs)**.
 
-The current bands are fixed at 40, 70 and 90. The App labels issues and pull
-requests. It does not post conversation comments, or block and close submissions.
-A profile score is a starting point for review, not proof of contribution quality.
+- **REST** — `GET https://ghfind.com/api/score/{username}` returns a deterministic score with no auth and no LLM. OpenAPI 3.1: [ghfind.com/openapi.json](https://ghfind.com/openapi.json).
+- **MCP** — Streamable HTTP at [ghfind.com/mcp](https://ghfind.com/mcp) for Claude, Cursor or any MCP client.
+- **SDKs + CLI** — [`@hikariming/ghfind`](https://www.npmjs.com/package/@hikariming/ghfind) (npm) · [`ghfind`](https://pypi.org/project/ghfind/) (PyPI) · the [Go CLI](./docs/development/cli.md).
+- **For agents** — [ghfind.com/llms.txt](https://ghfind.com/llms.txt) links every machine-readable surface.
 
-**Start with one repository. Let the next issue arrive with a score label.**
-Missing labels are created automatically; no workflow or repository secret is required.
+## Repository layout
 
-[**Install GitHub App**](https://github.com/apps/ghfind-review/installations/new) ·
-[**English guide**](./platform/github-app/README.md) ·
-[**中文指南**](./platform/github-app/README.zh.md)
+| Path | What lives there |
+| --- | --- |
+| [`scoring/`](./scoring) | Public scoring module: formula, risk rules, rating ladder, fixtures (npm `@ghfind/scoring` + Go module) |
+| `src/`, `apps/` | Web app: Astro pages (`apps/web`), Hono API (`apps/api`), router and supporting Workers, shared Next code in `src/` |
+| `internal/`, `cmd/` | Go: CLI, legacy API and the portable Feed runtime |
+| `packages/` | `ghfind-js` and `ghfind-py` SDKs, shared `i18n` |
+| `platform/` | GitHub App and Feed platform |
+| [`docs/`](./docs/README.md) | Architecture, operations runbooks, contracts and release records |
 
-## How it works
-
-```
-browser ─▶ /api/scan ─▶ [Redis cache?] ─▶ lib/github.ts  (GitHub REST + GraphQL, operator PAT)
-                                     └─▶ lib/score.ts   (deterministic scoring, parity with the Python skill)
-                                     └─▶ write cache 24h
-         ─▶ /api/roast (streaming) ─▶ LLM judge pass (bounded score calibration)
-                                      └─▶ LLM writer pass (roast/report text only)
-                                      └─▶ lib/llm.ts (OpenAI-compatible; defaults to StepFun; bring-your-own key)
-```
-
-- **The base score is deterministic** — computed server-side by `lib/score.ts`.
-- The LLM runs in two separated passes: a factual judge may apply a bounded **±10** calibration, then a writer turns the fixed result into tags, the top roast line, and the report. The writer cannot change the score.
-- 6 dimensions (account maturity / original project quality / contribution quality / ecosystem impact / community influence / activity authenticity) + 10 farming red flags. Weights lean toward **hard-to-fake** signals (PRs merged into real repos, sustained activity) and discount **buyable** ones (stars, followers).
-- **Super newcomer bonus**: evidence-backed accounts with strong project substance, contribution quality, ecosystem depth, and activity can earn up to 4 extra maturity points, decaying to zero at age 3. Existing risk deductions stay unchanged. See [the rule and limits](docs/scoring/super-newcomer.md).
-- The site also includes share cards, README badges, profile comments, and GitHub-authenticated profile reactions.
-
-## ghfind API, MCP server & SDKs
-
-Everything on the site is available programmatically — full reference at **[ghfind API documentation](https://ghfind.com/docs)**:
-
-- **REST API** — `GET https://ghfind.com/api/score/{username}` for a deterministic 0–100 score (no auth, no LLM); OpenAPI 3.1 spec at [ghfind.com/openapi.json](https://ghfind.com/openapi.json)
-- **MCP server** — Streamable HTTP at [ghfind.com/mcp](https://ghfind.com/mcp); add it to Claude, Cursor, or any MCP client to score and compare GitHub accounts from inside the agent
-- **SDKs** — [`@hikariming/ghfind`](https://www.npmjs.com/package/@hikariming/ghfind) (npm) · [`ghfind`](https://pypi.org/project/ghfind/) (PyPI)
-- **For AI agents** — [ghfind.com/llms.txt](https://ghfind.com/llms.txt) links every machine-readable surface
+See the [system overview](./docs/architecture/overview.md) for how these fit together in production.
 
 ## Local development
 
+Requires Node 22 (as in CI), pnpm 11 and, for the CLI and Go tests, Go 1.23+.
+
 ```bash
 pnpm install
-cp .env.example .env.local
+cp .env.example .env.local     # set GITHUB_TOKEN at minimum
+pnpm run init                  # local D1 schema, synthetic data, signed-in test identities
+pnpm dev:local                 # http://127.0.0.1:4390
 ```
 
-`pnpm dev` uses Wrangler's local D1 emulator and never connects to Cloudflare or
-requires `wrangler login`. Local D1 state persists under `.wrangler/state/v3`.
-Apply the schema locally once before using database-backed features:
+`pnpm dev` runs plain `next dev` against Wrangler's local D1 emulator; it never
+touches Cloudflare. Apply the schema once with
+`pnpm exec wrangler d1 migrations apply ghfind --local` (and `ghfind-feed-dev`).
+See [local accounts](./docs/development/local-accounts.md) for test identities.
 
-```bash
-pnpm exec wrangler d1 migrations apply ghfind --local
-pnpm exec wrangler d1 migrations apply ghfind-feed-dev --local
-```
+**Always set `GITHUB_TOKEN`** (a read-only PAT): without it, GraphQL dimensions
+drop to zero and REST is limited to 60 requests/hour. `LLM_API_KEY` is only needed
+for operator-funded AI reports. Everything else in [`.env.example`](./.env.example)
+(Turnstile, OAuth, Upstash, Mosoo, Feed) enables optional features.
 
-Set `GITHUB_TOKEN` in `.env.local` to enable higher GitHub API rate limits.
-`LLM_API_KEY` is additionally needed for operator-funded roast text, not for
-deterministic scanning and scoring.
+| Command | Purpose |
+| --- | --- |
+| `pnpm test` / `pnpm typecheck` / `pnpm lint` | Vitest suite, TypeScript, ESLint |
+| `go test ./...` | Go packages (and `cd scoring && go test ./...` for the public module) |
+| `pnpm scoring:boundary` | Keep `scoring/` pure (no network, env, tokens or private imports) |
+| `pnpm frontend-stack:check` | Enforce the frontend dependency rules in [`AGENTS.md`](./AGENTS.md) |
+| `pnpm cf:build` | Production build for Cloudflare (OpenNext) |
+| `pnpm cli:build` | Build `./bin/ghfind` |
 
-```bash
-pnpm dev
-```
+Contributors and coding agents: read [`AGENTS.md`](./AGENTS.md) first.
 
-> **Always set `GITHUB_TOKEN`.** Without a token, GitHub's GraphQL dimensions (contributions / activity / external contributions) all drop to zero (scores get badly underestimated), and REST is rate-limited to 60/h. A read-only PAT raises the limit to 5000/h and unlocks every dimension.
+## Deployment
 
-### Commands
+Production runs on Cloudflare Workers and deploys from CI on `hikariming/ghfind`
+`main`, with automatic rollback when post-deploy smoke checks fail. Follow the
+[Cloudflare deployment runbook](./docs/operations/cloudflare-deployment-runbook.md);
+never commit secrets.
 
-| Command | Description |
-|------|------|
-| `pnpm dev` | Local development |
-| `pnpm start` or `pnpm build/start` | One-command production build + run |
-| `pnpm build` / `pnpm start:prod` | Build only / run an existing production build |
-| `pnpm cli:build` | Build the standalone `./bin/ghfind` CLI (requires Go 1.23+) |
-| `pnpm test` | Vitest test suite (scoring, prompts, DB, UI helpers, reactions, etc.) |
-| `pnpm typecheck` | `tsc --noEmit` |
-| `pnpm lint` | ESLint |
+## Bring your own model
 
-### Agent CLI
-
-The CLI is a thin remote wrapper around the public website APIs. It does **not**
-run GitHub scanning, scoring, or LLM logic locally.
-
-Build the standalone binary with Go 1.23+ installed:
-
-```bash
-pnpm cli:build
-./bin/ghfind commands --json
-./bin/ghfind update check -o json
-./bin/ghfind score hikariming -o json
-./bin/ghfind roast hikariming --lang en -o markdown
-./bin/ghfind leaderboard --view trending --window all -o json
-./bin/ghfind developers --type language -o json
-```
-
-The standalone CLI is built as `./bin/ghfind`. The separately published npm SDK
-also provides a `ghfind` executable; it is not installed by the root workspace.
-
-`ghfind bot` uses a personal `ghf_` token from
-[Integrations](https://ghfind.com/integrations). Explicitly select **Manage the
-ghfind Review bot** when creating it, then set `GHFIND_API_KEY` or `--api-key`.
-Existing tokens remain scan-only. All bot commands require this permission;
-repository reads also require write access and changes require admin access.
-Same-owner repository renames and App reinstalls preserve bot settings; an
-owner transfer resets AI opt-ins, allowed intent labels and custom prompts.
-
-The default service host is `https://ghfind.com`. Override it for local dev:
-
-```bash
-GHFIND_HOST=http://localhost:3000 ./bin/ghfind roast hikariming --lang en
-```
-
-`GITHUB_ROAST_HOST` is still accepted as a backward-compatible alias.
-
-Production `/api/scan` uses Turnstile for browser calls. For agent/CLI calls,
-set `GITHUB_ROAST_CLI_API_KEY` on the server and pass the same value to the CLI
-as `GHFIND_API_KEY` or `--api-key`; the CLI sends it as
-`Authorization: Bearer ...` to the same `/api/scan` endpoint.
-`GITHUB_ROAST_API_KEY` remains a backward-compatible alias.
-
-`/api/scan` checks machine auth or Turnstile before it reads the scan cache or
-uses the server GitHub token. If `GITHUB_ROAST_CLI_API_KEY` is not configured
-and Turnstile is enabled, an unauthenticated CLI request can fail before cache
-lookup, even when the server has a GitHub token and Redis cache.
-
-Version/update management:
-
-```bash
-ghfind --version
-ghfind update check -o json
-ghfind update install --method binary --dry-run -o json
-ghfind update install --method binary
-ghfind update npm --dry-run -o json
-ghfind update npm
-ghfind update pip
-ghfind update brew
-```
-
-`update check` compares the local CLI version with the latest GitHub release and
-prints `update_available`, `latest_version`, and `release_url`. It only reports;
-it never modifies the installed binary.
-
-`update install --method binary` downloads the current platform's GitHub release
-asset, writes it next to the running binary, and replaces the local `ghfind`
-binary by rename. Use `--dry-run` first to inspect the selected asset and target
-path. Package-manager shortcuts run the matching upgrade command:
-
-- `ghfind update npm`: `npm install -g @hikariming/ghfind@latest`
-- `ghfind update pip`: `python3 -m pip install --upgrade ghfind`
-- `ghfind update brew`: `brew upgrade ghfind`
-
-These commands modify the local installation only when explicitly invoked. They
-are not triggered by `update check`.
-
-Connected website APIs:
-
-- `scan` / `score`: `POST /api/scan`, factual structured score data.
-- `roast`: `POST /api/scan` + `POST /api/roast`, web-facing roast report.
-- `stats`: `GET /api/stats`, platform aggregate metadata.
-- `leaderboard`: `GET /api/leaderboard`, cached ranking/discovery entries.
-- `developers`: `GET /api/developers`, language/org/repo discovery facets.
-
-For agent decisions about one account, use `scan` or `score`; leaderboard and
-developer directory commands are discovery/catalog surfaces, not fresh scoring
-facts.
-
-## Environment variables
-
-See [`.env.example`](./.env.example). Local scanning requires `GITHUB_TOKEN` and a reachable database (`TURSO_DATABASE_URL`, plus `TURSO_AUTH_TOKEN` when the server requires authentication). A fresh scan must persist its result before it can succeed. Add `LLM_API_KEY` for operator-funded roast text (defaults to StepFun; OpenAI-compatible providers are supported). Redis caching/rate limiting, Turnstile, and GitHub OAuth are optional for local scanning; their configuration enables the corresponding features. A rendered homepage alone does not prove that scanning works. Production requires `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`: when the limiter is unavailable, only protected uncached cost-bearing routes return `503` with `Retry-After`; edge-cached responses and ordinary browsing continue. `RATE_LIMIT_FAIL_OPEN=1` is an emergency operator override and should not be set during normal operation.
-
-## Leaderboard + percentile (Cloudflare D1)
-
-Production stores scores in the Cloudflare D1 `GHFIND_D1` binding configured in
-`wrangler.jsonc`. Follow the [Cloudflare deployment runbook](./docs/operations/cloudflare-deployment-runbook.md)
-to verify the target account and database before deploying. `TURSO_*` remains a
-local/maintenance fallback and is not the production database.
-Each scan upserts the account's latest score into the DB (one row per account); percentile = the share of stored scores strictly below yours.
-**The public board only lists accounts scoring ≥60**; lower scores still count toward the percentile but are not publicly named (anti-harassment). The leaderboard display can degrade without a database, but fresh scans require working persistence.
-
-```bash
-# local development only
-TURSO_DATABASE_URL=http://127.0.0.1:8080
-```
-
-## Deploy to Cloudflare Workers
-
-The frontend and backend run together in one OpenNext Cloudflare Worker. See the
-[Cloudflare deployment runbook](./docs/operations/cloudflare-deployment-runbook.md)
-for account/resource preflight, secrets, smoke checks, and rollback.
-
-```bash
-pnpm exec wrangler whoami
-pnpm cf:build
-pnpm cf:deploy:dev       # dev.ghfind.com
-pnpm cf:deploy:prod      # ghfind.com
-```
-
-Production deploys also run from
-[`.github/workflows/deploy-cf-production.yml`](./.github/workflows/deploy-cf-production.yml)
-in the canonical `hikariming/ghfind` repository: a successful upstream `main`
-CI run checks out that exact SHA, deploys to Beiming's Cloudflare account, and
-automatically rolls back the single frontend/backend Worker if deployment or
-post-deploy smoke fails. Configure secrets with `wrangler secret put --env
-<env>`; do not commit secret values. Cloudflare D1/R2 bindings are defined in
-[`wrangler.jsonc`](./wrangler.jsonc).
-
-## Bring your own model / API key
-
-Click "Use your own model" on the page and enter Base URL + API Key + Model. Compatible with any OpenAI-style API (OpenAI / OpenRouter / Requesty / Groq / DeepSeek / local). **The key lives only in your own browser's localStorage, is passed directly on call, and is never uploaded to the server or persisted.**
-
-## Regenerating the scoring-parity test baseline
-
-`src/lib/__tests__/score-fixtures.json` is the ground truth produced by the Python skill's `score()`. After the skill formula changes, re-run `score()` from `github-account-value/scripts/fetch_github_profile.py` on the same inputs, overwrite that file, then `pnpm test` to verify the port didn't drift.
+Choose "Use your own model" on the site and enter a base URL, API key and model
+for any OpenAI-compatible provider. The key stays in your browser's localStorage,
+is sent only with your request and is never stored on the server.
 
 ## Disclaimer
 
-This site generates scores and commentary automatically from **public GitHub data only**. It roasts an account's public behavior and data, is not directed at individuals, does not constitute a factual finding, and must not be used for harassment. Private contributions are excluded, so active members of private orgs may be underrated.
+Scores and commentary are generated automatically from **public GitHub data
+only**. They describe public activity, are not a judgement of a person, are not
+findings of fact and must not be used for harassment.
 
-## Sponsorship & fairness
+## Sponsorship and fairness
 
-Sponsorship is welcome to cover running costs (GitHub API, LLM, hosting). Note that:
-
-- **Sponsorship does not affect any score or ranking.** Scores are computed deterministically by `src/lib/score.ts`; sponsors cannot buy a higher score, a better rank, or "whitewashing". Sponsor placements and leaderboard data are physically separated in the product.
-- Sponsor perks are attribution/placement only and never touch the scoring logic.
+Sponsorship helps cover GitHub API, LLM and hosting costs. It never affects any
+score, rank or risk conclusion — scores come only from the public
+[`scoring/`](./scoring) module — and sponsor placements are kept separate from
+ranking data.
 
 ## License
 
-Licensed under **[GNU AGPL-3.0](./LICENSE)**.
+[GNU AGPL-3.0](./LICENSE). You may use, modify and self-host this project; if you
+offer a modified version as a network service, AGPL requires you to publish your
+modifications under the same license. The scoring formula began as a port of the
+open-source Claude skill `github-account-value` and has since evolved here in
+[`scoring/`](./scoring), which is now its source of truth.
 
-- You may freely use, modify, and self-host this project.
-- **If you modify it and offer it as a network service** (SaaS / hosted), AGPL requires you to **release your modifications under AGPL as well** (users interacting over the network are entitled to the source).
-- The scoring core is ported from the open-source Claude skill `github-account-value`, kept as the single source of truth.
-
-> **Trademark:** the "ghfind / 毒舌 GitHub 评分" name, logo, and domain are **not covered** by the open-source license; all rights reserved. You may self-host from this code, but please do not use the project's name/brand to impersonate the official site or cause confusion.
+> **Trademark:** the "ghfind / 毒舌 GitHub 评分" name, logo and domain are not
+> covered by the license. Please don't use them to impersonate the official site.

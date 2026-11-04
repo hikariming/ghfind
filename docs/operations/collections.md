@@ -75,8 +75,9 @@ Notes:
 
 `stats`: repo → `stars`, `language`, `description`, `avgScore`,
 `contributors: [{ username, tier }]`; developer → `name`, `tier`, `score`,
-`followers`, `totalStars`, `languages`. Tiers use the engine's Chinese labels
-(夯 / 顶级 / 人上人 / NPC / 拉完了).
+`followers`, `totalStars`, `languages`. `tier` holds the legacy `Scoring.tier` labels
+(夯 / 顶级 / 人上人 / NPC / 拉完了); pages show the 30–100 rating ladder
+(`scoring/src/rating.ts`) derived from `score`, not these labels.
 
 ## Conventions
 

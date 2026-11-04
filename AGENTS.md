@@ -1,5 +1,45 @@
 # AGENTS.md
 
+本文件约束在本仓库工作的所有 agent（含子代理）。`CLAUDE.md` 与 `apps/web/AGENTS.md` 都指向这里。
+
+- **先读的部分**：所有人读「仓库地图」「工作约定」「完成前检查」；做前端读 Frontend Stack Rules、Frontend Theme Checks、Astro Migration；改评分读「评分与开源边界」；改产品行为读「业务规则」。
+- **事实来源**：代码与本文件优先。README、`docs/` 或旧注释与实现不一致时，以实现为准，并顺手修正文档或在交付中说明差异；不要把设计文档里的计划写成已上线能力。
+- **系统全貌**：[`docs/architecture/overview.md`](docs/architecture/overview.md)；文档索引：[`docs/README.md`](docs/README.md)。
+
+## 仓库地图
+
+| 模块 | 位置 | 说明 |
+| --- | --- | --- |
+| 评分（公开） | `scoring/`（npm `@ghfind/scoring` + Go module；Python 端口在 `packages/ghfind-py`） | 纯函数：证据 → `RawMetrics` → 六维 + 风险 → 0–100 分与评级阶梯。不得联网、读环境变量、碰 token 或时钟 |
+| 后端 | `src/lib`、`src/app/api`、`apps/api`、`apps/coord`、`apps/talent`、`internal/backend` + `cmd/*`（Go） | GitHub 采集与 token 池、扫描准入与缓存、D1 存储、AI 报告、项目评估、Feed、人才匹配。只经 `src/lib/score.ts`、`internal/backend/scoring_bridge.go` 等转发层使用评分 |
+| 前端 | `apps/web`（Astro + React islands）、`src/app` + `src/components`（Next，迁移中）、`packages/i18n` | 页面、分享卡、徽章；评级名称与视觉在 `src/lib/realm.ts` |
+| SDK / CLI | `packages/ghfind-js`、`packages/ghfind-py`、`cmd/ghfind` + `internal/agentcli` | 远程 API 客户端；SDK 只能本地复算（verify-only），不爬取 |
+| GitHub App | `platform/github-app` | ghfind Review |
+| 生产路由 | `apps/router/src/routes.ts` | `ghfind-router` 按路径分发到 `ghfind-web`、`ghfind-api` 或旧 Next Worker `ghfind` |
+
+## 工作约定
+
+- 修改业务规则时，先核对实现、测试和用户文案，再同步本文件与相关文档（见文末「产品资料与实现入口」）。
+- 不提交密钥、token、cookie 或 storageState；生产 Cloudflare 账号固定在 `wrangler.jsonc`，不得改用其他账号部署（见 [Cloudflare 部署手册](docs/operations/cloudflare-deployment-runbook.md)）。
+- 不要改写已应用到任何环境的 migration（`migrations/`、`migrations-feed/`）：D1 按文件名记录，改写不会重跑，只会让环境之间产生偏差。需要变更时新增 migration。
+- 机器闸门（`pnpm frontend-stack:check`、`pnpm scoring:boundary`、ESLint 限制、split manifest 检查）不得删除、跳过或降级为 warning。
+- 新文档放进 `docs/` 对应目录并更新 `docs/README.md`；过时文档在顶部标注后移入 `docs/archive/`，不要改写历史记录。
+
+## 完成前检查
+
+按改动范围运行，交付时如实报告结果（失败要附输出，跳过要说明）。
+
+| 改动 | 必跑 |
+| --- | --- |
+| 任意 TS | `pnpm typecheck`、`pnpm lint`、`pnpm test`（或相关 vitest 文件） |
+| 前端 | 以上 + `pnpm frontend-stack:check`；亮/暗主题与约 390px 宽度手动检查，PR 附截图 |
+| `apps/web` / `apps/router` | `pnpm --filter @ghfind/web typecheck`、`pnpm --filter @ghfind/router typecheck`；迁移页面另跑 SEO diff（见 Astro Migration） |
+| 评分 `scoring/` | `pnpm --filter @ghfind/scoring test`、`(cd scoring && go test ./...)`、`(cd packages/ghfind-py && python3 -m pytest -q)`、`pnpm scoring:boundary` |
+| Go | `go test ./...` |
+| 文件增删或移动 | `node ops/open-core/split.mjs check`（新文件需在 `ops/open-core/split-manifest.json` 有归属） |
+| Next / OpenNext 依赖 | 见「升级 Next.js」 |
+| 登录态或受保护功能 | 见「本地用户态验证」 |
+
 ## Frontend Stack Rules（约束所有 agent）
 
 所有前端工作（含子代理）必须先读本节，并在实现时遵守。规范原文（owner，逐字）：
@@ -9,31 +49,47 @@
 补充约束（同样强制）：
 
 - 信息卡片紧凑、纵向密集（不要又高又啰嗦）。
-- 必须支持亮/暗主题（见下方 Frontend Theme Checks）。
-- 必须移动端响应式（含约 390px 宽度）。
+- 必须支持亮/暗主题（见 Frontend Theme Checks），必须移动端响应式（含约 390px 宽度）。
 - 每个库单一版本，禁止重复/替代依赖（例如 framer-motion 与 motion 并存、多个图标库、多个状态库）。
 - 新的 UI 原语必须落在 `src/components/ui`（shadcn/ui Nova + Radix 封装）。页面和功能组件只从 `@/components/ui` 取控件，不要直接从 `@radix-ui/*` 或其它 UI 套件引用。
-- `components.json` 的 `style` 必须是 `radix-nova`（Radix + Nova），`iconLibrary` 必须是 `lucide`。现有已生成的控件不要为了换肤而整站重写；新 `shadcn add` 与新组件按 Nova 密度（更紧的 padding/margin）写。
-- 分类白名单（只许这些，且同类只一个版本）：
-  - 图标：`lucide-react`
-  - 动画：`motion`（不要 `framer-motion`）
-  - 状态：`zustand`
-  - 拖拽：`@dnd-kit/*`
-  - 布局（可调分栏）：`react-resizable-panels`
-  - UI 套件：shadcn 源码在 `src/components/ui`，底层允许 `@radix-ui/*` 仅出现在该目录
-- 机器闸门：`pnpm frontend-stack:check`（依赖白名单 / 锁文件单版本 / `components.json` / 本段原文）、ESLint `no-restricted-imports`、CI Application checks。不要删、不要降级为 warning。
+- `components.json` 的 `style` 必须是 `radix-nova`，`iconLibrary` 必须是 `lucide`。已生成的控件不要为换肤整站重写；新 `shadcn add` 与新组件按 Nova 密度（更紧的 padding/margin）写。
+- 分类白名单（只许这些，且同类只一个版本）：图标 `lucide-react`；动画 `motion`（不要 `framer-motion`）；状态 `zustand`；拖拽 `@dnd-kit/*`；可调分栏 `react-resizable-panels`；UI 套件为 `src/components/ui` 中的 shadcn 源码，`@radix-ui/*` 只允许出现在该目录。
+- 机器闸门：`pnpm frontend-stack:check`（依赖白名单 / 锁文件单版本 / `components.json` / 本段原文）、ESLint `no-restricted-imports`、CI Application checks。
 
 ### Reviewer checklist（每个前端 PR）
 
-独立 reviewer 必须逐条打勾；不合规打回：
+独立 reviewer 必须逐条打勾，不合规打回：
 
 - [ ] 依赖：上述分类无替代库、无重复版本
 - [ ] 组件来源：新控件在 `src/components/ui`，功能代码不直接引用 Radix / 其它 UI 套件
-- [ ] 图标：只有 Lucide
-- [ ] 动画：只有 Motion
+- [ ] 图标只有 Lucide，动画只有 Motion
 - [ ] 信息卡片紧凑、纵向密集
 - [ ] 亮/暗主题都检查过
 - [ ] 移动端（含 390px）可用
+
+## Frontend Theme Checks
+
+站点支持亮色、暗色和自动三种主题。凡影响布局、颜色、卡片、字体、控件、弹窗、报告、榜单、分享面或浮动评论的改动，都要在亮、暗两种实际主题下检查。
+
+- 新增或修改 Tailwind 类时，不要只写暗色背景而缺少亮色对应。优先沿用现有语义写法（如 `border-white/10`、`bg-white/[0.02]`、`bg-white/5`）以及 `src/app/globals.css` 中 `html[data-theme="light"]` 的全局映射。
+- 交付前：用导航栏主题切换依次切到亮 / 暗 / 自动；逐一检查改动页面的文字对比度、卡片边框、hover、表单、弹窗、页脚、AI 报告 markdown，以及相关的移动端与导航界面。
+- 留意背景接缝、亮色下过暗的半透明面板、暗色下过亮的边框。
+
+## Astro Migration (apps/)
+
+页面正从 Next 应用迁到 `apps/web`（Astro + React islands），由 `apps/router` 按路径选择 Worker（`src/routes.ts`）。语言路由逻辑在 `packages/i18n`，`src/proxy.ts` 与 `apps/web/src/middleware.ts` 共用，两套栈对访客的路由必须一致。
+
+- 迁移后页面的 URL、metadata 与 hreflang 必须不变：运行 `pnpm tsx scripts/seo-diff.mts <next-base> <astro-base> <paths...>`，零未放行差异后才能加入路由表。
+- 复用 `src/components` 中的组件作为 island（见 `apps/web/src/islands`）；`next-intl` 与 `@/i18n/navigation` 已有 shim。
+- island 只拿到页面 `pickMessages(...)` 传入的消息命名空间。组件新用了 `useTranslations("x")` 时，所有挂载它的页面都要传 `"x"`，否则线上显示原始 key；`apps/web/src/lib/__tests__/island-messages.test.ts` 会检查。
+- 另跑 `pnpm --filter @ghfind/web typecheck` 与 `pnpm --filter @ghfind/router typecheck`。
+
+## 评分与开源边界
+
+- **唯一来源**：评分公式、风险规则、评级阶梯只在 `scoring/` 定义。修改时 TS、Go、Python 三端与 `scoring/fixtures/` 同一次评审内同步；输出变化时提升后端评分版本（`config/release-versions.json`），并检查对外说明。
+- **保持纯净**：`scoring/` 只能依赖自身与 `scoring/rules/`，不得联网、读 `process`/环境变量、用计时器、随机数、存储或加密 API，Go 只用标准库白名单；不得 import `src/`、`internal/` 等私有代码。`pnpm scoring:boundary` 强制执行。
+- **token 池永不公开**：生产扫描使用多位用户授权的 GitHub token。采集、token 池、队列、限流、存储只属于后端；不得把它们或任何凭据移入 `scoring/`、SDK 或其它公开模块，也不得在公开代码中重新实现爬取。SDK 只做本地复算（`verifyScan` / `verify_scan`）。
+- **开源拆分**：公开 / 私有归属见 `ops/open-core/split-manifest.json`，背景与切换步骤见 [`docs/architecture/open-core-split.md`](docs/architecture/open-core-split.md)。公开文件不得引用私有代码（`node ops/open-core/split.mjs blockers` 必须为 0）。
 
 ## 产品定位
 
@@ -64,9 +120,10 @@ ghfind 的主张是「发现最佳开发者，也成为其中之一」。产品�
 
 ### 账号评分、报告与证据
 
-- **确定性评分**：账号总分为 0–100，六个维度是账号成熟度、原创项目质量、贡献质量、外部生态贡献、社区影响力、活跃真实性；风险规则会影响最终分数。同一评分版本和数据快照应得到相同结果。维度权重以 `src/lib/score-presentation.ts` 为准，修改时同步检查评分实现与对外说明。
-- **等级含义统一**：当前分界为 `90 ≤ 分数：夯`、`80 ≤ 分数 < 90：顶级`、`70 ≤ 分数 < 80：人上人`、`40 ≤ 分数 < 70：NPC`、`分数 < 40：拉完了`。页面、分享内容与接口应使用统一映射，不能各自推导等级。
-- **AI 不决定分数**：当前锐评沿用扫描结果的分数和等级，调整量为 0；AI 负责标签、短评与报告文字。不要沿用旧 README 或旧注释中的「LLM ±10 分校准」行为。AI 生成的判断不是新增事实证据，也不能用重新生成文案来改变分数。
+- **确定性评分**：账号总分为 0–100，六个维度是账号成熟度、原创项目质量、贡献质量、外部生态贡献、社区影响力、活跃真实性；风险规则会影响最终分数。同一评分版本和数据快照应得到相同结果。维度上限以 `scoring/src/score-presentation.ts` 为准（变更流程见「评分与开源边界」）。
+- **评级阶梯统一**：当前评级为 30–100 分、每 10 分一级：`分数 < 30：练气`、`30–40：筑基`、`40–50：金丹`、`50–60：元婴`、`60–70：化神`、`70–80：炼虚`、`80–90：合体`、`90–100：大乘`，恰在分界上归入更高一级；`Lv = floor(分数)`，限定 1–100。规则只在 `scoring/src/rating.ts`（Go：`scoring/rating.go`）定义，`src/lib/realm.ts` 只负责名称与视觉，CLI 与 SDK 由 `scoring/fixtures/rating-ladder.json` 锁定。页面、分享内容与接口不能各自推导评级；翻译键在 `realms.<id>`。
+- **旧五档仅为存量字段**：`Scoring.tier`（`90 夯 / 80 顶级 / 70 人上人 / 40 NPC / 其余 拉完了`）仍由 `tierFor` 写入快照并用于 Bot 标签分桶，保持不变以免影响存量快照与评分版本；新功能使用评级阶梯。退役旧五档需单独做版本化评分变更。
+- **AI 不决定分数**：当前锐评沿用扫描结果的分数和等级，调整量为 0；AI 负责标签、短评与报告文字。不要沿用旧注释中的「LLM ±10 分校准」行为。AI 生成的判断不是新增事实证据，也不能用重新生成文案来改变分数。
 - **分数必须有来源**：当前公开分数应来自已成功保存、具备对应评分版本和采集来源的结果；历史报告、旧缓存和迁移回退不能冒充最新扫描。新扫描保存失败时不能宣称扫描成功或发布不完整评分。缓存命中、历史查看与重新扫描应保留各自的时间和状态含义。
 - **明确数据边界**：评分基于 GitHub 公开数据，私有贡献不计入，可能低估主要在私有组织工作的开发者。保留采集时间、覆盖范围和缺失信息；不能把快速扫描说成完整审计，也不能把低分、缺少公开记录或风险信号直接写成作弊事实。
 - **保持公正**：更重视可核验的真实贡献与持续活动，不能简单把 star、粉丝或提交数量等同于质量。赞助只获得署名或展示位，不改变评分、排名或风险结论；赞助展示与榜单数据分开。
@@ -94,86 +151,10 @@ ghfind 的主张是「发现最佳开发者，也成为其中之一」。产品�
 
 ### ghfind Review 的行为边界
 
-- **辅助人工分流**：默认给新 issue 和 PR 添加作者评分标签，不自动拦截、关闭或拒绝提交。作者评分不代表本次提交质量；评分不可用使用 `review: no-score`，不能当作 0 分。Bot 标签区间是 40、70、90，对应 low/medium/high/top，与网站五档等级不同。
+- **辅助人工分流**：默认给新 issue 和 PR 添加作者评分标签，不自动拦截、关闭或拒绝提交。作者评分不代表本次提交质量；评分不可用使用 `review: no-score`，不能当作 0 分。Bot 标签区间是 40、70、90，对应 low/medium/high/top，与网站评级阶梯不同。
 - **额外动作由仓库管理员开启**：意图标签和评分评论默认关闭；安装只初始化标签，已有条目由管理员主动补扫。开启意图分类后只从管理员勾选的现有标签中选择，不能创建或移除标签；补扫不发评分评论。仓库管理权限必须按实际 GitHub 权限校验，不能由 URL 中的仓库或安装 ID 推定。
 
-## 产品资料与实现入口
-
-修改某条业务规则时，先核对相应实现、测试和用户文案，再同步本文件。README、设计文档与当前实现不一致时，应明确差异，不能把旧说明直接当作现状。
-
-| 主题 | 优先核对的仓库文件 |
-| --- | --- |
-| 产品介绍与入口 | `README.zh.md`、`src/config/nav.ts`、`src/messages/zh.json` |
-| 账号评分与公开数据 | `src/lib/score.ts`、`src/lib/score-presentation.ts`、`src/app/api/scan/route.ts`、`src/app/api/score/[username]/route.ts`、`internal/backend/scoring.go`、`internal/backend/score_api.go` |
-| AI 报告 | `src/app/api/roast/route.ts`、`internal/backend/roast.go`、`internal/backend/roast_prompt.go` |
-| 发现与排名 | `src/lib/db.ts`、`src/lib/rank.ts`、`src/lib/site.ts`、`src/lib/pages/profile.ts` |
-| 全 GitHub 位置 | `src/lib/github-standing.ts`、`src/lib/github-population.ts`、`scripts/github-population.mts` |
-| 项目评估与榜单 | `src/lib/project-analysis-contract.ts`、`src/lib/project-analysis-service.ts`、`src/lib/project-analysis-db.ts`、`src/lib/project-ranking.ts` |
-| 简历与人才资料 | `src/components/resume/ResumeBuilder.tsx`、`src/app/api/resumes/route.ts`、`src/components/talent/intake.ts`、`src/lib/talent-intake.ts`、`src/lib/talent-db.ts` |
-| GitHub App | `platform/github-app/README.zh.md`、`platform/github-app/src/` |
-
-## 本地用户态验证（init 自动准备，本地维护）
-
-涉及登录态、本人/他人判断、用户数据、角色权限或受保护操作的本地开发，必须使用**已经准备好的测试账号或可被本地后端验证的登录态**，进入实际业务页面验证。固定复用同一组可用账号/会话，不在每次任务中临时编造用户名，也不能仅用 mock `/api/me` 或组件测试页代替登录后的验收。
-
-- **首次 init 自动准备**：本地开发环境初始化时，按项目实际存在的用户组/权限角色，每组至少创建一个测试账号并赋予对应权限，配齐本地业务数据和可用登录方式。不为测试虚构产品角色。涉及本人/同组他人隔离时，为该组额外准备第二个账号；访客使用无会话状态即可。
-- **账号由本地管理**：具体用户名、标识及凭据由初始化工具生成，不要求用户指定、记忆或手工维护。首次生成后，将角色与账号的映射、必要的登录材料保存在项目专属且不入库的本地私有存储中；后续任务按角色加载，不再临时创建一套身份。
-- **重复 init 与日常维护**：初始化必须可重复执行，保留已有账号及稳定标识，只补缺失的账号、角色映射和必要数据。会话过期时自动重新签发或通过本地测试登录流程恢复；权限模型变化时同步测试账号权限。重置应通过明确的本地重置操作完成，不在每次 init 时清空开发数据。
-- **复用与确认**：开发和浏览器验证优先加载本地保存的测试身份，通过真实 `/api/me` 响应核对身份、provider，并核对待测功能所需权限，再进入实际路由。会话文件存在不代表当前后端已认可该身份；各账号使用隔离的浏览器 context，避免串号。
-- **本地会话即可**：普通用户态功能使用本地后端认可的测试会话，不要求用户注册真实 GitHub 等第三方账号或逐次参与登录。只有验证第三方 OAuth 流程本身时，才需要相应的真实测试账号，并单独记录验证范围。
-- **真实页面与数据**：在实际应用路由完成操作；缺少资料时先准备本地业务数据，不能用空页、404 或独立组件页作为验收结果。涉及写入或授权时，同时验证真实接口的允许/拒绝结果和数据归属，不能只看按钮是否显示。
-- **补充边界检查**：按改动范围覆盖会话加载、失效、退出、目标账号切换和用户名大小写。异常场景可以辅助使用 mock，但必须与真实登录态验证分别记录。
-- **安全保存与隔离**：账号凭据、cookie、token 和 storageState 仅保存在不入库的本地私有位置，不输出内容、不附在截图或 PR 中。仅使用已授权的测试资源；本地生成的会话只用于隔离测试环境，不修改生产鉴权规则或增加生产登录后门。
-- **交付证据**：记录使用的非敏感账号标识、路由和结果。区分“预备账号真实 OAuth 登录”“本地生成且后端认可的测试会话”和“mock”；后两者不能宣称完成真实 OAuth 验证。前端改动仍须检查亮/暗主题及约 390px 宽度，PR 附截图。
-
-配套工具约定提供 `pnpm run init`（初始化）、`pnpm dev:local`（启动）、`pnpm local:open <角色>`（加载登录态）及 `pnpm local:verify`（验证）。账号与会话保存在不入库的 `.local/dev/`，工具实现须同时提供 `docs/development/local-accounts.md`，说明使用、续期及重置方式。首次使用前检查当前分支是否已包含这些脚本和说明；缺失时先按上述要求补齐，不能把本文的约定当成工具已实现的证明。
-
-## Frontend Theme Checks
-
-This app supports three theme modes: light, dark, and auto. Any frontend change
-that affects layout, colors, cards, typography, controls, modals, reports,
-leaderboards, share surfaces, or floating comments must be checked in both light
-and dark resolved themes.
-
-When adding or changing Tailwind classes, avoid hard-coding dark-only surfaces
-without a light-theme counterpart. Prefer existing semantic patterns such as
-`border-white/10`, `bg-white/[0.02]`, `bg-white/5`, and the global
-`html[data-theme="light"]` mappings in `src/app/globals.css`.
-
-Before calling a frontend change done:
-
-- Toggle Light, Dark, and Auto from the navbar theme control.
-- Manually inspect the touched page in both light and dark modes.
-- Check text contrast, card borders, hover states, form fields, modals, footer
-  areas, generated report markdown, and mobile/navigation surfaces when relevant.
-- Watch for background seams, overly dark translucent panels in light mode, and
-  overly bright borders in dark mode.
-- Run `pnpm typecheck` and `pnpm lint`.
-
-## 升级 Next.js
-
-`next` 和 `@opennextjs/cloudflare`（OpenNext 适配器）必须一起升级。适配器落后于 Next 大/小版本时，构建仍会通过，但线上经 Next 服务端的请求（如 `/api/feed/*`）会抛 `Unexpected loadManifest(...)` 并返回 500，部署冒烟失败（2026-11-01：Next 16.4.1 + 适配器 1.20.3）。
-
-- 升级前确认适配器的 release notes 或 issue 已支持目标 Next 版本，并同步升级。
-- 合并前本地运行 `NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM=cloudflare pnpm exec opennextjs-cloudflare build`，不要只跑 `pnpm build`。
-- 合并后盯住生产部署的 smoke（`pnpm smoke:deployment`），失败按 Feed 切换回滚流程处理。
-
-## Astro Migration (apps/)
-
-Pages are moving from the Next app to `apps/web` (Astro + React islands),
-fronted by `apps/router`, which picks the Worker per path (`src/routes.ts`).
-Shared locale logic lives in `packages/i18n`, used by both `src/proxy.ts` and
-`apps/web/src/middleware.ts`, so the two stacks route visitors identically.
-
-- A migrated page must keep its URL, metadata, and hreflang identical: run
-  `pnpm tsx scripts/seo-diff.mts <next-base> <astro-base> <paths...>` and get
-  zero unallowed diffs before adding the path to the router table.
-- Reuse components from `src/components` as islands (see
-  `apps/web/src/islands`); `next-intl` and `@/i18n/navigation` are shimmed.
-- Also run `pnpm --filter @ghfind/web typecheck` and
-  `pnpm --filter @ghfind/router typecheck`.
-
-## Feed 内容范围
+### Feed 内容范围
 
 `/feed` 包含 X 内容镜像和 ghfind 本地帖子，主流不混排项目、人才、文章或招聘。顶层仅推荐和关注；收藏是私有互动，可从菜单查看，不增加第三个频道。
 
@@ -185,3 +166,37 @@ Shared locale logic lives in `packages/i18n`, used by both `src/proxy.ts` and
 - 站内点赞、转发、回复和浏览数从站内事件产生；收藏与不喜欢仅本人可见。点赞与不喜欢互斥。不得用演示数或 X 计数充当站内事实。
 - 不添加热门、标签、来源分类等装饰徽标；原文中的话题文字保留。目前仅按时间分页，保留可替换的 Feed 提供方与反馈接口，未实现个性化算法。
 - 右侧「今日开源项目」独立从符合宝藏榜资格的项目中按上海日期稳定选取，仓库名直达 GitHub；「今日」指推荐日期，不代表当天发布。缺数据时展示空态，不自动注入虚构帖子。
+
+## 升级 Next.js
+
+`next` 和 `@opennextjs/cloudflare`（OpenNext 适配器）必须一起升级。适配器落后于 Next 大/小版本时构建仍会通过，但线上经 Next 服务端的请求（如 `/api/feed/*`）会抛 `Unexpected loadManifest(...)` 并返回 500，部署冒烟失败（2026-11-01：Next 16.4.1 + 适配器 1.20.3）。
+
+- 升级前确认适配器的 release notes 或 issue 已支持目标 Next 版本，并同步升级。
+- 合并前本地运行 `NEXT_PUBLIC_GHFIND_DEPLOY_PLATFORM=cloudflare pnpm exec opennextjs-cloudflare build`，不要只跑 `pnpm build`。
+- 合并后盯住生产部署的 smoke（`pnpm smoke:deployment`），失败按 Feed 切换回滚流程处理。
+
+## 本地用户态验证
+
+涉及登录态、本人/他人判断、用户数据、角色权限或受保护操作时，必须用本地后端认可的测试身份进入实际业务页面验证；不能只 mock `/api/me` 或用组件测试页代替。工具已实现，用法、续期与重置见 [`docs/development/local-accounts.md`](docs/development/local-accounts.md)。
+
+- **工具**：`pnpm run init`（可重复执行：保留已有身份，只补缺失的账号、角色映射和数据）、`pnpm dev:local`（固定 `http://127.0.0.1:4390`，不要换成 localhost）、`pnpm local:open <角色>`、`pnpm local:verify`、`pnpm local:renew`。角色：`owner`、`other`（同组隔离）、`internal`、`social`、`guest`。
+- **固定复用**：按角色加载已保存的身份，不临时编造用户名；会话过期用 renew 恢复；权限模型变化时同步更新 init。各账号使用隔离的浏览器 context。
+- **先核对再操作**：通过真实 `/api/me` 响应确认身份、provider 和所需权限，再进入实际路由。缺资料时先准备本地数据，不能用空页、404 或独立组件页作为验收结果。涉及写入或授权时，同时验证真实接口的允许/拒绝结果和数据归属。
+- **边界**：按改动覆盖会话加载、失效、退出、切换账号和用户名大小写。异常场景可辅助 mock，但须与真实登录态验证分开记录。只有验证第三方 OAuth 流程本身时才需要真实测试账号。
+- **安全**：凭据、cookie、token 和 storageState 只放在不入库的 `.local/dev/`，不输出内容、不附在截图或 PR 中；本地会话不得修改生产鉴权或增加生产登录后门。
+- **交付证据**：记录非敏感账号标识、路由和结果，并区分「真实 OAuth 登录」「本地生成且后端认可的测试会话」和「mock」；后两者不能宣称完成真实 OAuth 验证。
+
+## 产品资料与实现入口
+
+| 主题 | 优先核对的仓库文件 |
+| --- | --- |
+| 产品介绍与入口 | `README.zh.md`、`src/config/nav.ts`、`src/messages/zh.json` |
+| 账号评分与公开数据 | `scoring/`（`src/score.ts`、`src/extract.ts`、`src/rating.ts`、`*.go`、`fixtures/`）、[`docs/rfc/2026-10-15-account-scoring.md`](docs/rfc/2026-10-15-account-scoring.md)、`src/app/api/scan/route.ts`、`src/app/api/score/[username]/route.ts`、`internal/backend/scoring_bridge.go` |
+| 评级展示 | `src/lib/realm.ts`、`src/messages/*.json`（`realms.*`） |
+| AI 报告 | `src/app/api/roast/route.ts`、`src/lib/roast-handler.ts` |
+| 发现与排名 | `src/lib/db.ts`、`src/lib/rank.ts`、`src/lib/site.ts`、`src/lib/pages/profile.ts` |
+| 全 GitHub 位置 | `src/lib/github-standing.ts`、`src/lib/github-population.ts`、`scripts/github-population.mts` |
+| 项目评估与榜单 | `src/lib/project-analysis-contract.ts`、`src/lib/project-analysis-service.ts`、`src/lib/project-analysis-db.ts`、`src/lib/project-ranking.ts` |
+| 简历与人才资料 | `src/components/resume/ResumeBuilder.tsx`、`src/app/api/resumes/route.ts`、`src/components/talent/intake.ts`、`src/lib/talent-intake.ts`、`src/lib/talent-db.ts` |
+| GitHub App | `platform/github-app/README.zh.md`、`platform/github-app/src/` |
+| 开源拆分 | `ops/open-core/split-manifest.json`、`ops/open-core/split.mjs`、[`docs/architecture/open-core-split.md`](docs/architecture/open-core-split.md) |

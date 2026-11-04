@@ -1,11 +1,16 @@
 # Cloudflare deployment runbook
 
-This is the current release and rollback guide for GitHub Roast.
+This is the current release and rollback guide for ghfind.
 
 ## Current topology
 
-The frontend and backend are deployed together as one Next-on-Workers application
-through `@opennextjs/cloudflare`:
+Production is a set of Workers behind `ghfind-router`, which owns `ghfind.com` and
+forwards each path to `ghfind-web` (Astro pages), `ghfind-api` (Hono API) or the
+legacy Next Worker `ghfind` (see [System overview](../architecture/overview.md)).
+The router, web, api, coord, talent and cost-monitor Workers are released by
+[`.github/workflows/deploy-apps-production.yml`](../../.github/workflows/deploy-apps-production.yml)
+from their `apps/*/wrangler.jsonc`. **This runbook covers the legacy Next Worker**,
+built with `@opennextjs/cloudflare`:
 
 | Environment | Worker | Public origin | Cloudflare resources |
 | --- | --- | --- | --- |

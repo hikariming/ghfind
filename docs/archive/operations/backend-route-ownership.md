@@ -5,9 +5,9 @@
 > history. The current app is a single Cloudflare Worker with same-origin page
 > and API routes; the `Go-owned` labels below are not current architecture.
 > For current deployment and rollback, use the
-> [Cloudflare deployment runbook](./cloudflare-deployment-runbook.md). For the
+> [Cloudflare deployment runbook](../../operations/cloudflare-deployment-runbook.md). For the
 > Feed specifically, use the
-> [Cloudflare-native Feed runbook](./project-feed-backend-runbook.md), not the
+> [Cloudflare-native Feed runbook](../../operations/project-feed-backend-runbook.md), not the
 > historical PostgreSQL/RabbitMQ/Gorse notes below.
 
 This matrix is the cutover checklist for issue #170. A route is only marked

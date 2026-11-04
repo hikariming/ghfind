@@ -5,7 +5,7 @@ import { Building2, Clock } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { secondaryButton } from "./parts";
 
-/** The "I'm hiring" tab until company matching ships (phase 3 of docs/plans/2026-10-12-talent-match-report.md). */
+/** The "I'm hiring" tab until company matching ships (phase 3 of docs/archive/plans/2026-10-12-talent-match-report.md). */
 export function CompanyPanel() {
   const t = useTranslations("talentMatch.company");
   return (

@@ -3,7 +3,7 @@
 > 2026-08-28。分析背景与成本测算见 [2026-08-28-cloudflare-migration-analysis.md](./2026-08-28-cloudflare-migration-analysis.md)，本文件是可执行的作战清单，按阶段推进、逐项勾销。
 > 原则：**每一步生产零感知；切正式 = 改一条 DNS 记录；任何时刻可秒级回滚。**
 >
-> **当前状态（2026-09-02）：迁移已完成。** 前端页面和 `/api/*` 后端现由同一个 OpenNext Cloudflare Worker 承载；当前发布、冒烟和版本回滚请以 [`cloudflare-deployment-runbook.md`](../operations/cloudflare-deployment-runbook.md) 为准。本文的阶段清单和后续进度条目保留作迁移历史，不再表示当前线上拓扑。
+> **当前状态（2026-09-02）：迁移已完成。** 前端页面和 `/api/*` 后端现由同一个 OpenNext Cloudflare Worker 承载；当前发布、冒烟和版本回滚请以 [`cloudflare-deployment-runbook.md`](../../operations/cloudflare-deployment-runbook.md) 为准。本文的阶段清单和后续进度条目保留作迁移历史，不再表示当前线上拓扑。
 
 ## 环境与命名
 

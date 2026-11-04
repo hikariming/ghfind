@@ -4,7 +4,7 @@
 > plus Railway/Go backend split. The current frontend and backend run together in
 > the Cloudflare Worker. Do not use the deployment, secret placement, staging, or
 > rollback instructions below for production. Use the [current Cloudflare
-> deployment runbook](./cloudflare-deployment-runbook.md) instead.
+> deployment runbook](../../operations/cloudflare-deployment-runbook.md) instead.
 
 ## Ownership and topology
 
