@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   validate:
-    if: ${{ github.repository == 'hikariming/ghfind' && github.ref == 'refs/heads/main' }}
+    if: ${{ github.repository == 'FindAny/ghfind' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -52,14 +52,14 @@ jobs:
           [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
           git merge-base --is-ancestor "$RELEASE_SHA" origin/main
-          gh api --method GET repos/hikariming/ghfind/actions/workflows/ci.yml/runs \
+          gh api --method GET repos/FindAny/ghfind/actions/workflows/ci.yml/runs \
             -f head_sha="$RELEASE_SHA" -f status=success -f per_page=20 \
-            --jq '.workflow_runs | any(.head_repository.full_name == "hikariming/ghfind" and .conclusion == "success")' | jq -e '. == true'
+            --jq '.workflow_runs | any(.head_repository.full_name == "FindAny/ghfind" and .conclusion == "success")' | jq -e '. == true'
           echo "sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
       - name: Require an actually protected operations environment
         run: |
           set -euo pipefail
-          gh api repos/hikariming/ghfind/environments/Feed%20staging%20operations > "$RUNNER_TEMP/feed-governance-environment.json"
+          gh api repos/FindAny/ghfind/environments/Feed%20staging%20operations > "$RUNNER_TEMP/feed-governance-environment.json"
           node --input-type=module - <<'JS'
           import {readFileSync} from 'node:fs';
           const env=JSON.parse(readFileSync(`${process.env.RUNNER_TEMP}/feed-governance-environment.json`,'utf8'));

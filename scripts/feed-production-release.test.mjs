@@ -9,9 +9,9 @@ import { template } from './feed-platform-production.mjs';
 const sha='a'.repeat(40);
 const provider={MOSOO_API_BASE:'https://cloud.mosoo.ai/api/v1',MOSOO_PROJECT_AGENT_ID:'01M22PWZR0A7ZYCDKWTEA0YEHQ',MOSOO_PROJECT_USER_ID:'ghfind-feed-staging'};
 test('production mutations reject local, fork, branch and alternate workflow execution',()=>{
- const good={GITHUB_ACTIONS:'true',GITHUB_REPOSITORY:'hikariming/ghfind',GITHUB_REF:'refs/heads/main',GITHUB_WORKFLOW_REF:'hikariming/ghfind/.github/workflows/deploy-cf-production.yml@refs/heads/main'};
+ const good={GITHUB_ACTIONS:'true',GITHUB_REPOSITORY:'FindAny/ghfind',GITHUB_REF:'refs/heads/main',GITHUB_WORKFLOW_REF:'FindAny/ghfind/.github/workflows/deploy-cf-production.yml@refs/heads/main'};
  authorizeMutation(good);
- for(const changed of [{GITHUB_ACTIONS:'false'},{GITHUB_REPOSITORY:'fork/ghfind'},{GITHUB_REF:'refs/heads/codex/feed-release'},{GITHUB_WORKFLOW_REF:'hikariming/ghfind/.github/workflows/ci.yml@refs/heads/main'}])assert.throws(()=>authorizeMutation({...good,...changed}));
+ for(const changed of [{GITHUB_ACTIONS:'false'},{GITHUB_REPOSITORY:'fork/ghfind'},{GITHUB_REF:'refs/heads/codex/feed-release'},{GITHUB_WORKFLOW_REF:'FindAny/ghfind/.github/workflows/ci.yml@refs/heads/main'}])assert.throws(()=>authorizeMutation({...good,...changed}));
 });
 test('paused and all configurations share only the production D1 writer and private service binding',()=>{
  for(const mode of ['paused','all']) {
@@ -244,7 +244,7 @@ test('production Feed schema approval covers the complete fixed migrations witho
  assert.ok(!legacy.core.some(e=>e.name==='0005_feed_source_outbox.sql'));
 });
 
-const productionActions={GITHUB_ACTIONS:'true',GITHUB_REPOSITORY:'hikariming/ghfind',GITHUB_REF:'refs/heads/main',GITHUB_WORKFLOW_REF:'hikariming/ghfind/.github/workflows/deploy-cf-production.yml@refs/heads/main'};
+const productionActions={GITHUB_ACTIONS:'true',GITHUB_REPOSITORY:'FindAny/ghfind',GITHUB_REF:'refs/heads/main',GITHUB_WORKFLOW_REF:'FindAny/ghfind/.github/workflows/deploy-cf-production.yml@refs/heads/main'};
 async function withActions(fn,changes={}) {
  const saved=Object.fromEntries(Object.keys(productionActions).map(k=>[k,process.env[k]]));
  Object.assign(process.env,productionActions,changes);
@@ -288,7 +288,7 @@ function resourcesFixture({missing=[],pause=false,onRead,onWrite}={}) {
  return {m,names,ids,api,calls,rows,reads,mutations:()=>calls.filter(c=>c.method!=='GET')};
 }
 test('resource initialization is Actions-only before even reading the API',async()=>{
- for(const changed of [{GITHUB_ACTIONS:'false'},{GITHUB_REPOSITORY:'fork/ghfind'},{GITHUB_REF:'refs/heads/feature'},{GITHUB_WORKFLOW_REF:'hikariming/ghfind/.github/workflows/ci.yml@refs/heads/main'}]) {
+ for(const changed of [{GITHUB_ACTIONS:'false'},{GITHUB_REPOSITORY:'fork/ghfind'},{GITHUB_REF:'refs/heads/feature'},{GITHUB_WORKFLOW_REF:'FindAny/ghfind/.github/workflows/ci.yml@refs/heads/main'}]) {
   const f=resourcesFixture();await withActions(()=>assert.rejects(ensureResources(f.m,f.api),/only the production Actions/),changed);assert.deepEqual(f.calls,[]);
  }
 });

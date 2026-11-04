@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const repository = 'hikariming/ghfind';
+export const repository = 'FindAny/ghfind';
 export const workflowPath = '.github/workflows/deploy-cf-production.yml';
 export const startStep = 'Start or resume the single real production assessment';
 export const receiptFile = 'assessment-intent.json';
@@ -79,7 +79,7 @@ export function validateCarryoverReceipt(receipt, manifest) {
   validateCarryover(manifest);
   requireThat(receipt?.sourceSha === manifest.sourceSha && receipt.intentId === manifest.intentId &&
     receipt.analysisId === manifest.analysisId && receipt.postIssued === true &&
-    ['selected', 'waiting', 'completed'].includes(receipt.phase) && receipt.repository === repository &&
+    ['selected', 'waiting', 'completed'].includes(receipt.phase) && [repository, 'hikariming/ghfind'].includes(receipt.repository) &&
     receipt.origin === 'https://ghfind.beiming1201.workers.dev',
     'carryover requires the same selected paid assessment; uncertain or conflicting receipt refused');
   return receipt;

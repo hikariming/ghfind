@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs';
 import { transitionOffActors, validateConsumerReceipt, readOffResponse, OffRequestError } from './feed-production-off-transition.mjs';
 import { ACCOUNT } from './feed-production-release.mjs';
 const manifest=JSON.parse(readFileSync(new URL('../ops/feed-production-manifest.json',import.meta.url)));
-const env={GITHUB_ACTIONS:'true',GITHUB_REPOSITORY:'hikariming/ghfind',GITHUB_REF:'refs/heads/main',
-  GITHUB_WORKFLOW_REF:'hikariming/ghfind/.github/workflows/deploy-cf-production.yml@refs/heads/main',GITHUB_RUN_ID:'123',GITHUB_RUN_ATTEMPT:'1'};
+const env={GITHUB_ACTIONS:'true',GITHUB_REPOSITORY:'FindAny/ghfind',GITHUB_REF:'refs/heads/main',
+  GITHUB_WORKFLOW_REF:'FindAny/ghfind/.github/workflows/deploy-cf-production.yml@refs/heads/main',GITHUB_RUN_ID:'123',GITHUB_RUN_ATTEMPT:'1'};
 const identity={sourceSha:'a'.repeat(40),imageBuildId:'b'.repeat(64),image:`registry.cloudflare.com/${ACCOUNT}/ghfind-feed@sha256:${'c'.repeat(64)}`,mode:'off',writerEpoch:1};
 const version='12345678-1234-1234-1234-123456789abc', anchor='12345678-1234-1234-1234-123456789abd';
 const targets=['api-0','api-1','executor-0'];

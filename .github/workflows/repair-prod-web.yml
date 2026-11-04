@@ -28,7 +28,7 @@ concurrency:
 jobs:
   repair:
     name: Deploy paused web and populate incremental cache
-    if: ${{ github.repository == 'hikariming/ghfind' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure') }}
+    if: ${{ github.repository == 'FindAny/ghfind' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure') }}
     environment: Production
     runs-on: ubuntu-latest
     timeout-minutes: 30

@@ -230,12 +230,12 @@ test("a status action does no writes and returns only whitelisted operational me
 });
 test("command UUID is stable across reruns and distinct across jobs and invalid bodies reject", () => {
   assert.equal(
-    runCommandId("hikariming/ghfind", "123", "deletion", "del:1"),
-    runCommandId("hikariming/ghfind", "123", "deletion", "del:1"),
+    runCommandId("FindAny/ghfind", "123", "deletion", "del:1"),
+    runCommandId("FindAny/ghfind", "123", "deletion", "del:1"),
   );
   assert.notEqual(
-    runCommandId("hikariming/ghfind", "123", "deletion", "del:1"),
-    runCommandId("hikariming/ghfind", "124", "deletion", "del:1"),
+    runCommandId("FindAny/ghfind", "123", "deletion", "del:1"),
+    runCommandId("FindAny/ghfind", "124", "deletion", "del:1"),
   );
   const f = scenario();
   for (const command of [

@@ -29,13 +29,13 @@ concurrency:
 jobs:
   deploy:
     name: Build and deploy to Cloudflare Workers (dev)
-    if: ${{ github.repository == 'hikariming/ghfind' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'dev' && github.event.workflow_run.repository.full_name == 'hikariming/ghfind' }}
+    if: ${{ github.repository == 'FindAny/ghfind' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'dev' && github.event.workflow_run.repository.full_name == 'FindAny/ghfind' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       CI: "true"
       NEXT_TELEMETRY_DISABLED: "1"
-      EXPECTED_REPOSITORY: hikariming/ghfind
+      EXPECTED_REPOSITORY: FindAny/ghfind
       EXPECTED_ACCOUNT_ID: 8f19bebe359e4ec1a24c68c5f49c1584
       RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
       CF_VERSION_TAG: dev-${{ github.event.workflow_run.head_sha }}

@@ -253,7 +253,7 @@ async function harness(t, settings = {}) {
       assert.ok(!JSON.stringify(init.headers).includes(TOKEN));
       if (
         url ===
-        "https://api.github.com/repos/hikariming/ghfind/git/ref/heads/main"
+        "https://api.github.com/repos/FindAny/ghfind/git/ref/heads/main"
       )
         return json({ object: { sha: settings.mainSHA ?? SHA } });
       if (url === `${ORIGIN}/api/project-analyses` && init.method === "POST") {

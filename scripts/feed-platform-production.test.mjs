@@ -38,7 +38,7 @@ const m = {
   ...template(),
   billing: {
     confirmed: true,
-    evidence: "https://github.com/hikariming/ghfind/commit/" + "a".repeat(40),
+    evidence: "https://github.com/FindAny/ghfind/commit/" + "a".repeat(40),
     maximumMonthlyUSD: 100,
     projectedMonthlyUSD: 75,
   },
@@ -1768,10 +1768,10 @@ test("documented script_name and pinned Wrangler legacy script/service agree wit
 
 const productionActions = {
   GITHUB_ACTIONS: "true",
-  GITHUB_REPOSITORY: "hikariming/ghfind",
+  GITHUB_REPOSITORY: "FindAny/ghfind",
   GITHUB_REF: "refs/heads/main",
   GITHUB_WORKFLOW_REF:
-    "hikariming/ghfind/.github/workflows/deploy-cf-production.yml@refs/heads/main",
+    "FindAny/ghfind/.github/workflows/deploy-cf-production.yml@refs/heads/main",
   GITHUB_RUN_ID: "123",
   GITHUB_RUN_ATTEMPT: "1",
   CLOUDFLARE_API_TOKEN: "synthetic-cf-token-".repeat(3),
@@ -1875,7 +1875,7 @@ test("consumer detach is production Actions-only before any API request", async 
     { GITHUB_REF: "refs/heads/dev" },
     {
       GITHUB_WORKFLOW_REF:
-        "hikariming/ghfind/.github/workflows/ci.yml@refs/heads/main",
+        "FindAny/ghfind/.github/workflows/ci.yml@refs/heads/main",
     },
     { CLOUDFLARE_API_TOKEN: "" },
   ]) {

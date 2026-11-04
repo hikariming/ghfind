@@ -37,7 +37,7 @@ production Workers, D1, R2, or Secrets.
 
 ## Canonical GitHub source and CI ownership
 
-`hikariming/ghfind` is the only canonical production repository. Production is
+`FindAny/ghfind` is the only canonical production repository. Production is
 not connected to a personal fork or to a Cloudflare dashboard Git integration;
 the binding is enforced by the upstream workflow itself:
 
@@ -45,7 +45,7 @@ the binding is enforced by the upstream workflow itself:
 upstream/main commit
   -> CI push run succeeds
   -> Deploy production (Cloudflare) workflow_run on that exact SHA
-  -> provenance guard confirms hikariming/ghfind + main
+  -> provenance guard confirms FindAny/ghfind + main
   -> deploy ghfind in Beiming's account
 ```
 

@@ -48,11 +48,11 @@ Read back configuration after administrator changes; these commands do not
 retrieve secret values:
 
 ```sh
-gh api repos/hikariming/ghfind/rulesets/18206694
-gh api repos/hikariming/ghfind/environments --jq \
+gh api repos/FindAny/ghfind/rulesets/18206694
+gh api repos/FindAny/ghfind/environments --jq \
   '{environments:[.environments[]|{name,protection_rules,deployment_branch_policy}]}'
-gh secret list --repo hikariming/ghfind
-gh run list --repo hikariming/ghfind --workflow ci.yml --limit 5
+gh secret list --repo FindAny/ghfind
+gh run list --repo FindAny/ghfind --workflow ci.yml --limit 5
 ```
 
 Save the resulting settings, check-run URL and tested rejection cases in the

@@ -4,7 +4,7 @@
 
 2026-09-09 用户更新：保留仓库的 squash 选项，本次 PR 使用 rebase 合入。是否允许其他 PR 使用 squash 不属于部署门禁；脚本不修改已有合并方式。准确 SHA CI、真实 CF E2E、required checks 和环境保护要求继续有效。
 
-目标固定为 `hikariming/ghfind`、ruleset `18206694`（`Protect main`）。当前账号具有 PR bypass 能力，但远端环境写入已返回 `403 Must have admin rights to Repository`；这不等于拥有仓库配置权限。2026-09-09 的只读核验也未返回 `bypass_actors`，该字段因缺少 ruleset 写权限而被 GitHub 隐藏，不能解释为没有 bypass 配置。[GitHub ruleset API](https://docs.github.com/en/rest/repos/rules#get-a-repository-ruleset)
+目标固定为 `FindAny/ghfind`、ruleset `18206694`（`Protect main`）。当前账号具有 PR bypass 能力，但远端环境写入已返回 `403 Must have admin rights to Repository`；这不等于拥有仓库配置权限。2026-09-09 的只读核验也未返回 `bypass_actors`，该字段因缺少 ruleset 写权限而被 GitHub 隐藏，不能解释为没有 bypass 配置。[GitHub ruleset API](https://docs.github.com/en/rest/repos/rules#get-a-repository-ruleset)
 
 ## 预期变化
 
@@ -13,7 +13,7 @@
 | Protect main | 保留原有分支范围、active 状态、所有合并方式、review 条件、其他 rules 和 bypass actors；确认本次 PR 可以使用 `rebase` |
 | Required checks | `Application checks`、`Feed storage contracts`、`Feed runtime builds`、`Complete local Feed E2E`；来源固定为已核验的 GitHub Actions integration `15368`；strict 模式 |
 | Feed staging | 自定义 branch policy，仅 `main` 和 `codex/feed-*`；不允许 tag；不新增人工等待 |
-| Feed staging operations | 仅 `main`；新增环境时 reviewer 为仓库 owner `hikariming`（User ID `23065064`） |
+| Feed staging operations | 仅 `main`；新增环境时 reviewer 为个人管理员 `hikariming`（User ID `23065064`）；仓库 owner 为 `FindAny` 组织 |
 | Production | 仅 `main`；不新增 reviewer 或 wait timer，正常发布仍由 CI→staging→Production 自动推进 |
 
 脚本检查本地 CI 配置中四个 job 都会在 PR 上报告结果，不选择只在 push 上执行的聚合任务作为 required check。完整本地 E2E 通过后才能推候选分支；准确 HEAD CI、PR merge 兼容性及真实 CF E2E 仍必须通过后才能合入。配置脚本不能替代这些验收。

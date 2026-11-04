@@ -27,7 +27,7 @@ function ensure(value, code) {
 }
 export function runCommandId(repository, runId, kind, id) {
   ensure(
-    repository === "hikariming/ghfind" && /^\d+$/.test(runId),
+    repository === "FindAny/ghfind" && /^\d+$/.test(runId),
     "invalid_action_identity",
   );
   const hash = createHash("sha256")

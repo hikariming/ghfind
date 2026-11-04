@@ -9,7 +9,7 @@ import { createEvidence, verifyEvidence, milestones, hash } from "./feed-platfor
 const now = Date.parse("2026-09-09T12:00:00Z"), stamp = seconds => new Date(now - seconds * 1000).toISOString();
 function inputs() {
   const manifest = fixture(), sha = "a".repeat(40), tree = "b".repeat(40);
-  const context = { repository: "hikariming/ghfind", runId: "12345", runAttempt: "2", sourceSha: sha, sourceTree: tree };
+  const context = { repository: "FindAny/ghfind", runId: "12345", runAttempt: "2", sourceSha: sha, sourceTree: tree };
   const profile = () => ({ status: "passed", milestones: Object.fromEntries(milestones.map(k => [k, true])) });
   const worker = "12345678-1234-4234-8234-123456789012", webVersion = "22345678-1234-4234-8234-123456789012";
   const image = `registry.cloudflare.com/${ACCOUNT}/ghfind-feed@sha256:${"c".repeat(64)}`;
