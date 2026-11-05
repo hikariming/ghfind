@@ -92,6 +92,10 @@
     {
       "name": "0033_vibe42_retitle_icon.sql",
       "sha256": "4b163b19220a176f2a1947c7f1fb059a2d27d4778b0f8203b5bc8fb8d9945ac5"
+    },
+    {
+      "name": "0034_ad_daily_stats.sql",
+      "sha256": "40790c47e6b6b1717ea920076e44723691ce11b9a4c1880708658628bec467f9"
     }
   ],
   "feed": [
