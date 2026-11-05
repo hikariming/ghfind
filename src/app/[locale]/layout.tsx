@@ -4,6 +4,7 @@ import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { Navbar } from "@/components/Navbar";
+import { SlotMetrics } from "@/components/SlotMetrics";
 import { LoginNudge } from "@/components/LoginNudge";
 import { SiteFooter } from "@/components/SiteFooter";
 import { HtmlLangSync } from "@/components/HtmlLangSync";
@@ -92,6 +93,7 @@ export default async function LocaleLayout({
           <SiteFooter />
         </Navbar>
         <LoginNudge />
+        <SlotMetrics />
       </NextIntlClientProvider>
     </>
   );

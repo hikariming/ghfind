@@ -2,6 +2,7 @@ import { ArrowUpRight } from "lucide-react";
 import { HiringCard, SponsorNote } from "@/components/HomeHiring";
 import { Link } from "@/i18n/navigation";
 import type { JobCompany, JobListing } from "@/lib/jobs";
+import { slotAttrs } from "@/lib/slot-metrics";
 import type { Translator } from "@/lib/translator";
 
 /**
@@ -67,14 +68,14 @@ export function JobsView({
                 {company.sponsor && <span className="jobs-sponsor-tag">{t("sponsorTag")}</span>}
                 <span className="text-sm text-zinc-500">{t("openJobs", { count: companyJobs.length })}</span>
                 {company.careersUrl && (
-                  <a href={company.careersUrl} target="_blank" rel="noopener noreferrer" className="jobs-careers">
+                  <a href={company.careersUrl} target="_blank" rel="noopener noreferrer" className="jobs-careers" {...slotAttrs("company", company.id, "jobs_board")}>
                     {t("careersSite")} <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
                   </a>
                 )}
               </div>
               <div className="hiring-grid">
                 {companyJobs.map((job) => (
-                  <HiringCard key={job.id} job={job} t={t} showSummary />
+                  <HiringCard key={job.id} job={job} t={t} placement="jobs_board" showSummary />
                 ))}
               </div>
             </section>

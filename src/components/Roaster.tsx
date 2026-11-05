@@ -39,6 +39,7 @@ import { RoastProgressCard } from "./RoastProgressCard";
 import { useRoastProgress } from "./useRoastProgress";
 import { SITE_URL } from "@/lib/site";
 import { normLang } from "@/lib/lang";
+import { slotAttrs } from "@/lib/slot-metrics";
 import { trackEvent } from "@/lib/track";
 import type { CampaignSlug } from "@/lib/campaigns";
 
@@ -449,6 +450,7 @@ export function Roaster({
               rel="noopener noreferrer sponsored"
               className="inline-flex items-center gap-1.5 text-zinc-400 transition-colors hover:text-zinc-200"
               aria-label="MiniCPM"
+              {...slotAttrs("static", "minicpm", "model_credit")}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img

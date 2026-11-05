@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { SponsorMark } from "./SponsorMark";
 import { useSponsorRecords } from "./SponsorData";
 import { HOME_SPONSOR_SLOTS } from "@/config/sponsors";
+import { slotAttrs } from "@/lib/slot-metrics";
 import { sponsorVisitHref } from "@/lib/sponsorships";
 
 /** Homepage sponsor row under the scan form, populated from the public API. */
@@ -20,6 +21,7 @@ export function HomeSponsorRow() {
       <div className="home-sponsors-grid">
         {holders.map((holder) => {
           const href = sponsorVisitHref(holder);
+          const slot = slotAttrs("sponsor", holder.id, "home_row");
           const contents = (
             <>
               <SponsorMark holder={holder} className="home-sponsor-logo" />
@@ -30,11 +32,11 @@ export function HomeSponsorRow() {
             </>
           );
           return href ? (
-            <a key={holder.id} href={href} target="_blank" rel="noopener noreferrer sponsored" className="home-sponsor-cell">
+            <a key={holder.id} href={href} target="_blank" rel="noopener noreferrer sponsored" className="home-sponsor-cell" {...slot}>
               {contents}
             </a>
           ) : (
-            <div key={holder.id} className="home-sponsor-cell">{contents}</div>
+            <div key={holder.id} className="home-sponsor-cell" {...slot}>{contents}</div>
           );
         })}
         {Array.from({ length: Math.max(0, open) }, (_, i) => (

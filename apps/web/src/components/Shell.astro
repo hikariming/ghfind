@@ -14,6 +14,7 @@ import { AccountIsland } from "../islands/AccountIsland";
 import { LanguageIsland } from "../islands/LanguageIsland";
 import { LoginNudgeIsland } from "../islands/LoginNudgeIsland";
 import { SearchIsland } from "../islands/SearchIsland";
+import { SlotMetricsIsland } from "../islands/SlotMetricsIsland";
 import { SponsorStripIsland } from "../islands/SponsorStripIsland";
 import { ThemeIsland } from "../islands/ThemeIsland";
 import SiteFooter from "./SiteFooter.astro";
@@ -113,6 +114,7 @@ const repo = { repoHref: "https://github.com/hikariming/ghfind", repoLabel: tRep
   </div>
 </div>
 <LoginNudgeIsland client:idle intl={intl(["loginNudge"])} />
+<SlotMetricsIsland client:idle />
 
 <script>
   const shell = document.querySelector<HTMLElement>(".workspace-shell");

@@ -49,7 +49,7 @@ describe("pickTarget", () => {
   });
 
   it("serves migrated API routes from api, by whole path only", () => {
-    for (const p of ["/api/leaderboard", "/api/stats", "/api/search-users", "/api/developers", "/api/talent", "/api/sponsors", "/api/sponsors/sponsor-example/visit", "/api/facet-rank/torvalds", "/api/campaigns/advx/leaderboard"]) {
+    for (const p of ["/api/leaderboard", "/api/stats", "/api/search-users", "/api/developers", "/api/talent", "/api/sponsors", "/api/sponsors/sponsor-example/visit", "/api/sponsors/pulse", "/api/facet-rank/torvalds", "/api/campaigns/advx/leaderboard"]) {
       expect(pickTarget(p)).toBe("api");
     }
     for (const p of ["/api/talent/123/x", "/api/campaigns/advx/leaderboard/events/x", "/api/leaderboard/x", "/api/sponsors/x", "/api/sponsors/x/visit/y", "/api/facet-rank", "/api/does-not-exist"]) {

@@ -2,6 +2,7 @@
 
 import { SponsorMark } from "@/components/SponsorMark";
 import { useSponsorRecords } from "@/components/SponsorData";
+import { slotAttrs } from "@/lib/slot-metrics";
 import { sponsorVisitHref, type SponsorTier } from "@/lib/sponsorships";
 import styles from "@/components/SponsorHolders.module.css";
 
@@ -44,8 +45,10 @@ export function SponsorHolders({
       </>
     );
     const href = sponsorVisitHref(holder);
+    // The marquee's duplicate copy isn't tracked, so each holder counts once.
+    const slot = duplicate ? {} : slotAttrs("sponsor", holder.id, "sponsor_page");
     if (duplicate || !href) {
-      return <span key={holder.id} className={className}>{contents}</span>;
+      return <span key={holder.id} className={className} {...slot}>{contents}</span>;
     }
     return (
       <a
@@ -54,6 +57,7 @@ export function SponsorHolders({
         target="_blank"
         rel="noopener noreferrer sponsored"
         className={className}
+        {...slot}
       >
         {contents}
       </a>
