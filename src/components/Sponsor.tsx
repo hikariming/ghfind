@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { SponsorMark } from "@/components/SponsorMark";
 import { useSponsorRecords } from "@/components/SponsorData";
+import { slotAttrs } from "@/lib/slot-metrics";
 
 /** Compact sponsor credit for pages that need a standalone sponsor pill. */
 export function SponsorPill({ large = false }: { large?: boolean }) {
@@ -19,11 +20,12 @@ export function SponsorPill({ large = false }: { large?: boolean }) {
     </>
   );
   const className = `inline-flex items-center rounded-full border border-white/10 bg-white/5 text-zinc-300 transition-colors hover:bg-white/10 ${large ? "gap-3 px-5 py-3 text-lg" : "gap-2 px-3 py-2 text-xs"}`;
+  const slot = slotAttrs("sponsor", sponsor.id, "pill");
 
   return sponsor.url ? (
-    <a href={sponsor.url} target="_blank" rel="noopener noreferrer sponsored" className={className}>{contents}</a>
+    <a href={sponsor.url} target="_blank" rel="noopener noreferrer sponsored" className={className} {...slot}>{contents}</a>
   ) : (
-    <span className={className}>{contents}</span>
+    <span className={className} {...slot}>{contents}</span>
   );
 }
 
@@ -44,13 +46,14 @@ export function SponsorStrip() {
     </>
   );
   const className = "inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-xs text-zinc-400 transition-colors hover:text-zinc-200";
+  const slot = slotAttrs("sponsor", sponsor.id, "top_strip");
 
   return (
     <div className="sponsor-strip flex w-full items-center justify-center border-b border-white/10 bg-white/[0.03] px-4 py-1.5">
       {sponsor.url ? (
-        <a href={sponsor.url} target="_blank" rel="noopener noreferrer sponsored" className={className}>{contents}</a>
+        <a href={sponsor.url} target="_blank" rel="noopener noreferrer sponsored" className={className} {...slot}>{contents}</a>
       ) : (
-        <span className={className}>{contents}</span>
+        <span className={className} {...slot}>{contents}</span>
       )}
     </div>
   );
@@ -69,10 +72,11 @@ export function PoweredByLobeHub() {
     </>
   );
   const className = "inline-flex items-center gap-1.5 text-xs text-zinc-600 transition-colors hover:text-zinc-400";
+  const slot = slotAttrs("sponsor", sponsor.id, "footer");
 
   return sponsor.url ? (
-    <a href={sponsor.url} target="_blank" rel="noopener noreferrer sponsored" className={className}>{contents}</a>
+    <a href={sponsor.url} target="_blank" rel="noopener noreferrer sponsored" className={className} {...slot}>{contents}</a>
   ) : (
-    <span className={className}>{contents}</span>
+    <span className={className} {...slot}>{contents}</span>
   );
 }

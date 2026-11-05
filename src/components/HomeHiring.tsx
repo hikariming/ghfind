@@ -2,6 +2,7 @@ import { ArrowRight, ArrowUpRight, Megaphone, Trophy } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "@/i18n/navigation";
 import type { JobListing } from "@/lib/jobs";
+import { slotAttrs, type SlotPlacement } from "@/lib/slot-metrics";
 import type { Translator } from "@/lib/translator";
 
 /**
@@ -36,7 +37,7 @@ export function HomeHiring({ jobs, t }: { jobs: JobListing[]; /** "jobs" namespa
       </div>
       <div className="hiring-grid">
         {jobs.map((job) => (
-          <HiringCard key={job.id} job={job} t={t} />
+          <HiringCard key={job.id} job={job} t={t} placement="home_hiring" />
         ))}
       </div>
       <SponsorNote t={t} />
@@ -59,20 +60,32 @@ export function SponsorNote({ t }: { t: Translator }) {
 
 /**
  * One job card. Jobs with a full JD open their /jobs/<id> page; the rest open
- * the company's own job post in a new tab.
+ * the company's own job post in a new tab. `placement` tags the card for
+ * impression/click metrics (src/components/SlotMetrics.tsx).
  */
-export function HiringCard({ job, t, showSummary = false }: { job: JobListing; t: Translator; showSummary?: boolean }) {
+export function HiringCard({
+  job,
+  t,
+  placement,
+  showSummary = false,
+}: {
+  job: JobListing;
+  t: Translator;
+  placement: SlotPlacement;
+  showSummary?: boolean;
+}) {
   const details = [job.location, job.category].filter(Boolean).join(" · ");
   const label = `${job.title} · ${job.company.name}`;
   const className = `hiring-card${job.pinned ? " hiring-card-sponsored" : ""}`;
   const Arrow = job.hasDetail ? ArrowRight : ArrowUpRight;
+  const slot = slotAttrs("job", job.id, placement);
   const wrap = (children: ReactNode) =>
     job.hasDetail ? (
-      <Link href={`/jobs/${encodeURIComponent(job.id)}`} prefetch={false} aria-label={label} className={className}>
+      <Link href={`/jobs/${encodeURIComponent(job.id)}`} prefetch={false} aria-label={label} className={className} {...slot}>
         {children}
       </Link>
     ) : (
-      <a href={job.applyUrl} target="_blank" rel="noopener noreferrer" aria-label={label} className={className}>
+      <a href={job.applyUrl} target="_blank" rel="noopener noreferrer" aria-label={label} className={className} {...slot}>
         {children}
       </a>
     );

@@ -2,6 +2,7 @@ import { ArrowLeft, ArrowUpRight, Mail, Trophy } from "lucide-react";
 import { AnalysisReport } from "@/components/AnalysisReport";
 import { Link } from "@/i18n/navigation";
 import type { JobDetail } from "@/lib/jobs";
+import { slotAttrs } from "@/lib/slot-metrics";
 import type { Translator } from "@/lib/translator";
 
 /** Email address behind a `mailto:` apply link, or null for web links. */
@@ -21,13 +22,14 @@ export function JobDetailView({ t, job }: { /** "jobs" namespace. */ t: Translat
   const companySite = job.company.careersUrl ?? job.company.websiteUrl;
   const applyClass =
     "inline-flex items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-orange-400";
+  const slot = slotAttrs("job", job.id, "job_detail");
   const apply = email ? (
-    <a href={job.applyUrl} className={applyClass}>
+    <a href={job.applyUrl} className={applyClass} {...slot}>
       <Mail className="h-4 w-4" aria-hidden="true" />
       {t("applyByEmail")}
     </a>
   ) : (
-    <a href={job.applyUrl} target="_blank" rel="noopener noreferrer" className={applyClass}>
+    <a href={job.applyUrl} target="_blank" rel="noopener noreferrer" className={applyClass} {...slot}>
       {t("apply")}
       <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
     </a>
@@ -84,6 +86,7 @@ export function JobDetailView({ t, job }: { /** "jobs" namespace. */ t: Translat
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-200"
+            {...slotAttrs("company", job.company.id, "job_detail")}
           >
             {t("careersSite")} <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
           </a>

@@ -78,6 +78,9 @@ const REVIEWED_NEXT_API_ROUTES = new Set([
   "src/app/api/sponsors/route.ts",
   // First-party sponsor link hop: 302 to an active sponsorship's stored URL only.
   "src/app/api/sponsors/[id]/visit/route.ts",
+  // Sponsored-slot impression/click beacon: same-origin POST, increments D1
+  // ad_daily_stats only for slot ids that exist.
+  "src/app/api/sponsors/pulse/route.ts",
   "src/app/api/search-users/route.ts",
   "src/app/api/stats/route.ts",
   // Public read-only sponsor listing backed by D1.
