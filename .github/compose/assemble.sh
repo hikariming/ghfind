@@ -74,7 +74,9 @@ fetch() { # url ref dest
   git -C "$3" fetch -q --depth 1 "$1" "$2"
   git -C "$3" checkout -q --detach FETCH_HEAD
 }
-tracked_in_root() { git -C "$root" ls-files --error-unmatch -- "$1" >/dev/null 2>&1; }
+# File lists are NUL-separated and never C-quoted (non-ASCII paths exist).
+gitq() { git -c core.quotePath=false "$@"; }
+tracked_in_root() { gitq -C "$root" ls-files --error-unmatch -- "$1" >/dev/null 2>&1; }
 
 resolved="[]"
 for i in $(seq 0 $(($(jq '.components | length' "$config") - 1))); do
@@ -95,12 +97,13 @@ for i in $(seq 0 $(($(jq '.components | length' "$config") - 1))); do
   fi
 
   if [ "$(jq -r .include <<<"$c")" = all ]; then
-    mapfile -t files < <(git -C "$src" ls-files | grep -v -E "^($(jq -r '.exclude | map(gsub("[.]"; "\\.")) | join("|")' <<<"$c"))" || true)
+    exclude_re="^($(jq -r '.exclude | map(gsub("[.]"; "\\.")) | join("|")' <<<"$c"))"
+    mapfile -d '' -t files < <(gitq -C "$src" ls-files -z | grep -z -v -E "$exclude_re" || true)
   else
     files=()
     while IFS= read -r p; do
       p="${p%/}"; [ -e "$src/$p" ] || continue
-      if [ -d "$src/$p" ]; then mapfile -t -O "${#files[@]}" files < <(git -C "$src" ls-files -- ":(literal)$p" 2>/dev/null || (cd "$src" && find "$p" -type f)); else files+=("$p"); fi
+      if [ -d "$src/$p" ]; then mapfile -d '' -t -O "${#files[@]}" files < <(gitq -C "$src" ls-files -z -- ":(literal)$p" 2>/dev/null || (cd "$src" && find "$p" -type f -print0)); else files+=("$p"); fi
     done < <(jq -r '.paths[]' <<<"$c")
   fi
   mapfile -t replaces < <(jq -r '.replaces // [] | .[]' <<<"$c")
@@ -110,11 +113,11 @@ for i in $(seq 0 $(($(jq '.components | length' "$config") - 1))); do
       else echo "assemble: $name contains $f, which the workspace root already has (not in replaces)" >&2; exit 1; fi
     fi
   done
-  (cd "$src" && tar -cf - -- "${files[@]}") | (cd "$root" && tar -xf -)
+  printf '%s\0' "${files[@]}" | (cd "$src" && tar --null -T - -cf -) | (cd "$root" && tar -xf -)
   for f in "${files[@]}"; do
     top="${f%%/*}"
     if ! grep -qxF "$f" "$state/replaced.txt"; then
-      if [ "$top" = "$f" ]; then entry="$f"; elif tracked_in_root "$top" || git -C "$root" ls-files -- "$top" | grep -q .; then entry="$f"; else entry="$top"; fi
+      if [ "$top" = "$f" ]; then entry="$f"; elif tracked_in_root "$top" || gitq -C "$root" ls-files -- "$top" | grep -q .; then entry="$f"; else entry="$top"; fi
       grep -qxF "$entry" "$state/paths.txt" || { echo "$entry" >> "$state/paths.txt"; add_exclude "$entry"; }
     fi
   done
