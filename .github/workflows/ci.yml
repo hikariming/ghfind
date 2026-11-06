@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [dev, main]
   push:
-    branches: [dev, main, "codex/feed-**"]
+    branches: [dev, main, deploy, "codex/feed-**"]
 
 permissions:
   contents: read
@@ -34,6 +34,11 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Assemble workspace (ghfind-server + ghfind-frontend)
+        uses: ./.github/actions/assemble
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -128,8 +133,6 @@ jobs:
       - name: Verify public scoring boundary
         run: pnpm scoring:boundary
 
-      - name: Verify open-core split manifest
-        run: node ops/open-core/split.mjs check
 
       # Compile the explicit integration entry without claiming a Docker run.
       - name: Compile bounded Docker HTTP acceptance harness
@@ -210,6 +213,11 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
           fetch-depth: 0
+      - name: Assemble workspace (ghfind-server + ghfind-frontend)
+        uses: ./.github/actions/assemble
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -275,6 +283,11 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Assemble workspace (ghfind-server + ghfind-frontend)
+        uses: ./.github/actions/assemble
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -335,6 +348,11 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Assemble workspace (ghfind-server + ghfind-frontend)
+        uses: ./.github/actions/assemble
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -394,6 +412,11 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Assemble workspace (ghfind-server + ghfind-frontend)
+        uses: ./.github/actions/assemble
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22

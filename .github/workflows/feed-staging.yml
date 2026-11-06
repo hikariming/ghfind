@@ -42,6 +42,11 @@ jobs:
         with:
           ref: ${{ inputs.release_sha }}
           persist-credentials: false
+      - name: Assemble workspace (ghfind-server + ghfind-frontend)
+        uses: ./.github/actions/assemble
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -82,6 +87,11 @@ jobs:
           ref: ${{ inputs.release_sha }}
           persist-credentials: false
           fetch-depth: 0
+      - name: Assemble workspace (ghfind-server + ghfind-frontend)
+        uses: ./.github/actions/assemble
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22

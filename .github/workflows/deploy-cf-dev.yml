@@ -46,6 +46,11 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
+      - name: Assemble workspace (ghfind-server + ghfind-frontend)
+        uses: ./.github/actions/assemble
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
 
       - name: Verify upstream/dev provenance
         env:

@@ -1,0 +1,55 @@
+name: Assemble ghfind workspace
+description: >-
+  Overlay the private components (ghfind-server, ghfind-frontend) onto this
+  FindAny/ghfind checkout so the three-repository workspace builds as one. On a
+  deploy-branch commit the exact commits pinned in components.manifest.json are used.
+inputs:
+  app-id:
+    description: ghfind release bot App ID (vars.RELEASE_BOT_APP_ID).
+    required: false
+    default: ""
+  private-key:
+    description: ghfind release bot private key (secrets.RELEASE_BOT_PRIVATE_KEY). Only used to mint a read-only token for the two private repositories.
+    required: false
+    default: ""
+  channel:
+    description: "release (latest verified vX.Y.Z of each component, default) or main."
+    required: false
+    default: release
+  require-manifest:
+    description: Fail unless this is a composed deploy-branch commit (production workflows).
+    required: false
+    default: "false"
+  args:
+    description: Extra .github/compose/assemble.sh arguments.
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Mint a read-only token for the private components
+      id: token
+      if: inputs.private-key != ''
+      uses: actions/create-github-app-token@v2
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.private-key }}
+        owner: FindAny
+        repositories: ghfind-server,ghfind-frontend
+        permission-contents: read
+    - name: Assemble workspace
+      shell: bash
+      env:
+        COMPOSE_TOKEN: ${{ steps.token.outputs.token }}
+        ASSEMBLE_CHANNEL: ${{ inputs.channel }}
+        ASSEMBLE_REQUIRE: ${{ inputs.require-manifest }}
+        ASSEMBLE_ARGS: ${{ inputs.args }}
+        IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+      run: |
+        if [ "$IS_FORK_PR" = true ]; then
+          echo "::error::Pull requests from forks cannot assemble the private components (no access to the release bot). Required checks must not be skipped, so a maintainer reviews the change and re-runs it from a branch in FindAny/ghfind."
+          exit 1
+        fi
+        extra=""; [ "$ASSEMBLE_REQUIRE" = true ] && extra="--require-manifest"
+        # shellcheck disable=SC2086
+        .github/compose/assemble.sh --channel "$ASSEMBLE_CHANNEL" $extra $ASSEMBLE_ARGS

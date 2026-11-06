@@ -1,0 +1,63 @@
+name: Release
+
+# Push a vX.Y.Z tag on a main commit (or publish a release for one in the UI).
+# The release is verified only if that exact commit has a successful CI run on
+# main; this then pushes the rel/vX.Y.Z marker that composition trusts, publishes
+# the GitHub release and starts cross-repository composition in FindAny/ghfind.
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Verify and publish ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
+      CI_WORKFLOW: ci.yml
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require the tagged commit on main with green CI
+        id: verify
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse "$TAG^{commit}")"
+          git merge-base --is-ancestor "$sha" origin/main || { echo "::error::$TAG ($sha) is not on main"; exit 1; }
+          for attempt in $(seq 1 120); do
+            state="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$CI_WORKFLOW/runs?head_sha=$sha&event=push&per_page=50" \
+              --jq '[.workflow_runs[] | select(.head_branch == "main")] | if any(.conclusion == "success") then "success" elif any(.status != "completed") then "pending" elif length == 0 then "missing" else "failure" end')"
+            case "$state" in
+              success) echo "sha=$sha" >> "$GITHUB_OUTPUT"; echo "CI passed for $sha"; exit 0 ;;
+              failure) echo "::error::CI failed on main for $sha; fix main and tag a new version"; exit 1 ;;
+              *) echo "CI for $sha is $state; waiting ($attempt/120)"; sleep 30 ;;
+            esac
+          done
+          echo "::error::timed out waiting for CI on $sha"; exit 1
+      - name: Mark the release as verified (rel/${{ github.ref_name }})
+        run: |
+          set -euo pipefail
+          git tag -f "rel/$TAG" "${{ steps.verify.outputs.sha }}"
+          git push -f origin "refs/tags/rel/$TAG"
+      - name: Publish the GitHub release
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG already exists"
+          else
+            gh release create "$TAG" --verify-tag --generate-notes --title "${GITHUB_REPOSITORY#*/} $TAG"
+          fi
+      - name: Compose the latest releases for deployment
+        run: gh workflow run compose-release.yml --ref main -f "trigger=$GITHUB_REPOSITORY $TAG"

@@ -64,6 +64,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Assemble workspace (ghfind-server + ghfind-frontend)
+        uses: ./.github/actions/assemble
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
 
       # No `version:` — pnpm/action-setup reads packageManager from package.json.
       - name: Install pnpm
