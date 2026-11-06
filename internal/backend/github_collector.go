@@ -318,6 +318,30 @@ func (c *GitHubCollector) finishCollectedScan(ctx context.Context, in finishScan
 	for i := range topRepos {
 		for _, own := range personalOriginal {
 			if strings.EqualFold(repoDisplayName(topRepos[i]), repoDisplayName(own)) {
+				// Evidence is hydrated twice, and the second pass can lose what
+				// the first pass already fetched: a plain 403 leaves Readme nil
+				// and a failed languages call yields no entries. Replacing the
+				// candidate wholesale would erase that first-pass evidence, so
+				// fall back to the fields only the first pass has. A fresher
+				// second-pass README still wins, and a repository without a
+				// README in either pass stays empty.
+				preserved := false
+				if own.Readme == nil && topRepos[i].Readme != nil {
+					own.Readme = topRepos[i].Readme
+					own.ReadmeExcerpt = topRepos[i].ReadmeExcerpt
+					preserved = true
+				}
+				if len(own.Languages) == 0 && len(topRepos[i].Languages) > 0 {
+					own.Languages = topRepos[i].Languages
+					preserved = true
+				}
+				if preserved {
+					// Recompute the score-bearing share against the evidence
+					// actually present instead of keeping the second pass'
+					// value derived from the failed fetch.
+					share := ContentSkillShare(own)
+					own.ContentSkillShare = &share
+				}
 				topRepos[i] = own
 			}
 		}
