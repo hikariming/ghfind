@@ -60,4 +60,6 @@ jobs:
             gh release create "$TAG" --verify-tag --generate-notes --title "${GITHUB_REPOSITORY#*/} $TAG"
           fi
       - name: Compose the latest releases for deployment
-        run: gh workflow run compose-release.yml --ref main -f "trigger=$GITHUB_REPOSITORY $TAG"
+        run: |
+          gh workflow run compose-release.yml --ref main -f "trigger=$GITHUB_REPOSITORY $TAG" \
+            || echo "::warning::Could not start composition now; the scheduled poll in FindAny/ghfind picks this release up within 15 minutes."
