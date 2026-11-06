@@ -1,10 +1,12 @@
 name: CI
 
+# Full application suite on the assembled workspace. It needs the release bot key,
+# which only exists in protected environments, so it runs after merge on main and
+# on every composed deploy commit (the production gate). Pull requests run the
+# key-less checks in scoring.yml.
 on:
-  pull_request:
-    branches: [dev, main]
   push:
-    branches: [dev, main, deploy, "codex/feed-**"]
+    branches: [main, deploy]
 
 permissions:
   contents: read
@@ -17,6 +19,8 @@ jobs:
   verify:
     name: Application checks
     runs-on: ubuntu-latest
+    # The release bot key is only available in protected environments (main/deploy).
+    environment: release
     timeout-minutes: 25
     env:
       CI: "true"
@@ -186,6 +190,8 @@ jobs:
   feed-contracts:
     name: Feed storage contracts
     runs-on: ubuntu-latest
+    # The release bot key is only available in protected environments (main/deploy).
+    environment: release
     timeout-minutes: 20
     services:
       postgres:
@@ -277,6 +283,8 @@ jobs:
   feed-runtime:
     name: Feed runtime builds
     runs-on: ubuntu-latest
+    # The release bot key is only available in protected environments (main/deploy).
+    environment: release
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -335,6 +343,8 @@ jobs:
   feed-e2e:
     name: Complete local Feed E2E
     runs-on: ubuntu-latest
+    # The release bot key is only available in protected environments (main/deploy).
+    environment: release
     timeout-minutes: 35
     env:
       CI: "true"
@@ -404,6 +414,8 @@ jobs:
     if: always()
     needs: [verify, feed-contracts, feed-runtime, feed-e2e]
     runs-on: ubuntu-latest
+    # The release bot key is only available in protected environments (main/deploy).
+    environment: release
     timeout-minutes: 5
     env:
       CI_JOB_RESULTS: ${{ toJSON(needs) }}

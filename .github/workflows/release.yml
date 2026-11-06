@@ -3,7 +3,8 @@ name: Release
 # Push a vX.Y.Z tag on a main commit (or publish a release for one in the UI).
 # The release is verified only if that exact commit has a successful CI run on
 # main; this then pushes the rel/vX.Y.Z marker that composition trusts, publishes
-# the GitHub release and starts cross-repository composition in FindAny/ghfind.
+# the GitHub release and starts cross-repository composition in FindAny/ghfind
+# (event-driven; there is no polling fallback, so a failed trigger fails the job).
 
 on:
   push:
@@ -61,5 +62,12 @@ jobs:
           fi
       - name: Compose the latest releases for deployment
         run: |
-          gh workflow run compose-release.yml --ref main -f "trigger=$GITHUB_REPOSITORY $TAG" \
-            || echo "::warning::Could not start composition now; the scheduled poll in FindAny/ghfind picks this release up within 15 minutes."
+          # Event-driven only (no polling): retry, then fail this release loudly.
+          for attempt in 1 2 3 4 5; do
+            if gh workflow run compose-release.yml --ref main -f "trigger=$GITHUB_REPOSITORY $TAG"; then
+              echo "composition started for $GITHUB_REPOSITORY $TAG"; exit 0
+            fi
+            echo "dispatch attempt $attempt failed; retrying"; sleep $((attempt * 15))
+          done
+          echo "::error::Could not start composition in FindAny/ghfind. The release is verified (rel/$TAG) but not deployed; an owner must run compose-release.yml."
+          exit 1

@@ -43,6 +43,8 @@ jobs:
   validate:
     if: ${{ github.repository == 'FindAny/ghfind' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
+    # The release bot key is only available in protected environments (main/deploy).
+    environment: release
     timeout-minutes: 5
     outputs:
       sha: ${{ steps.source.outputs.sha }}

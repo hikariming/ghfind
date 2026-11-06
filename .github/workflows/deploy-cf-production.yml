@@ -22,6 +22,8 @@ jobs:
     name: Require exact deploy-branch CI and complete dual-profile E2E
     if: ${{ github.repository == 'FindAny/ghfind' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'deploy' && github.event.workflow_run.repository.full_name == 'FindAny/ghfind' }}
     runs-on: ubuntu-latest
+    # The release bot key is only available in protected environments (main/deploy).
+    environment: release
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4

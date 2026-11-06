@@ -193,9 +193,9 @@ score v12 是产物版本，与 risk policy v9 是不同命名空间。
 不因回退重新校准排名或文字。
 
 > 2026-11 注：上述五档现为存量字段 `Scoring.tier`（Bot 标签分桶仍使用）。页面展示的评级是
-> 30–100 评级阶梯（`scoring/src/rating.ts`），见 [AGENTS.md](../../AGENTS.md#账号评分报告与证据)。
+> 30–100 评级阶梯（`scoring/src/rating.ts`），见 [`scoring/README.md`](../../scoring/README.md) 与 `ghfind-server` 的 `AGENTS.md`（账号评分、报告与证据）。
 
-发布使用 [v12/v11/v5 计划](../releases/v12-v11-v5-rollout.md)：
+发布使用 v12/v11/v5 计划（私有仓库 `ghfind-server` 的 `docs/releases/v12-v11-v5-rollout.md`）：
 三端公式一致；新缓存、重放、物化使用新 score 版本；旧历史保留；不能仅改版本号。
 验证必须覆盖旧扣分阈值、40 分封顶、原始旗标、API 完整明细和保留的新人奖励。
 原 v10 风险测试改为直接验证保留的资格评估器，不能继续假定它决定最终扣分。

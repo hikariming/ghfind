@@ -1,23 +1,14 @@
 name: Scoring
 
-# Public scoring module CI. Runs on the open-source repo before and after the
-# open-core split; it needs no secrets and no backend services, so it is safe
-# for pull requests from forks.
+# Required pull-request checks for FindAny/ghfind: the public scoring module,
+# SDKs and workflow lint. They need no secrets, so they are safe for forks. The
+# full application suite (ci.yml) runs after merge and on every deploy commit.
 
 on:
+  # No path filters: these are the required pull-request checks for main.
   pull_request:
-    paths:
-      - "scoring/**"
-      - "packages/ghfind-py/**"
-      - "scripts/check-scoring-boundary.mjs"
-      - ".github/workflows/scoring.yml"
   push:
     branches: [main]
-    paths:
-      - "scoring/**"
-      - "packages/ghfind-py/**"
-      - "scripts/check-scoring-boundary.mjs"
-      - ".github/workflows/scoring.yml"
   workflow_call:
 
 permissions:
@@ -80,3 +71,35 @@ jobs:
         run: |
           pnpm run fixtures:rating
           git diff --exit-code -- fixtures/rating-ladder.json
+
+  sdk-js:
+    name: JavaScript SDK
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: packages/ghfind-js
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  workflow-lint:
+    name: Workflow lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: actionlint
+        uses: docker://rhysd/actionlint:1.7.12
+        with:
+          args: -color -shellcheck= -pyflakes=

@@ -3,7 +3,7 @@
 The public, deterministic half of ghfind: how public GitHub evidence becomes a
 0–100 score and a rating. It has no network, token, environment, storage or
 clock access (`now` is always a parameter). See
-[`docs/architecture/open-core-split.md`](../docs/architecture/open-core-split.md).
+[`docs/architecture.md`](../docs/architecture.md).
 
 | Module | What it does |
 | --- | --- |
@@ -46,6 +46,11 @@ as well.
 
 ## Release
 
-Push a `scoring/vX.Y.Z` tag that matches `package.json`'s version.
-`.github/workflows/scoring-release.yml` re-runs CI, publishes the npm package
-and GitHub release, and notifies the private backend, which opens an upgrade PR.
+- **Into production:** scoring reaches ghfind.com through a repository release of
+  `FindAny/ghfind` (`vX.Y.Z` tag on green `main`), which composition deploys
+  together with the latest server and frontend releases. See
+  [`docs/architecture.md`](../docs/architecture.md).
+- **As packages:** push a `scoring/vX.Y.Z` tag matching `package.json`'s version.
+  `.github/workflows/scoring-release.yml` re-runs the scoring CI, publishes the npm
+  package (when `vars.SCORING_NPM_PUBLISH` is `true`) and the GitHub release, and
+  warms the Go module proxy.

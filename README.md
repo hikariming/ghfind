@@ -8,7 +8,7 @@ An evidence-based platform to **find** great developers, **measure** where you s
 
 **English** · [中文](./README.zh.md)
 
-[**🔍 Score a GitHub profile**](https://ghfind.com/en) · [**🏆 Discover developers**](https://ghfind.com/en/leaderboard) · [**🤖 Install the GitHub App**](https://github.com/apps/ghfind-review/installations/new) · [**📚 Docs**](./docs/README.md)
+[**🔍 Score a GitHub profile**](https://ghfind.com/en) · [**🏆 Discover developers**](https://ghfind.com/en/leaderboard) · [**🤖 Install the GitHub App**](https://github.com/apps/ghfind-review/installations/new) · [**📚 Architecture**](./docs/architecture.md)
 
 </div>
 
@@ -63,7 +63,7 @@ or closes anything — a profile score is a starting point for triage, not a
 verdict on the contribution. Labels are created automatically; no workflow or
 secret is needed.
 
-[**Install**](https://github.com/apps/ghfind-review/installations/new) · [English guide](./platform/github-app/README.md) · [中文指南](./platform/github-app/README.zh.md)
+[**Install**](https://github.com/apps/ghfind-review/installations/new) · [Guide](https://ghfind.com/github-bot)
 
 ## API, MCP and SDKs
 
@@ -74,57 +74,54 @@ Full reference: **[ghfind.com/docs](https://ghfind.com/docs)**.
 - **SDKs + CLI** — [`@hikariming/ghfind`](https://www.npmjs.com/package/@hikariming/ghfind) (npm) · [`ghfind`](https://pypi.org/project/ghfind/) (PyPI) · the [Go CLI](./docs/development/cli.md).
 - **For agents** — [ghfind.com/llms.txt](https://ghfind.com/llms.txt) links every machine-readable surface.
 
-## Repository layout
+## This repository
 
-| Path | What lives there |
-| --- | --- |
-| [`scoring/`](./scoring) | Public scoring module: formula, risk rules, rating ladder, fixtures (npm `@ghfind/scoring` + Go module) |
-| `src/`, `apps/` | Web app: Astro pages (`apps/web`), Hono API (`apps/api`), router and supporting Workers, shared Next code in `src/` |
-| `internal/`, `cmd/` | Go: CLI, legacy API and the portable Feed runtime |
-| `packages/` | `ghfind-js` and `ghfind-py` SDKs, shared `i18n` |
-| `platform/` | GitHub App and Feed platform |
-| [`docs/`](./docs/README.md) | Architecture, operations runbooks, contracts and release records |
+ghfind is built from three repositories. This one is public:
 
-See the [system overview](./docs/architecture/overview.md) for how these fit together in production.
+| Repository | Visibility | What it holds |
+| --- | --- | --- |
+| **`FindAny/ghfind`** (this) | public | The scoring module ([`scoring/`](./scoring)), the JS and Python SDKs ([`packages/`](./packages)), the Go CLI ([`cmd/ghfind`](./cmd/ghfind)), agent skills, and every CI/CD and deploy workflow |
+| `FindAny/ghfind-server` | private | API, GitHub collection, storage, Feed, Workers and the workspace configuration |
+| `FindAny/ghfind-frontend` | private | Astro site, React components, messages and assets |
 
-## Local development
+- **What you can verify.** Every production score is computed by the code in
+  [`scoring/`](./scoring). The [`deploy`](https://github.com/FindAny/ghfind/tree/deploy)
+  branch records each production release: its `components.manifest.json` names the
+  exact `ghfind` release (and so the scoring code) that is live, next to the commits
+  of the private components.
+- **How it ships.** Each repository publishes `vX.Y.Z` releases. The latest verified
+  release of all three is assembled into one workspace and deployed to Cloudflare
+  from this repository. Details: [docs/architecture.md](./docs/architecture.md).
 
-Requires Node 22 (as in CI), pnpm 11 and, for the CLI and Go tests, Go 1.23+.
+## Develop the scoring module, SDKs and CLI
+
+Requires Node 22, pnpm 11, Go 1.23+ and Python 3.9+.
 
 ```bash
 pnpm install
-cp .env.example .env.local     # set GITHUB_TOKEN at minimum
-pnpm run init                  # local D1 schema, synthetic data, signed-in test identities
-pnpm dev:local                 # http://127.0.0.1:4390
+pnpm --filter @ghfind/scoring typecheck && pnpm --filter @ghfind/scoring test
+pnpm scoring:boundary                         # purity, credential and import gate
+(cd scoring && go test ./...)                 # Go port
+(cd packages/ghfind-py && python3 -m pytest -q)
+(cd packages/ghfind-js && npm ci && npm run typecheck && npm test)
+go test ./internal/agentcli && go build -o bin/ghfind ./cmd/ghfind
 ```
 
-`pnpm dev` runs plain `next dev` against Wrangler's local D1 emulator; it never
-touches Cloudflare. Apply the schema once with
-`pnpm exec wrangler d1 migrations apply ghfind --local` (and `ghfind-feed-dev`).
-See [local accounts](./docs/development/local-accounts.md) for test identities.
+Any formula change updates the TypeScript, Go and Python ports and their shared
+fixtures in the same pull request; see [`scoring/README.md`](./scoring/README.md).
+Pull requests from forks run the scoring CI; the full application suite runs on
+maintainers' branches and on every production release. See
+[CONTRIBUTING.md](./CONTRIBUTING.md) and [AGENTS.md](./AGENTS.md).
 
-**Always set `GITHUB_TOKEN`** (a read-only PAT): without it, GraphQL dimensions
-drop to zero and REST is limited to 60 requests/hour. `LLM_API_KEY` is only needed
-for operator-funded AI reports. Everything else in [`.env.example`](./.env.example)
-(Turnstile, OAuth, Upstash, Mosoo, Feed) enables optional features.
+## Releases
 
-| Command | Purpose |
-| --- | --- |
-| `pnpm test` / `pnpm typecheck` / `pnpm lint` | Vitest suite, TypeScript, ESLint |
-| `go test ./...` | Go packages (and `cd scoring && go test ./...` for the public module) |
-| `pnpm scoring:boundary` | Keep `scoring/` pure (no network, env, tokens or private imports) |
-| `pnpm frontend-stack:check` | Enforce the frontend dependency rules in [`AGENTS.md`](./AGENTS.md) |
-| `pnpm cf:build` | Production build for Cloudflare (OpenNext) |
-| `pnpm cli:build` | Build `./bin/ghfind` |
-
-Contributors and coding agents: read [`AGENTS.md`](./AGENTS.md) first.
-
-## Deployment
-
-Production runs on Cloudflare Workers and deploys from CI on `hikariming/ghfind`
-`main`, with automatic rollback when post-deploy smoke checks fail. Follow the
-[Cloudflare deployment runbook](./docs/operations/cloudflare-deployment-runbook.md);
-never commit secrets.
+- **Repository release:** a maintainer tags `vX.Y.Z` on a green `main`. The release
+  workflow re-checks CI for that exact commit, marks it verified (`rel/vX.Y.Z`),
+  publishes the GitHub release and starts a production composition.
+- **Scoring package:** `scoring/vX.Y.Z` tags publish `@ghfind/scoring` and the Go
+  module (`.github/workflows/scoring-release.yml`).
+- **SDKs:** [`@hikariming/ghfind`](https://www.npmjs.com/package/@hikariming/ghfind) and
+  [`ghfind`](https://pypi.org/project/ghfind/) are built from `packages/`.
 
 ## Bring your own model
 

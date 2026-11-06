@@ -21,6 +21,8 @@ jobs:
   deploy:
     if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    # The release bot key is only available in protected environments (main/deploy).
+    environment: release
     timeout-minutes: 15
     concurrency:
       group: cost-monitor-deploy
@@ -98,6 +100,8 @@ jobs:
   watchdog:
     if: github.event_name != 'workflow_run' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # The release bot key is only available in protected environments (main/deploy).
+    environment: release
     timeout-minutes: 5
     concurrency:
       group: cost-monitor-watchdog
@@ -144,6 +148,8 @@ jobs:
   exercise:
     if: github.event_name == 'workflow_dispatch' && inputs.exercise && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # The release bot key is only available in protected environments (main/deploy).
+    environment: release
     timeout-minutes: 15
     concurrency:
       group: cost-monitor-exercise

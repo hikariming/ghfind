@@ -8,7 +8,7 @@
 
 [English](./README.md) · **中文**
 
-[**🔍 测测 GitHub 成色**](https://ghfind.com) · [**🏆 发现最佳开发者**](https://ghfind.com/leaderboard) · [**🤖 安装 GitHub App**](https://github.com/apps/ghfind-review/installations/new) · [**📚 文档**](./docs/README.md)
+[**🔍 测测 GitHub 成色**](https://ghfind.com) · [**🏆 发现最佳开发者**](https://ghfind.com/leaderboard) · [**🤖 安装 GitHub App**](https://github.com/apps/ghfind-review/installations/new) · [**📚 架构**](./docs/architecture.md)
 
 </div>
 
@@ -61,7 +61,7 @@
 也从不拦截或关闭提交——账号评分是分流线索，不代表这次贡献的质量。App 自动补齐
 标签，无需在仓库添加 workflow 或 secret。
 
-[**安装**](https://github.com/apps/ghfind-review/installations/new) · [中文安装与使用指南](./platform/github-app/README.zh.md) · [English guide](./platform/github-app/README.md)
+[**安装**](https://github.com/apps/ghfind-review/installations/new) · [使用指南](https://ghfind.com/github-bot)
 
 ## API、MCP 与 SDK
 
@@ -72,53 +72,47 @@
 - **SDK + CLI** — [`@hikariming/ghfind`](https://www.npmjs.com/package/@hikariming/ghfind)（npm）· [`ghfind`](https://pypi.org/project/ghfind/)（PyPI）· [Go CLI](./docs/development/cli.md)。
 - **面向 Agent** — [ghfind.com/llms.txt](https://ghfind.com/llms.txt) 汇总所有机器可读入口。
 
-## 仓库结构
+## 本仓库
 
-| 路径 | 内容 |
-| --- | --- |
-| [`scoring/`](./scoring) | 公开评分模块：公式、风险规则、评级阶梯、夹具（npm `@ghfind/scoring` + Go module） |
-| `src/`、`apps/` | Web 应用：Astro 页面（`apps/web`）、Hono API（`apps/api`）、路由与配套 Worker，`src/` 为共享的 Next 代码 |
-| `internal/`、`cmd/` | Go：CLI、旧版 API 与可移植 Feed 运行时 |
-| `packages/` | `ghfind-js`、`ghfind-py` SDK 与共享 `i18n` |
-| `platform/` | GitHub App 与 Feed 平台 |
-| [`docs/`](./docs/README.md) | 架构、运维手册、契约与发布记录 |
+ghfind 由三个仓库组成，本仓库公开：
 
-各部分在生产中如何协作，见[系统概览](./docs/architecture/overview.md)。
+| 仓库 | 可见性 | 内容 |
+| --- | --- | --- |
+| **`FindAny/ghfind`**（本仓库） | 公开 | 评分模块（[`scoring/`](./scoring)）、JS 与 Python SDK（[`packages/`](./packages)）、Go CLI（[`cmd/ghfind`](./cmd/ghfind)）、Agent 技能，以及全部 CI/CD 与部署工作流 |
+| `FindAny/ghfind-server` | 私有 | API、GitHub 采集、存储、Feed、Workers 与工作区配置 |
+| `FindAny/ghfind-frontend` | 私有 | Astro 站点、React 组件、多语言文案与静态资源 |
 
-## 本地开发
+- **可以核验什么。** 线上每一个分数都由 [`scoring/`](./scoring) 中的代码计算。
+  [`deploy`](https://github.com/FindAny/ghfind/tree/deploy) 分支记录每次生产发布：其中的
+  `components.manifest.json` 写明线上使用的 `ghfind` 版本（即评分代码版本），以及两个私有组件的提交。
+- **如何上线。** 三个仓库各自发布 `vX.Y.Z` 版本；三者最新的已验证版本被组装成一个工作区，由本仓库部署到
+  Cloudflare。详见 [docs/architecture.md](./docs/architecture.md)。
 
-需要 Node 22（与 CI 一致）、pnpm 11；CLI 与 Go 测试另需 Go 1.23+。
+## 开发评分模块、SDK 与 CLI
+
+需要 Node 22、pnpm 11、Go 1.23+、Python 3.9+。
 
 ```bash
 pnpm install
-cp .env.example .env.local     # 至少设置 GITHUB_TOKEN
-pnpm run init                  # 本地 D1 schema、合成数据、已登录的测试身份
-pnpm dev:local                 # http://127.0.0.1:4390
+pnpm --filter @ghfind/scoring typecheck && pnpm --filter @ghfind/scoring test
+pnpm scoring:boundary                         # 纯净性、凭据与依赖闸门
+(cd scoring && go test ./...)                 # Go 端
+(cd packages/ghfind-py && python3 -m pytest -q)
+(cd packages/ghfind-js && npm ci && npm run typecheck && npm test)
+go test ./internal/agentcli && go build -o bin/ghfind ./cmd/ghfind
 ```
 
-`pnpm dev` 直接运行 `next dev`，使用 Wrangler 本地 D1 模拟器，不连接 Cloudflare。首次需执行
-`pnpm exec wrangler d1 migrations apply ghfind --local`（以及 `ghfind-feed-dev`）。
-测试身份见[本地测试账号](./docs/development/local-accounts.md)。
+修改公式时，TypeScript、Go、Python 三端与共享夹具须在同一个 PR 中同步，见
+[`scoring/README.md`](./scoring/README.md)。来自 fork 的 PR 运行评分 CI；完整应用测试在维护者分支和每次生产发布时运行。
+另见 [CONTRIBUTING.md](./CONTRIBUTING.md) 与 [AGENTS.md](./AGENTS.md)。
 
-**务必设置 `GITHUB_TOKEN`**（只读 PAT 即可）：没有 token 时 GraphQL 维度全部归零，REST 每小时仅
-60 次。`LLM_API_KEY` 只在由运营方承担 AI 报告费用时需要。[`.env.example`](./.env.example)
-中的其余变量（Turnstile、OAuth、Upstash、Mosoo、Feed）用于开启对应的可选功能。
+## 发布
 
-| 命令 | 用途 |
-| --- | --- |
-| `pnpm test` / `pnpm typecheck` / `pnpm lint` | Vitest、TypeScript、ESLint |
-| `go test ./...` | Go 包（公开模块另跑 `cd scoring && go test ./...`） |
-| `pnpm scoring:boundary` | 保持 `scoring/` 纯净（无网络、环境变量、token 或私有依赖） |
-| `pnpm frontend-stack:check` | 校验 [`AGENTS.md`](./AGENTS.md) 中的前端依赖规则 |
-| `pnpm cf:build` | Cloudflare 生产构建（OpenNext） |
-| `pnpm cli:build` | 构建 `./bin/ghfind` |
-
-贡献者与编码 Agent 请先阅读 [`AGENTS.md`](./AGENTS.md)。
-
-## 部署
-
-生产运行在 Cloudflare Workers，由 `hikariming/ghfind` 的 `main` 分支 CI 部署，部署后冒烟失败会
-自动回滚。按 [Cloudflare 部署手册](./docs/operations/cloudflare-deployment-runbook.md)操作，切勿提交密钥。
+- **仓库版本：** 维护者在 CI 通过的 `main` 上打 `vX.Y.Z` 标签。发布工作流会再次确认该提交的 CI，标记为已验证
+  （`rel/vX.Y.Z`），发布 GitHub Release，并触发一次生产组装。
+- **评分包：** `scoring/vX.Y.Z` 标签发布 `@ghfind/scoring` 与 Go module（`.github/workflows/scoring-release.yml`）。
+- **SDK：** [`@hikariming/ghfind`](https://www.npmjs.com/package/@hikariming/ghfind) 与
+  [`ghfind`](https://pypi.org/project/ghfind/) 由 `packages/` 构建。
 
 ## 自带模型
 

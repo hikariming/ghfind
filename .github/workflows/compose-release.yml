@@ -1,8 +1,9 @@
 name: Compose release
 
-# Cross-repository release integration. A verified release in any repository
-# (ghfind, ghfind-server, ghfind-frontend) dispatches this workflow; the schedule
-# is a fallback. It composes the latest verified release (rel/vX.Y.Z) of all three
+# Cross-repository release integration, event-driven only: a verified release in
+# any repository (ghfind, ghfind-server, ghfind-frontend) dispatches this workflow
+# with its version; owners can also run it by hand. Runs are serialized, so close
+# releases compose one after the other. It composes the latest verified release (rel/vX.Y.Z) of all three
 # into a deploy-branch commit (public release tree + components.manifest.json).
 # CI then runs on the assembled workspace and the production workflows deploy that
 # exact commit to Cloudflare. See docs/architecture.md.
@@ -30,8 +31,6 @@ on:
       trigger:
         description: Who asked for this composition (set by release workflows)
         required: false
-  schedule:
-    - cron: "7,22,37,52 * * * *"
 
 permissions:
   contents: read
@@ -45,6 +44,8 @@ jobs:
     name: Compose latest releases onto deploy
     if: github.repository == 'FindAny/ghfind'
     runs-on: ubuntu-latest
+    # The release bot key exists only in protected environments (main/deploy).
+    environment: release
     timeout-minutes: 15
     steps:
       - name: Mint a read-only token for the private components

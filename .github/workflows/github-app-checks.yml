@@ -1,15 +1,13 @@
 name: GitHub App checks
 on:
-  pull_request:
-    paths: ['platform/github-app/**', '.github/workflows/github-app-checks.yml']
+  # Needs the assembled workspace (release bot key), so it runs after merge.
   push:
-    branches: [main, 'codex/github-app']
-    paths: ['platform/github-app/**', '.github/workflows/github-app-checks.yml']
-permissions:
-  contents: read
+    branches: [main]
 jobs:
   app:
     runs-on: ubuntu-latest
+    # The release bot key is only available in protected environments (main/deploy).
+    environment: release
     timeout-minutes: 10
     defaults:
       run:

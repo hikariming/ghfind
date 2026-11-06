@@ -21,6 +21,8 @@ jobs:
     name: Bounded synthetic query diagnosis
     if: ${{ github.repository == 'FindAny/ghfind' }}
     runs-on: ubuntu-24.04
+    # The release bot key is only available in protected environments (main/deploy).
+    environment: release
     # Bounded preflight/execution steps leave time for evidence upload and cleanup.
     timeout-minutes: 25
     env:

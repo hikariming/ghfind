@@ -50,6 +50,10 @@ runs:
           echo "::error::Pull requests from forks cannot assemble the private components (no access to the release bot). Required checks must not be skipped, so a maintainer reviews the change and re-runs it from a branch in FindAny/ghfind."
           exit 1
         fi
+        if [ -z "$COMPOSE_TOKEN" ]; then
+          echo "::error::No release bot token. RELEASE_BOT_PRIVATE_KEY exists only in the protected environments (release, Production, Feed staging, Feed staging operations), which allow main and deploy; run this job there."
+          exit 1
+        fi
         extra=""; [ "$ASSEMBLE_REQUIRE" = true ] && extra="--require-manifest"
         # shellcheck disable=SC2086
         .github/compose/assemble.sh --channel "$ASSEMBLE_CHANNEL" $extra $ASSEMBLE_ARGS
