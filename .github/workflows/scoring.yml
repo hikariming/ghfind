@@ -103,3 +103,8 @@ jobs:
         uses: docker://rhysd/actionlint:1.7.12
         with:
           args: -color -shellcheck= -pyflakes=
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Repository protection policy (scripts/feed-github-protection.mjs)
+        run: node --test scripts/feed-github-protection.test.mjs

@@ -34,8 +34,6 @@ jobs:
     name: Verify actual repository release protections
     if: ${{ github.repository == 'FindAny/ghfind' }}
     runs-on: ubuntu-latest
-    # The release bot key is only available in protected environments (main/deploy).
-    environment: release
     timeout-minutes: 5
     # No environment reference: GitHub must not silently create an unprotected
     # environment before this readback proves the required policies exist.
@@ -44,11 +42,6 @@ jobs:
         with:
           ref: ${{ inputs.release_sha }}
           persist-credentials: false
-      - name: Assemble workspace (ghfind-server + ghfind-frontend)
-        uses: ./.github/actions/assemble
-        with:
-          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
-          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
