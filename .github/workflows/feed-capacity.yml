@@ -21,6 +21,8 @@ jobs:
     name: Synthetic 10 RPS and deletion recovery
     if: ${{ github.repository == 'FindAny/ghfind' }}
     runs-on: ubuntu-24.04
+    # The release bot key is only available in protected environments (main/deploy).
+    environment: release
     timeout-minutes: 30
     env:
       RELEASE_SHA: ${{ inputs.release_sha }}
@@ -35,6 +37,11 @@ jobs:
           ref: ${{ inputs.release_sha }}
           persist-credentials: false
           fetch-depth: 0
+      - name: Assemble workspace (ghfind-server + ghfind-frontend)
+        uses: ./.github/actions/assemble
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
       - name: Initialize evidence before preflight or build can fail
         run: |
           mkdir -m 700 "$RUNNER_TEMP/feed-capacity-report"

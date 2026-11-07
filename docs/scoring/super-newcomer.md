@@ -152,4 +152,4 @@ landed work alongside trivial-PR risk; both must stay at zero). Existing
 score fixtures are unchanged.
 
 Advance score/cache version only, to v11. Keep risk v10, roast v11, and collection
-versions unchanged. See [rollout and rollback](../releases/v11-v11-v5-rollout.md).
+versions unchanged. Rollout and rollback are recorded in `docs/releases/v11-v11-v5-rollout.md` in the private `ghfind-server` repository.

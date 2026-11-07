@@ -13,7 +13,7 @@ on:
   workflow_run:
     workflows: [CI]
     types: [completed]
-    branches: [main]
+    branches: [deploy]
   workflow_dispatch:
 
 permissions:
@@ -36,12 +36,22 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-      RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ env.RELEASE_SHA }}
+          ref: ${{ github.event.workflow_run.head_sha || 'refs/heads/deploy' }}
           persist-credentials: false
+      - name: Assemble workspace (ghfind-server + ghfind-frontend)
+        uses: ./.github/actions/assemble
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          require-manifest: true
+      - name: Resolve the deploy-branch release commit
+        run: |
+          sha="$(git rev-parse HEAD)"
+          if [ "${{ github.event_name }}" = workflow_run ]; then test "$sha" = "${{ github.event.workflow_run.head_sha }}"; fi
+          echo "RELEASE_SHA=$sha" >> "$GITHUB_ENV"
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -54,7 +64,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
-          if [ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" != "$RELEASE_SHA" ]; then
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/deploy" --jq .object.sha)" != "$RELEASE_SHA" ]; then
             echo "::notice::superseded"
             echo "current=false" >> "$GITHUB_OUTPUT"
             exit 0

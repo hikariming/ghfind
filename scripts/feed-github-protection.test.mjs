@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { applyPlan, buildPlan, captureState, environmentTargets, hash, owner, repository, rulesetId, validatePRChecks, verifyExisting, verifyExistingState } from './feed-github-protection.mjs';
+import { applyPlan, buildPlan, captureState, environmentTargets, hash, owner, repository, requiredPRJobs, rulesetId, validatePRChecks, verifyExisting, verifyExistingState } from './feed-github-protection.mjs';
 
-const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
+const workflow = readFileSync('.github/workflows/scoring.yml', 'utf8');
 const clone = value => JSON.parse(JSON.stringify(value));
 function server() {
   const data = {
@@ -66,7 +66,7 @@ test('ruleset plan preserves all merge options, bypass and review requirements w
   assert.deepEqual(after.allowed_merge_methods, ['merge', 'squash', 'rebase']);
   const statuses = update.rules.find(rule => rule.type === 'required_status_checks').parameters;
   assert.equal(statuses.strict_required_status_checks_policy, true);
-  assert.deepEqual(statuses.required_status_checks.map(check => check.context), ['Application checks', 'Feed storage contracts', 'Feed runtime builds', 'Complete local Feed E2E']);
+  assert.deepEqual(statuses.required_status_checks.map(check => check.context), Object.values(requiredPRJobs));
   assert.ok(statuses.required_status_checks.every(check => check.integration_id === 15368));
 });
 
@@ -134,7 +134,7 @@ test('applying a reviewed administrator plan verifies each write and is idempote
   const { data, request } = server(); const before = clone(data.ruleset.bypass_actors);
   const plan = buildPlan(await captureState(request), workflow);
   const result = await applyPlan(plan, plan.currentHash, { request, workflow });
-  assert.equal(result.status, 'applied-and-verified'); assert.equal(result.completed.length, 8);
+  assert.equal(result.status, 'applied-and-verified'); assert.equal(result.completed.length, 10);
   assert.equal(result.finalHash, hash(await captureState(request)));
   assert.deepEqual(data.ruleset.bypass_actors, before);
   const next = buildPlan(await captureState(request), workflow); assert.deepEqual(next.operations, []);
@@ -149,16 +149,17 @@ test('administrator write failure preserves verified tightening and records part
   assert.ok(data.ruleset.rules.some(rule => rule.type === 'required_status_checks'));
 });
 
-test('a push-only or optional full E2E job cannot be selected as a required PR status', () => {
-  assert.throws(() => validatePRChecks(workflow.replace('    name: Complete local Feed E2E\n', "    name: Complete local Feed E2E\n    if: github.event_name == 'push'\n")), /mandatory PR job/);
-  assert.throws(() => validatePRChecks(workflow.replace('    name: Complete local Feed E2E\n', '    name: Complete local Feed E2E\n    continue-on-error: true\n')), /mandatory PR job/);
+test('a push-only, optional or path-filtered required PR check is rejected', () => {
+  assert.throws(() => validatePRChecks(workflow.replace('    name: Workflow lint\n', "    name: Workflow lint\n    if: github.event_name == 'push'\n")), /mandatory PR job/);
+  assert.throws(() => validatePRChecks(workflow.replace('    name: Workflow lint\n', '    name: Workflow lint\n    continue-on-error: true\n')), /mandatory PR job/);
+  assert.throws(() => validatePRChecks(workflow.replace('  pull_request:\n', "  pull_request:\n    paths: ['scoring/**']\n")), /every pull request/);
 });
 
 test('a partial or broader existing custom branch policy is not silently expanded or removed', async () => {
   for (const policies of [[{ name: 'main', type: 'branch' }], [{ name: '*', type: 'branch' }], [{ name: 'main', type: 'tag' }]]) {
     const { data, request } = server();
-    data.environments['Feed staging'] = { ...clone(data.environments.Production), name: 'Feed staging', deployment_branch_policy: { protected_branches: false, custom_branch_policies: true } };
-    data.policies['Feed staging'] = policies;
+    data.environments.release = { ...clone(data.environments.Production), name: 'release', deployment_branch_policy: { protected_branches: false, custom_branch_policies: true } };
+    data.policies.release = policies;
     const plan = buildPlan(await captureState(request), workflow);
     assert.equal(plan.readyToApply, false);
     assert.ok(plan.blockers.some(reason => reason.includes('different nonempty branch policy')));
@@ -195,7 +196,7 @@ test('verify-existing accepts enforced public policy using read-only non-admin a
   const report = await verifyExisting(request);
   assert.equal(report.status, 'passed');
   assert.equal(report.format, 'ghfind-github-protection-verification-v1');
-  assert.equal(report.requiredChecks.length, 4);
+  assert.equal(report.requiredChecks.length, Object.keys(requiredPRJobs).length);
   assert.deepEqual(report.mergeMethods, ['merge', 'squash', 'rebase']);
   assert.equal(data.writes.length, 0);
   assert.equal(JSON.stringify(report).includes('bypass_actors'), false);
@@ -238,7 +239,7 @@ test('verify-existing rejects missing or auto-created empty environments and eve
       assert.throws(() => verifyExistingState(state), error => error.code === 'PROTECTION_NOT_ENFORCED');
     }
   }
-  for (let index = 0; index < 4; index++) {
+  for (let index = 0; index < Object.keys(requiredPRJobs).length; index++) {
     const state = clone(snapshot); state.ruleset.rules.find(rule => rule.type === 'required_status_checks').parameters.required_status_checks.splice(index, 1);
     assert.throws(() => verifyExistingState(state), /Missing strict GitHub Actions required check/);
   }

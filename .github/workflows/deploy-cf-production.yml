@@ -8,7 +8,7 @@ on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
-    branches: [main]
+    branches: [deploy]
 permissions:
   contents: read
   actions: read
@@ -19,15 +19,23 @@ jobs:
   authorize:
     outputs:
       current: ${{ steps.authorization.outputs.current }}
-    name: Require exact main CI and complete dual-profile E2E
-    if: ${{ github.repository == 'FindAny/ghfind' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.repository.full_name == 'FindAny/ghfind' }}
+    name: Require exact deploy-branch CI and complete dual-profile E2E
+    if: ${{ github.repository == 'FindAny/ghfind' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'deploy' && github.event.workflow_run.repository.full_name == 'FindAny/ghfind' }}
     runs-on: ubuntu-latest
+    # The release bot key is only available in protected environments (main/deploy).
+    environment: release
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
+      - name: Assemble workspace (ghfind-server + ghfind-frontend)
+        uses: ./.github/actions/assemble
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          require-manifest: true
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -40,7 +48,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
-          if [ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" != "$RELEASE_SHA" ]; then
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/deploy" --jq .object.sha)" != "$RELEASE_SHA" ]; then
             echo "::notice::superseded"
             echo "current=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -95,6 +103,12 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
           fetch-depth: 0
+      - name: Assemble workspace (ghfind-server + ghfind-frontend)
+        uses: ./.github/actions/assemble
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          require-manifest: true
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -106,7 +120,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
-          if [ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" != "$RELEASE_SHA" ]; then
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/deploy" --jq .object.sha)" != "$RELEASE_SHA" ]; then
             echo "::notice::superseded"
             echo "current=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -304,7 +318,7 @@ jobs:
   deploy-bot:
     name: Deploy bot after its legacy SCORE backend
     needs: [deploy]
-    if: ${{ github.repository == 'FindAny/ghfind' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.repository.full_name == 'FindAny/ghfind' }}
+    if: ${{ github.repository == 'FindAny/ghfind' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'deploy' && github.event.workflow_run.repository.full_name == 'FindAny/ghfind' }}
     environment: Production
     concurrency:
       group: ghfind-bot-production
@@ -322,6 +336,12 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
+      - name: Assemble workspace (ghfind-server + ghfind-frontend)
+        uses: ./.github/actions/assemble
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          require-manifest: true
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -330,12 +350,12 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
-      - name: Require exact current main before production writes
+      - name: Require exact current deploy branch before production writes
         id: current
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
-          current_main=$(git ls-remote origin refs/heads/main | cut -f1)
+          current_main=$(git ls-remote origin refs/heads/deploy | cut -f1)
           if [ "$current_main" != "$RELEASE_SHA" ]; then
             echo "::notice::superseded"
             echo "current=false" >> "$GITHUB_OUTPUT"

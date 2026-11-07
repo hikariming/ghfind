@@ -1,10 +1,12 @@
 name: CI
 
+# Full application suite on the assembled workspace. It needs the release bot key,
+# which only exists in protected environments, so it runs after merge on main and
+# on every composed deploy commit (the production gate). Pull requests run the
+# key-less checks in scoring.yml.
 on:
-  pull_request:
-    branches: [dev, main]
   push:
-    branches: [dev, main, "codex/feed-**"]
+    branches: [main, deploy]
 
 permissions:
   contents: read
@@ -17,6 +19,8 @@ jobs:
   verify:
     name: Application checks
     runs-on: ubuntu-latest
+    # The release bot key is only available in protected environments (main/deploy).
+    environment: release
     timeout-minutes: 25
     env:
       CI: "true"
@@ -34,6 +38,11 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Assemble workspace (ghfind-server + ghfind-frontend)
+        uses: ./.github/actions/assemble
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -128,8 +137,6 @@ jobs:
       - name: Verify public scoring boundary
         run: pnpm scoring:boundary
 
-      - name: Verify open-core split manifest
-        run: node ops/open-core/split.mjs check
 
       # Compile the explicit integration entry without claiming a Docker run.
       - name: Compile bounded Docker HTTP acceptance harness
@@ -183,6 +190,8 @@ jobs:
   feed-contracts:
     name: Feed storage contracts
     runs-on: ubuntu-latest
+    # The release bot key is only available in protected environments (main/deploy).
+    environment: release
     timeout-minutes: 20
     services:
       postgres:
@@ -210,6 +219,11 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
           fetch-depth: 0
+      - name: Assemble workspace (ghfind-server + ghfind-frontend)
+        uses: ./.github/actions/assemble
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -269,12 +283,19 @@ jobs:
   feed-runtime:
     name: Feed runtime builds
     runs-on: ubuntu-latest
+    # The release bot key is only available in protected environments (main/deploy).
+    environment: release
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Assemble workspace (ghfind-server + ghfind-frontend)
+        uses: ./.github/actions/assemble
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -322,6 +343,8 @@ jobs:
   feed-e2e:
     name: Complete local Feed E2E
     runs-on: ubuntu-latest
+    # The release bot key is only available in protected environments (main/deploy).
+    environment: release
     timeout-minutes: 35
     env:
       CI: "true"
@@ -335,6 +358,11 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Assemble workspace (ghfind-server + ghfind-frontend)
+        uses: ./.github/actions/assemble
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -386,6 +414,8 @@ jobs:
     if: always()
     needs: [verify, feed-contracts, feed-runtime, feed-e2e]
     runs-on: ubuntu-latest
+    # The release bot key is only available in protected environments (main/deploy).
+    environment: release
     timeout-minutes: 5
     env:
       CI_JOB_RESULTS: ${{ toJSON(needs) }}
@@ -394,6 +424,11 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Assemble workspace (ghfind-server + ghfind-frontend)
+        uses: ./.github/actions/assemble
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22

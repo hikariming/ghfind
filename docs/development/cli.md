@@ -9,10 +9,11 @@ offline verification (`scan --verify`, `verify <scan.json>`); see
 
 ## Build and run
 
-Requires Go 1.23+.
+Requires Go 1.23+. From the root of this repository:
 
 ```bash
-pnpm cli:build                       # → ./bin/ghfind
+go build -o bin/ghfind ./cmd/ghfind  # → ./bin/ghfind (the assembled workspace also has `pnpm cli:build`)
+go test ./internal/agentcli
 ./bin/ghfind commands --json         # self-describing capability catalog
 ./bin/ghfind score hikariming -o json
 ./bin/ghfind roast hikariming --lang en -o markdown
@@ -31,7 +32,7 @@ pnpm cli:build                       # → ./bin/ghfind
 ## Host and credentials
 
 - `GHFIND_HOST` (default `https://ghfind.com`; `GITHUB_ROAST_HOST` still accepted).
-  For local development: `GHFIND_HOST=http://127.0.0.1:4390 ./bin/ghfind score <user>`.
+  Against a local ghfind (`pnpm dev:local` in the assembled workspace): `GHFIND_HOST=http://127.0.0.1:4390 ./bin/ghfind score <user>`.
 - `GHFIND_API_KEY` / `--api-key` is sent as `Authorization: Bearer …`.
   Production `POST /api/scan` requires Turnstile for browsers; machine callers need
   the server's `GITHUB_ROAST_CLI_API_KEY` value (`GITHUB_ROAST_API_KEY` is a

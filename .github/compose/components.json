@@ -1,0 +1,53 @@
+{
+  "$comment": "Three-repository ghfind workspace. The workspace root is a checkout of FindAny/ghfind (public: scoring, SDKs, CLI, all workflows). ghfind-server (private) contributes every tracked file except its own .github/, and may replace only the root files in `replaces`. ghfind-frontend (private) contributes `paths`. Anything else already present is a conflict. See docs/architecture.md.",
+  "version": 1,
+  "deployBranch": "deploy",
+  "manifestFile": "components.manifest.json",
+  "root": {
+    "name": "ghfind",
+    "repository": "FindAny/ghfind"
+  },
+  "components": [
+    {
+      "name": "ghfind-server",
+      "repository": "FindAny/ghfind-server",
+      "include": "all",
+      "exclude": [
+        ".github/"
+      ],
+      "replaces": [
+        "README.md",
+        "README.zh.md",
+        "LICENSE",
+        "CONTRIBUTING.md",
+        ".gitignore",
+        "go.mod",
+        "go.sum",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "package.json",
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml"
+      ]
+    },
+    {
+      "name": "ghfind-frontend",
+      "repository": "FindAny/ghfind-frontend",
+      "include": "paths",
+      "paths": [
+        "apps/web/",
+        "src/components/",
+        "src/app/[locale]/",
+        "src/app/globals.css",
+        "src/messages/",
+        "src/i18n/",
+        "src/hooks/",
+        "src/config/",
+        "packages/i18n/",
+        "public/",
+        "components.json",
+        "design/"
+      ]
+    }
+  ]
+}

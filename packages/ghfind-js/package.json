@@ -59,6 +59,7 @@
   },
   "devDependencies": {
     "@ghfind/scoring": "file:../../scoring",
+    "@types/node": "^20.19.43",
     "tsup": "^8.3.5",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"

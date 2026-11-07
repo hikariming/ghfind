@@ -43,6 +43,8 @@ jobs:
   validate:
     if: ${{ github.repository == 'FindAny/ghfind' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
+    # The release bot key is only available in protected environments (main/deploy).
+    environment: release
     timeout-minutes: 5
     outputs:
       sha: ${{ steps.source.outputs.sha }}
@@ -55,6 +57,11 @@ jobs:
           ref: ${{ inputs.release_sha }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Assemble workspace (ghfind-server + ghfind-frontend)
+        uses: ./.github/actions/assemble
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -99,6 +106,11 @@ jobs:
         with:
           ref: ${{ needs.validate.outputs.sha }}
           persist-credentials: false
+      - name: Assemble workspace (ghfind-server + ghfind-frontend)
+        uses: ./.github/actions/assemble
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22

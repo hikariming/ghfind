@@ -6,13 +6,20 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { requiredJobs } from './feed-ci-evidence.mjs';
 
 export const repository = 'FindAny/ghfind';
 export const rulesetId = 18206694;
 export const actionsIntegrationId = 15368;
 export const owner = { login: 'hikariming', id: 23065064, type: 'User' };
-export const environmentTargets = Object.freeze({ 'Feed staging': ['main', 'codex/feed-*'], 'Feed staging operations': ['main'], Production: ['main'] });
+// The release bot's App key lives only in these environments, so each must be
+// limited to trusted refs: `release` serves CI on main and composed deploy commits.
+export const environmentTargets = Object.freeze({ 'Feed staging': ['main'], 'Feed staging operations': ['main'], Production: ['main'], release: ['deploy', 'main'] });
+// Required pull-request checks for main. They run without secrets (safe for forks)
+// in scoring.yml; the full application suite runs after merge and on every
+// composed deploy commit, where deploys require it (requiredJobs in ghfind-server's
+// scripts/feed-ci-evidence.mjs).
+export const prWorkflowPath = '.github/workflows/scoring.yml';
+export const requiredPRJobs = Object.freeze({ scoring: 'Scoring parity (TS / Go / Python) and boundary', 'sdk-js': 'JavaScript SDK', 'workflow-lint': 'Workflow lint' });
 const base = `/repos/${repository}`;
 const assert = (value, message, code = 'INVALID_PROTECTION_PLAN') => { if (!value) { const error = new Error(message); error.code = code; throw error; } };
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -66,15 +73,17 @@ export async function captureState(request = githubRequest) {
   return { format: 'ghfind-github-protection-state-v1', repository, administrator: metadata.permissions?.admin === true, ruleset: rulesetConfiguration(ruleset), environments };
 }
 
-export function validatePRChecks(workflow = readFileSync(resolve('.github/workflows/ci.yml'), 'utf8')) {
+export function validatePRChecks(workflow = readFileSync(resolve(prWorkflowPath), 'utf8')) {
   assert(/^  pull_request:\s*$/m.test(workflow), 'CI must run PR merge compatibility checks');
+  assert(!/^  pull_request:\s*\n    (paths|paths-ignore|branches|branches-ignore):/m.test(workflow), 'Required PR checks must run for every pull request (no path or branch filters)');
   const jobs = workflow.slice(workflow.indexOf('\njobs:\n'));
-  for (const [id, name] of Object.entries(requiredJobs)) {
+  for (const [id, name] of Object.entries(requiredPRJobs)) {
     const match = new RegExp(`^  ${id}:\\n([\\s\\S]*?)(?=^  [a-z][a-z0-9-]*:|$(?![\\s\\S]))`, 'm').exec(jobs);
-    assert(match && new RegExp(`^    name: ${name}$`, 'm').test(match[1]), `Required PR job ${id}/${name} absent`);
+    const literal = name.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+    assert(match && new RegExp(`^    name: ${literal}$`, 'm').test(match[1]), `Required PR job ${id}/${name} absent`);
     assert(!/^    if:/m.test(match[1]) && !/^    continue-on-error:\s*true/m.test(match[1]), `${name} must report as a mandatory PR job`);
   }
-  return Object.values(requiredJobs).map(context => ({ context, integration_id: actionsIntegrationId }));
+  return Object.values(requiredPRJobs).map(context => ({ context, integration_id: actionsIntegrationId }));
 }
 
 export function buildPlan(state, workflow) {
@@ -149,7 +158,7 @@ export function verifyExistingState(state, checkedAt = new Date().toISOString())
   for (const field of ['dismiss_stale_reviews_on_push', 'require_code_owner_review', 'require_last_push_approval', 'require_extra_approval_for_unattributed_changes']) assert(review[field] === true, `Existing PR protection ${field} was weakened`, 'PROTECTION_NOT_ENFORCED');
   assert(Array.isArray(review.allowed_merge_methods) && review.allowed_merge_methods.includes('rebase'), 'The requested PR rebase merge must be allowed', 'PROTECTION_NOT_ENFORCED');
   const statuses = rule.rules.filter(item => item.type === 'required_status_checks');
-  const requiredChecks = Object.values(requiredJobs).map(context => ({ context, integration_id: actionsIntegrationId }));
+  const requiredChecks = Object.values(requiredPRJobs).map(context => ({ context, integration_id: actionsIntegrationId }));
   for (const expected of requiredChecks) assert(statuses.some(status => status.parameters?.strict_required_status_checks_policy === true && status.parameters.required_status_checks?.some(check => check.context === expected.context && check.integration_id === expected.integration_id)), `Missing strict GitHub Actions required check ${expected.context}`, 'PROTECTION_NOT_ENFORCED');
   const environments = {};
   for (const [name, branches] of Object.entries(environmentTargets)) {

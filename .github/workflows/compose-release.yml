@@ -1,0 +1,83 @@
+name: Compose release
+
+# Cross-repository release integration, event-driven only: a verified release in
+# any repository (ghfind, ghfind-server, ghfind-frontend) dispatches this workflow
+# with its version; owners can also run it by hand. Runs are serialized, so close
+# releases compose one after the other. It composes the latest verified release (rel/vX.Y.Z) of all three
+# into a deploy-branch commit (public release tree + components.manifest.json).
+# CI then runs on the assembled workspace and the production workflows deploy that
+# exact commit to Cloudflare. See docs/architecture.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ghfind:
+        description: "Pin ghfind tag (default: latest verified release)"
+        required: false
+      ghfind_server:
+        description: "Pin ghfind-server tag (default: latest verified release)"
+        required: false
+      ghfind_frontend:
+        description: "Pin ghfind-frontend tag (default: latest verified release)"
+        required: false
+      force:
+        description: Recompose even if the deploy branch already has these releases
+        type: boolean
+        default: false
+      dry_run:
+        description: Compose and report without pushing the deploy branch
+        type: boolean
+        default: false
+      trigger:
+        description: Who asked for this composition (set by release workflows)
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compose-release
+  cancel-in-progress: false
+
+jobs:
+  compose:
+    name: Compose latest releases onto deploy
+    if: github.repository == 'FindAny/ghfind'
+    runs-on: ubuntu-latest
+    # The release bot key exists only in protected environments (main/deploy).
+    environment: release
+    timeout-minutes: 15
+    steps:
+      - name: Mint a read-only token for the private components
+        id: read
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          owner: FindAny
+          repositories: ghfind-server,ghfind-frontend
+          permission-contents: read
+      - name: Mint a token that may push the deploy branch
+        id: push
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          owner: FindAny
+          repositories: ghfind
+          permission-contents: write
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Compose
+        env:
+          COMPOSE_TOKEN: ${{ steps.read.outputs.token }}
+          PUSH_TOKEN: ${{ steps.push.outputs.token }}
+          PIN_GHFIND: ${{ inputs.ghfind }}
+          PIN_GHFIND_SERVER: ${{ inputs.ghfind_server }}
+          PIN_GHFIND_FRONTEND: ${{ inputs.ghfind_frontend }}
+          FORCE: ${{ inputs.force }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          COMPOSE_TRIGGER: ${{ inputs.trigger || github.event_name }}
+        run: .github/compose/compose-release.sh

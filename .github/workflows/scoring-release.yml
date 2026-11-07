@@ -1,6 +1,8 @@
 name: Scoring release
 
-# Releases the public scoring module and tells the private backend about it.
+# Publishes the public scoring module as packages (npm + Go). Deploying ghfind is
+# separate: repository releases (vX.Y.Z, release.yml) feed compose-release.yml,
+# which deploys the latest verified release of all three repositories.
 #
 #   git tag scoring/v0.2.0 && git push origin scoring/v0.2.0
 #
@@ -10,10 +12,8 @@ name: Scoring release
 #   fixtures ship inside both.
 #
 # Security model: this workflow runs only for tags pushed by maintainers, never
-# for pull_request / pull_request_target, so fork code can never reach the
-# dispatch credential. The credential lives in the `scoring-release`
-# environment (add required reviewers there) and can only send a
-# repository_dispatch to the one private repository.
+# for pull_request / pull_request_target. The npm token lives in the
+# `scoring-release` environment (add required reviewers there).
 
 on:
   push:
@@ -86,25 +86,3 @@ jobs:
           tar -czf "$RUNNER_TEMP/scoring-fixtures.tgz" -C scoring fixtures rules
           gh release create "$TAG" "$RUNNER_TEMP"/ghfind-scoring-*.tgz "$RUNNER_TEMP/scoring-fixtures.tgz" \
             --repo "$GITHUB_REPOSITORY" --title "scoring v${{ steps.version.outputs.version }}" --generate-notes --verify-tag
-
-      - name: Mint a token scoped to the private backend repository
-        id: app-token
-        if: vars.BACKEND_REPOSITORY != ''
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ vars.BACKEND_DISPATCH_APP_ID }}
-          private-key: ${{ secrets.BACKEND_DISPATCH_APP_KEY }}
-          owner: ${{ vars.BACKEND_REPOSITORY_OWNER }}
-          repositories: ${{ vars.BACKEND_REPOSITORY_NAME }}
-
-      - name: Notify the private backend (repository_dispatch)
-        if: vars.BACKEND_REPOSITORY != ''
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          gh api "repos/${{ vars.BACKEND_REPOSITORY }}/dispatches" \
-            -f event_type=scoring-released \
-            -F "client_payload[version]=$VERSION" \
-            -F "client_payload[tag]=$TAG" \
-            -F "client_payload[sha]=$GITHUB_SHA"
