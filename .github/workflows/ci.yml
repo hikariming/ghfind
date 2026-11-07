@@ -65,18 +65,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Verify release versions
-        env:
-          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
-        run: |
-          if [ -n "$BASE_REF" ] && [ "$BASE_REF" != "0000000000000000000000000000000000000000" ]; then
-            # Rebase pushes may remove event.before from every advertised ref.
-            # Fetch that exact comparison commit; never skip its version check.
-            git cat-file -e "${BASE_REF}^{commit}" 2>/dev/null || git fetch --no-tags origin "$BASE_REF"
-            pnpm versions:check --base-ref "$BASE_REF"
-          else
-            pnpm versions:check
-          fi
-
+        # Consistency of config/release-versions.json and the version constants in
+        # the assembled workspace. The diff-based rule (a version change must update
+        # its release plan) needs ghfind-server's history, so it runs in that
+        # repository's CI; this repository's commits never contain server files.
+        run: pnpm versions:check
       - name: Verify exact-checkout evidence rejection cases
         run: node --test scripts/feed-ci-evidence.test.mjs scripts/check-cf-release-workflow.test.mjs scripts/feed-github-protection.test.mjs scripts/feed-e2e-remote.test.mjs
 
