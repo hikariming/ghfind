@@ -89,6 +89,9 @@ jobs:
       - name: Deploy ghfind-api entrypoints before coord
         if: steps.current.outputs.current == 'true'
         run: |
+          # apps/api/wrangler.jsonc comes from ghfind-server (assembled, untracked
+          # here), so restore it from a copy rather than with git.
+          cp apps/api/wrangler.jsonc "$RUNNER_TEMP/api-wrangler.jsonc"
           node <<'NODE'
             const { readFileSync, writeFileSync } = require("node:fs");
             const path = "apps/api/wrangler.jsonc";
@@ -98,7 +101,7 @@ jobs:
             writeFileSync(path, stripped);
           NODE
           pnpm --filter @ghfind/api exec wrangler deploy --env production --tag "production-$RELEASE_SHA"
-          git checkout -- apps/api/wrangler.jsonc
+          cp "$RUNNER_TEMP/api-wrangler.jsonc" apps/api/wrangler.jsonc
       - name: Deploy ghfind-coord
         if: steps.current.outputs.current == 'true'
         run: pnpm --filter @ghfind/coord exec wrangler deploy --env production --tag "production-$RELEASE_SHA"
