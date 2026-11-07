@@ -37,7 +37,10 @@ done
 if [ -f "$state/paths.txt" ]; then
   if [ "$clean" = 1 ]; then
     while IFS= read -r rel; do rm -rf "${root:?}/$rel"; done < "$state/paths.txt"
-    git -C "$root" checkout -q -- $(cat "$state/replaced.txt" 2>/dev/null) 2>/dev/null || true
+    if [ -s "$state/replaced.txt" ]; then
+      tr '\n' '\0' < "$state/replaced.txt" | xargs -0 git -C "$root" update-index --no-skip-worktree --
+      tr '\n' '\0' < "$state/replaced.txt" | xargs -0 git -C "$root" checkout -q --
+    fi
     rm -rf "$state"
   else
     echo "assemble: already assembled ($(jq -r '[.components[] | "\(.name)@\(.ref)"] | join(", ")' "$state/assembled.json" 2>/dev/null)); pass --clean to redo"
@@ -124,6 +127,23 @@ for i in $(seq 0 $(($(jq '.components | length' "$config") - 1))); do
   echo "assemble: $name @ $ref ($sha) — ${#files[@]} files"
   resolved="$(jq -c --arg n "$name" --arg r "$repo" --arg ref "$ref" --arg s "$sha" '. + [{name: $n, repository: $r, ref: $ref, sha: $s}]' <<<"$resolved")"
 done
+
+# Replaced root files (components.json `replaces`) are an expected part of the
+# workspace: hide them from git so clean-checkout checks (CI receipts, E2E) still
+# catch every other modification.
+if [ -s "$state/replaced.txt" ]; then
+  sort -u -o "$state/replaced.txt" "$state/replaced.txt"
+  tr '\n' '\0' < "$state/replaced.txt" | xargs -0 git -C "$root" update-index --skip-worktree --
+fi
+# A component's .gitignore can re-include an overlay file (e.g. `!.env.example`),
+# which beats .git/info/exclude. Override those at the end of the workspace's
+# (replaced, hidden) .gitignore so the overlay never shows up as untracked.
+mapfile -d '' -t visible < <(tr '\n' '\0' < "$state/paths.txt" | xargs -0 git -C "$root" -c core.quotePath=false ls-files -z --others --exclude-standard -- 2>/dev/null || true)
+if [ "${#visible[@]}" -gt 0 ]; then
+  grep -qxF ".gitignore" "$state/replaced.txt" || { echo "assemble: overlay files are re-included by .gitignore and cannot be hidden: ${visible[*]}" >&2; exit 1; }
+  { echo; echo "# --- assembled workspace overlay (managed by .github/compose/assemble.sh) ---"
+    for f in "${visible[@]}"; do literal "$f"; echo; done; } >> "$root/.gitignore"
+fi
 
 root_ref="$(jq -r '.components[] | select(.name == "ghfind") | .ref' "$manifest" 2>/dev/null || true)"
 [ -n "$root_ref" ] || root_ref="$(git -C "$root" describe --tags --exact-match 2>/dev/null || git -C "$root" rev-parse --abbrev-ref HEAD)"
