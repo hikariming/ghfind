@@ -111,8 +111,11 @@ jobs:
       - name: Verify source contracts and builds
         run: |
           set -euo pipefail
+          # platform/runtime comes from ghfind-server (untracked here): compare the
+          # regenerated types with the assembled copy instead of using git diff.
+          cp platform/runtime/worker-configuration.d.ts "$RUNNER_TEMP/worker-configuration.d.ts"
           npm run types --prefix platform/runtime
-          git diff --exit-code -- platform/runtime/worker-configuration.d.ts
+          diff -u "$RUNNER_TEMP/worker-configuration.d.ts" platform/runtime/worker-configuration.d.ts
           npm run typecheck --prefix platform/runtime
           npm test --prefix platform/runtime
           node --test scripts/feed-platform-manifest.test.mjs scripts/feed-platform-provision.test.mjs scripts/feed-platform-verify-resources.test.mjs scripts/feed-platform-web.test.mjs scripts/feed-platform-staging-evidence.test.mjs scripts/feed-platform-verify-deployment.test.mjs
