@@ -69,7 +69,9 @@ jobs:
         # the assembled workspace. The diff-based rule (a version change must update
         # its release plan) needs ghfind-server's history, so it runs in that
         # repository's CI; this repository's commits never contain server files.
-        run: pnpm versions:check
+        # The public read history pins a ghfind-server commit, so its ancestry proof
+        # (--skip-history-ancestry here) also runs there.
+        run: pnpm versions:check --skip-history-ancestry
       - name: Verify exact-checkout evidence rejection cases
         run: node --test scripts/feed-ci-evidence.test.mjs scripts/check-cf-release-workflow.test.mjs scripts/feed-github-protection.test.mjs scripts/feed-e2e-remote.test.mjs
 
